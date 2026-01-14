@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FactorIO Defense</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    background: #1a1a2e;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    user-select: none;
+}
+#game-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+#sidebar {
+    width: 280px;
+    background: linear-gradient(180deg, #16213e 0%, #0f0f23 100%);
+    border-right: 3px solid #e94560;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    overflow-y: auto;
+}
+#resources {
+    background: #0f0f23;
+    border: 2px solid #533483;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+#resources h3 {
+    color: #e94560;
+    margin-bottom: 8px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.resource-row {
+    display: flex;
+    align-items: center;
+    margin: 4px 0;
+    padding: 4px;
+    background: rgba(83, 52, 131, 0.2);
+    border-radius: 4px;
+}
+.resource-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+.resource-icon.iron { background: #7f8c8d; }
+.resource-icon.copper { background: #e67e22; }
+.resource-icon.coal { background: #2c3e50; }
+.resource-icon.stone { background: #95a5a6; }
+.resource-icon.plates { background: #3498db; }
+.resource-icon.ammo { background: #e74c3c; }
+.resource-icon.circuits { background: #2ecc71; }
+.resource-name {
+    color: #ccc;
+    flex: 1;
+    font-size: 12px;
+}
+.resource-count {
+    color: #fff;
+    font-weight: bold;
+    font-size: 14px;
+}
+#wave-info {
+    background: linear-gradient(135deg, #e94560 0%, #533483 100%);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+#wave-info h2 {
+    color: #fff;
+    font-size: 18px;
+    margin-bottom: 4px;
+}
+#wave-timer {
+    color: #ffd700;
+    font-size: 24px;
+    font-weight: bold;
+}
+#enemy-count {
+    color: #ff6b6b;
+    font-size: 12px;
+    margin-top: 4px;
+}
+#buildings-panel {
+    flex: 1;
+    background: #0f0f23;
+    border: 2px solid #533483;
+    border-radius: 8px;
+    padding: 10px;
+    overflow-y: auto;
+}
+#buildings-panel h3 {
+    color: #e94560;
+    margin-bottom: 10px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+.building-category {
+    margin-bottom: 15px;
+}
+.building-category h4 {
+    color: #888;
+    font-size: 11px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+.building-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+.building-item {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 2px solid #333;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: grab;
+    transition: all 0.2s;
+    text-align: center;
+}
+.building-item:hover {
+    border-color: #e94560;
+    transform: scale(1.05);
+}
+.building-item.selected {
+    border-color: #ffd700;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+.building-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.building-preview {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    border-radius: 4px;
+}
+.building-name {
+    color: #fff;
+    font-size: 10px;
+    margin-bottom: 2px;
+}
+.building-cost {
+    color: #888;
+    font-size: 9px;
+}
+#controls {
+    background: #0f0f23;
+    border: 2px solid #533483;
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 10px;
+}
+#controls h4 {
+    color: #e94560;
+    font-size: 11px;
+    margin-bottom: 6px;
+}
+.control-row {
+    color: #888;
+    font-size: 10px;
+    margin: 2px 0;
+}
+.control-row kbd {
+    background: #333;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: #fff;
+}
+#action-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+.action-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    transition: all 0.2s;
+}
+.action-btn.save { background: #2ecc71; color: #fff; }
+.action-btn.load { background: #3498db; color: #fff; }
+.action-btn.reset { background: #e74c3c; color: #fff; }
+.action-btn:hover { transform: scale(1.05); filter: brightness(1.2); }
+#main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+#top-bar {
+    height: 40px;
+    background: #16213e;
+    border-bottom: 2px solid #533483;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    justify-content: space-between;
+}
+#game-title {
+    color: #e94560;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 3px;
+}
+#game-stats {
+    display: flex;
+    gap: 20px;
+    color: #888;
+    font-size: 12px;
+}
+#game-stats span { color: #fff; }
+#world-container {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #0a0a15;
+}
+#world {
+    position: absolute;
+    cursor: crosshair;
+}
+.tile {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.1s;
+}
+.tile:hover {
+    background: rgba(233, 69, 96, 0.2) !important;
+}
+.tile.grass { background: #1a2a1a; }
+.tile.dirt { background: #2a2a1a; }
+.tile.water { background: #1a1a3a; pointer-events: none; }
+.resource-deposit {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #fff;
+    text-shadow: 1px 1px 2px #000;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.1); opacity: 1; }
+}
+.resource-deposit.iron { background: radial-gradient(circle, #7f8c8d 0%, #5a6a6a 100%); }
+.resource-deposit.copper { background: radial-gradient(circle, #e67e22 0%, #a55a15 100%); }
+.resource-deposit.coal { background: radial-gradient(circle, #34495e 0%, #1a252f 100%); }
+.resource-deposit.stone { background: radial-gradient(circle, #95a5a6 0%, #6a7a7a 100%); }
+.building {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.1s;
+    z-index: 10;
+}
+.building:hover { transform: scale(1.1); z-index: 20; }
+.building.selected-building {
+    box-shadow: 0 0 15px #ffd700;
+}
+.building .direction-indicator {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #ffd700;
+    border-radius: 50%;
+}
+.enemy {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    z-index: 15;
+    transition: left 0.1s linear, top 0.1s linear;
+}
+.enemy.basic {
+    background: radial-gradient(circle, #c0392b 0%, #7b241c 100%);
+    border: 2px solid #e74c3c;
+}
+.enemy.fast {
+    background: radial-gradient(circle, #8e44ad 0%, #5b2c6f 100%);
+    border: 2px solid #9b59b6;
+}
+.enemy.tank {
+    background: radial-gradient(circle, #1e8449 0%, #145a32 100%);
+    border: 3px solid #27ae60;
+}
+.enemy.boss {
+    background: radial-gradient(circle, #d35400 0%, #873600 100%);
+    border: 4px solid #e67e22;
+    animation: boss-pulse 0.5s infinite;
+}
+@keyframes boss-pulse {
+    0%, 100% { box-shadow: 0 0 10px #e67e22; }
+    50% { box-shadow: 0 0 25px #e67e22; }
+}
+.health-bar {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.health-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e74c3c 0%, #2ecc71 100%);
+    transition: width 0.2s;
+}
+.projectile {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #ffd700;
+    border-radius: 50%;
+    z-index: 25;
+    box-shadow: 0 0 8px #ffd700;
+}
+.projectile.artillery {
+    width: 12px;
+    height: 12px;
+    background: #e74c3c;
+    box-shadow: 0 0 15px #e74c3c;
+}
+.explosion {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffd700 0%, #e74c3c 50%, transparent 100%);
+    animation: explode 0.3s ease-out forwards;
+    z-index: 30;
+    pointer-events: none;
+}
+@keyframes explode {
+    0% { transform: scale(0); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+}
+.damage-number {
+    position: absolute;
+    color: #ffd700;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #000;
+    animation: float-up 0.8s ease-out forwards;
+    pointer-events: none;
+    z-index: 35;
+}
+@keyframes float-up {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-30px); opacity: 0; }
+}
+#minimap {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 180px;
+    height: 180px;
+    background: #0a0a15;
+    border: 2px solid #533483;
+    border-radius: 8px;
+    overflow: hidden;
+}
+#minimap-canvas {
+    width: 100%;
+    height: 100%;
+}
+#minimap-viewport {
+    position: absolute;
+    border: 2px solid #e94560;
+    pointer-events: none;
+}
+#ghost-building {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.6;
+    z-index: 100;
+    display: none;
+}
+#tooltip {
+    position: absolute;
+    background: rgba(15, 15, 35, 0.95);
+    border: 2px solid #533483;
+    border-radius: 6px;
+    padding: 10px;
+    color: #fff;
+    font-size: 12px;
+    max-width: 200px;
+    z-index: 1000;
+    display: none;
+    pointer-events: none;
+}
+#tooltip h4 {
+    color: #e94560;
+    margin-bottom: 5px;
+}
+#tooltip .stat { color: #888; margin: 2px 0; }
+#tooltip .stat span { color: #fff; }
+#notification {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #e94560 0%, #533483 100%);
+    padding: 15px 30px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 1000;
+    display: none;
+    animation: notify 0.3s ease-out;
+}
+@keyframes notify {
+    0% { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+    100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+#victory-screen, #defeat-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+#victory-screen h1 { color: #ffd700; font-size: 48px; margin-bottom: 20px; }
+#defeat-screen h1 { color: #e74c3c; font-size: 48px; margin-bottom: 20px; }
+#victory-screen p, #defeat-screen p { color: #fff; font-size: 18px; margin-bottom: 30px; }
+.screen-btn {
+    padding: 15px 40px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    margin: 5px;
+}
+.screen-btn.continue { background: #2ecc71; color: #fff; }
+.screen-btn.restart { background: #e94560; color: #fff; }
+#production-panel {
+    position: absolute;
+    top: 50px;
+    right: 200px;
+    background: rgba(15, 15, 35, 0.9);
+    border: 2px solid #533483;
+    border-radius: 8px;
+    padding: 10px;
+    color: #fff;
+    font-size: 11px;
+    min-width: 150px;
+}
+#production-panel h4 {
+    color: #e94560;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+.prod-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 3px 0;
+    padding: 2px 4px;
+    background: rgba(83, 52, 131, 0.2);
+    border-radius: 3px;
+}
+.prod-positive { color: #2ecc71; }
+.prod-negative { color: #e74c3c; }
+</style>
+</head>
+<body>
+<div id="game-container">
+    <div id="sidebar">
+        <div id="resources">
+            <h3>📦 Resources</h3>
+            <div class="resource-row">
+                <div class="resource-icon iron">ite</div>
+                <span class="resource-name">Iron Ore</span>
+                <span class="resource-count" id="iron-ore">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon copper">◉</div>
+                <span class="resource-name">Copper Ore</span>
+                <span class="resource-count" id="copper-ore">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon coal">ite</div>
+                <span class="resource-name">Coal</span>
+                <span class="resource-count" id="coal">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon stone">◐</div>
+                <span class="resource-name">Stone</span>
+                <span class="resource-count" id="stone">0</span>
+            </div>
+            <hr style="border-color: #333; margin: 8px 0;">
+            <div class="resource-row">
+                <div class="resource-icon plates" style="background:#7f8c8d;">▬</div>
+                <span class="resource-name">Iron Plates</span>
+                <span class="resource-count" id="iron-plates">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon plates" style="background:#e67e22;">▬</div>
+                <span class="resource-name">Copper Plates</span>
+                <span class="resource-count" id="copper-plates">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon circuits">◈</div>
+                <span class="resource-name">Circuits</span>
+                <span class="resource-count" id="circuits">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon ammo">⁍</div>
+                <span class="resource-name">Ammo</span>
+                <span class="resource-count" id="ammo">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon" style="background:#e74c3c;">💣</div>
+                <span class="resource-name">Shells</span>
+                <span class="resource-count" id="shells">0</span>
+            </div>
+        </div>
+        
+        <div id="wave-info">
+            <h2>WAVE <span id="wave-number">1</span></h2>
+            <div id="wave-timer">60</div>
+            <div id="enemy-count">Enemies: <span id="enemies-alive">0</span></div>
+        </div>
+        
+        <div id="buildings-panel">
+            <h3>🏗️ Buildings</h3>
+            
+            <div class="building-category">
+                <h4>Extraction</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="miner" draggable="true">
+                        <div class="building-preview" style="background:#6a6a6a;">⛏️</div>
+                        <div class="building-name">Miner</div>
+                        <div class="building-cost">10🔩 5ite</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Processing</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="furnace" draggable="true">
+                        <div class="building-preview" style="background:#c0392b;">🔥</div>
+                        <div class="building-name">Furnace</div>
+                        <div class="building-cost">15🔩 10◐</div>
+                    </div>
+                    <div class="building-item" data-building="assembler" draggable="true">
+                        <div class="building-preview" style="background:#2980b9;">⚙️</div>
+                        <div class="building-name">Assembler</div>
+                        <div class="building-cost">20🔩 10◈</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Production</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="ammo-factory" draggable="true">
+                        <div class="building-preview" style="background:#8e44ad;">icing</div>
+                        <div class="building-name">Ammo Factory</div>
+                        <div class="building-cost">25🔩 15◈</div>
+                    </div>
+                    <div class="building-item" data-building="circuit-factory" draggable="true">
+                        <div class="building-preview" style="background:#27ae60;">📟</div>
+                        <div class="building-name">Circuit Plant</div>
+                        <div class="building-cost">20🔩 10▬</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Defense</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="wall" draggable="true">
+                        <div class="building-preview" style="background:#7f8c8d;">🧱</div>
+                        <div class="building-name">Wall</div>
+                        <div class="building-cost">5◐</div>
+                    </div>
+                    <div class="building-item" data-building="turret" draggable="true">
+                        <div class="building-preview" style="background:#e74c3c;">🔫</div>
+                        <div class="building-name">Gun Turret</div>
+                        <div class="building-cost">30🔩 20◈</div>
+                    </div>
+                    <div class="building-item" data-building="laser-turret" draggable="true">
+                        <div class="building-preview" style="background:#3498db;">⚡</div>
+                        <div class="building-name">Laser Turret</div>
+                        <div class="building-cost">50🔩 40◈</div>
+                    </div>
+                    <div class="building-item" data-building="artillery" draggable="true">
+                        <div class="building-preview" style="background:#d35400;">💥</div>
+                        <div class="building-name">Artillery</div>
+                        <div class="building-cost">100🔩 50◈</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Logistics</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="chest" draggable="true">
+                        <div class="building-preview" style="background:#f39c12;">📦</div>
+                        <div class="building-name">Storage</div>
+                        <div class="building-cost">10🔩</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="controls">
+            <h4>⌨️ Controls</h4>
+            <div class="control-row"><kbd>R</kbd> Rotate building</div>
+            <div class="control-row"><kbd>Q</kbd> Cancel placement</div>
+            <div class="control-row"><kbd>Del</kbd> Delete selected</div>
+            <div class="control-row"><kbd>WASD</kbd> Pan camera</div>
+            <div class="control-row"><kbd>Click</kbd> Place/Select</div>
+            <div class="control-row"><kbd>Drag</kbd> Move camera</div>
+        </div>
+        
+        <div id="action-buttons">
+            <button class="action-btn save" onclick="saveGame()">💾 Save</button>
+            <button class="action-btn load" onclick="loadGame()">📂 Load</button>
+            <button class="action-btn reset" onclick="resetGame()">🔄 Reset</button>
+        </div>
+    </div>
+    
+    <div id="main-area">
+        <div id="top-bar">
+            <div id="game-title">⚙️ FACTORIO DEFENSE</div>
+            <div id="game-stats">
+                Buildings: <span id="stat-buildings">0</span> |
+                Kills: <span id="stat-kills">0</span> |
+                Time: <span id="stat-time">00:00</span>
+            </div>
+        </div>
+        
+        <div id="world-container">
+            <div id="world"></div>
+            <div id="ghost-building"></div>
+        </div>
+        
+        <div id="minimap">
+            <canvas id="minimap-canvas"></canvas>
+            <div id="minimap-viewport"></div>
+        </div>
+        
+        <div id="production-panel">
+            <h4>📊 Production/min</h4>
+            <div id="production-stats"></div>
+        </div>
+        
+        <div id="notification"></div>
+        
+        <div id="tooltip">
+            <h4 id="tooltip-title">Building</h4>
+            <div id="tooltip-content"></div>
+        </div>
+    </div>
+</div>
+
+<div id="victory-screen">
+    <h1>🏆 VICTORY!</h1>
+    <p>You survived Wave 50! Continue for endless mode?</p>
+    <div>
+        <button class="screen-btn continue" onclick="continueGame()">Continue Playing</button>
+        <button class="screen-btn restart" onclick="resetGame()">New Game</button>
+    </div>
+</div>
+
+<div id="defeat-screen">
+    <h1>💀 DEFEAT</h1>
+    <p>Your base was destroyed at Wave <span id="defeat-wave">1</span></p>
+    <button class="screen-btn restart" onclick="resetGame()">Try Again</button>
+</div>
+
+<script>
+// ============= GAME CONFIG =============
+const CONFIG = {
+    WORLD_SIZE: 60,
+    TILE_SIZE: 40,
+    WAVE_INTERVAL: 60,
+    SPAWN_DISTANCE: 25,
+    BASE_CENTER: { x: 30, y: 30 },
+    VICTORY_WAVE: 50
+};
+
+// ============= BUILDING DEFINITIONS =============
+const BUILDINGS = {
+    miner: {
+        name: 'Mining Drill',
+        icon: '⛏️',
+        color: '#6a6a6a',
+        size: 1,
+        cost: { 'iron-plates': 10, stone: 5 },
+        health: 100,
+        production: { rate: 1, time: 2000 }
+    },
+    furnace: {
+        name: 'Furnace',
+        icon: '🔥',
+        color: '#c0392b',
+        size: 1,
+        cost: { 'iron-plates': 15, stone: 10 },
+        health: 150,
+        production: { input: 'ore', output: 'plate', rate: 1, time: 3000, coal: 1 }
+    },
+    assembler: {
+        name: 'Assembler',
+        icon: '⚙️',
+        color: '#2980b9',
+        size: 1,
+        cost: { 'iron-plates': 20, circuits: 10 },
+        health: 150,
+        production: { time: 4000 }
+    },
+    'ammo-factory': {
+        name: 'Ammo Factory',
+        icon: '🏭',
+        color: '#8e44ad',
+        size: 1,
+        cost: { 'iron-plates': 25, circuits: 15 },
+        health: 150,
+        production: { input: { 'iron-plates': 2, 'copper-plates': 1 }, output: 'ammo', rate: 5, time: 3000 }
+    },
+    'circuit-factory': {
+        name: 'Circuit Plant',
+        icon: '📟',
+        color: '#27ae60',
+        size: 1,
+        cost: { 'iron-plates': 20, 'copper-plates': 10 },
+        health: 150,
+        production: { input: { 'iron-plates': 1, 'copper-plates': 2 }, output: 'circuits', rate: 2, time: 4000 }
+    },
+    wall: {
+        name: 'Wall',
+        icon: '🧱',
+        color: '#7f8c8d',
+        size: 1,
+        cost: { stone: 5 },
+        health: 500
+    },
+    turret: {
+        name: 'Gun Turret',
+        icon: '🔫',
+        color: '#e74c3c',
+        size: 1,
+        cost: { 'iron-plates': 30, circuits: 20 },
+        health: 200,
+        combat: { damage: 10, range: 6, fireRate: 300, ammoUse: 1 }
+    },
+    'laser-turret': {
+        name: 'Laser Turret',
+        icon: '⚡',
+        color: '#3498db',
+        size: 1,
+        cost: { 'iron-plates': 50, circuits: 40 },
+        health: 180,
+        combat: { damage: 8, range: 8, fireRate: 150, ammoUse: 0 }
+    },
+    artillery: {
+        name: 'Artillery',
+        icon: '💥',
+        color: '#d35400',
+        size: 2,
+        cost: { 'iron-plates': 100, circuits: 50 },
+        health: 300,
+        combat: { damage: 50, range: 15, fireRate: 2000, ammoUse: 1, splash: 3, usesShells: true }
+    },
+    chest: {
+        name: 'Storage Chest',
+        icon: '📦',
+        color: '#f39c12',
+        size: 1,
+        cost: { 'iron-plates': 10 },
+        health: 100,
+        storage: 500
+    },
+    base: {
+        name: 'Command Center',
+        icon: '🏛️',
+        color: '#9b59b6',
+        size: 2,
+        health: 1000,
+        isBase: true
+    }
+};
+
+// ============= ENEMY DEFINITIONS =============
+const ENEMIES = {
+    basic: { name: 'Biter', health: 30, damage: 5, speed: 1, reward: { 'iron-ore': 2 } },
+    fast: { name: 'Spitter', health: 20, damage: 3, speed: 2, reward: { 'copper-ore': 2 } },
+    tank: { name: 'Big Biter', health: 100, damage: 15, speed: 0.5, reward: { 'iron-ore': 5, 'copper-ore': 5 } },
+    boss: { name: 'Behemoth', health: 500, damage: 50, speed: 0.3, reward: { 'iron-plates': 20, circuits: 10 } }
+};
+
+// ============= GAME STATE =============
+let gameState = {
+    resources: {
+        'iron-ore': 50,
+        'copper-ore': 50,
+        coal: 30,
+        stone: 30,
+        'iron-plates': 20,
+        'copper-plates': 20,
+        circuits: 10,
+        ammo: 50,
+        shells: 5
+    },
+    buildings: [],
+    deposits: [],
+    enemies: [],
+    projectiles: [],
+    wave: 1,
+    waveTimer: CONFIG.WAVE_INTERVAL,
+    gameTime: 0,
+    kills: 0,
+    isGameOver: false,
+    isPaused: false,
+    selectedBuilding: null,
+    placingBuilding: null,
+    rotation: 0,
+    camera: { x: 0, y: 0 },
+    production: {}
+};
+
+// ============= DOM ELEMENTS =============
+const world = document.getElementById('world');
+const worldContainer = document.getElementById('world-container');
+const ghostBuilding = document.getElementById('ghost-building');
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+
+// ============= INITIALIZATION =============
+function init() {
+    generateWorld();
+    spawnBase();
+    setupEventListeners();
+    loadGame();
+    updateUI();
+    gameLoop();
+    setInterval(gameTick, 100);
+    setInterval(productionTick, 1000);
+    setInterval(waveTimer, 1000);
+}
+
+function generateWorld() {
+    const worldWidth = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE;
+    world.style.width = worldWidth + 'px';
+    world.style.height = worldWidth + 'px';
+    
+    // Generate tiles
+    for (let y = 0; y < CONFIG.WORLD_SIZE; y++) {
+        for (let x = 0; x < CONFIG.WORLD_SIZE; x++) {
+            const tile = document.createElement('div');
+            tile.className = 'tile ' + (Math.random() > 0.3 ? 'grass' : 'dirt');
+            tile.style.left = (x * CONFIG.TILE_SIZE) + 'px';
+            tile.style.top = (y * CONFIG.TILE_SIZE) + 'px';
+            tile.dataset.x = x;
+            tile.dataset.y = y;
+            world.appendChild(tile);
+        }
+    }
+    
+    // Generate resource deposits
+    const depositTypes = ['iron', 'copper', 'coal', 'stone'];
+    for (let i = 0; i < 40; i++) {
+        const type = depositTypes[Math.floor(Math.random() * depositTypes.length)];
+        let x, y;
+        do {
+            x = Math.floor(Math.random() * CONFIG.WORLD_SIZE);
+            y = Math.floor(Math.random() * CONFIG.WORLD_SIZE);
+        } while (Math.abs(x - CONFIG.BASE_CENTER.x) < 5 && Math.abs(y - CONFIG.BASE_CENTER.y) < 5);
+        
+        const amount = 500 + Math.floor(Math.random() * 1500);
+        gameState.deposits.push({ x, y, type, amount, maxAmount: amount });
+        
+        const deposit = document.createElement('div');
+        deposit.className = 'resource-deposit ' + type;
+        deposit.style.left = (x * CONFIG.TILE_SIZE + 5) + 'px';
+        deposit.style.top = (y * CONFIG.TILE_SIZE + 5) + 'px';
+        deposit.style.width = '30px';
+        deposit.style.height = '30px';
+        deposit.textContent = amount;
+        deposit.dataset.depositId = gameState.deposits.length - 1;
+        world.appendChild(deposit);
+    }
+    
+    // Center camera on base
+    centerCamera();
+    updateMinimap();
+}
+
+function spawnBase() {
+    const baseBuilding = {
+        id: Date.now(),
+        type: 'base',
+        x: CONFIG.BASE_CENTER.x,
+        y: CONFIG.BASE_CENTER.y,
+        health: BUILDINGS.base.health,
+        maxHealth: BUILDINGS.base.health,
+        rotation: 0
+    };
+    gameState.buildings.push(baseBuilding);
+    renderBuilding(baseBuilding);
+}
+
+function centerCamera() {
+    const containerRect = worldContainer.getBoundingClientRect();
+    gameState.camera.x = CONFIG.BASE_CENTER.x * CONFIG.TILE_SIZE - containerRect.width / 2;
+    gameState.camera.y = CONFIG.BASE_CENTER.y * CONFIG.TILE_SIZE - containerRect.height / 2;
+    updateCameraPosition();
+}
+
+function updateCameraPosition() {
+    const maxX = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE - worldContainer.clientWidth;
+    const maxY = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE - worldContainer.clientHeight;
+    gameState.camera.x = Math.max(0, Math.min(maxX, gameState.camera.x));
+    gameState.camera.y = Math.max(0, Math.min(maxY, gameState.camera.y));
+    world.style.transform = `translate(${-gameState.camera.x}px, ${-gameState.camera.y}px)`;
+    updateMinimapViewport();
+}
+
+// ============= EVENT LISTENERS =============
+function setupEventListeners() {
+    // Building palette
+    document.querySelectorAll('.building-item').forEach(item => {
+        item.addEventListener('click', () => selectBuildingForPlacement(item.dataset.building));
+        item.addEventListener('dragstart', (e) => {
+            selectBuildingForPlacement(item.dataset.building);
+            e.dataTransfer.setData('text/plain', item.dataset.building);
+        });
+    });
+    
+    // World click
+    worldContainer.addEventListener('click', handleWorldClick);
+    worldContainer.addEventListener('mousemove', handleWorldMouseMove);
+    worldContainer.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        cancelPlacement();
+    });
+    
+    // Camera drag
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    
+    worldContainer.addEventListener('mousedown', (e) => {
+        if (e.button === 1 || (e.button === 0 && !gameState.placingBuilding)) {
+            isDragging = true;
+            dragStart = { x: e.clientX + gameState.camera.x, y: e.clientY + gameState.camera.y };
+            worldContainer.style.cursor = 'grabbing';
+        }
+    });
+    
+    window.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            gameState.camera.x = dragStart.x - e.clientX;
+            gameState.camera.y = dragStart.y - e.clientY;
+            updateCameraPosition();
+        }
+    });
+    
+    window.addEventListener('mouseup', () => {
+        isDragging = false;
+        worldContainer.style.cursor = gameState.placingBuilding ? 'crosshair' : 'grab';
+    });
+    
+    // Keyboard
+    window.addEventListener('keydown', (e) => {
+        const speed = 20;
+        switch(e.key.toLowerCase()) {
+            case 'w': gameState.camera.y -= speed; updateCameraPosition(); break;
+            case 's': gameState.camera.y += speed; updateCameraPosition(); break;
+            case 'a': gameState.camera.x -= speed; updateCameraPosition(); break;
+            case 'd': gameState.camera.x += speed; updateCameraPosition(); break;
+            case 'r': rotateBuilding(); break;
+            case 'q': case 'escape': cancelPlacement(); break;
+            case 'delete': deleteSelectedBuilding(); break;
+        }
+    });
+    
+    // Minimap click
+    minimapCanvas.addEventListener('click', (e) => {
+        const rect = minimapCanvas.getBoundingClientRect();
+        const scale = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE / minimapCanvas.width;
+        gameState.camera.x = (e.clientX - rect.left) * scale - worldContainer.clientWidth / 2;
+        gameState.camera.y = (e.clientY - rect.top) * scale - worldContainer.clientHeight / 2;
+        updateCameraPosition();
+    });
+}
+
+function selectBuildingForPlacement(type) {
+    const def = BUILDINGS[type];
+    if (!canAfford(def.cost)) {
+        showNotification('❌ Not enough resources!');
+        return;
+    }
+    
+    gameState.placingBuilding = type;
+    gameState.rotation = 0;
+    
+    document.querySelectorAll('.building-item').forEach(i => i.classList.remove('selected'));
+    document.querySelector(`[data-building="${type}"]`)?.classList.add('selected');
+    
+    ghostBuilding.innerHTML = `<div style="width:${def.size * CONFIG.TILE_SIZE}px;height:${def.size * CONFIG.TILE_SIZE}px;background:${def.color};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${def.size * 20}px;">${def.icon}</div>`;
+    ghostBuilding.style.display = 'block';
+    worldContainer.style.cursor = 'crosshair';
+}
+
+function handleWorldClick(e) {
+    if (!gameState.placingBuilding) {
+        // Select building
+        const buildingEl = e.target.closest('.building');
+        if (buildingEl) {
+            selectBuilding(parseInt(buildingEl.dataset.id));
+        } else {
+            deselectBuilding();
+        }
+        return;
+    }
+    
+    const rect = world.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / CONFIG.TILE_SIZE);
+    const y = Math.floor((e.clientY - rect.top) / CONFIG.TILE_SIZE);
+    
+    placeBuilding(x, y);
+}
+
+function handleWorldMouseMove(e) {
+    if (!gameState.placingBuilding) return;
+    
+    const rect = worldContainer.getBoundingClientRect();
+    ghostBuilding.style.left = (e.clientX - rect.left - 20) + 'px';
+    ghostBuilding.style.top = (e.clientY - rect.top - 20) + 'px';
+}
+
+function placeBuilding(x, y) {
+    const type = gameState.placingBuilding;
+    const def = BUILDINGS[type];
+    
+    if (!canAfford(def.cost)) {
+        showNotification('❌ Not enough resources!');
+        return;
+    }
+    
+    if (!canPlaceAt(x, y, def.size)) {
+        showNotification('❌ Cannot place here!');
+        return;
+    }
+    
+    // Deduct cost
+    Object.entries(def.cost).forEach(([res, amount]) => {
+        gameState.resources[res] -= amount;
+    });
+    
+    const building = {
+        id: Date.now() + Math.random(),
+        type,
+        x,
+        y,
+        health: def.health,
+        maxHealth: def.health,
+        rotation: gameState.rotation,
+        lastProduction: Date.now(),
+        lastFire: 0
+    };
+    
+    gameState.buildings.push(building);
+    renderBuilding(building);
+    updateUI();
+    updateMinimap();
+    
+    // Keep placing if shift held
+    if (!window.event?.shiftKey) {
+        cancelPlacement();
+    }
+}
+
+function canPlaceAt(x, y, size) {
+    for (let dy = 0; dy < size; dy++) {
+        for (let dx = 0; dx < size; dx++) {
+            const cx = x + dx;
+            const cy = y + dy;
+            if (cx < 0 || cy < 0 || cx >= CONFIG.WORLD_SIZE || cy >= CONFIG.WORLD_SIZE) return false;
+            if (gameState.buildings.some(b => {
+                const bSize = BUILDINGS[b.type].size;
+                return cx >= b.x && cx < b.x + bSize && cy >= b.y && cy < b.y + bSize;
+            })) return false;
+        }
+    }
+    return true;
+}
+
+function canAfford(cost) {
+    if (!cost) return true;
+    return Object.entries(cost).every(([res, amount]) => gameState.resources[res] >= amount);
+}
+
+function renderBuilding(building) {
+    const def = BUILDINGS[building.type];
+    const el = document.createElement('div');
+    el.className = 'building';
+    el.dataset.id = building.id;
+    el.style.left = (building.x * CONFIG.TILE_SIZE) + 'px';
+    el.style.top = (building.y * CONFIG.TILE_SIZE) + 'px';
+    el.style.width = (def.size * CONFIG.TILE_SIZE) + 'px';
+    el.style.height = (def.size * CONFIG.TILE_SIZE) + 'px';
+    el.style.background = def.color;
+    el.style.transform = `rotate(${building.rotation * 90}deg)`;
+    el.innerHTML = `
+        ${def.icon}
+        <div class="health-bar"><div class="health-bar-fill" style="width:${(building.health/building.maxHealth)*100}%"></div></div>
+        ${def.combat ? '<div class="direction-indicator" style="top:-3px;left:50%;transform:translateX(-50%);"></div>' : ''}
+    `;
+    world.appendChild(el);
+}
+
+function rotateBuilding() {
+    gameState.rotation = (gameState.rotation + 1) % 4;
+    if (gameState.selectedBuilding !== null) {
+        const building = gameState.buildings.find(b => b.id === gameState.selectedBuilding);
+        if (building) {
+            building.rotation = gameState.rotation;
+            const el = document.querySelector(`[data-id="${building.id}"]`);
+            if (el) el.style.transform = `rotate(${building.rotation * 90}deg)`;
+        }
+    }
+}
+
+function selectBuilding(id) {
+    deselectBuilding();
+    gameState.selectedBuilding = id;
+    const el = document.querySelector(`[data-id="${id}"]`);
+    if (el) el.classList.add('selected-building');
+    showBuildingTooltip(id);
+}
+
+function deselectBuilding() {
+    if (gameState.selectedBuilding !== null) {
+        const el = document.querySelector(`[data-id="${gameState.selectedBuilding}"]`);
+        if (el) el.classList.remove('selected-building');
+    }
+    gameState.selectedBuilding = null;
+    document.getElementById('tooltip').style.display = 'none';
+}
+
+function deleteSelectedBuilding() {
+    if (gameState.selectedBuilding === null) return;
+    const building = gameState.buildings.find(b => b.id === gameState.selectedBuilding);
+    if (!building || building.type === 'base') return;
+    
+    // Refund 50%
+    const def = BUILDINGS[building.type];
+    Object.entries(def.cost || {}).forEach(([res, amount]) => {
+        gameState.resources[res] += Math.floor(amount * 0.5);
+    });
+    
+    gameState.buildings = gameState.buildings.filter(b => b.id !== gameState.selectedBuilding);
+    document.querySelector(`[data-id="${gameState.selectedBuilding}"]`)?.remove();
+    gameState.selectedBuilding = null;
+    updateUI();
+    updateMinimap();
+}
+
+function cancelPlacement() {
+    gameState.placingBuilding = null;
+    ghostBuilding.style.display = 'none';
+    document.querySelectorAll('.building-item').forEach(i => i.classList.remove('selected'));
+    worldContainer.style.cursor = 'grab';
+}
+
+function showBuildingTooltip(id) {
+    const building = gameState.buildings.find(b => b.id === id);
+    if (!building) return;
+    const def = BUILDINGS[building.type];
+    
+    const tooltip = document.getElementById('tooltip');
+    document.getElementById('tooltip-title').textContent = def.name;
+    
+    let content = `<div class="stat">Health: <span>${building.health}/${building.maxHealth}</span></div>`;
+    if (def.combat) {
+        content += `<div class="stat">Damage: <span>${def.combat.damage}</span></div>`;
+        content += `<div class="stat">Range: <span>${def.combat.range} tiles</span></div>`;
+    }
+    if (def.production) {
+        content += `<div class="stat">Production active</div>`;
+    }
+    
+    document.getElementById('tooltip-content').innerHTML = content;
+    tooltip.style.display = 'block';
+    tooltip.style.left = '290px';
+    tooltip.style.top = '60px';
+}
+
+// ============= GAME LOOPS =============
+function gameLoop() {
+    if (gameState.isGameOver) return;
+    
+    updateEnemies();
+    updateTurrets();
+    updateProjectiles();
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function gameTick() {
+    if (gameState.isGameOver || gameState.isPaused) return;
+    gameState.gameTime += 100;
+    updateGameStats();
+}
+
+function productionTick() {
+    if (gameState.isGameOver || gameState.isPaused) return;
+    
+    const now = Date.now();
+    gameState.production = {};
+    
+    gameState.buildings.forEach(building => {
+        const def = BUILDINGS[building.type];
+        if (!def.production) return;
+        
+        if (building.type === 'miner') {
+            // Find nearby deposit
+            const deposit = gameState.deposits.find(d => 
+                Math.abs(d.x - building.x) <= 1 && Math.abs(d.y - building.y) <= 1 && d.amount > 0
+            );
+            if (deposit && now - building.lastProduction >= def.production.time) {
+                const resourceKey = deposit.type === 'iron' ? 'iron-ore' : 
+                                   deposit.type === 'copper' ? 'copper-ore' : deposit.type;
+                gameState.resources[resourceKey] += def.production.rate;
+                deposit.amount -= def.production.rate;
+                building.lastProduction = now;
+                
+                // Update deposit display
+                const depositEl = document.querySelector(`[data-deposit-id="${gameState.deposits.indexOf(deposit)}"]`);
+                if (depositEl) depositEl.textContent = deposit.amount;
+                
+                trackProduction(resourceKey, def.production.rate);
+            }
+        }
+        
+        if (building.type === 'furnace') {
+            if (now - building.lastProduction >= def.production.time) {
+                // Try iron first, then copper
+                if (gameState.resources['iron-ore'] >= 1 && gameState.resources.coal >= 1) {
+                    gameState.resources['iron-ore']--;
+                    gameState.resources.coal--;
+                    gameState.resources['iron-plates']++;
+                    building.lastProduction = now;
+                    trackProduction('iron-plates', 1);
+                } else if (gameState.resources['copper-ore'] >= 1 && gameState.resources.coal >= 1) {
+                    gameState.resources['copper-ore']--;
+                    gameState.resources.coal--;
+                    gameState.resources['copper-plates']++;
+                    building.lastProduction = now;
+                    trackProduction('copper-plates', 1);
+                }
+            }
+        }
+        
+        if (building.type === 'circuit-factory') {
+            if (now - building.lastProduction >= def.production.time) {
+                if (gameState.resources['iron-plates'] >= 1 && gameState.resources['copper-plates'] >= 2) {
+                    gameState.resources['iron-plates']--;
+                    gameState.resources['copper-plates'] -= 2;
+                    gameState.resources.circuits += 2;
+                    building.lastProduction = now;
+                    trackProduction('circuits', 2);
+                }
+            }
+        }
+        
+        if (building.type === 'ammo-factory') {
+            if (now - building.lastProduction >= def.production.time) {
+                if (gameState.resources['iron-plates'] >= 2 && gameState.resources['copper-plates'] >= 1) {
+                    gameState.resources['iron-plates'] -= 2;
+                    gameState.resources['copper-plates']--;
+                    gameState.resources.ammo += 5;
+                    building.lastProduction = now;
+                    trackProduction('ammo', 5);
+                }
+            }
+        }
+        
+        if (building.type === 'assembler') {
+            // Make shells for artillery
+            if (now - building.lastProduction >= 5000) {
+                if (gameState.resources['iron-plates'] >= 5 && gameState.resources.coal >= 2) {
+                    gameState.resources['iron-plates'] -= 5;
+                    gameState.resources.coal -= 2;
+                    gameState.resources.shells += 1;
+                    building.lastProduction = now;
+                    trackProduction('shells', 1);
+                }
+            }
+        }
+    });
+    
+    updateUI();
+    updateProductionPanel();
+}
+
+function trackProduction(resource, amount) {
+    gameState.production[resource] = (gameState.production[resource] || 0) + amount;
+}
+
+function updateProductionPanel() {
+    const panel = document.getElementById('production-stats');
+    let html = '';
+    Object.entries(gameState.production).forEach(([res, amount]) => {
+        const perMin = amount * 60;
+        html += `<div class="prod-row"><span>${res}</span><span class="prod-positive">+${perMin}/m</span></div>`;
+    });
+    panel.innerHTML = html || '<div style="color:#666;">No production</div>';
+}
+
+// ============= WAVE SYSTEM =============
+function waveTimer() {
+    if (gameState.isGameOver || gameState.isPaused) return;
+    
+    gameState.waveTimer--;
+    document.getElementById('wave-timer').textContent = gameState.waveTimer;
+    
+    if (gameState.waveTimer <= 0) {
+        spawnWave();
+        gameState.waveTimer = CONFIG.WAVE_INTERVAL;
+    }
+}
+
+function spawnWave() {
+    const wave = gameState.wave;
+    showNotification(`⚔️ WAVE ${wave} INCOMING!`);
+    
+    // Calculate enemy counts based on wave
+    const basicCount = 5 + wave * 2;
+    const fastCount = Math.floor(wave / 2);
+    const tankCount = Math.floor(wave / 5);
+    const bossCount = wave % 10 === 0 ? 1 : 0;
+    
+    const spawnEnemies = (type, count) => {
+        for (let i = 0; i < count; i++) {
+            setTimeout(() => spawnEnemy(type), i * 500);
+        }
+    };
+    
+    spawnEnemies('basic', basicCount);
+    spawnEnemies('fast', fastCount);
+    spawnEnemies('tank', tankCount);
+    if (bossCount) setTimeout(() => spawnEnemy('boss'), 3000);
+    
+    gameState.wave++;
+    document.getElementById('wave-number').textContent = gameState.wave;
+    
+    // Check victory
+    if (wave >= CONFIG.VICTORY_WAVE) {
+        document.getElementById('victory-screen').style.display = 'flex';
+    }
+}
+
+function spawnEnemy(type) {
+    const def = ENEMIES[type];
+    const angle = Math.random() * Math.PI * 2;
+    const distance = CONFIG.SPAWN_DISTANCE * CONFIG.TILE_SIZE;
+    
+    const enemy = {
+        id: Date.now() + Math.random(),
+        type,
+        x: CONFIG.BASE_CENTER.x * CONFIG.TILE_SIZE + Math.cos(angle) * distance,
+        y: CONFIG.BASE_CENTER.y * CONFIG.TILE_SIZE + Math.sin(angle) * distance,
+        health: def.health * (1 + gameState.wave * 0.1),
+        maxHealth: def.health * (1 + gameState.wave * 0.1),
+        speed: def.speed,
+        damage: def.damage * (1 + gameState.wave * 0.05)
+    };
+    
+    gameState.enemies.push(enemy);
+    renderEnemy(enemy);
+    updateEnemyCount();
+}
+
+function renderEnemy(enemy) {
+    const def = ENEMIES[enemy.type];
+    const el = document.createElement('div');
+    el.className = 'enemy ' + enemy.type;
+    el.dataset.enemyId = enemy.id;
+    el.style.left = enemy.x + 'px';
+    el.style.top = enemy.y + 'px';
+    el.style.width = (enemy.type === 'boss' ? 50 : enemy.type === 'tank' ? 35 : 25) + 'px';
+    el.style.height = (enemy.type === 'boss' ? 50 : enemy.type === 'tank' ? 35 : 25) + 'px';
+    el.innerHTML = `
+        ${enemy.type === 'boss' ? '👹' : enemy.type === 'tank' ? '🐛' : enemy.type === 'fast' ? '🦗' : '🐜'}
+        <div class="health-bar"><div class="health-bar-fill" style="width:100%"></div></div>
+    `;
+    world.appendChild(el);
+}
+
+function updateEnemies() {
+    const base = gameState.buildings.find(b => b.type === 'base');
+    if (!base) return;
+    
+    const baseX = base.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE;
+    const baseY = base.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE;
+    
+    gameState.enemies.forEach(enemy => {
+        const def = ENEMIES[enemy.type];
+        
+        // Find nearest target (walls/turrets first, then base)
+        let targetX = baseX;
+        let targetY = baseY;
+        let targetBuilding = base;
+        let minDist = Infinity;
+        
+        gameState.buildings.forEach(b => {
+            if (b.type === 'base') return;
+            const bx = b.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+            const by = b.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+            const dist = Math.hypot(enemy.x - bx, enemy.y - by);
+            if (dist < minDist && dist < 200) {
+                minDist = dist;
+                targetX = bx;
+                targetY = by;
+                targetBuilding = b;
+            }
+        });
+        
+        // Move toward target
+        const dx = targetX - enemy.x;
+        const dy = targetY - enemy.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist > 20) {
+            enemy.x += (dx / dist) * enemy.speed * 2;
+            enemy.y += (dy / dist) * enemy.speed * 2;
+        } else {
+            // Attack
+            targetBuilding.health -= enemy.damage * 0.05;
+            if (targetBuilding.health <= 0) {
+                if (targetBuilding.type === 'base') {
+                    gameOver();
+                } else {
+                    gameState.buildings = gameState.buildings.filter(b => b.id !== targetBuilding.id);
+                    document.querySelector(`[data-id="${targetBuilding.id}"]`)?.remove();
+                }
+            }
+            updateBuildingHealth(targetBuilding);
+        }
+        
+        // Update position
+        const el = document.querySelector(`[data-enemy-id="${enemy.id}"]`);
+        if (el) {
+            el.style.left = enemy.x + 'px';
+            el.style.top = enemy.y + 'px';
+        }
+    });
+    
+    updateMinimap();
+}
+
+function updateBuildingHealth(building) {
+    const el = document.querySelector(`[data-id="${building.id}"] .health-bar-fill`);
+    if (el) el.style.width = `${(building.health / building.maxHealth) * 100}%`;
+}
+
+function updateEnemyCount() {
+    document.getElementById('enemies-alive').textContent = gameState.enemies.length;
+}
+
+// ============= COMBAT SYSTEM =============
+function updateTurrets() {
+    const now = Date.now();
+    
+    gameState.buildings.forEach(building => {
+        const def = BUILDINGS[building.type];
+        if (!def.combat) return;
+        
+        // Check fire rate
+        if (now - building.lastFire < def.combat.fireRate) return;
+        
+        // Check ammo
+        if (def.combat.ammoUse > 0) {
+            const ammoType = def.combat.usesShells ? 'shells' : 'ammo';
+            if (gameState.resources[ammoType] < def.combat.ammoUse) return;
+        }
+        
+        // Find target in range
+        const bx = building.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+        const by = building.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+        const range = def.combat.range * CONFIG.TILE_SIZE;
+        
+        let target = null;
+        let minDist = Infinity;
+        
+        gameState.enemies.forEach(enemy => {
+            const dist = Math.hypot(enemy.x - bx, enemy.y - by);
+            if (dist < range && dist < minDist) {
+                minDist = dist;
+                target = enemy;
+            }
+        });
+        
+        if (target) {
+            // Consume ammo
+            if (def.combat.ammoUse > 0) {
+                const ammoType = def.combat.usesShells ? 'shells' : 'ammo';
+                gameState.resources[ammoType] -= def.combat.ammoUse;
+            }
+            
+            building.lastFire = now;
+            fireProjectile(building, target, def.combat);
+        }
+    });
+}
+
+function fireProjectile(building, target, combat) {
+    const bx = building.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+    const by = building.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+    
+    const projectile = {
+        id: Date.now() + Math.random(),
+        x: bx,
+        y: by,
+        targetId: target.id,
+        damage: combat.damage,
+        splash: combat.splash || 0,
+        speed: combat.usesShells ? 8 : 15,
+        isArtillery: !!combat.usesShells
+    };
+    
+    gameState.projectiles.push(projectile);
+    renderProjectile(projectile);
+}
+
+function renderProjectile(proj) {
+    const el = document.createElement('div');
+    el.className = 'projectile' + (proj.isArtillery ? ' artillery' : '');
+    el.dataset.projId = proj.id;
+    el.style.left = proj.x + 'px';
+    el.style.top = proj.y + 'px';
+    world.appendChild(el);
+}
+
+function updateProjectiles() {
+    gameState.projectiles = gameState.projectiles.filter(proj => {
+        const target = gameState.enemies.find(e => e.id === proj.targetId);
+        if (!target) {
+            document.querySelector(`[data-proj-id="${proj.id}"]`)?.remove();
+            return false;
+        }
+        
+        const dx = target.x - proj.x;
+        const dy = target.y - proj.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < 15) {
+            // Hit!
+            createExplosion(proj.x, proj.y, proj.isArtillery ? 40 : 20);
+            
+            if (proj.splash > 0) {
+                // Splash damage
+                gameState.enemies.forEach(e => {
+                    const eDist = Math.hypot(e.x - proj.x, e.y - proj.y);
+                    if (eDist < proj.splash * CONFIG.TILE_SIZE) {
+                        damageEnemy(e, proj.damage * (1 - eDist / (proj.splash * CONFIG.TILE_SIZE)));
+                    }
+                });
+            } else {
+                damageEnemy(target, proj.damage);
+            }
+            
+            document.querySelector(`[data-proj-id="${proj.id}"]`)?.remove();
+            return false;
+        }
+        
+        // Move projectile
+        proj.x += (dx / dist) * proj.speed;
+        proj.y += (dy / dist) * proj.speed;
+        
+        const el = document.querySelector(`[data-proj-id="${proj.id}"]`);
+        if (el) {
+            el.style.left = proj.x + 'px';
+            el.style.top = proj.y + 'px';
+        }
+        
+        return true;
+    });
+}
+
+function damageEnemy(enemy, damage) {
+    enemy.health -= damage;
+    showDamageNumber(enemy.x, enemy.y, Math.floor(damage));
+    
+    // Update health bar
+    const el = document.querySelector(`[data-enemy-id="${enemy.id}"] .health-bar-fill`);
+    if (el) el.style.width = `${Math.max(0, (enemy.health / enemy.maxHealth) * 100)}%`;
+    
+    if (enemy.health <= 0) {
+        killEnemy(enemy);
+    }
+}
+
+function killEnemy(enemy) {
+    const def = ENEMIES[enemy.type];
+    
+    // Reward
+    Object.entries(def.reward).forEach(([res, amount]) => {
+        gameState.resources[res] += amount;
+    });
+    
+    gameState.kills++;
+    gameState.enemies = gameState.enemies.filter(e => e.id !== enemy.id);
+    document.querySelector(`[data-enemy-id="${enemy.id}"]`)?.remove();
+    createExplosion(enemy.x, enemy.y, 30);
+    updateUI();
+    updateEnemyCount();
+}
+
+function createExplosion(x, y, size) {
+    const el = document.createElement('div');
+    el.className = 'explosion';
+    el.style.left = (x - size/2) + 'px';
+    el.style.top = (y - size/2) + 'px';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    world.appendChild(el);
+    setTimeout(() => el.remove(), 300);
+}
+
+function showDamageNumber(x, y, damage) {
+    const el = document.createElement('div');
+    el.className = 'damage-number';
+    el.textContent = '-' + damage;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    world.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+}
+
+// ============= UI UPDATES =============
+function updateUI() {
+    Object.entries(gameState.resources).forEach(([key, value]) => {
+        const el = document.getElementById(key);
+        if (el) el.textContent = Math.floor(value);
+    });
+    
+    // Update building costs
+    document.querySelectorAll('.building-item').forEach(item => {
+        const type = item.dataset.building;
+        const def = BUILDINGS[type];
+        if (canAfford(def.cost)) {
+            item.classList.remove('disabled');
+        } else {
+            item.classList.add('disabled');
+        }
+    });
+    
+    document.getElementById('stat-buildings').textContent = gameState.buildings.length;
+    document.getElementById('stat-kills').textContent = gameState.kills;
+}
+
+function updateGameStats() {
+    const mins = Math.floor(gameState.gameTime / 60000);
+    const secs = Math.floor((gameState.gameTime % 60000) / 1000);
+    document.getElementById('stat-time').textContent = 
+        `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function showNotification(text) {
+    const el = document.getElementById('notification');
+    el.textContent = text;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// ============= MINIMAP =============
+function updateMinimap() {
+    minimapCanvas.width = 180;
+    minimapCanvas.height = 180;
+    
+    const scale = 180 / (CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE);
+    
+    // Background
+    minimapCtx.fillStyle = '#0a0a15';
+    minimapCtx.fillRect(0, 0, 180, 180);
+    
+    // Deposits
+    gameState.deposits.forEach(d => {
+        minimapCtx.fillStyle = d.type === 'iron' ? '#7f8c8d' : 
+                              d.type === 'copper' ? '#e67e22' : 
+                              d.type === 'coal' ? '#34495e' : '#95a5a6';
+        minimapCtx.fillRect(d.x * CONFIG.TILE_SIZE * scale, d.y * CONFIG.TILE_SIZE * scale, 4, 4);
+    });
+    
+    // Buildings
+    gameState.buildings.forEach(b => {
+        minimapCtx.fillStyle = b.type === 'base' ? '#9b59b6' : 
+                              b.type === 'turret' || b.type === 'laser-turret' ? '#e74c3c' :
+                              b.type === 'wall' ? '#7f8c8d' : '#3498db';
+        const size = BUILDINGS[b.type].size * CONFIG.TILE_SIZE * scale;
+        minimapCtx.fillRect(b.x * CONFIG.TILE_SIZE * scale, b.y * CONFIG.TILE_SIZE * scale, size, size);
+    });
+    
+    // Enemies
+    minimapCtx.fillStyle = '#e74c3c';
+    gameState.enemies.forEach(e => {
+        minimapCtx.beginPath();
+        minimapCtx.arc(e.x * scale, e.y * scale, 2, 0, Math.PI * 2);
+        minimapCtx.fill();
+    });
+    
+    updateMinimapViewport();
+}
+
+function updateMinimapViewport() {
+    const scale = 180 / (CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE);
+    const viewport = document.getElementById('minimap-viewport');
+    viewport.style.left = (gameState.camera.x * scale) + 'px';
+    viewport.style.top = (gameState.camera.y * scale) + 'px';
+    viewport.style.width = (worldContainer.clientWidth * scale) + 'px';
+    viewport.style.height = (worldContainer.clientHeight * scale) + 'px';
+}
+
+// ============= SAVE/LOAD =============
+function saveGame() {
+    const saveData = {
+        resources: gameState.resources,
+        buildings: gameState.buildings,
+        deposits: gameState.deposits,
+        wave: gameState.wave,
+        gameTime: gameState.gameTime,
+        kills: gameState.kills
+    };
+    localStorage.setItem('factorio-defense-save', JSON.stringify(saveData));
+    showNotification('💾 Game Saved!');
+}
+
+function loadGame() {
+    const saveData = localStorage.getItem('factorio-defense-save');
+    if (!saveData) return;
+    
+    try {
+        const data = JSON.parse(saveData);
+        gameState.resources = { ...gameState.resources, ...data.resources };
+        gameState.wave = data.wave || 1;
+        gameState.gameTime = data.gameTime || 0;
+        gameState.kills = data.kills || 0;
+        
+        // Restore deposits
+        if (data.deposits) {
+            gameState.deposits = data.deposits;
+            document.querySelectorAll('.resource-deposit').forEach((el, i) => {
+                if (gameState.deposits[i]) {
+                    el.textContent = gameState.deposits[i].amount;
+                }
+            });
+        }
+        
+        // Restore buildings (except base which is already spawned)
+        if (data.buildings) {
+            data.buildings.forEach(b => {
+                if (b.type !== 'base') {
+                    gameState.buildings.push(b);
+                    renderBuilding(b);
+                }
+            });
+        }
+        
+        updateUI();
+        document.getElementById('wave-number').textContent = gameState.wave;
+        showNotification('📂 Game Loaded!');
+    } catch (e) {
+        console.error('Failed to load:', e);
+    }
+}
+
+function resetGame() {
+    localStorage.removeItem('factorio-defense-save');
+    location.reload();
+}
+
+function gameOver() {
+    gameState.isGameOver = true;
+    document.getElementById('defeat-wave').textContent = gameState.wave;
+    document.getElementById('defeat-screen').style.display = 'flex';
+}
+
+function continueGame() {
+    document.getElementById('victory-screen').style.display = 'none';
+}
+
+// ============= INIT =============
+init();
+</script>
+</body>
+</html>
