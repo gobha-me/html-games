@@ -8,7 +8,7 @@ const START_REVEAL_RADIUS = 8;
 const CORE_POS = { x: 25, y: 25 };
 const CORE_MAX_HEALTH = 100;
 
-// NEW: Zoom configuration
+// Zoom configuration
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
 const ZOOM_STEP = 0.1;
@@ -29,14 +29,59 @@ const BUILDINGS = {
 };
 
 const RESOURCES = ['iron', 'copper', 'coal', 'stone', 'oil', 'gear', 'circuit', 'steel', 'ammo'];
-// FIX: Added starting gears
 const STARTING_RESOURCES = { iron: 50, copper: 30, coal: 20, stone: 20, oil: 0, gear: 5, circuit: 0, steel: 0, ammo: 30 };
 
-// Manual crafting recipes
 const MANUAL_RECIPES = {
     gear: { iron: 2, time: 2000 },
     circuit: { copper: 2, iron: 1, time: 3000 },
     ammo: { iron: 2, copper: 1, time: 1000 }
+};
+
+// Enemy type definitions
+const ENEMY_TYPES = {
+    basic: { 
+        hp: 100, 
+        speed: 0.04, 
+        icon: '👾', 
+        damage: 10, 
+        reward: { iron: 2 },
+        spawnWave: 1 
+    },
+    scout: { 
+        hp: 30, 
+        speed: 0.08, 
+        icon: '🦗', 
+        damage: 5, 
+        reward: { iron: 1 },
+        spawnWave: 1 
+    },
+    tank: { 
+        hp: 300, 
+        speed: 0.02, 
+        icon: '🪨', 
+        damage: 30, 
+        reward: { iron: 10, steel: 2 },
+        spawnWave: 5 
+    },
+    flyer: { 
+        hp: 50, 
+        speed: 0.06, 
+        icon: '🦇', 
+        damage: 15, 
+        reward: { copper: 5 },
+        spawnWave: 8,
+        ignoresBarriers: true 
+    },
+    boss: { 
+        hp: 1000, 
+        speed: 0.015, 
+        icon: '👹', 
+        damage: 50, 
+        reward: { circuit: 20, steel: 10, gear: 10 },
+        spawnWave: 10,
+        isBoss: true,
+        spawnsMinions: true 
+    }
 };
 
 let gameState = {
@@ -57,7 +102,13 @@ let gameState = {
     firstWaveSpawned: false,
     camera: { x: -((GRID_SIZE * CELL_SIZE) / 2) + window.innerWidth / 2, y: -((GRID_SIZE * CELL_SIZE) / 2) + window.innerHeight / 2 },
     manualCrafting: { lastCrafted: 0 },
-    zoomLevel: 1.0  // NEW: Default zoom
+    zoomLevel: 1.0,
+    achievements: {
+        enemiesKilled: 0,
+        turretsBuilt: 0,
+        wavesSurvived: 0,
+        coreDamageTaken: 0
+    }
 };
 
 let isDragging = false;
@@ -81,25 +132,19 @@ function init() {
     setTimeout(() => showMessage('FIRST WAVE IN 60 SECONDS! Build turrets NOW!', '#f00'), 5000);
 }
 
-// NEW: Setup zoom controls
 function setupZoom() {
     const gameGrid = document.getElementById('gameGrid');
-    
-    // Mouse wheel zoom
     gameGrid.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
         changeZoom(delta);
     });
-    
     updateZoomDisplay();
 }
 
-// NEW: Change zoom level
 function changeZoom(delta) {
     const oldZoom = gameState.zoomLevel;
     gameState.zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, gameState.zoomLevel + delta));
-    
     if (oldZoom !== gameState.zoomLevel) {
         updateCamera();
         drawMinimap();
@@ -107,7 +152,6 @@ function changeZoom(delta) {
     }
 }
 
-// NEW: Update zoom level display
 function updateZoomDisplay() {
     const zoomElement = document.getElementById('zoomLevel');
     if (zoomElement) {
@@ -116,26 +160,22 @@ function updateZoomDisplay() {
 }
 
 function generateWorld() {
-    // Force essential resources in starting area first
     const startPos = [];
     for (let dy = -START_REVEAL_RADIUS; dy <= START_REVEAL_RADIUS; dy++) {
         for (let dx = -START_REVEAL_RADIUS; dx <= START_REVEAL_RADIUS; dx++) {
             const x = CORE_POS.x + dx, y = CORE_POS.y + dy;
             if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
-                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) { // Not too close to core
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
                     startPos.push({ x, y, dist: Math.abs(dx) + Math.abs(dy) });
                 }
             }
         }
     }
     
-    // Sort by distance to place resources in rings
     startPos.sort((a, b) => a.dist - b.dist);
     
-    // Place guaranteed iron and copper clusters
     function placeCluster(resourceType, count, clusterSize = 6) {
         for (let i = 0; i < count && startPos.length > 0; i++) {
-            // Pick a position near the center but not too close
             const centerIndex = Math.min(Math.floor(startPos.length * 0.3 + Math.random() * 5), startPos.length - 1);
             const center = startPos.splice(centerIndex, 1)[0];
             if (!center) continue;
@@ -160,13 +200,11 @@ function generateWorld() {
         }
     }
     
-    // Guaranteed placement - ensure iron and copper are available
     placeCluster('iron', 2);
-    placeCluster('copper', 2); // Increased to 2 clusters
+    placeCluster('copper', 2);
     placeCluster('coal', 2);
     placeCluster('stone', 1);
     
-    // Fill rest of map with noise
     for (let y = 0; y < GRID_SIZE; y++) {
         for (let x = 0; x < GRID_SIZE; x++) {
             if (gameState.grid[y][x] === null) {
@@ -187,7 +225,6 @@ function generateWorld() {
         }
     }
     
-    // Place core
     gameState.grid[CORE_POS.y][CORE_POS.x] = { 
         type: 'core', amount: 0, entity: 'core', lastProduced: 0 
     };
@@ -217,15 +254,12 @@ function setupCraftingButtons() {
 }
 
 function updateCraftingButtons() {
-    // Gear
     const gearBtn = document.getElementById('craft-gear');
     gearBtn.classList.toggle('disabled', gameState.resources.iron < MANUAL_RECIPES.gear.iron);
     
-    // Circuit
     const circuitBtn = document.getElementById('craft-circuit');
     circuitBtn.classList.toggle('disabled', gameState.resources.copper < MANUAL_RECIPES.circuit.copper || gameState.resources.iron < MANUAL_RECIPES.circuit.iron);
     
-    // Ammo
     const ammoBtn = document.getElementById('craft-ammo');
     ammoBtn.classList.toggle('disabled', gameState.resources.iron < MANUAL_RECIPES.ammo.iron || gameState.resources.copper < MANUAL_RECIPES.ammo.copper);
 }
@@ -234,7 +268,6 @@ function manualCraft(item) {
     const recipe = MANUAL_RECIPES[item];
     const now = Date.now();
     
-    // Check if can afford
     for (const [res, cost] of Object.entries(recipe)) {
         if (res === 'time') continue;
         if (gameState.resources[res] < cost) {
@@ -243,13 +276,11 @@ function manualCraft(item) {
         }
     }
     
-    // Check cooldown
     if (gameState.manualCrafting.lastCrafted + recipe.time > now) {
         showMessage('Crafting... wait!', '#fa0');
         return;
     }
     
-    // Deduct resources
     for (const [res, cost] of Object.entries(recipe)) {
         if (res !== 'time') gameState.resources[res] -= cost;
     }
@@ -257,7 +288,6 @@ function manualCraft(item) {
     gameState.manualCrafting.lastCrafted = now;
     showMessage(`Crafting ${item}...`, '#0f0');
     
-    // Complete crafting after time
     setTimeout(() => {
         gameState.resources[item] += (item === 'ammo' ? 5 : 1);
         updateResources();
@@ -268,7 +298,6 @@ function manualCraft(item) {
 
 function setupMouseControls() {
     const gameGrid = document.getElementById('gameGrid');
-    const grid = document.getElementById('grid');
     
     gameGrid.addEventListener('mousedown', (e) => {
         if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
@@ -300,7 +329,6 @@ function setupMouseControls() {
         gameGrid.classList.remove('dragging');
     });
     
-    // Click minimap to jump to location
     document.getElementById('minimap').addEventListener('click', (e) => {
         const rect = e.target.getBoundingClientRect();
         const scale = 150 / GRID_SIZE;
@@ -312,16 +340,13 @@ function setupMouseControls() {
     });
 }
 
-// NEW: Update camera with zoom
 function updateCamera() {
     const grid = document.getElementById('grid');
     const scaledCellSize = CELL_SIZE * gameState.zoomLevel;
     
-    // Update grid size for correct positioning
     grid.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${scaledCellSize}px)`;
     grid.style.transform = `translate(${gameState.camera.x}px, ${gameState.camera.y}px) scale(${gameState.zoomLevel})`;
     
-    // Re-render cells with new size
     const cells = document.querySelectorAll('.cell');
     cells.forEach(cell => {
         cell.style.width = `${scaledCellSize}px`;
@@ -329,10 +354,21 @@ function updateCamera() {
         cell.style.fontSize = `${scaledCellSize * 0.75}px`;
     });
     
-    // Re-render buildings
     const buildings = document.querySelectorAll('.building');
     buildings.forEach(building => {
         building.style.fontSize = `${scaledCellSize * 0.75}px`;
+    });
+    
+    const enemies = document.querySelectorAll('.enemy');
+    enemies.forEach(el => {
+        const enemy = gameState.enemies.find(e => e.element === el);
+        if (enemy) {
+            el.style.left = (enemy.x * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
+            el.style.top = (enemy.y * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
+            el.style.width = (28 * gameState.zoomLevel) + 'px';
+            el.style.height = (28 * gameState.zoomLevel) + 'px';
+            el.style.fontSize = (20 * gameState.zoomLevel) + 'px';
+        }
     });
 }
 
@@ -342,7 +378,6 @@ function handleCellClick(x, y, e) {
     const cell = gameState.grid[y][x];
     const isRevealed = gameState.revealed.has(`${x},${y}`);
     
-    // Manual mining
     if (!gameState.buildingInHand && isRevealed && cell.type && cell.type.startsWith('resource-') && cell.amount > 0) {
         const resource = cell.type.split('-')[1];
         cell.amount -= 1;
@@ -353,7 +388,6 @@ function handleCellClick(x, y, e) {
         return;
     }
     
-    // Place building
     placeBuilding(x, y);
 }
 
@@ -438,6 +472,10 @@ function selectBuilding(type) {
     document.querySelectorAll('.building-btn').forEach(b => b.classList.remove('selected'));
     document.querySelector(`[data-building="${type}"]`)?.classList.add('selected');
     gameState.buildingInHand = { type, rotation: 0 };
+    
+    if (type === 'turret') {
+        gameState.achievements.turretsBuilt++;
+    }
 }
 
 function canAfford(building) {
@@ -493,6 +531,7 @@ function placeBuilding(x, y) {
     cell.entity = building;
     cell.rotation = gameState.buildingInHand.rotation;
     cell.lastProduced = Date.now();
+    cell.barrierHealth = building === 'barrier' ? 100 : undefined;
 
     revealArea(x, y, 4);
     updateGridView();
@@ -710,11 +749,114 @@ function fireTurret(x, y, target) {
         projectile.remove();
         target.health -= 50;
         if (target.health <= 0) {
-            const idx = gameState.enemies.indexOf(target);
-            if (idx > -1) gameState.enemies.splice(idx, 1);
-            target.element.remove();
+            killEnemy(target);
         }
     }, distance * 30);
+}
+
+function killEnemy(enemy) {
+    const idx = gameState.enemies.indexOf(enemy);
+    if (idx > -1) gameState.enemies.splice(idx, 1);
+    
+    if (enemy.reward) {
+        for (const [res, amount] of Object.entries(enemy.reward)) {
+            gameState.resources[res] += amount;
+        }
+        showMessage(`+${Object.entries(enemy.reward).map(([r,a]) => `${a} ${r}`).join(', ')}`, '#0f0');
+    }
+    
+    enemy.element.remove();
+    gameState.achievements.enemiesKilled++;
+    
+    if (enemy.type === 'boss' && enemy.spawnsMinions && !enemy.minionsSpawned) {
+        enemy.minionsSpawned = true;
+        setTimeout(() => {
+            spawnMinions(enemy.x, enemy.y, 3);
+        }, 2000);
+    }
+}
+
+function spawnMinions(x, y, count) {
+    for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 / count) * i;
+        const spawnX = x + Math.cos(angle) * 2;
+        const spawnY = y + Math.sin(angle) * 2;
+        
+        // Bounds check - only spawn minions within grid
+        if (spawnX < 0 || spawnX >= GRID_SIZE || spawnY < 0 || spawnY >= GRID_SIZE) {
+            continue;
+        }
+        
+        const minion = createEnemy('scout', spawnX, spawnY);
+        minion.minion = true;
+        gameState.enemies.push(minion);
+        document.getElementById('grid').appendChild(minion.element);
+    }
+    showMessage('Boss spawned minions!', '#f55');
+}
+
+function createEnemy(type, x, y) {
+    const typeData = ENEMY_TYPES[type] || ENEMY_TYPES.basic;
+    const wave = gameState.wave;
+    
+    const hpMultiplier = type === 'boss' ? 1 : (1 + (wave - typeData.spawnWave) * 0.1);
+    const hp = Math.floor(typeData.hp * Math.max(1, hpMultiplier));
+    const speed = typeData.speed * (1 + wave * 0.01);
+    
+    const enemy = {
+        x, y,
+        type: type,
+        health: hp,
+        maxHealth: hp,
+        speed: speed,
+        damage: typeData.damage,
+        reward: typeData.reward,
+        ignoresBarriers: typeData.ignoresBarriers || false,
+        isBoss: typeData.isBoss || false,
+        targetX: CORE_POS.x,
+        targetY: CORE_POS.y
+    };
+    
+    const el = document.createElement('div');
+    el.className = `enemy ${type}${enemy.isBoss ? ' boss' : ''}`;
+    el.style.left = (x * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
+    el.style.top = (y * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
+    el.style.width = (28 * gameState.zoomLevel) + 'px';
+    el.style.height = (28 * gameState.zoomLevel) + 'px';
+    el.style.fontSize = (20 * gameState.zoomLevel) + 'px';
+    el.textContent = typeData.icon;
+    
+    const healthBar = document.createElement('div');
+    healthBar.className = `health-bar${enemy.isBoss ? ' boss' : ''}`;
+    healthBar.innerHTML = `<div class="health-fill" style="width: 100%"></div>`;
+    el.appendChild(healthBar);
+    
+    if (enemy.isBoss) {
+        el.style.width = (42 * gameState.zoomLevel) + 'px';
+        el.style.height = (42 * gameState.zoomLevel) + 'px';
+        el.style.fontSize = (30 * gameState.zoomLevel) + 'px';
+        healthBar.style.height = enemy.isBoss ? '8px' : '4px';
+    }
+    
+    enemy.element = el;
+    return enemy;
+}
+
+function selectEnemyType() {
+    const wave = gameState.wave;
+    
+    if (wave % 10 === 0 && wave >= 10) {
+        const roll = Math.random();
+        if (roll < 0.15) return 'boss';
+    }
+    
+    const roll = Math.random();
+    
+    if (wave >= 5 && roll < 0.2) return 'tank';
+    if (wave >= 8 && roll < 0.25) return 'flyer';
+    if (wave < 5 && roll < 0.6) return 'scout';
+    
+    return wave < 3 ? 'scout' : 'basic';
 }
 
 function spawnEnemies() {
@@ -736,26 +878,14 @@ function spawnEnemies() {
         default: x = 0; y = Math.floor(Math.random() * GRID_SIZE);
     }
     
-    const enemy = { x, y, health: 100 + gameState.wave * 10, maxHealth: 100 + gameState.wave * 10, speed: 0.04 + gameState.wave * 0.002, targetX: CORE_POS.x, targetY: CORE_POS.y };
-    const el = document.createElement('div');
-    el.className = 'enemy';
-    el.style.left = (x * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
-    el.style.top = (y * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
-    el.style.width = (28 * gameState.zoomLevel) + 'px';
-    el.style.height = (28 * gameState.zoomLevel) + 'px';
-    el.style.fontSize = (20 * gameState.zoomLevel) + 'px';
+    const enemyType = selectEnemyType();
+    const enemy = createEnemy(enemyType, x, y);
     
-    const healthBar = document.createElement('div');
-    healthBar.className = 'health-bar';
-    healthBar.innerHTML = '<div class="health-fill" style="width: 100%"></div>';
-    el.appendChild(healthBar);
-    enemy.element = el;
-    document.getElementById('grid').appendChild(el);
+    document.getElementById('grid').appendChild(enemy.element);
     gameState.enemies.push(enemy);
 }
 
 function moveEnemies() {
-    // Build barrier map for pathfinding
     const barrierMap = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(false));
     for (let y = 0; y < GRID_SIZE; y++) {
         for (let x = 0; x < GRID_SIZE; x++) {
@@ -771,38 +901,39 @@ function moveEnemies() {
         const dist = Math.sqrt(dx*dx + dy*dy);
         
         if (dist > 0.3) {
-            // Normalize direction
             const moveX = dx / dist * enemy.speed;
             const moveY = dy / dist * enemy.speed;
             
-            // Check if next position hits barrier
             const nextX = enemy.x + moveX;
             const nextY = enemy.y + moveY;
             const nextCellX = Math.floor(nextX);
             const nextCellY = Math.floor(nextY);
             
-            // If hitting barrier, try to navigate around
-            if (barrierMap[nextCellY] && barrierMap[nextCellY][nextCellX]) {
-                // Try perpendicular directions
-                const perpX = -moveY * 2;
-                const perpY = moveX * 2;
-                
-                // Check left perpendicular
-                let foundPath = false;
-                for (let tryDir of [[perpX, perpY], [-perpX, -perpY]]) {
-                    const tryX = Math.floor(enemy.x + tryDir[0]);
-                    const tryY = Math.floor(enemy.y + tryDir[1]);
-                    if (tryX >= 0 && tryX < GRID_SIZE && tryY >= 0 && tryY < GRID_SIZE && !barrierMap[tryY][tryX]) {
-                        enemy.x += tryDir[0];
-                        enemy.y += tryDir[1];
-                        foundPath = true;
-                        break;
+            if (!enemy.ignoresBarriers) {
+                if (barrierMap[nextCellY] && barrierMap[nextCellY][nextCellX]) {
+                    const perpX = -moveY * 2;
+                    const perpY = moveX * 2;
+                    
+                    let foundPath = false;
+                    for (let tryDir of [[perpX, perpY], [-perpX, -perpY]]) {
+                        const tryX = Math.floor(enemy.x + tryDir[0]);
+                        const tryY = Math.floor(enemy.y + tryDir[1]);
+                        if (tryX >= 0 && tryX < GRID_SIZE && tryY >= 0 && tryY < GRID_SIZE && !barrierMap[tryY][tryX]) {
+                            enemy.x += tryDir[0];
+                            enemy.y += tryDir[1];
+                            foundPath = true;
+                            break;
+                        }
                     }
-                }
-                
-                if (!foundPath) {
-                    // If blocked completely, stay in place but take damage as if hitting wall
-                    // This prevents enemies from getting stuck
+                    
+                    if (!foundPath) {
+                        const barrierX = Math.floor(enemy.x);
+                        const barrierY = Math.floor(enemy.y);
+                        damageBarrier(barrierX, barrierY, enemy.damage);
+                    }
+                } else {
+                    enemy.x = nextX;
+                    enemy.y = nextY;
                 }
             } else {
                 enemy.x = nextX;
@@ -811,11 +942,43 @@ function moveEnemies() {
             
             enemy.element.style.left = (enemy.x * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
             enemy.element.style.top = (enemy.y * CELL_SIZE * gameState.zoomLevel + 2 * gameState.zoomLevel) + 'px';
+        } else {
+            damageCore(enemy.damage);
+            const idx = gameState.enemies.indexOf(enemy);
+            if (idx > -1) {
+                gameState.enemies.splice(idx, 1);
+                enemy.element.remove();
+            }
         }
         
         const healthFill = enemy.element.querySelector('.health-fill');
         healthFill.style.width = `${(enemy.health / enemy.maxHealth) * 100}%`;
     });
+}
+
+function damageBarrier(x, y, damage) {
+    // Bounds check - prevent out of bounds access
+    if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+    const cell = gameState.grid[y][x];
+    if (cell.entity === 'barrier') {
+        cell.barrierHealth = (cell.barrierHealth || 100) - damage;
+        if (cell.barrierHealth <= 0) {
+            cell.entity = null;
+            updateGridView();
+            showMessage('Barrier destroyed!', '#f55');
+        }
+    }
+}
+
+function damageCore(damage) {
+    gameState.coreHealth -= damage;
+    gameState.achievements.coreDamageTaken += damage;
+    checkWave();
+    
+    if (gameState.coreHealth <= 0) {
+        showMessage('GAME OVER - Core Destroyed!', '#f00');
+        gameState.isPaused = true;
+    }
 }
 
 function checkWave() {
@@ -830,13 +993,26 @@ function checkWave() {
         gameState.wave++;
         gameState.enemiesInWave = 5 + gameState.wave * 3;
         gameState.waveTimer = 0;
-        showMessage(`WAVE ${gameState.wave} INCOMING!`, '#ff0');
+        gameState.achievements.wavesSurvived++;
+        
+        let waveMsg = `WAVE ${gameState.wave} INCOMING!`;
+        if (gameState.wave >= 5) waveMsg += ' (Tanks!)';
+        if (gameState.wave >= 8) waveMsg = 'WAVE ' + gameState.wave + ' INCOMING! (Flyers!)';
+        if (gameState.wave % 10 === 0) waveMsg = 'WAVE ' + gameState.wave + ' - BOSS!';
+        
+        showMessage(waveMsg, '#ff0');
     } else {
         gameState.waveTimer += TICK_RATE;
     }
     
+    const enemyCounts = {};
+    gameState.enemies.forEach(e => {
+        enemyCounts[e.type] = (enemyCounts[e.type] || 0) + 1;
+    });
+    const enemyTypeStr = Object.entries(enemyCounts).map(([t, c]) => `${c}${t[0].toUpperCase()}`).join(', ');
+    
     document.getElementById('waveInfo').textContent = 
-        `Wave: ${gameState.wave} | Enemies: ${gameState.enemies.length}/${gameState.enemiesInWave} | Core: ${Math.ceil(gameState.coreHealth)}%`;
+        `Wave: ${gameState.wave} | Enemies: ${gameState.enemies.length}/${gameState.enemiesInWave} ${enemyTypeStr ? `(${enemyTypeStr})` : ''} | Core: ${Math.ceil(gameState.coreHealth)}%`;
     
     if (gameState.wave > 25) {
         checkWinCondition();
@@ -872,6 +1048,7 @@ function updateStats() {
         <div class="stat-line">Turrets: <span>${countBuildings('turret')}</span></div>
         <div class="stat-line">Barriers: <span>${countBuildings('barrier')}</span></div>
         <div class="stat-line">Miners: <span>${countBuildings('miner')}</span></div>
+        <div class="stat-line">Kills: <span>${gameState.achievements.enemiesKilled}</span></div>
     `;
 }
 
@@ -886,7 +1063,6 @@ function drawMinimap() {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw fog of war
     for (let y = 0; y < GRID_SIZE; y++) {
         for (let x = 0; x < GRID_SIZE; x++) {
             if (gameState.revealed.has(`${x},${y}`)) {
@@ -896,7 +1072,6 @@ function drawMinimap() {
         }
     }
     
-    // Draw barriers
     for (let y = 0; y < GRID_SIZE; y++) {
         for (let x = 0; x < GRID_SIZE; x++) {
             if (gameState.grid[y][x].entity === 'barrier') {
@@ -906,7 +1081,6 @@ function drawMinimap() {
         }
     }
     
-    // Draw turrets
     for (let y = 0; y < GRID_SIZE; y++) {
         for (let x = 0; x < GRID_SIZE; x++) {
             if (gameState.grid[y][x].entity === 'turret') {
@@ -916,19 +1090,30 @@ function drawMinimap() {
         }
     }
     
-    // Draw core
     ctx.fillStyle = '#0ff';
     ctx.fillRect(CORE_POS.x * scale, CORE_POS.y * scale, scale, scale);
     
-    // Draw enemies
     gameState.enemies.forEach(enemy => {
-        ctx.fillStyle = '#f00';
-        ctx.beginPath();
-        ctx.arc(enemy.x * scale + scale/2, enemy.y * scale + scale/2, scale/3, 0, Math.PI * 2);
-        ctx.fill();
+        const colors = {
+            basic: '#f00',
+            scout: '#ff0',
+            tank: '#964B00',
+            flyer: '#90f',
+            boss: '#f06'
+        };
+        ctx.fillStyle = colors[enemy.type] || '#f00';
+        
+        if (enemy.isBoss) {
+            ctx.beginPath();
+            ctx.arc(enemy.x * scale + scale/2, enemy.y * scale + scale/2, scale/2, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.arc(enemy.x * scale + scale/2, enemy.y * scale + scale/2, scale/3, 0, Math.PI * 2);
+            ctx.fill();
+        }
     });
     
-    // Draw viewport (adjusted for zoom)
     const viewportX = -gameState.camera.x / CELL_SIZE * scale / gameState.zoomLevel;
     const viewportY = -gameState.camera.y / CELL_SIZE * scale / gameState.zoomLevel;
     const viewportW = document.getElementById('gameGrid').clientWidth / CELL_SIZE * scale / gameState.zoomLevel;
