@@ -313,8 +313,8 @@ function setupMouseControls() {
         if (isDragging) {
             const dx = e.clientX - dragStart.x;
             const dy = e.clientY - dragStart.y;
-            gameState.camera.x = cameraStart.x - dx;
-            gameState.camera.y = cameraStart.y - dy;
+            gameState.camera.x = cameraStart.x + dx;
+            gameState.camera.y = cameraStart.y + dy;
             updateCamera();
         }
     });
