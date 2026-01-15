@@ -490,6 +490,11 @@ function canPlaceBuilding(x, y, buildingType) {
     if (BUILDINGS[buildingType].requiresResource && !cell.type?.startsWith('resource-')) return false;
     if (buildingType === 'pumpjack' && cell.type !== 'resource-oil') return false;
     if (x === CORE_POS.x && y === CORE_POS.y) return false;
+    // Fog of war check - prevent building on unrevealed tiles
+    if (!gameState.revealed.has(`${x},${y}`)) {
+        showMessage('Cannot build in unexplored territory!', '#f80');
+        return false;
+    }
     return true;
 }
 
@@ -543,6 +548,12 @@ function placeBuilding(x, y) {
 function handleRightClick(x, y) {
     const cell = gameState.grid[y][x];
     if (cell.entity === 'core') return;
+    
+    // Fog of war check - prevent interacting with unrevealed tiles
+    if (!gameState.revealed.has(`${x},${y}`)) {
+        showMessage('Cannot interact with unexplored territory!', '#f80');
+        return;
+    }
     
     if (cell.entity) {
         const deconstructTime = 500;
