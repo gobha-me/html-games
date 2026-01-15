@@ -9,12 +9,14 @@
  * - enemies.js: Enemy system
  * - turrets.js: Turret combat
  * - waves.js: Wave system
- * - input.js: Controls
  * - ui.js: Rendering
+ * - input.js: Controls (MUST load after ui.js)
  */
 
-// Initialize game when DOM is ready
+// Main initialization
 function init() {
+    console.log('Initializing Factory Defense...');
+    
     // Initialize game state
     initGameState();
     initAchievementState();
@@ -27,7 +29,7 @@ function init() {
     setupGrid();
     setupCraftingButtons();
     
-    // Setup controls
+    // Setup controls (input.js loaded after ui.js)
     setupMouseControls();
     setupKeyboard();
     setupZoom();
@@ -58,6 +60,8 @@ function init() {
     
     // Load saved achievement state
     loadAchievementState();
+    
+    console.log('Factory Defense initialized');
 }
 
 // Main game loop
@@ -65,18 +69,28 @@ function gameLoop() {
     const state = getGameState();
     
     if (!state.isPaused) {
+        // Process production (buildings)
         processProduction();
+        // Process turret combat
         processTurrets();
+        // Move enemies
         moveEnemies();
+        // Update wave system
         checkWave();
+        // Update UI
         updateStats();
         updateObjectives();
+        // Check achievements
+        if (typeof checkAchievements === 'function') {
+            checkAchievements(state);
+        }
     }
     
+    // Continue loop - CRITICAL: This keeps the game running
     setTimeout(gameLoop, TICK_RATE);
 }
 
-// Start the game
+// Start the game when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

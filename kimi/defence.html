@@ -98,17 +98,26 @@
 </div>
 
 <!-- Load modules in dependency order -->
+<!-- Core dependencies first -->
 <script src="js/constants.js"></script>
 <script src="js/game-state.js"></script>
 <script src="js/world.js"></script>
+
+<!-- Game logic modules -->
 <script src="js/buildings.js"></script>
 <script src="js/enemies.js"></script>
 <script src="js/turrets.js"></script>
 <script src="js/waves.js"></script>
-<script src="js/input.js"></script>
+
+<!-- UI and input - input.js depends on ui.js functions -->
 <script src="js/ui.js"></script>
+<script src="js/input.js"></script>
+
+<!-- Other dependencies -->
 <script src="audio.js"></script>
 <script src="achievements.js"></script>
+
+<!-- Main entry point last -->
 <script src="defence.js"></script>
 </body>
 </html>
