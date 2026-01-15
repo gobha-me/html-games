@@ -34,6 +34,7 @@
         <button onclick="saveGame()" style="width: 100%; margin-top: 10px; padding: 5px; background: #040;">Save Game (F5)</button>
         <button onclick="loadGame()" style="width: 100%; margin-top: 5px; padding: 5px; background: #440;">Load Game (F9)</button>
         <button onclick="resetGame()" style="width: 100%; margin-top: 5px; padding: 5px; background: #800;">Reset (F10)</button>
+        <button onclick="openAchievements()" style="width: 100%; margin-top: 5px; padding: 5px; background: #440;">🏆 Achievements</button>
         <div id="stats"></div>
         <div id="audioControls">
             <h3>AUDIO</h3>
@@ -73,6 +74,39 @@
     </div>
 </div>
 
+<!-- Achievement notification popup -->
+<div id="achievement-popup" class="achievement-popup" style="display: none;">
+    <div class="achievement-icon" id="ach-icon">🏆</div>
+    <div class="achievement-text">
+        <div class="achievement-title">Achievement Unlocked!</div>
+        <div id="ach-name">Achievement Name</div>
+        <div id="ach-points" class="ach-points">+100 pts</div>
+    </div>
+</div>
+
+<!-- Achievement Modal -->
+<div id="achievement-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeAchievements()">&times;</span>
+        <h2>🏆 Achievements</h2>
+        <div class="achievement-stats">
+            <span id="total-points">Points: 0</span>
+            <span id="unlocked-count">Unlocked: 0/10</span>
+        </div>
+        <div id="achievement-list" class="achievement-grid"></div>
+    </div>
+</div>
+
+<!-- Load modules in dependency order -->
+<script src="js/constants.js"></script>
+<script src="js/game-state.js"></script>
+<script src="js/world.js"></script>
+<script src="js/buildings.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/turrets.js"></script>
+<script src="js/waves.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
 <script src="audio.js"></script>
 <script src="achievements.js"></script>
 <script src="defence.js"></script>
