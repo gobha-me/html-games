@@ -1,3 +1,4 @@
+
 const GRID_SIZE = 50;
 const CELL_SIZE = 32;
 const TICK_RATE = 100;
@@ -136,6 +137,13 @@ function init() {
         AudioSystem.init();
         document.removeEventListener('click', initAudio);
     }, { once: true });
+    
+    // Initialize achievements after a short delay to ensure DOM is ready
+    setTimeout(() => {
+        if (typeof initAchievements === 'function') {
+            initAchievements();
+        }
+    }, 100);
 }
 
 function setupZoom() {
@@ -558,6 +566,11 @@ function placeBuilding(x, y) {
     updateResources();
     gameState.buildingInHand = null;
     document.querySelectorAll('.building-btn').forEach(b => b.classList.remove('selected'));
+    
+    // Invalidate achievement building cache
+    if (typeof invalidateBuildingCache === 'function') {
+        invalidateBuildingCache();
+    }
 }
 
 function handleRightClick(x, y) {
@@ -583,6 +596,11 @@ function handleRightClick(x, y) {
             updateResources();
             showMessage('Deconstructed! (50% refund)', '#0f0');
         }, deconstructTime);
+        
+        // Invalidate achievement building cache
+        if (typeof invalidateBuildingCache === 'function') {
+            invalidateBuildingCache();
+        }
     }
 }
 
@@ -682,6 +700,14 @@ function gameLoop() {
         checkWave();
         updateStats();
         updateObjectives();
+        
+        // Check achievements periodically
+        if (typeof checkAchievements === 'function') {
+            const newAchievements = checkAchievements(gameState);
+            if (newAchievements && newAchievements.length > 0) {
+                // Achievement notifications handled by unlockAchievement
+            }
+        }
     }
     setTimeout(gameLoop, TICK_RATE);
 }
@@ -1204,3 +1230,4 @@ function resetGame() {
 }
 
 init();
+
