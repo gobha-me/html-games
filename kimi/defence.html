@@ -35,6 +35,18 @@
         <button onclick="loadGame()" style="width: 100%; margin-top: 5px; padding: 5px; background: #440;">Load Game (F9)</button>
         <button onclick="resetGame()" style="width: 100%; margin-top: 5px; padding: 5px; background: #800;">Reset (F10)</button>
         <div id="stats"></div>
+        <div id="audioControls">
+            <h3>AUDIO</h3>
+            <div class="audio-row">
+                <button class="audio-btn" id="sfxToggle" onclick="toggleSfx()">🔊 ON</button>
+                <button class="audio-btn" id="musicToggle" onclick="toggleMusic()">🎶 OFF</button>
+            </div>
+            <div class="volume-row">
+                <span>Volume:</span>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.7" oninput="setMasterVolume(this.value)">
+                <span id="volumeValue">70%</span>
+            </div>
+        </div>
         <div id="controls">
             <strong>CONTROLS:</strong><br>
             <span class="key">1-7</span>: Select building<br>
@@ -61,6 +73,7 @@
     </div>
 </div>
 
+<script src="audio.js"></script>
 <script src="defence.js"></script>
 </body>
 </html>

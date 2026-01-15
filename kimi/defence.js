@@ -130,6 +130,12 @@ function init() {
     setInterval(autoSave, 30000);
     updateCamera();
     setTimeout(() => showMessage('FIRST WAVE IN 60 SECONDS! Build turrets NOW!', '#f00'), 5000);
+    
+    // Initialize audio system on first user interaction
+    document.addEventListener('click', function initAudio() {
+        AudioSystem.init();
+        document.removeEventListener('click', initAudio);
+    }, { once: true });
 }
 
 function setupZoom() {
@@ -272,6 +278,7 @@ function manualCraft(item) {
         if (res === 'time') continue;
         if (gameState.resources[res] < cost) {
             showMessage(`Not enough ${res}!`, '#f80');
+            AudioSystem.playLowResource();
             return;
         }
     }
@@ -382,6 +389,7 @@ function handleCellClick(x, y, e) {
         const resource = cell.type.split('-')[1];
         cell.amount -= 1;
         gameState.resources[resource] += 1;
+        AudioSystem.playMining();
         showMessage(`+1 ${resource}`, '#0f0');
         updateGridView();
         updateResources();
@@ -465,6 +473,11 @@ function setupKeyboard() {
 
 function togglePause() {
     gameState.isPaused = !gameState.isPaused;
+    if (gameState.isPaused) {
+        AudioSystem.stopAmbient();
+    } else {
+        AudioSystem.startAmbient();
+    }
     showMessage(gameState.isPaused ? 'PAUSED - Press P to resume' : 'RESUMED', '#ff0');
 }
 
@@ -524,6 +537,7 @@ function placeBuilding(x, y) {
             .map(([res, cost]) => `${cost - Math.floor(gameState.resources[res])} ${res}`)
             .join(', ');
         showMessage(`Need: ${needed}`, '#f80');
+        AudioSystem.playLowResource();
         gameState.buildingInHand = null;
         document.querySelectorAll('.building-btn').forEach(b => b.classList.remove('selected'));
         return;
@@ -538,6 +552,7 @@ function placeBuilding(x, y) {
     cell.lastProduced = Date.now();
     cell.barrierHealth = building === 'barrier' ? 100 : undefined;
 
+    AudioSystem.playBuildingPlace();
     revealArea(x, y, 4);
     updateGridView();
     updateResources();
@@ -562,6 +577,7 @@ function handleRightClick(x, y) {
             Object.entries(BUILDINGS[cell.entity].cost).forEach(([res, cost]) => {
                 gameState.resources[res] += Math.floor(cost / 2);
             });
+            AudioSystem.playDeconstruct();
             cell.entity = null;
             updateGridView();
             updateResources();
@@ -744,6 +760,8 @@ function fireTurret(x, y, target) {
     if (cell) cell.classList.add('firing');
     setTimeout(() => cell?.classList.remove('firing'), 200);
     
+    AudioSystem.playTurretFire();
+    
     const projectile = document.createElement('div');
     projectile.className = 'projectile';
     projectile.style.left = (x * CELL_SIZE * gameState.zoomLevel + 14 * gameState.zoomLevel) + 'px';
@@ -761,6 +779,8 @@ function fireTurret(x, y, target) {
         target.health -= 50;
         if (target.health <= 0) {
             killEnemy(target);
+        } else {
+            AudioSystem.playEnemyHit();
         }
     }, distance * 30);
 }
@@ -778,6 +798,8 @@ function killEnemy(enemy) {
     
     enemy.element.remove();
     gameState.achievements.enemiesKilled++;
+    
+    AudioSystem.playEnemyHit();
     
     if (enemy.type === 'boss' && enemy.spawnsMinions && !enemy.minionsSpawned) {
         enemy.minionsSpawned = true;
@@ -875,6 +897,7 @@ function spawnEnemies() {
         if (gameState.gameTime >= FIRST_WAVE_DELAY) {
             gameState.firstWaveSpawned = true;
             showMessage('FIRST WAVE ARRIVES!', '#f00');
+            AudioSystem.playWaveAnnounce();
         }
         return;
     }
@@ -891,6 +914,11 @@ function spawnEnemies() {
     
     const enemyType = selectEnemyType();
     const enemy = createEnemy(enemyType, x, y);
+    
+    // Play boss spawn sound
+    if (enemyType === 'boss') {
+        AudioSystem.playBossSpawn();
+    }
     
     document.getElementById('grid').appendChild(enemy.element);
     gameState.enemies.push(enemy);
@@ -975,6 +1003,7 @@ function damageBarrier(x, y, damage) {
         cell.barrierHealth = (cell.barrierHealth || 100) - damage;
         if (cell.barrierHealth <= 0) {
             cell.entity = null;
+            AudioSystem.playDeconstruct();
             updateGridView();
             showMessage('Barrier destroyed!', '#f55');
         }
@@ -988,6 +1017,8 @@ function damageCore(damage) {
     
     if (gameState.coreHealth <= 0) {
         showMessage('GAME OVER - Core Destroyed!', '#f00');
+        AudioSystem.playGameOver();
+        AudioSystem.stopAmbient();
         gameState.isPaused = true;
     }
 }
@@ -1012,9 +1043,14 @@ function checkWave() {
         if (gameState.wave % 10 === 0) waveMsg = 'WAVE ' + gameState.wave + ' - BOSS!';
         
         showMessage(waveMsg, '#ff0');
+        AudioSystem.playWaveAnnounce();
     } else {
         gameState.waveTimer += TICK_RATE;
     }
+    
+    // Update ambient music tension based on wave state
+    const inWave = gameState.waveTimer > 0 && gameState.waveTimer < WAVE_DURATION;
+    AudioSystem.updateAmbientForWave(gameState.wave, inWave);
     
     const enemyCounts = {};
     gameState.enemies.forEach(e => {
@@ -1035,6 +1071,8 @@ function checkWinCondition() {
         for (let x = 0; x < GRID_SIZE; x++) {
             if (gameState.grid[y][x].entity === 'silo' && !gameState.rocketLaunched) {
                 showMessage('ROCKET LAUNCHING... VICTORY!', '#0f0');
+                AudioSystem.playVictory();
+                AudioSystem.stopAmbient();
                 gameState.rocketLaunched = true;
                 gameState.isPaused = true;
                 gameState.objectives[4] = true;
@@ -1159,6 +1197,7 @@ function autoSave() {
 
 function resetGame() {
     if (confirm('Reset game? All progress will be lost.')) {
+        AudioSystem.stopAmbient();
         localStorage.removeItem('factory_defense_v6');
         location.reload();
     }
