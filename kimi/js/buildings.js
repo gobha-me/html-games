@@ -31,9 +31,13 @@ function canPlaceBuilding(x, y, buildingType) {
 function placeBuilding(x, y) {
     const state = getGameState();
     
-    if (!state.buildingInHand) return;
+    if (!state.buildingInHand) {
+        console.log('placeBuilding: no building in hand');
+        return;
+    }
     
     const building = state.buildingInHand.type;
+    console.log('placeBuilding: placing', building, 'at', x, y);
     
     // Cannot build on core
     if (x === CORE_POS.x && y === CORE_POS.y) {
@@ -76,6 +80,8 @@ function placeBuilding(x, y) {
     cell.rotation = state.buildingInHand.rotation;
     cell.lastProduced = Date.now();
     cell.barrierHealth = building === 'barrier' ? 100 : undefined;
+    
+    console.log('Building placed, cell.entity:', cell.entity);
     
     // Play sound and reveal area
     AudioSystem?.playBuildingPlace();
@@ -130,10 +136,19 @@ function handleRightClick(x, y) {
 }
 
 function handleCellClick(x, y, e) {
+    console.log('handleCellClick called for', x, y, 'buildingInHand:', getGameState()?.buildingInHand);
     const state = getGameState();
     const cell = getCell(x, y);
     
-    if (state.isPaused) return;
+    if (!cell) {
+        console.log('handleCellClick: cell is null');
+        return;
+    }
+    
+    if (state.isPaused) {
+        console.log('handleCellClick: game is paused');
+        return;
+    }
     
     // Mining resources
     if (!state.buildingInHand && isRevealed(x, y) && 

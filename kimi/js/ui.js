@@ -5,6 +5,12 @@
 
 function setupGrid() {
     const gridEl = document.getElementById('grid');
+    if (!gridEl) {
+        console.error('setupGrid: grid element not found!');
+        return;
+    }
+    
+    console.log('Setting up grid with GRID_SIZE:', GRID_SIZE);
     gridEl.style.gridTemplateColumns = `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`;
     gridEl.innerHTML = '';
     
@@ -19,17 +25,26 @@ function setupGrid() {
             gridEl.appendChild(cell);
         }
     }
+    console.log('Grid setup complete, cells created:', gridEl.children.length);
     updateGridView();
 }
 
 function updateGridView() {
     const cells = document.querySelectorAll('.cell');
     const state = getGameState();
+    
+    if (!state) {
+        console.error('updateGridView: game state not initialized!');
+        return;
+    }
+    
     const scaledCellSize = CELL_SIZE * state.zoomLevel;
     
     cells.forEach(cell => {
         const x = +cell.dataset.x, y = +cell.dataset.y;
         const data = getCell(x, y);
+        if (!data) return;
+        
         const isRevealed = state.revealed.has(`${x},${y}`);
         
         cell.className = `cell ${isRevealed ? data.type : 'fog'}`;
@@ -54,6 +69,11 @@ function updateGridView() {
 
 function renderBuildingList() {
     const list = document.getElementById('buildingList');
+    if (!list) {
+        console.error('renderBuildingList: buildingList element not found!');
+        return;
+    }
+    
     list.innerHTML = '';
     
     Object.entries(BUILDINGS).forEach(([key, building]) => {
@@ -105,6 +125,8 @@ function selectBuilding(type) {
 
 function updateResources() {
     const resDiv = document.getElementById('resources');
+    if (!resDiv) return;
+    
     resDiv.innerHTML = RESOURCES.map(r => 
         `<div class="stat-line">${r}: <span>${Math.floor(getGameState().resources[r])}</span></div>`
     ).join('');
@@ -117,21 +139,40 @@ function updateResources() {
     updateCraftingButtons();
 }
 
+/**
+ * Setup crafting button event handlers and initial state.
+ * Called once during game initialization.
+ */
+function setupCraftingButtons() {
+    const gearBtn = document.getElementById('craft-gear');
+    const circuitBtn = document.getElementById('craft-circuit');
+    const ammoBtn = document.getElementById('craft-ammo');
+    
+    // Buttons already have onclick in HTML, just update initial state
+    updateCraftingButtons();
+}
+
 function updateCraftingButtons() {
     const state = getGameState();
     
     const gearBtn = document.getElementById('craft-gear');
-    gearBtn.classList.toggle('disabled', state.resources.iron < MANUAL_RECIPES.gear.iron);
+    if (gearBtn) {
+        gearBtn.classList.toggle('disabled', state.resources.iron < MANUAL_RECIPES.gear.iron);
+    }
     
     const circuitBtn = document.getElementById('craft-circuit');
-    circuitBtn.classList.toggle('disabled', 
-        state.resources.copper < MANUAL_RECIPES.circuit.copper || 
-        state.resources.iron < MANUAL_RECIPES.circuit.iron);
+    if (circuitBtn) {
+        circuitBtn.classList.toggle('disabled', 
+            state.resources.copper < MANUAL_RECIPES.circuit.copper || 
+            state.resources.iron < MANUAL_RECIPES.circuit.iron);
+    }
     
     const ammoBtn = document.getElementById('craft-ammo');
-    ammoBtn.classList.toggle('disabled', 
-        state.resources.iron < MANUAL_RECIPES.ammo.iron || 
-        state.resources.copper < MANUAL_RECIPES.ammo.copper);
+    if (ammoBtn) {
+        ammoBtn.classList.toggle('disabled', 
+            state.resources.iron < MANUAL_RECIPES.ammo.iron || 
+            state.resources.copper < MANUAL_RECIPES.ammo.copper);
+    }
 }
 
 function updateObjectives() {
@@ -183,6 +224,8 @@ function showMessage(text, color) {
 
 function drawMinimap() {
     const canvas = document.getElementById('minimap');
+    if (!canvas) return;
+    
     const ctx = canvas.getContext('2d');
     canvas.width = 150;
     canvas.height = 150;
@@ -263,7 +306,7 @@ function drawMinimap() {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         setupGrid, updateGridView, renderBuildingList, showTooltip, hideTooltip,
-        selectBuilding, updateResources, updateCraftingButtons, updateObjectives,
-        updateStats, showMessage, drawMinimap
+        selectBuilding, updateResources, setupCraftingButtons, updateCraftingButtons,
+        updateObjectives, updateStats, showMessage, drawMinimap
     };
 }

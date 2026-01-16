@@ -43,35 +43,43 @@ const AudioSystem = (function() {
     }
     
     function resume() {
+        if (!audioCtx) {
+            init();
+        }
         if (audioCtx && audioCtx.state === 'suspended') {
             audioCtx.resume();
         }
     }
     
     function setMasterVolume(volume) {
+        resume();
         if (masterGain) {
             masterGain.gain.setValueAtTime(volume, audioCtx.currentTime);
         }
     }
     
     function setSfxVolume(volume) {
+        resume();
         if (sfxGain) {
             sfxGain.gain.setValueAtTime(volume, audioCtx.currentTime);
         }
     }
     
     function setMusicVolume(volume) {
+        resume();
         if (musicGain) {
             musicGain.gain.setValueAtTime(volume, audioCtx.currentTime);
         }
     }
     
     function toggleSfx() {
+        resume();
         settings.sfxEnabled = !settings.sfxEnabled;
         return settings.sfxEnabled;
     }
     
     function toggleMusic() {
+        resume();
         settings.musicEnabled = !settings.musicEnabled;
         if (settings.musicEnabled) {
             startAmbient();
@@ -476,20 +484,27 @@ const AudioSystem = (function() {
 
 // Global functions for HTML integration
 function toggleSfx() {
-    AudioSystem.resume();
     const enabled = AudioSystem.toggleSfx();
-    document.getElementById('sfxToggle').textContent = enabled ? '🔊 ON' : '🔇 OFF';
-    document.getElementById('sfxToggle').classList.toggle('off', !enabled);
+    const btn = document.getElementById('sfxToggle');
+    if (btn) {
+        btn.textContent = enabled ? '🔊 ON' : '🔇 OFF';
+        btn.classList.toggle('off', !enabled);
+    }
 }
 
 function toggleMusic() {
-    AudioSystem.resume();
     const enabled = AudioSystem.toggleMusic();
-    document.getElementById('musicToggle').textContent = enabled ? '🎵 ON' : '🎶 OFF';
-    document.getElementById('musicToggle').classList.toggle('off', !enabled);
+    const btn = document.getElementById('musicToggle');
+    if (btn) {
+        btn.textContent = enabled ? '🎵 ON' : '🎶 OFF';
+        btn.classList.toggle('off', !enabled);
+    }
 }
 
 function setMasterVolume(value) {
     AudioSystem.setMasterVolume(value);
-    document.getElementById('volumeValue').textContent = Math.round(value * 100) + '%';
+    const volDisplay = document.getElementById('volumeValue');
+    if (volDisplay) {
+        volDisplay.textContent = Math.round(value * 100) + '%';
+    }
 }

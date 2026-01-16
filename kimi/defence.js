@@ -52,14 +52,14 @@ function init() {
     // First wave warning
     setTimeout(() => showMessage('FIRST WAVE IN 60 SECONDS! Build turrets NOW!', '#f00'), 5000);
     
+    // Initialize achievements system
+    initAchievements();
+    
     // Initialize audio on first user interaction
     document.addEventListener('click', function initAudio() {
         AudioSystem?.init();
         document.removeEventListener('click', initAudio);
     }, { once: true });
-    
-    // Load saved achievement state
-    loadAchievementState();
     
     console.log('Factory Defense initialized');
 }
