@@ -92,8 +92,8 @@ function spawnEnemies() {
         return;
     }
     
-    // Limit enemies per wave
-    if (state.enemies.length >= state.enemiesInWave) return;
+    // Limit spawns per wave - FIX: track total spawned this wave
+    if (state.enemiesSpawnedThisWave >= state.enemiesInWave) return;
     
     // Random spawn edge with offset to prevent getting stuck at edges
     const side = Math.floor(Math.random() * 4);
@@ -129,6 +129,7 @@ function spawnEnemies() {
     
     document.getElementById('grid').appendChild(enemy.element);
     state.enemies.push(enemy);
+    state.enemiesSpawnedThisWave++;
 }
 
 function spawnMinions(x, y, count) {

@@ -14,10 +14,12 @@ function checkWave() {
         return;
     }
     
-    // Wave completion
-    if (state.waveTimer >= WAVE_DURATION && getEnemyCount() === 0) {
+    // FIX: Wave completes when ALL spawned enemies are dead
+    // This ensures wave number increases even if some enemies survive past timer
+    if (state.enemiesSpawnedThisWave >= state.enemiesInWave && getEnemyCount() === 0) {
         state.wave++;
         state.enemiesInWave = 5 + state.wave * 3;
+        state.enemiesSpawnedThisWave = 0;
         state.waveTimer = 0;
         state.achievements.wavesSurvived++;
         
@@ -35,7 +37,7 @@ function checkWave() {
     }
     
     // Update ambient tension
-    const inWave = state.waveTimer > 0 && state.waveTimer < WAVE_DURATION;
+    const inWave = state.enemiesSpawnedThisWave < state.enemiesInWave || getEnemyCount() > 0;
     AudioSystem?.updateAmbientForWave(state.wave, inWave);
     
     // Update wave info display

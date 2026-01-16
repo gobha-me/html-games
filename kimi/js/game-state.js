@@ -17,6 +17,7 @@ function createInitialGameState() {
         coreHealth: CORE_MAX_HEALTH,
         wave: 1,
         enemiesInWave: 3,
+        enemiesSpawnedThisWave: 0,
         waveTimer: 0,
         gameTime: 0,
         revealed: new Set(),
