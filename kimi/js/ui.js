@@ -62,6 +62,15 @@ function updateGridView() {
             } else {
                 building.textContent = BUILDINGS[data.entity]?.icon || '';
             }
+            
+            // Add assembler production indicator
+            if (data.entity === 'assembler') {
+                const indicator = document.createElement('div');
+                indicator.className = `assembler-indicator ${data.productionActive ? 'producing' : ''}`;
+                indicator.innerHTML = ASSEMBLER_RECIPES[data.productionType]?.icon || ASSEMBLER_RECIPES.ammo.icon;
+                building.appendChild(indicator);
+            }
+            
             cell.appendChild(building);
         }
     });
@@ -222,6 +231,93 @@ function showMessage(text, color) {
     setTimeout(() => msg.style.display = 'none', 3000);
 }
 
+function showAssemblerConfig(x, y) {
+    const cell = getCell(x, y);
+    if (!cell || cell.entity !== 'assembler') return;
+    
+    const modal = document.getElementById('assembler-modal');
+    const currentType = cell.productionType || 'ammo';
+    const currentRecipe = ASSEMBLER_RECIPES[currentType];
+    
+    // Update modal content
+    const titleEl = document.getElementById('assembler-title');
+    const infoEl = document.getElementById('assembler-info');
+    const statusEl = document.getElementById('assembler-status');
+    const recipeOptionsEl = document.getElementById('assembler-recipes');
+    
+    if (titleEl) titleEl.textContent = `⚙️ Assembler Configuration`;
+    if (infoEl) {
+        const inputStr = Object.entries(currentRecipe.inputs).map(([r, a]) => `${a} ${r}`).join(', ');
+        infoEl.innerHTML = `
+            <div class="assembler-info-row">
+                <span>Current:</span>
+                <span class="assembler-current">${currentRecipe.icon} ${currentRecipe.name}</span>
+            </div>
+            <div class="assembler-info-row">
+                <span>Inputs:</span>
+                <span>${inputStr}</span>
+            </div>
+            <div class="assembler-info-row">
+                <span>Output:</span>
+                <span>${Object.entries(currentRecipe.output).map(([r, a]) => `${a} ${r}`).join(', ')}</span>
+            </div>
+        `;
+    }
+    
+    // Update status indicator
+    if (statusEl) {
+        const state = getGameState();
+        const canProduce = Object.entries(currentRecipe.inputs).every(
+            ([res, amount]) => state.resources[res] >= amount
+        );
+        statusEl.innerHTML = `
+            <div class="assembler-status ${cell.productionActive ? 'active' : 'inactive'}">
+                <span class="status-icon">${cell.productionActive ? '⚡' : '⏸️'}</span>
+                <span>${cell.productionActive ? 'Producing' : 'Waiting for resources'}</span>
+            </div>
+        `;
+    }
+    
+    // Build recipe options
+    if (recipeOptionsEl) {
+        recipeOptionsEl.innerHTML = '';
+        Object.entries(ASSEMBLER_RECIPES).forEach(([type, recipe]) => {
+            const option = document.createElement('div');
+            option.className = `assembler-option ${currentType === type ? 'selected' : ''}`;
+            option.innerHTML = `
+                <div class="recipe-icon">${recipe.icon}</div>
+                <div class="recipe-info">
+                    <div class="recipe-name">${recipe.name}</div>
+                    <div class="recipe-desc">${recipe.description}</div>
+                    <div class="recipe-cost">In: ${Object.entries(recipe.inputs).map(([r,a]) => `${a} ${r}`).join(', ')} → Out: ${Object.entries(recipe.output).map(([r,a]) => `${a} ${r}`).join(', ')}</div>
+                </div>
+            `;
+            option.addEventListener('click', () => {
+                cell.productionType = type;
+                updateGridView();
+                closeAssemblerConfig();
+                showAssemblerConfig(x, y); // Reopen with new selection
+            });
+            recipeOptionsEl.appendChild(option);
+        });
+    }
+    
+    // Store position for close handler
+    modal.dataset.targetX = x;
+    modal.dataset.targetY = y;
+    
+    if (modal) modal.style.display = 'block';
+}
+
+function closeAssemblerConfig() {
+    const modal = document.getElementById('assembler-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// Global exposure for HTML onclick handlers
+window.showAssemblerConfig = showAssemblerConfig;
+window.closeAssemblerConfig = closeAssemblerConfig;
+
 function drawMinimap() {
     const canvas = document.getElementById('minimap');
     if (!canvas) return;
@@ -307,6 +403,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         setupGrid, updateGridView, renderBuildingList, showTooltip, hideTooltip,
         selectBuilding, updateResources, setupCraftingButtons, updateCraftingButtons,
-        updateObjectives, updateStats, showMessage, drawMinimap
+        updateObjectives, updateStats, showMessage, drawMinimap,
+        showAssemblerConfig, closeAssemblerConfig
     };
 }

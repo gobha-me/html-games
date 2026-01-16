@@ -71,6 +71,24 @@ const BUILDINGS = {
     }
 };
 
+// Assembler production recipes
+const ASSEMBLER_RECIPES = {
+    ammo: {
+        name: 'Ammo',
+        icon: '💣',
+        inputs: { iron: 2, copper: 1 },
+        output: { ammo: 5 },
+        description: 'Produces ammunition for turrets'
+    },
+    circuit: {
+        name: 'Circuit',
+        icon: '🔋',
+        inputs: { copper: 2, iron: 1 },
+        output: { circuit: 1 },
+        description: 'Produces electronic circuits'
+    }
+};
+
 // Resource types
 const RESOURCES = ['iron', 'copper', 'coal', 'stone', 'oil', 'gear', 'circuit', 'steel', 'ammo'];
 
@@ -144,6 +162,6 @@ if (typeof module !== 'undefined' && module.exports) {
         FIRST_WAVE_DELAY, START_REVEAL_RADIUS, CORE_MAX_HEALTH,
         MIN_ZOOM, MAX_ZOOM, ZOOM_STEP,
         BUILDING_KEYS, BUILDINGS, RESOURCES, STARTING_RESOURCES,
-        MANUAL_RECIPES, ENEMY_TYPES, CORE_POS
+        ASSEMBLER_RECIPES, MANUAL_RECIPES, ENEMY_TYPES, CORE_POS
     };
 }

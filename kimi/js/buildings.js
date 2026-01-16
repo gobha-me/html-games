@@ -81,6 +81,11 @@ function placeBuilding(x, y) {
     cell.lastProduced = Date.now();
     cell.barrierHealth = building === 'barrier' ? 100 : undefined;
     
+    // Set default production type for assembler
+    if (building === 'assembler') {
+        cell.productionType = 'ammo';
+    }
+    
     console.log('Building placed, cell.entity:', cell.entity);
     
     // Play sound and reveal area
@@ -150,6 +155,13 @@ function handleCellClick(x, y, e) {
         return;
     }
     
+    // Click on assembler to configure production
+    if (!state.buildingInHand && cell.entity === 'assembler' && isRevealed(x, y)) {
+        e.stopPropagation();
+        showAssemblerConfig(x, y);
+        return;
+    }
+    
     // Mining resources
     if (!state.buildingInHand && isRevealed(x, y) && 
         cell.type && cell.type.startsWith('resource-') && cell.amount > 0) {
@@ -194,11 +206,24 @@ function processProduction() {
                     }
                     break;
                 case 'assembler':
-                    if (state.resources.ammo < 200 && state.resources.iron >= 2 && state.resources.copper >= 1) {
-                        state.resources.iron -= 2;
-                        state.resources.copper -= 1;
-                        state.resources.ammo += 5;
+                    const recipe = ASSEMBLER_RECIPES[cell.productionType] || ASSEMBLER_RECIPES.ammo;
+                    const canProduce = Object.entries(recipe.inputs).every(
+                        ([res, amount]) => state.resources[res] >= amount
+                    );
+                    const outputKey = Object.keys(recipe.output)[0];
+                    const outputLimit = outputKey === 'ammo' ? 200 : 100;
+                    
+                    if (state.resources[outputKey] < outputLimit && canProduce) {
+                        Object.entries(recipe.inputs).forEach(([res, amount]) => {
+                            state.resources[res] -= amount;
+                        });
+                        Object.entries(recipe.output).forEach(([res, amount]) => {
+                            state.resources[res] += amount;
+                        });
                         cell.lastProduced = now;
+                        cell.productionActive = true;
+                    } else {
+                        cell.productionActive = false;
                     }
                     break;
                 case 'pumpjack':

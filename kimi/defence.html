@@ -58,7 +58,8 @@
             <span class="key">Middle Mouse</span>: Drag map<br>
             <span class="key">WASD</span>: Pan camera<br>
             <span class="key">P</span>: Pause<br>
-            <span style="color: #f80;">TIP: Click resource tiles to mine by hand!</span>
+            <span style="color: #f80;">TIP: Click resource tiles to mine by hand!</span><br>
+            <span style="color: #0f8;">TIP: Click Assembler to configure production!</span>
         </div>
     </div>
     <div id="gameGrid">
@@ -94,6 +95,18 @@
             <span id="unlocked-count">Unlocked: 0/10</span>
         </div>
         <div id="achievement-list" class="achievement-grid"></div>
+    </div>
+</div>
+
+<!-- Assembler Configuration Modal -->
+<div id="assembler-modal" class="modal" style="display: none;">
+    <div class="modal-content assembler-modal-content">
+        <span class="close" onclick="closeAssemblerConfig()">&times;</span>
+        <h2 id="assembler-title">⚙️ Assembler Configuration</h2>
+        <div id="assembler-info" class="assembler-info"></div>
+        <div id="assembler-status"></div>
+        <h3>Select Production</h3>
+        <div id="assembler-recipes" class="assembler-recipes"></div>
     </div>
 </div>
 
