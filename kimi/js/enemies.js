@@ -95,14 +95,28 @@ function spawnEnemies() {
     // Limit enemies per wave
     if (state.enemies.length >= state.enemiesInWave) return;
     
-    // Random spawn edge
+    // Random spawn edge with offset to prevent getting stuck at edges
     const side = Math.floor(Math.random() * 4);
+    const edgeOffset = 1;
     let x, y;
+    
     switch(side) {
-        case 0: x = Math.floor(Math.random() * GRID_SIZE); y = 0; break;
-        case 1: x = GRID_SIZE-1; y = Math.floor(Math.random() * GRID_SIZE); break;
-        case 2: x = Math.floor(Math.random() * GRID_SIZE); y = GRID_SIZE-1; break;
-        default: x = 0; y = Math.floor(Math.random() * GRID_SIZE);
+        case 0: // Top edge
+            x = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            y = edgeOffset;
+            break;
+        case 1: // Right edge
+            x = GRID_SIZE - edgeOffset - 1;
+            y = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            break;
+        case 2: // Bottom edge
+            x = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            y = GRID_SIZE - edgeOffset - 1;
+            break;
+        default: // Left edge
+            x = edgeOffset;
+            y = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            break;
     }
     
     const enemyType = selectEnemyType();
@@ -125,8 +139,8 @@ function spawnMinions(x, y, count) {
         const spawnX = x + Math.cos(angle) * 2;
         const spawnY = y + Math.sin(angle) * 2;
         
-        // Bounds check
-        if (spawnX < 0 || spawnX >= GRID_SIZE || spawnY < 0 || spawnY >= GRID_SIZE) {
+        // Bounds check with offset to prevent edge spawning
+        if (spawnX < 1 || spawnX >= GRID_SIZE - 1 || spawnY < 1 || spawnY >= GRID_SIZE - 1) {
             continue;
         }
         
@@ -153,7 +167,10 @@ function moveEnemies() {
         }
     }
     
-    state.enemies.forEach(enemy => {
+    // Iterate backwards to safely remove enemies
+    for (let i = state.enemies.length - 1; i >= 0; i--) {
+        const enemy = state.enemies[i];
+        
         let dx = enemy.targetX - enemy.x;
         let dy = enemy.targetY - enemy.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
@@ -162,8 +179,13 @@ function moveEnemies() {
             const moveX = dx / dist * enemy.speed;
             const moveY = dy / dist * enemy.speed;
             
-            const nextX = enemy.x + moveX;
-            const nextY = enemy.y + moveY;
+            let nextX = enemy.x + moveX;
+            let nextY = enemy.y + moveY;
+            
+            // Boundary check - clamp to valid grid range
+            nextX = Math.max(1, Math.min(GRID_SIZE - 2, nextX));
+            nextY = Math.max(1, Math.min(GRID_SIZE - 2, nextY));
+            
             const nextCellX = Math.floor(nextX);
             const nextCellY = Math.floor(nextY);
             
@@ -202,11 +224,8 @@ function moveEnemies() {
         } else {
             // Reached core
             damageCore(enemy.damage);
-            const idx = state.enemies.indexOf(enemy);
-            if (idx > -1) {
-                state.enemies.splice(idx, 1);
-                enemy.element.remove();
-            }
+            state.enemies.splice(i, 1);
+            enemy.element.remove();
         }
         
         // Update health bar
@@ -214,7 +233,7 @@ function moveEnemies() {
         if (healthFill) {
             healthFill.style.width = `${(enemy.health / enemy.maxHealth) * 100}%`;
         }
-    });
+    }
 }
 
 function damageBarrier(x, y, damage) {
