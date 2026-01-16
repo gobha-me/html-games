@@ -1,211 +1,704 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Courier New', monospace; background: #1a1a1a; color: #fff; overflow: hidden; }
-#gameContainer { display: flex; height: 100vh; }
-#sidebar { width: 280px; background: #2a2a2a; border-right: 2px solid #444; padding: 10px; overflow-y: auto; }
-#gameGrid { flex: 1; position: relative; background: #0a0a0a; overflow: hidden; cursor: grab; }
-#gameGrid.dragging { cursor: grabbing; }
-.toolbar { margin-bottom: 15px; }
-.toolbar h3 { font-size: 11px; color: #aaa; margin-bottom: 5px; text-transform: uppercase; }
-.building-btn { 
-    display: inline-block; width: 40px; height: 40px; margin: 2px; 
-    background: #333; border: 2px solid #555; cursor: pointer; 
-    position: relative; font-size: 20px; text-align: center; line-height: 36px;
+/* ============================================================================
+   FACTORY DEFENSE - Core Protector + Zoom Edition
+   ============================================================================ */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body {
+    background: #000;
+    color: #ddd;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+}
+
+#gameContainer {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+/* ============================================================================
+   SIDEBAR
+   ============================================================================ */
+
+#sidebar {
+    width: 260px;
+    background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+    border-right: 1px solid #333;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#sidebar h3 {
+    color: #888;
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 4px;
+}
+
+#objectives {
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 11px;
+}
+
+.objective {
+    padding: 4px 6px;
+    margin: 3px 0;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.05);
+    transition: all 0.3s;
+}
+
+.objective.complete {
+    color: #0f0;
+    background: rgba(0,255,0,0.1);
+}
+
+/* ============================================================================
+   RESOURCES
+   ============================================================================ */
+
+.toolbar {
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.stat-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 2px 0;
+}
+
+.stat-line span {
+    color: #0ff;
+    font-family: monospace;
+}
+
+#resources .stat-line span {
+    min-width: 40px;
+    text-align: right;
+}
+
+/* ============================================================================
+   BUILDING LIST
+   ============================================================================ */
+
+#buildingList {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.building-btn {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 20px;
     transition: all 0.2s;
-}
-.building-btn:hover { background: #444; border-color: #888; transform: scale(1.1); }
-.building-btn.selected { background: #006; border-color: #08f; }
-.building-btn.disabled { opacity: 0.3; cursor: not-allowed; }
-.building-btn .keybind { position: absolute; top: -2px; right: 2px; font-size: 9px; color: #ff0; }
-#grid { display: grid; gap: 0; padding: 20px; position: absolute; transform-origin: center center; }
-.cell { 
-    width: 32px; height: 32px; border: 1px solid #222; 
-    position: relative; background: #111; user-select: none;
-}
-.cell:hover { border-color: #666; }
-
-/* IMPROVED RESOURCE COLORS - more distinct */
-.cell.resource-iron { background: #5a5a8a; }
-.cell.resource-iron::before { content: "●"; color: #6a6aff; font-size: 8px; position: absolute; top: 1px; left: 1px; }
-
-.cell.resource-copper { background: #b87333; }
-.cell.resource-copper::before { content: "●"; color: #ffa500; font-size: 8px; position: absolute; top: 1px; left: 1px; }
-
-.cell.resource-coal { background: #1a1a1a; }
-.cell.resource-coal::before { content: "●"; color: #444; font-size: 8px; position: absolute; top: 1px; left: 1px; }
-
-.cell.resource-stone { background: #a0a0a0; }
-.cell.resource-stone::before { content: "●"; color: #ccc; font-size: 8px; position: absolute; top: 1px; left: 1px; }
-
-.cell.resource-oil { background: #222; animation: oilPulse 2s infinite; }
-.cell.resource-oil::before { content: "●"; color: #222; font-size: 8px; position: absolute; top: 1px; left: 1px; animation: oilPulse 2s infinite; }
-
-.cell.fog { background: #000; }
-.cell.core { background: radial-gradient(circle, #0ff 0%, #00f 100%); animation: corePulse 1s infinite; }
-
-@keyframes oilPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-@keyframes corePulse { 0%,100% { box-shadow: 0 0 10px #0ff; } 50% { box-shadow: 0 0 20px #0ff, 0 0 30px #00f; } }
-
-.building { 
-    position: absolute; width: 100%; height: 100%; 
-    pointer-events: none; font-size: 24px; line-height: 32px; text-align: center;
-}
-.rot-0 { transform: rotate(0deg); }
-.rot-90 { transform: rotate(90deg); }
-.rot-180 { transform: rotate(180deg); }
-.rot-270 { transform: rotate(270deg); }
-.miner { animation: mine 1.5s infinite; }
-
-@keyframes mine { 0% { transform: scale(1); } 50% { transform: scale(0.9); } }
-.turret { color: #f00; }
-.turret.firing { animation: fire 0.2s; }
-
-@keyframes fire { 0% { transform: scale(1); } 50% { transform: scale(1.3); filter: brightness(2); } }
-
-/* Assembler Production Indicator */
-.assembler-indicator {
-    position: absolute; bottom: 2px; right: 2px;
-    font-size: 10px; width: 14px; height: 14px;
-    background: rgba(0, 0, 0, 0.7); border-radius: 3px;
-    display: flex; align-items: center; justify-content: center;
-    animation: pulse 1s infinite;
-}
-.assembler-indicator.producing {
-    background: rgba(0, 255, 0, 0.3);
-    animation: pulse 0.5s infinite;
+    position: relative;
 }
 
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+.building-btn:hover {
+    background: #252525;
+    border-color: #555;
 }
 
-/* Enemy Types */
-.enemy { 
-    position: absolute; width: 28px; height: 28px; 
-    background: #800; border-radius: 50%; border: 2px solid #f00;
-    transition: left 0.1s, top 0.1s; z-index: 100;
-    display: flex; align-items: center; justify-content: center;
-}
-.enemy::after { content: "👾"; font-size: 20px; position: absolute; }
-
-/* Scout - Small, fast, yellow/orange pulsing */
-.enemy.scout { 
-    width: 20px; height: 20px; 
-    background: #880; border-color: #ff0;
-    animation: scoutPulse 0.5s infinite alternate;
-}
-.enemy.scout::after { content: "🦗"; font-size: 14px; }
-@keyframes scoutPulse { from { box-shadow: 0 0 5px #ff0; } to { box-shadow: 0 0 10px #ff0, 0 0 15px #fa0; } }
-
-/* Tank - Large, armored brown, slow pulsing */
-.enemy.tank { 
-    width: 38px; height: 38px; 
-    background: #543; border: 4px solid #964B00;
-    animation: tankPulse 2s infinite;
-}
-.enemy.tank::after { content: "🪨"; font-size: 28px; }
-@keyframes tankPulse { 0%,100% { box-shadow: 0 0 5px #964B00; } 50% { box-shadow: 0 0 15px #964B00, 0 0 25px #765; } }
-
-/* Flyer - Purple, floating animation, irregular shape */
-.enemy.flyer { 
-    width: 26px; height: 26px; 
-    background: #309; border-color: #90f;
-    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-    animation: float 1s infinite ease-in-out;
-}
-.enemy.flyer::after { content: "🦇"; font-size: 18px; }
-@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-
-/* Boss - Largest, glowing red/purple, pulsing animation */
-.enemy.boss { 
-    width: 42px; height: 42px; 
-    background: #509; border: 4px solid #f06;
-    animation: bossPulse 0.8s infinite;
-    z-index: 101;
-}
-.enemy.boss::after { content: "👹"; font-size: 32px; }
-@keyframes bossPulse { 
-    0% { box-shadow: 0 0 10px #f06, 0 0 20px #a0a; }
-    50% { box-shadow: 0 0 25px #f06, 0 0 40px #f0a, 0 0 60px #a0a; }
-    100% { box-shadow: 0 0 10px #f06, 0 0 20px #a0a; }
+.building-btn.selected {
+    background: #2a4a2a;
+    border-color: #0f0;
+    box-shadow: 0 0 8px rgba(0,255,0,0.3);
 }
 
-/* Health bar styles */
-.health-bar {
-    position: absolute; bottom: -5px; left: 0; width: 100%; height: 4px;
-    background: #300; border: 1px solid #000;
-}
-.health-bar.boss { height: 8px; bottom: -10px; }
-.health-fill {
-    height: 100%; background: #0f0; transition: width 0.2s;
-}
-.health-bar.boss .health-fill { background: #f00; }
-
-.projectile { 
-    position: absolute; width: 4px; height: 4px; 
-    background: #ff0; border-radius: 50%; z-index: 99; box-shadow: 0 0 4px #ff0;
+.building-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
-#objectives { 
-    background: #1a3a1a; border: 1px solid #0f0; padding: 8px; margin-bottom: 10px;
-    font-size: 11px; line-height: 1.4;
+.building-btn .keybind {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 9px;
+    color: #666;
 }
-#objectives h3 { color: #0f0; margin-bottom: 5px; }
-.objective { margin: 2px 0; }
-.objective.complete { color: #888; text-decoration: line-through; }
 
-#stats { font-size: 11px; }
-.stat-line { margin: 3px 0; }
-.stat-line span { float: right; font-weight: bold; }
+/* ============================================================================
+   CRAFTING
+   ============================================================================ */
 
 #crafting {
-    background: #2a1a1a; border: 1px solid #fa0; padding: 8px; margin-top: 10px;
-    font-size: 11px;
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 6px;
 }
-#crafting h3 { color: #fa0; margin-bottom: 5px; }
+
 .craft-btn {
-    display: block; width: 100%; padding: 3px; margin: 2px 0;
-    background: #444; border: 1px solid #666; cursor: pointer;
-    font-size: 10px; color: #fff;
+    width: 100%;
+    padding: 8px;
+    margin: 4px 0;
+    background: #1a1a2a;
+    border: 1px solid #333;
+    color: #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
 }
-.craft-btn:hover { background: #555; border-color: #888; }
-.craft-btn.disabled { opacity: 0.4; cursor: not-allowed; }
-.craft-btn.crafting { background: #080; }
 
-/* Audio Controls */
+.craft-btn:hover:not(.disabled) {
+    background: #252540;
+    border-color: #55f;
+}
+
+.craft-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ============================================================================
+   STATS & PRODUCTION FEEDBACK
+   ============================================================================ */
+
+#stats {
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.stat-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+}
+
+.stat-label {
+    flex: 1;
+    color: #aaa;
+}
+
+.stat-value {
+    min-width: 50px;
+    text-align: right;
+    color: #fff;
+    font-family: monospace;
+}
+
+/* Live production indicators */
+.producing-indicator {
+    margin-left: 6px;
+    font-size: 10px;
+    width: 12px;
+    display: inline-block;
+    text-align: center;
+}
+
+.producing-indicator.active {
+    color: #0f0;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+.producing-indicator.idle {
+    color: #444;
+}
+
+/* Production building stats with colored indicators */
+.miner-stat .producing-indicator.active { color: #f80; }
+.furnace-stat .producing-indicator.active { color: #f44; }
+.assembler-stat .producing-indicator.active { color: #44f; }
+.pumpjack-stat .producing-indicator.active { color: #8f8; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+/* Production rates section */
+.production-rates {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #333;
+}
+
+.rate-header {
+    font-size: 10px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.rate-line {
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    padding: 1px 0;
+}
+
+/* ============================================================================
+   AUDIO CONTROLS
+   ============================================================================ */
+
 #audioControls {
-    background: #1a1a2a; border: 1px solid #66f; padding: 8px; margin-top: 10px;
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.audio-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.audio-btn {
+    flex: 1;
+    padding: 6px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+}
+
+.audio-btn:hover {
+    background: #252525;
+}
+
+.audio-btn.active {
+    background: #1a3a1a;
+    border-color: #0f0;
+    color: #0f0;
+}
+
+.volume-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 11px;
 }
-#audioControls h3 { color: #66f; margin-bottom: 8px; }
-.audio-row { display: flex; gap: 5px; margin-bottom: 8px; }
-.audio-btn {
-    flex: 1; padding: 4px; background: #333; border: 1px solid #555; cursor: pointer;
-    font-size: 10px; color: #fff; text-align: center;
-}
-.audio-btn:hover { background: #444; border-color: #888; }
-.audio-btn.off { color: #888; }
-.volume-row { display: flex; align-items: center; gap: 5px; }
-.volume-row input[type="range"] { flex: 1; cursor: pointer; }
-.volume-row span:last-child { min-width: 35px; text-align: right; color: #aaa; }
 
-/* Achievement Button */
-.achieve-btn {
-    display: block; width: 100%; padding: 5px; margin-top: 5px;
-    background: #2a2a3a; border: 1px solid #66f; cursor: pointer;
-    font-size: 11px; color: #fff; text-align: center;
+#volumeSlider {
+    flex: 1;
+    accent-color: #0f0;
 }
-.achieve-btn:hover { background: #3a3a4a; border-color: #88f; }
 
-/* Achievement Notification */
-.achievement-notification {
-    position: fixed; top: 80px; right: 20px; z-index: 2000;
-    background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3a 100%);
-    border: 2px solid #ffd700; border-radius: 10px;
-    padding: 12px 15px; display: flex; align-items: center; gap: 12px;
-    animation: slideIn 0.5s ease-out, glowPulse 2s infinite;
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.5);
-    min-width: 280px;
+#volumeValue {
+    min-width: 35px;
+    text-align: right;
+    color: #888;
+}
+
+/* ============================================================================
+   CONTROLS INFO
+   ============================================================================ */
+
+#controls {
+    background: rgba(0,0,0,0.3);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    line-height: 1.6;
+    color: #888;
+}
+
+#controls .key {
+    display: inline-block;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: monospace;
+    color: #ccc;
+    font-size: 9px;
+}
+
+/* ============================================================================
+   GAME GRID AREA
+   ============================================================================ */
+
+#gameGrid {
+    flex: 1;
+    position: relative;
+    background: #080808;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#grid {
+    display: grid;
+    position: absolute;
+    will-change: transform;
+}
+
+.cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.1s;
+}
+
+.cell:hover {
+    filter: brightness(1.3);
+}
+
+.cell.fog {
+    background: #111;
+}
+
+/* Terrain types */
+.cell.ground {
+    background: linear-gradient(135deg, #1a2a1a 0%, #0f1f0f 100%);
+}
+
+.cell.grass {
+    background: linear-gradient(135deg, #1a2a1a 0%, #0f1f0f 100%);
+}
+
+.cell.stone {
+    background: linear-gradient(135deg, #3a3a4a 0%, #2a2a3a 100%);
+}
+
+/* Resource types - distinct colors for each resource */
+.cell.resource-iron {
+    background: linear-gradient(135deg, #5a4a3a 0%, #4a3a2a 100%);
+}
+
+.cell.resource-copper {
+    background: linear-gradient(135deg, #5a3a4a 0%, #4a2a3a 100%);
+}
+
+.cell.resource-coal {
+    background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+}
+
+.cell.resource-stone {
+    background: linear-gradient(135deg, #4a4a5a 0%, #3a3a4a 100%);
+}
+
+.cell.resource-oil {
+    background: linear-gradient(135deg, #2a2a15 0%, #1a1a0a 100%);
+}
+
+.cell.core {
+    background: linear-gradient(135deg, #1a3a3a 0%, #0a2a2a 100%);
+}
+
+/* Building entities */
+.building {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.building.rot-0 { transform: rotate(0deg); }
+.building.rot-1 { transform: rotate(90deg); }
+.building.rot-2 { transform: rotate(180deg); }
+.building.rot-3 { transform: rotate(270deg); }
+
+/* Building production indicator */
+.building-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #333;
+    font-size: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.building-indicator.producing {
+    background: #0f0;
+    animation: pulse 0.8s ease-in-out infinite;
+}
+
+/* Assembler production indicator */
+.assembler-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 0.6em;
+    opacity: 0.8;
+}
+
+.assembler-indicator.producing {
+    opacity: 1;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+/* ============================================================================
+   WAVE INFO
+   ============================================================================ */
+
+#waveInfo {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    color: #fff;
+    z-index: 100;
+    white-space: nowrap;
+    border: 1px solid #333;
+}
+
+#waveInfo .wave {
+    color: #f44;
+    font-weight: bold;
+}
+
+#waveInfo .core {
+    color: #0ff;
+}
+
+/* ============================================================================
+   MESSAGE DISPLAY
+   ============================================================================ */
+
+#message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.9);
+    padding: 15px 30px;
+    border-radius: 8px;
+    font-size: 18px;
+    color: #fff;
+    z-index: 200;
+    display: none;
+    text-align: center;
+    border: 1px solid #444;
+    max-width: 80%;
+}
+
+/* ============================================================================
+   MINIMAP
+   ============================================================================ */
+
+#minimap {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    z-index: 100;
+    background: #000;
+}
+
+/* ============================================================================
+   ZOOM CONTROLS
+   ============================================================================ */
+
+#zoomControls {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    z-index: 100;
+}
+
+.zoom-btn {
+    width: 30px;
+    height: 30px;
+    background: rgba(0,0,0,0.8);
+    border: 1px solid #333;
+    color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.zoom-btn:first-child {
+    border-radius: 4px 4px 0 0;
+    border-bottom: none;
+}
+
+.zoom-btn:last-child {
+    border-radius: 0 0 4px 4px;
+}
+
+.zoom-btn:hover {
+    background: rgba(50,50,50,0.9);
+    border-color: #555;
+}
+
+/* ============================================================================
+   TOOLTIP
+   ============================================================================ */
+
+.tooltip {
+    position: fixed;
+    background: rgba(0,0,0,0.95);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    z-index: 1000;
+    pointer-events: none;
+    border: 1px solid #444;
+    max-width: 200px;
+    line-height: 1.4;
+}
+
+/* ============================================================================
+   MODALS
+   ============================================================================ */
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 90%;
+    max-height: 90%;
+    overflow-y: auto;
+    position: relative;
+}
+
+.modal-content .close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #888;
+    transition: color 0.2s;
+}
+
+.modal-content .close:hover {
+    color: #fff;
+}
+
+.modal-content h2 {
+    color: #ddd;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+/* Achievement modal */
+.achievement-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    color: #888;
+    font-size: 13px;
+}
+
+.achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.achievement-item {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.achievement-item.locked {
+    opacity: 0.4;
+}
+
+.achievement-item .icon {
+    font-size: 28px;
+}
+
+.achievement-item .info {
+    flex: 1;
+}
+
+.achievement-item .name {
+    font-size: 12px;
+    color: #ddd;
+    margin-bottom: 2px;
+}
+
+.achievement-item .desc {
+    font-size: 10px;
+    color: #666;
+}
+
+.achievement-item .points {
+    font-size: 11px;
+    color: #f80;
+}
+
+/* Achievement popup */
+.achievement-popup {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #2a2a1a 0%, #1a1a0a 100%);
+    border: 2px solid #f80;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 600;
+    animation: slideIn 0.5s ease-out, slideOut 0.5s ease-in 4s forwards;
+    box-shadow: 0 4px 20px rgba(255,136,0,0.3);
 }
 
 @keyframes slideIn {
@@ -213,348 +706,231 @@ body { font-family: 'Courier New', monospace; background: #1a1a1a; color: #fff; 
     to { transform: translateX(0); opacity: 1; }
 }
 
-@keyframes glowPulse {
-    0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.5); }
-    50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.5), 0 10px 40px rgba(0, 0, 0, 0.6); }
-}
-
-.achievement-notification.fade-out {
-    animation: slideOut 0.5s ease-in forwards;
-}
-
 @keyframes slideOut {
     from { transform: translateX(0); opacity: 1; }
     to { transform: translateX(100%); opacity: 0; }
 }
 
-.achievement-notification .achievement-badge {
+.achievement-popup .achievement-icon {
     font-size: 36px;
-    animation: badgeBounce 0.6s ease-out;
 }
 
-@keyframes badgeBounce {
-    0% { transform: scale(0) rotate(-180deg); }
-    50% { transform: scale(1.3) rotate(10deg); }
-    100% { transform: scale(1) rotate(0deg); }
+.achievement-popup .achievement-text .achievement-title {
+    font-size: 11px;
+    color: #f80;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-.achievement-notification .achievement-info {
-    display: flex; flex-direction: column; gap: 2px;
+.achievement-popup .achievement-text #ach-name {
+    font-size: 14px;
+    color: #fff;
+    font-weight: bold;
 }
 
-.achievement-notification .achievement-name {
-    font-size: 10px; color: #ffd700; font-weight: bold;
-    text-transform: uppercase; letter-spacing: 1px;
+.achievement-popup .achievement-text .ach-points {
+    font-size: 12px;
+    color: #f80;
+    margin-top: 2px;
 }
 
-.achievement-notification .achievement-title {
-    font-size: 14px; font-weight: bold; color: #fff;
-}
-
-.achievement-notification .achievement-points {
-    font-size: 12px; color: #88f; font-weight: bold;
-}
-
-/* Modal Overlay */
-.modal {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.85); z-index: 3000;
-    display: flex; align-items: center; justify-content: center;
-}
-
-.modal-content {
-    background: linear-gradient(180deg, #2a2a4a 0%, #1a1a2a 100%);
-    border: 2px solid #444; border-radius: 15px;
-    padding: 20px; max-width: 500px; width: 90%;
-    max-height: 80vh; overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-}
-
-.modal-content h2 {
-    color: #ffd700; margin-bottom: 15px;
-    border-bottom: 1px solid #444; padding-bottom: 10px;
-}
-
-.modal-content .close {
-    float: right; font-size: 28px; cursor: pointer; color: #888;
-    line-height: 20px;
-}
-
-.modal-content .close:hover { color: #fff; }
-
-/* Assembler Modal Specific Styles */
+/* Assembler modal */
 .assembler-modal-content {
     max-width: 450px;
 }
 
 .assembler-info {
-    background: #1a1a2a; border: 1px solid #333; border-radius: 8px;
-    padding: 12px; margin-bottom: 15px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 15px;
 }
 
 .assembler-info-row {
-    display: flex; justify-content: space-between; margin: 5px 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
     font-size: 12px;
 }
 
+.assembler-info-row span:first-child {
+    color: #888;
+}
+
 .assembler-current {
-    color: #0f0; font-weight: bold;
+    color: #44f;
+    font-weight: bold;
 }
 
 .assembler-status {
-    display: flex; align-items: center; gap: 8px; padding: 10px;
-    border-radius: 8px; margin-bottom: 15px; font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-size: 12px;
 }
 
 .assembler-status.active {
-    background: rgba(0, 255, 0, 0.15); border: 1px solid #0f0;
+    background: rgba(0,255,0,0.1);
+    border: 1px solid #0f0;
+    color: #0f0;
 }
 
 .assembler-status.inactive {
-    background: rgba(255, 100, 0, 0.15); border: 1px solid #f60;
+    background: rgba(255,100,100,0.1);
+    border: 1px solid #f44;
+    color: #f44;
 }
 
-.status-icon {
+.assembler-status .status-icon {
     font-size: 16px;
 }
 
 .assembler-recipes {
-    display: flex; flex-direction: column; gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .assembler-option {
-    display: flex; align-items: center; gap: 12px;
-    background: #1a1a2a; border: 2px solid #333; border-radius: 10px;
-    padding: 12px; cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 10px;
+    cursor: pointer;
     transition: all 0.2s;
 }
 
 .assembler-option:hover {
-    border-color: #666; background: #252535;
+    background: #1a1a1a;
+    border-color: #555;
 }
 
 .assembler-option.selected {
-    border-color: #0f0; background: rgba(0, 255, 0, 0.1);
+    background: #1a1a2a;
+    border-color: #44f;
 }
 
-.recipe-icon {
-    font-size: 28px; min-width: 40px; text-align: center;
+.assembler-option .recipe-icon {
+    font-size: 24px;
 }
 
-.recipe-info {
+.assembler-option .recipe-info {
     flex: 1;
 }
 
-.recipe-name {
-    font-size: 14px; font-weight: bold; color: #fff; margin-bottom: 2px;
+.assembler-option .recipe-name {
+    font-size: 13px;
+    color: #ddd;
+    margin-bottom: 2px;
 }
 
-.recipe-desc {
-    font-size: 11px; color: #aaa; margin-bottom: 4px;
-}
-
-.recipe-cost {
-    font-size: 10px; color: #888;
-}
-
-/* Achievements Modal */
-.achievement-modal .modal-content {
-    max-width: 600px;
-}
-
-.achievement-stats {
-    display: flex; justify-content: space-between; margin-bottom: 15px;
-    font-size: 14px;
-}
-
-.achievement-stats span {
-    padding: 5px 10px; background: #1a1a2a; border-radius: 5px;
-}
-
-.achievement-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 10px;
-}
-
-/* Achievements Modal */
-.modal-overlay {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.85); z-index: 3000;
-    display: flex; align-items: center; justify-content: center;
-    animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.modal-overlay.closing {
-    animation: fadeOut 0.3s ease-in forwards;
-}
-
-@keyframes fadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
-}
-
-.achievements-modal-content {
-    background: linear-gradient(180deg, #2a2a4a 0%, #1a1a2a 100%);
-    border: 2px solid #444; border-radius: 15px;
-    width: 90%; max-width: 600px; max-height: 80vh;
-    display: flex; flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-    animation: modalSlideIn 0.4s ease-out;
-}
-
-@keyframes modalSlideIn {
-    from { transform: translateY(-30px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-.achievements-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 15px 20px; border-bottom: 1px solid #444;
-    background: linear-gradient(90deg, #3a3a5a, #2a2a4a);
-    border-radius: 13px 13px 0 0;
-}
-
-.achievements-header h2 {
-    font-size: 18px; color: #ffd700; margin: 0;
-}
-
-.achievements-total {
-    display: flex; align-items: center; gap: 15px;
-}
-
-.achievements-total .points-display {
-    font-size: 16px; font-weight: bold; color: #88f;
-}
-
-.achievements-total .count-display {
-    font-size: 14px; color: #aaa;
-}
-
-.achievements-header .close-btn {
-    background: none; border: none; color: #888;
-    font-size: 28px; cursor: pointer; padding: 0; line-height: 1;
-}
-
-.achievements-header .close-btn:hover { color: #fff; }
-
-.achievements-list {
-    padding: 15px; overflow-y: auto; flex: 1;
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 12px;
-}
-
-.achievement-item {
-    background: #1a1a2a; border: 1px solid #333; border-radius: 10px;
-    padding: 12px; display: flex; gap: 12px; align-items: center;
-    transition: all 0.3s ease; opacity: 0; transform: translateY(20px);
-}
-
-.achievement-item.show {
-    opacity: 1; transform: translateY(0);
-}
-
-.achievement-item.unlocked {
-    border-color: #444; background: linear-gradient(135deg, #1a2a3a 0%, #1a1a2a 100%);
-}
-
-.achievement-item.locked {
-    opacity: 0.5;
-}
-
-.achievement-item.unlocked:hover {
-    border-color: #ffd700; transform: scale(1.02);
-    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.2);
-}
-
-.achievement-item-badge {
-    font-size: 32px; min-width: 40px; text-align: center;
-    filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.3));
-}
-
-.achievement-item.locked .achievement-item-badge {
-    filter: grayscale(100%) brightness(0.5);
-}
-
-.achievement-item-info {
-    flex: 1; min-width: 0;
-}
-
-.achievement-item-name {
-    font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px;
-}
-
-.achievement-item.locked .achievement-item-name {
-    color: #888;
-}
-
-.achievement-item-desc {
-    font-size: 10px; color: #aaa; margin-bottom: 4px;
-}
-
-.achievement-item.locked .achievement-item-desc {
+.assembler-option .recipe-desc {
+    font-size: 10px;
     color: #666;
+    margin-bottom: 3px;
 }
 
-.achievement-item-points {
-    font-size: 11px; font-weight: bold; color: #88f;
+.assembler-option .recipe-cost {
+    font-size: 10px;
+    color: #888;
+    font-family: monospace;
 }
 
-.achievement-item.locked .achievement-item-points {
-    color: #555;
+/* ============================================================================
+   SCROLLBAR STYLING
+   ============================================================================ */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
 }
 
-.achievement-item-time {
-    font-size: 10px; color: #888; text-align: right;
+::-webkit-scrollbar-track {
+    background: #111;
 }
 
-#waveInfo { 
-    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-    font-size: 18px; font-weight: bold; text-shadow: 2px 2px 4px #000;
-    background: rgba(0,0,0,0.7); padding: 5px 15px; border-radius: 5px;
+::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
 }
 
-#message {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    font-size: 32px; font-weight: bold; display: none; z-index: 1000;
-    text-shadow: 3px 3px 6px #000; animation: messagePop 0.5s;
+::-webkit-scrollbar-thumb:hover {
+    background: #444;
 }
 
-@keyframes messagePop { 0% { transform: translate(-50%, -50%) scale(0); } 100% { transform: translate(-50%, -50%) scale(1); } }
+/* ============================================================================
+   ENEMY STYLES (for grid view)
+   ============================================================================ */
 
-#controls {
-    font-size: 10px; color: #888; margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid #444;
-}
-.key { color: #ff0; font-weight: bold; }
-
-#minimap {
-    position: fixed; bottom: 10px; right: 10px; width: 150px; height: 150px;
-    border: 2px solid #444; background: #000; z-index: 100;
-}
-.minimap-enemy { fill: #f00; }
-.minimap-core { fill: #0ff; }
-.minimap-revealed { fill: #0f0; opacity: 0.3; }
-.minimap-turret { fill: #f0f; }
-
-#zoomControls {
-    position: fixed; top: 50px; right: 10px;
-    background: rgba(0,0,0,0.7); padding: 5px; border-radius: 5px;
+.enemy {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 12px;
-}
-.zoom-btn {
-    display: inline-block; width: 24px; height: 24px;
-    background: #333; border: 1px solid #555; cursor: pointer;
-    text-align: center; line-height: 22px; margin: 2px;
-}
-.zoom-btn:hover { background: #444; border-color: #888; }
-
-.tooltip {
-    position: fixed; background: #000; border: 1px solid #888; padding: 5px;
-    font-size: 10px; pointer-events: none; z-index: 1001; display: none;
+    z-index: 10;
+    transition: transform 0.1s linear;
 }
 
+.enemy.basic { background: #f00; }
+.enemy.scout { background: #ff0; }
+.enemy.tank { background: #964B00; width: 28px; height: 28px; }
+.enemy.flyer { background: #90f; }
+.enemy.boss { 
+    background: #f06; 
+    width: 36px; 
+    height: 36px; 
+    font-size: 18px;
+    box-shadow: 0 0 10px #f06;
+}
+
+/* ============================================================================
+   PROJECTILE STYLES
+   ============================================================================ */
+
+.projectile {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #ff0;
+    border-radius: 50%;
+    z-index: 15;
+    box-shadow: 0 0 4px #ff0;
+}
+
+.projectile.laser {
+    width: 2px;
+    height: 10px;
+    background: #0ff;
+    box-shadow: 0 0 6px #0ff;
+}
+
+/* ============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    #sidebar {
+        width: 200px;
+        padding: 10px;
+    }
+    
+    #buildingList {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .building-btn {
+        padding: 6px;
+        font-size: 16px;
+    }
+}

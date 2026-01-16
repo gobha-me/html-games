@@ -43,7 +43,13 @@ function updateGridView() {
     cells.forEach(cell => {
         const x = +cell.dataset.x, y = +cell.dataset.y;
         const data = getCell(x, y);
-        if (!data) return;
+        
+        // Guard against null data (grid not yet initialized)
+        if (!data) {
+            cell.className = 'cell fog';
+            cell.innerHTML = '';
+            return;
+        }
         
         const isRevealed = state.revealed.has(`${x},${y}`);
         
@@ -63,12 +69,20 @@ function updateGridView() {
                 building.textContent = BUILDINGS[data.entity]?.icon || '';
             }
             
+            // Add production indicator for active buildings
+            if (['miner', 'furnace', 'assembler', 'pumpjack'].includes(data.entity)) {
+                const indicator = document.createElement('div');
+                indicator.className = `building-indicator ${data.productionActive ? 'producing' : ''}`;
+                indicator.innerHTML = data.productionActive ? '●' : '';
+                building.appendChild(indicator);
+            }
+            
             // Add assembler production indicator
             if (data.entity === 'assembler') {
-                const indicator = document.createElement('div');
-                indicator.className = `assembler-indicator ${data.productionActive ? 'producing' : ''}`;
-                indicator.innerHTML = ASSEMBLER_RECIPES[data.productionType]?.icon || ASSEMBLER_RECIPES.ammo.icon;
-                building.appendChild(indicator);
+                const prodIndicator = document.createElement('div');
+                prodIndicator.className = `assembler-indicator ${data.productionActive ? 'producing' : ''}`;
+                prodIndicator.innerHTML = ASSEMBLER_RECIPES[data.productionType]?.icon || ASSEMBLER_RECIPES.ammo.icon;
+                building.appendChild(prodIndicator);
             }
             
             cell.appendChild(building);
@@ -134,10 +148,19 @@ function selectBuilding(type) {
 
 function updateResources() {
     const resDiv = document.getElementById('resources');
-    if (!resDiv) return;
+    if (!resDiv) {
+        console.warn('updateResources: resources element not found');
+        return;
+    }
+    
+    const state = getGameState();
+    if (!state || !state.resources) {
+        console.warn('updateResources: game state or resources not initialized');
+        return;
+    }
     
     resDiv.innerHTML = RESOURCES.map(r => 
-        `<div class="stat-line">${r}: <span>${Math.floor(getGameState().resources[r])}</span></div>`
+        `<div class="stat-line">${r}: <span>${Math.floor(state.resources[r] || 0)}</span></div>`
     ).join('');
     
     document.querySelectorAll('.building-btn').forEach(btn => {
@@ -163,6 +186,7 @@ function setupCraftingButtons() {
 
 function updateCraftingButtons() {
     const state = getGameState();
+    if (!state) return;
     
     const gearBtn = document.getElementById('craft-gear');
     if (gearBtn) {
@@ -186,6 +210,8 @@ function updateCraftingButtons() {
 
 function updateObjectives() {
     const state = getGameState();
+    if (!state) return;
+    
     const turretCount = countBuildings('turret');
     
     if (!state.objectives[0] && state.revealed.has(`${CORE_POS.x},${CORE_POS.y}`)) {
@@ -202,6 +228,8 @@ function updateObjectives() {
     }
     
     const objDivs = document.querySelectorAll('.objective');
+    if (objDivs.length === 0) return;
+    
     objDivs[0].innerHTML = state.objectives[0] ? '✅ Core secured' : '⚪ Protect the Core at center';
     objDivs[1].innerHTML = `⚪ Build 4 turrets (${turretCount}/4)`;
     objDivs[2].innerHTML = `⚪ Stockpile 50 ammo (${Math.floor(state.resources.ammo)}/50)`;
@@ -213,18 +241,85 @@ function updateObjectives() {
 
 function updateStats() {
     const state = getGameState();
+    if (!state) return;
+    
     const stats = document.getElementById('stats');
+    if (!stats) return;
+    
+    // Count active buildings for live feedback
+    const activeMiners = countActiveBuildings('miner');
+    const activeFurnaces = countActiveBuildings('furnace');
+    const activeAssemblers = countActiveBuildings('assembler');
+    const activePumpjacks = countActiveBuildings('pumpjack');
+    const totalMiners = countBuildings('miner');
+    const totalFurnaces = countBuildings('furnace');
+    const totalAssemblers = countBuildings('assembler');
+    const totalPumpjacks = countBuildings('pumpjack');
+    
     stats.innerHTML = `
         <div class="stat-line">Time: <span>${Math.floor(state.gameTime/1000)}s</span></div>
         <div class="stat-line">Turrets: <span>${countBuildings('turret')}</span></div>
         <div class="stat-line">Barriers: <span>${countBuildings('barrier')}</span></div>
-        <div class="stat-line">Miners: <span>${countBuildings('miner')}</span></div>
+        <div class="stat-line miner-stat">
+            <span class="stat-label">Miners:</span>
+            <span class="stat-value">${activeMiners}/${totalMiners}</span>
+            ${activeMiners > 0 ? '<span class="producing-indicator active">●</span>' : '<span class="producing-indicator idle">○</span>'}
+        </div>
+        <div class="stat-line furnace-stat">
+            <span class="stat-label">Furnaces:</span>
+            <span class="stat-value">${activeFurnaces}/${totalFurnaces}</span>
+            ${activeFurnaces > 0 ? '<span class="producing-indicator active">●</span>' : '<span class="producing-indicator idle">○</span>'}
+        </div>
+        <div class="stat-line assembler-stat">
+            <span class="stat-label">Assemblers:</span>
+            <span class="stat-value">${activeAssemblers}/${totalAssemblers}</span>
+            ${activeAssemblers > 0 ? '<span class="producing-indicator active">●</span>' : '<span class="producing-indicator idle">○</span>'}
+        </div>
+        <div class="stat-line pumpjack-stat">
+            <span class="stat-label">Pumpjacks:</span>
+            <span class="stat-value">${activePumpjacks}/${totalPumpjacks}</span>
+            ${activePumpjacks > 0 ? '<span class="producing-indicator active">●</span>' : '<span class="producing-indicator idle">○</span>'}
+        </div>
         <div class="stat-line">Kills: <span>${state.achievements.enemiesKilled}</span></div>
+        <div class="production-rates" id="production-rates"></div>
     `;
+    
+    // Update production rates display
+    updateProductionRates();
+}
+
+function updateProductionRates() {
+    const ratesDiv = document.getElementById('production-rates');
+    if (!ratesDiv) return;
+    
+    const state = getGameState();
+    if (!state || !state.productionStats) {
+        ratesDiv.innerHTML = '<div class="stat-line" style="color: #888;">No production data</div>';
+        return;
+    }
+    
+    const rates = state.productionStats.productionRates;
+    
+    // Build production rate display
+    const activeRates = Object.entries(rates).filter(([res, rate]) => rate !== 0);
+    
+    if (activeRates.length === 0) {
+        ratesDiv.innerHTML = '<div class="stat-line" style="color: #888;">No active production</div>';
+        return;
+    }
+    
+    const rateDisplay = activeRates.map(([res, rate]) => {
+        const formattedRate = rate > 0 ? `+${rate.toFixed(1)}` : rate.toFixed(1);
+        const color = rate > 0 ? '#0f0' : '#f55';
+        return `<div class="rate-line" style="color: ${color};">${res}: ${formattedRate}/s</div>`;
+    }).join('');
+    
+    ratesDiv.innerHTML = `<div class="rate-header">Production Rate:</div>${rateDisplay}`;
 }
 
 function showMessage(text, color) {
     const msg = document.getElementById('message');
+    if (!msg) return;
     msg.textContent = text;
     msg.style.color = color;
     msg.style.display = 'block';
@@ -328,6 +423,7 @@ function drawMinimap() {
     
     const scale = canvas.width / GRID_SIZE;
     const state = getGameState();
+    if (!state) return;
     
     // Background
     ctx.fillStyle = '#000';

@@ -79,6 +79,7 @@ function placeBuilding(x, y) {
     cell.entity = building;
     cell.rotation = state.buildingInHand.rotation;
     cell.lastProduced = Date.now();
+    cell.productionActive = false;
     cell.barrierHealth = building === 'barrier' ? 100 : undefined;
     
     // Set default production type for assembler
@@ -182,6 +183,26 @@ function processProduction() {
     const state = getGameState();
     const now = Date.now();
     
+    // Initialize production tracking for this tick
+    state.productionStats = state.productionStats || {
+        activeMiners: 0,
+        activeFurnaces: 0,
+        activeAssemblers: 0,
+        activePumpjacks: 0,
+        productionRates: { iron: 0, copper: 0, coal: 0, stone: 0, oil: 0, steel: 0, gear: 0, circuit: 0, ammo: 0 }
+    };
+    
+    // Reset active counts for this tick
+    state.productionStats.activeMiners = 0;
+    state.productionStats.activeFurnaces = 0;
+    state.productionStats.activeAssemblers = 0;
+    state.productionStats.activePumpjacks = 0;
+    
+    // Reset production rates for this tick (accumulate during processing)
+    Object.keys(state.productionStats.productionRates).forEach(key => {
+        state.productionStats.productionRates[key] = 0;
+    });
+    
     for (let y = 0; y < GRID_SIZE; y++) {
         for (let x = 0; x < GRID_SIZE; x++) {
             const cell = getCell(x, y);
@@ -195,6 +216,11 @@ function processProduction() {
                         cell.amount -= amount;
                         state.resources[resource] += amount;
                         cell.lastProduced = now;
+                        cell.productionActive = true;
+                        state.productionStats.activeMiners++;
+                        state.productionStats.productionRates[resource] += amount;
+                    } else {
+                        cell.productionActive = false;
                     }
                     break;
                 case 'furnace':
@@ -203,6 +229,13 @@ function processProduction() {
                         state.resources.coal -= 1;
                         state.resources.steel += 1;
                         cell.lastProduced = now;
+                        cell.productionActive = true;
+                        state.productionStats.activeFurnaces++;
+                        state.productionStats.productionRates.steel += 1;
+                        state.productionStats.productionRates.iron -= 5;
+                        state.productionStats.productionRates.coal -= 1;
+                    } else {
+                        cell.productionActive = false;
                     }
                     break;
                 case 'assembler':
@@ -212,16 +245,20 @@ function processProduction() {
                     );
                     const outputKey = Object.keys(recipe.output)[0];
                     const outputLimit = outputKey === 'ammo' ? 200 : 100;
+                    const outputAmount = Object.values(recipe.output)[0];
                     
                     if (state.resources[outputKey] < outputLimit && canProduce) {
                         Object.entries(recipe.inputs).forEach(([res, amount]) => {
                             state.resources[res] -= amount;
+                            state.productionStats.productionRates[res] -= amount;
                         });
                         Object.entries(recipe.output).forEach(([res, amount]) => {
                             state.resources[res] += amount;
+                            state.productionStats.productionRates[res] += amount;
                         });
                         cell.lastProduced = now;
                         cell.productionActive = true;
+                        state.productionStats.activeAssemblers++;
                     } else {
                         cell.productionActive = false;
                     }
@@ -231,6 +268,11 @@ function processProduction() {
                         cell.amount -= 0.5;
                         state.resources.oil += 1;
                         cell.lastProduced = now;
+                        cell.productionActive = true;
+                        state.productionStats.activePumpjacks++;
+                        state.productionStats.productionRates.oil += 1;
+                    } else {
+                        cell.productionActive = false;
                     }
                     break;
             }
@@ -249,6 +291,17 @@ function countBuildings(type) {
     return count;
 }
 
+function countActiveBuildings(type) {
+    let count = 0;
+    for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+            const cell = getCell(x, y);
+            if (cell && cell.entity === type && cell.productionActive) count++;
+        }
+    }
+    return count;
+}
+
 function getBuildingInfo(type) {
     return BUILDINGS[type];
 }
@@ -261,6 +314,6 @@ function getAllBuildingTypes() {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         canAfford, canPlaceBuilding, placeBuilding, handleRightClick, handleCellClick,
-        processProduction, countBuildings, getBuildingInfo, getAllBuildingTypes
+        processProduction, countBuildings, countActiveBuildings, getBuildingInfo, getAllBuildingTypes
     };
 }
