@@ -42,7 +42,7 @@ const BUILDINGS = {
         cost: { iron: 10, gear: 5 }, 
         icon: '⚙️', 
         key: '3', 
-        desc: 'Crafts ammo & circuits' 
+        desc: 'Crafts ammo, circuits, & gears' 
     },
     turret: { 
         cost: { iron: 10, copper: 5, gear: 3 }, 
@@ -86,6 +86,13 @@ const ASSEMBLER_RECIPES = {
         inputs: { copper: 2, iron: 1 },
         output: { circuit: 1 },
         description: 'Produces electronic circuits'
+    },
+    gear: {
+        name: 'Gear',
+        icon: '⚙️',
+        inputs: { iron: 3 },
+        output: { gear: 2 },
+        description: 'Produces gears for building construction'
     }
 };
 
