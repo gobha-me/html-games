@@ -12,6 +12,10 @@ const FIRST_WAVE_DELAY = 60000;
 const START_REVEAL_RADIUS = 8;
 const CORE_MAX_HEALTH = 100;
 
+// Turret configuration
+const TURRET_RANGE = 5;
+const TURRET_FIRE_RATE = 500;
+
 // Zoom configuration
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.0;
@@ -167,6 +171,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         GRID_SIZE, CELL_SIZE, TICK_RATE, ENEMY_SPAWN_RATE, WAVE_DURATION,
         FIRST_WAVE_DELAY, START_REVEAL_RADIUS, CORE_MAX_HEALTH,
+        TURRET_RANGE, TURRET_FIRE_RATE,
         MIN_ZOOM, MAX_ZOOM, ZOOM_STEP,
         BUILDING_KEYS, BUILDINGS, RESOURCES, STARTING_RESOURCES,
         ASSEMBLER_RECIPES, MANUAL_RECIPES, ENEMY_TYPES, CORE_POS

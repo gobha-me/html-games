@@ -3,14 +3,16 @@
  * Targeting, firing, projectiles
  */
 
-const TURRET_RANGE = 6;
-const TURRET_FIRE_RATE = 500;
+// Use constants from constants.js (TURRET_RANGE and TURRET_FIRE_RATE)
+// These are defined in constants.js and exported to window by the main game
 
-function findEnemyInRange(x, y, range = TURRET_RANGE) {
+function findEnemyInRange(x, y, range) {
+    // Use TURRET_RANGE from constants.js if range not specified
+    const effectiveRange = range || TURRET_RANGE;
     const enemies = getEnemies();
     return enemies.find(e => {
         const dx = e.x - x, dy = e.y - y;
-        return Math.sqrt(dx*dx + dy*dy) <= range;
+        return Math.sqrt(dx*dx + dy*dy) <= effectiveRange;
     });
 }
 
@@ -83,7 +85,13 @@ function fireTurret(x, y, target) {
 // Export
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        TURRET_RANGE, TURRET_FIRE_RATE,
         findEnemyInRange, processTurrets, fireTurret
     };
 }
+
+// Also expose globally for non-module usage
+window.Turrets = {
+    findEnemyInRange,
+    processTurrets,
+    fireTurret
+};
