@@ -1,6 +1,8 @@
 /**
  * Enemies Module
- * Enemy spawning, AI, movement, combat
+ * Enemy types, creation, AI, movement, combat
+ * 
+ * NOTE: Spawning is now handled by waves.js (burst model)
  */
 
 function selectEnemyType() {
@@ -77,81 +79,6 @@ function updateEnemyElementPosition(el, x, y) {
     el.style.width = (28 * state.zoomLevel) + 'px';
     el.style.height = (28 * state.zoomLevel) + 'px';
     el.style.fontSize = (20 * state.zoomLevel) + 'px';
-}
-
-function spawnEnemies() {
-    const state = getGameState();
-    
-    // First wave delay
-    if (!state.firstWaveSpawned) {
-        if (state.gameTime >= FIRST_WAVE_DELAY) {
-            state.firstWaveSpawned = true;
-            showMessage('FIRST WAVE ARRIVES!', '#f00');
-            AudioSystem?.playWaveAnnounce();
-        }
-        return;
-    }
-    
-    // Limit spawns per wave - FIX: track total spawned this wave
-    if (state.enemiesSpawnedThisWave >= state.enemiesInWave) return;
-    
-    // Random spawn edge with offset to prevent getting stuck at edges
-    const side = Math.floor(Math.random() * 4);
-    const edgeOffset = 1;
-    let x, y;
-    
-    switch(side) {
-        case 0: // Top edge
-            x = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
-            y = edgeOffset;
-            break;
-        case 1: // Right edge
-            x = GRID_SIZE - edgeOffset - 1;
-            y = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
-            break;
-        case 2: // Bottom edge
-            x = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
-            y = GRID_SIZE - edgeOffset - 1;
-            break;
-        default: // Left edge
-            x = edgeOffset;
-            y = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
-            break;
-    }
-    
-    const enemyType = selectEnemyType();
-    const enemy = createEnemy(enemyType, x, y);
-    
-    // Boss spawn sound
-    if (enemyType === 'boss') {
-        AudioSystem?.playBossSpawn();
-    }
-    
-    document.getElementById('grid').appendChild(enemy.element);
-    state.enemies.push(enemy);
-    state.enemiesSpawnedThisWave++;
-}
-
-function spawnMinions(x, y, count) {
-    const state = getGameState();
-    
-    for (let i = 0; i < count; i++) {
-        const angle = (Math.PI * 2 / count) * i;
-        const spawnX = x + Math.cos(angle) * 2;
-        const spawnY = y + Math.sin(angle) * 2;
-        
-        // Bounds check with offset to prevent edge spawning
-        if (spawnX < 1 || spawnX >= GRID_SIZE - 1 || spawnY < 1 || spawnY >= GRID_SIZE - 1) {
-            continue;
-        }
-        
-        const minion = createEnemy('scout', spawnX, spawnY);
-        minion.minion = true;
-        state.enemies.push(minion);
-        document.getElementById('grid').appendChild(minion.element);
-    }
-    
-    showMessage('Boss spawned minions!', '#f55');
 }
 
 function moveEnemies() {
@@ -269,14 +196,6 @@ function killEnemy(enemy) {
     
     AudioSystem?.playEnemyHit();
     checkAchievements();
-    
-    // Boss spawns minions
-    if (enemy.type === 'boss' && enemy.spawnsMinions && !enemy.minionsSpawned) {
-        enemy.minionsSpawned = true;
-        setTimeout(() => {
-            spawnMinions(enemy.x, enemy.y, 3);
-        }, 2000);
-    }
 }
 
 function getEnemyCount() {
@@ -292,7 +211,15 @@ function getEnemies() {
 // Export
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        selectEnemyType, createEnemy, spawnEnemies, spawnMinions,
+        selectEnemyType, createEnemy, updateEnemyElementPosition,
         moveEnemies, damageBarrier, killEnemy, getEnemyCount, getEnemies
     };
 }
+
+// Expose globally for use by waves.js
+window.selectEnemyType = selectEnemyType;
+window.createEnemy = createEnemy;
+window.moveEnemies = moveEnemies;
+window.killEnemy = killEnemy;
+window.getEnemyCount = getEnemyCount;
+window.getEnemies = getEnemies;

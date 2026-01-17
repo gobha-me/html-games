@@ -584,10 +584,10 @@ body {
 }
 
 /* ============================================================================
-   MODALS
+   MODALS - General
    ============================================================================ */
 
-.modal {
+.modal, .modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -611,7 +611,7 @@ body {
     position: relative;
 }
 
-.modal-content .close {
+.modal-content .close, .close-btn {
     position: absolute;
     top: 10px;
     right: 15px;
@@ -619,9 +619,11 @@ body {
     cursor: pointer;
     color: #888;
     transition: color 0.2s;
+    background: none;
+    border: none;
 }
 
-.modal-content .close:hover {
+.modal-content .close:hover, .close-btn:hover {
     color: #fff;
 }
 
@@ -631,19 +633,64 @@ body {
     font-size: 18px;
 }
 
-/* Achievement modal */
-.achievement-stats {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 15px;
-    color: #888;
-    font-size: 13px;
+/* ============================================================================
+   ACHIEVEMENT MODAL - Dynamic
+   ============================================================================ */
+
+.modal-overlay.closing {
+    animation: fadeOut 0.3s ease-out forwards;
 }
 
-.achievement-grid {
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.achievements-modal-content {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.achievements-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.achievements-header h2 {
+    color: #ddd;
+    font-size: 24px;
+    margin: 0;
+}
+
+.achievements-total {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.points-display {
+    color: #f80;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.count-display {
+    color: #888;
+    font-size: 14px;
+}
+
+.achievements-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
 }
 
 .achievement-item {
@@ -653,39 +700,72 @@ body {
     padding: 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    transition: all 0.3s;
+    opacity: 0.9;
+}
+
+.achievement-item.unlocked {
+    border-color: #f80;
+    box-shadow: 0 0 10px rgba(255,136,0,0.2);
 }
 
 .achievement-item.locked {
     opacity: 0.4;
 }
 
-.achievement-item .icon {
-    font-size: 28px;
+.achievement-item.show {
+    animation: achievementPop 0.3s ease-out;
 }
 
-.achievement-item .info {
+@keyframes achievementPop {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.achievement-item-badge {
+    font-size: 32px;
+    min-width: 40px;
+    text-align: center;
+}
+
+.achievement-item.locked .achievement-item-badge {
+    filter: grayscale(1);
+    opacity: 0.5;
+}
+
+.achievement-item-info {
     flex: 1;
 }
 
-.achievement-item .name {
-    font-size: 12px;
+.achievement-item-name {
+    font-size: 14px;
     color: #ddd;
-    margin-bottom: 2px;
+    font-weight: bold;
+    margin-bottom: 4px;
 }
 
-.achievement-item .desc {
-    font-size: 10px;
-    color: #666;
+.achievement-item-desc {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 4px;
 }
 
-.achievement-item .points {
+.achievement-item-points {
     font-size: 11px;
     color: #f80;
+    font-weight: bold;
 }
 
-/* Achievement popup */
-.achievement-popup {
+.achievement-item-time {
+    font-size: 10px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Achievement notification (different from modal) */
+.achievement-notification {
     position: fixed;
     top: 20px;
     right: 20px;
@@ -697,8 +777,12 @@ body {
     align-items: center;
     gap: 12px;
     z-index: 600;
-    animation: slideIn 0.5s ease-out, slideOut 0.5s ease-in 4s forwards;
+    animation: slideIn 0.5s ease-out;
     box-shadow: 0 4px 20px rgba(255,136,0,0.3);
+}
+
+.achievement-notification.fade-out {
+    animation: slideOut 0.5s ease-in forwards;
 }
 
 @keyframes slideIn {
@@ -711,30 +795,38 @@ body {
     to { transform: translateX(100%); opacity: 0; }
 }
 
-.achievement-popup .achievement-icon {
+.achievement-notification .achievement-badge {
     font-size: 36px;
 }
 
-.achievement-popup .achievement-text .achievement-title {
+.achievement-notification .achievement-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.achievement-notification .achievement-name {
     font-size: 11px;
     color: #f80;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
-.achievement-popup .achievement-text #ach-name {
+.achievement-notification .achievement-title {
     font-size: 14px;
     color: #fff;
     font-weight: bold;
 }
 
-.achievement-popup .achievement-text .ach-points {
+.achievement-notification .achievement-points {
     font-size: 12px;
     color: #f80;
-    margin-top: 2px;
 }
 
-/* Assembler modal */
+/* ============================================================================
+   ASSEMBLER MODAL
+   ============================================================================ */
+
 .assembler-modal-content {
     max-width: 450px;
 }
@@ -841,6 +933,49 @@ body {
     font-size: 10px;
     color: #888;
     font-family: monospace;
+}
+
+/* ============================================================================
+   ACHIEVEMENT POPUP (static HTML element)
+   ============================================================================ */
+
+.achievement-popup {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #2a2a1a 0%, #1a1a0a 100%);
+    border: 2px solid #f80;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 600;
+    animation: slideIn 0.5s ease-out, slideOut 0.5s ease-in 4s forwards;
+    box-shadow: 0 4px 20px rgba(255,136,0,0.3);
+}
+
+.achievement-popup .achievement-icon {
+    font-size: 36px;
+}
+
+.achievement-popup .achievement-text .achievement-title {
+    font-size: 11px;
+    color: #f80;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.achievement-popup .achievement-text #ach-name {
+    font-size: 14px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.achievement-popup .achievement-text .ach-points {
+    font-size: 12px;
+    color: #f80;
+    margin-top: 2px;
 }
 
 /* ============================================================================

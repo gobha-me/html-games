@@ -189,6 +189,15 @@ function showAchievementNotification(achievement) {
     }, 4000);
 }
 
+// FIX: Add openAchievements and closeAchievements as aliases for HTML onclick handlers
+function openAchievements() {
+    showAchievementsModal();
+}
+
+function closeAchievements() {
+    closeAchievementsModal();
+}
+
 function showAchievementsModal() {
     const existingModal = document.getElementById('achievementsModal');
     if (existingModal) existingModal.remove();
@@ -204,7 +213,7 @@ function showAchievementsModal() {
                     <span class="points-display">${achievementState.pointsEarned} pts</span>
                     <span class="count-display">${achievementState.unlocked.size}/${Object.keys(ACHIEVEMENTS).length}</span>
                 </div>
-                <button class="close-btn" onclick="closeAchievementsModal()">×</button>
+                <button class="close-btn" onclick="closeAchievements()">×</button>
             </div>
             <div class="achievements-list">
                 ${Object.values(ACHIEVEMENTS).map(achievement => {
@@ -291,7 +300,7 @@ function addAchievementButtonToSidebar() {
     btn.id = 'achievementsBtn';
     btn.className = 'achieve-btn';
     btn.innerHTML = `🏆 Achievements (0)`;
-    btn.onclick = showAchievementsModal;
+    btn.onclick = openAchievements; // FIX: Use openAchievements for consistency
 
     const stats = document.getElementById('stats');
     if (stats) {
@@ -314,3 +323,7 @@ function initAchievements() {
     addAchievementButtonToSidebar();
     updateAchievementDisplay();
 }
+
+// Expose functions globally for HTML onclick handlers
+window.openAchievements = openAchievements;
+window.closeAchievements = closeAchievements;

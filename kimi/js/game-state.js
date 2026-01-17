@@ -16,8 +16,7 @@ function createInitialGameState() {
         projectiles: [],
         coreHealth: CORE_MAX_HEALTH,
         wave: 1,
-        enemiesInWave: 3,
-        enemiesSpawnedThisWave: 0,
+        waveSpawnComplete: false, // NEW: Track if current wave has finished spawning
         waveTimer: 0,
         gameTime: 0,
         revealed: new Set(),
@@ -118,6 +117,11 @@ function loadGame() {
         gameState.revealed = new Set(gameState.revealed);
         gameState.enemies = [];
         gameState.projectiles = [];
+        
+        // Ensure new state variables exist
+        if (gameState.waveSpawnComplete === undefined) {
+            gameState.waveSpawnComplete = false;
+        }
         
         // Setup grid and UI
         setupGrid();

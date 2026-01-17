@@ -8,7 +8,7 @@
  * - buildings.js: Building logic
  * - enemies.js: Enemy system
  * - turrets.js: Turret combat
- * - waves.js: Wave system
+ * - waves.js: Wave system (REFACTORED - burst spawning)
  * - ui.js: Rendering
  * - input.js: Controls (MUST load after ui.js)
  */
@@ -39,11 +39,25 @@ function init() {
     
     // Start game loops
     gameLoop();
-    setInterval(spawnEnemies, ENEMY_SPAWN_RATE);
+    
+    // Game time counter (1 second ticks)
     setInterval(() => { 
         const state = getGameState();
-        if (!state.isPaused) state.gameTime += 1000; 
+        if (!state.isPaused) {
+            state.gameTime += 1000;
+            
+            // Trigger first wave when time is reached
+            if (!state.firstWaveSpawned && state.gameTime >= FIRST_WAVE_DELAY) {
+                state.firstWaveSpawned = true;
+                showMessage('FIRST WAVE ARRIVES!', '#f00');
+                AudioSystem?.playWaveAnnounce();
+                // Start spawning the first wave
+                startWaveSpawn();
+            }
+        }
     }, 1000);
+    
+    // Auto-save every 30 seconds
     setInterval(autoSave, 30000);
     
     // Initial camera position

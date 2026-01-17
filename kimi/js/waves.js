@@ -1,6 +1,12 @@
 /**
- * Wave System Module
- * Wave management, win/lose conditions
+ * Wave System Module - REFACTORED
+ * Clean wave management with difficulty settings
+ * 
+ * Design:
+ * - All enemies for a wave spawn in a burst (1-2 seconds)
+ * - No continuous spawning during wave
+ * - Wave ends when all enemies are dead
+ * - Clear progression and difficulty selection
  */
 
 function checkWave() {
@@ -14,13 +20,12 @@ function checkWave() {
         return;
     }
     
-    // FIX: Wave completes when ALL spawned enemies are dead
-    // This ensures wave number increases even if some enemies survive past timer
-    if (state.enemiesSpawnedThisWave >= state.enemiesInWave && getEnemyCount() === 0) {
+    // Check if wave is complete (all enemies spawned AND all dead)
+    if (state.waveSpawnComplete && getEnemyCount() === 0) {
+        // Wave complete - start next wave
         state.wave++;
-        state.enemiesInWave = 5 + state.wave * 3;
-        state.enemiesSpawnedThisWave = 0;
         state.waveTimer = 0;
+        state.waveSpawnComplete = false;
         state.achievements.wavesSurvived++;
         
         let waveMsg = `WAVE ${state.wave} INCOMING!`;
@@ -30,14 +35,16 @@ function checkWave() {
         
         showMessage(waveMsg, '#ff0');
         AudioSystem?.playWaveAnnounce();
-        
         checkAchievements();
-    } else {
-        state.waveTimer += TICK_RATE;
+        
+        // Trigger wave spawn after short delay
+        setTimeout(() => {
+            startWaveSpawn();
+        }, 2000);
     }
     
     // Update ambient tension
-    const inWave = state.enemiesSpawnedThisWave < state.enemiesInWave || getEnemyCount() > 0;
+    const inWave = !state.waveSpawnComplete || getEnemyCount() > 0;
     AudioSystem?.updateAmbientForWave(state.wave, inWave);
     
     // Update wave info display
@@ -47,13 +54,85 @@ function checkWave() {
     });
     const enemyTypeStr = Object.entries(enemyCounts).map(([t, c]) => `${c}${t[0].toUpperCase()}`).join(', ');
     
+    const waveStatus = state.waveSpawnComplete ? 'Wave Active' : 'Spawning...';
     document.getElementById('waveInfo').textContent = 
-        `Wave: ${state.wave} | Enemies: ${state.enemies.length}/${state.enemiesInWave} ${enemyTypeStr ? `(${enemyTypeStr})` : ''} | Core: ${Math.ceil(state.coreHealth)}%`;
+        `Wave: ${state.wave} | ${waveStatus} | Enemies: ${state.enemies.length} ${enemyTypeStr ? `(${enemyTypeStr})` : ''} | Core: ${Math.ceil(state.coreHealth)}%`;
     
     // Check win condition after wave 25
     if (state.wave > 25) {
         checkWinCondition();
     }
+}
+
+/**
+ * Start spawning all enemies for the current wave
+ * Spawns in bursts over 1-2 seconds for visual effect
+ */
+function startWaveSpawn() {
+    const state = getGameState();
+    
+    // Calculate enemy count for this wave based on difficulty
+    const baseCount = 3;
+    const waveMultiplier = Math.floor(state.wave * 2.5);
+    const enemyCount = baseCount + waveMultiplier;
+    
+    // Spawn enemies in quick bursts
+    const spawnInterval = 200; // 200ms between spawns
+    let spawnedCount = 0;
+    
+    const spawnTimer = setInterval(() => {
+        if (spawnedCount >= enemyCount) {
+            clearInterval(spawnTimer);
+            state.waveSpawnComplete = true;
+            return;
+        }
+        
+        // Spawn one enemy
+        spawnSingleEnemy();
+        spawnedCount++;
+    }, spawnInterval);
+}
+
+/**
+ * Spawn a single enemy at a random edge
+ */
+function spawnSingleEnemy() {
+    const state = getGameState();
+    
+    // Random spawn edge with offset to prevent getting stuck at edges
+    const side = Math.floor(Math.random() * 4);
+    const edgeOffset = 1;
+    let x, y;
+    
+    switch(side) {
+        case 0: // Top edge
+            x = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            y = edgeOffset;
+            break;
+        case 1: // Right edge
+            x = GRID_SIZE - edgeOffset - 1;
+            y = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            break;
+        case 2: // Bottom edge
+            x = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            y = GRID_SIZE - edgeOffset - 1;
+            break;
+        default: // Left edge
+            x = edgeOffset;
+            y = Math.floor(Math.random() * (GRID_SIZE - 2)) + edgeOffset;
+            break;
+    }
+    
+    const enemyType = selectEnemyType();
+    const enemy = createEnemy(enemyType, x, y);
+    
+    // Boss spawn sound
+    if (enemyType === 'boss') {
+        AudioSystem?.playBossSpawn();
+    }
+    
+    document.getElementById('grid').appendChild(enemy.element);
+    state.enemies.push(enemy);
 }
 
 function damageCore(damage) {
@@ -146,6 +225,11 @@ function manualCraft(item) {
 // Export
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        checkWave, damageCore, checkWinCondition, togglePause, manualCraft
+        checkWave, damageCore, checkWinCondition, togglePause, manualCraft,
+        startWaveSpawn, spawnSingleEnemy
     };
 }
+
+// Expose globally for use by other modules
+window.startWaveSpawn = startWaveSpawn;
+window.spawnSingleEnemy = spawnSingleEnemy;
