@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FactorIO Defense</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="game-container">
+    <div id="sidebar">
+        <div id="resources">
+            <h3>📦 Resources</h3>
+            <div class="resource-row">
+                <div class="resource-icon iron">ite</div>
+                <span class="resource-name">Iron Ore</span>
+                <span class="resource-count" id="iron-ore">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon copper">◉</div>
+                <span class="resource-name">Copper Ore</span>
+                <span class="resource-count" id="copper-ore">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon coal">ite</div>
+                <span class="resource-name">Coal</span>
+                <span class="resource-count" id="coal">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon stone">◐</div>
+                <span class="resource-name">Stone</span>
+                <span class="resource-count" id="stone">0</span>
+            </div>
+            <hr style="border-color: #333; margin: 8px 0;">
+            <div class="resource-row">
+                <div class="resource-icon plates" style="background:#7f8c8d;">▬</div>
+                <span class="resource-name">Iron Plates</span>
+                <span class="resource-count" id="iron-plates">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon plates" style="background:#e67e22;">▬</div>
+                <span class="resource-name">Copper Plates</span>
+                <span class="resource-count" id="copper-plates">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon circuits">◈</div>
+                <span class="resource-name">Circuits</span>
+                <span class="resource-count" id="circuits">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon ammo">⁍</div>
+                <span class="resource-name">Ammo</span>
+                <span class="resource-count" id="ammo">0</span>
+            </div>
+            <div class="resource-row">
+                <div class="resource-icon" style="background:#e74c3c;">💣</div>
+                <span class="resource-name">Shells</span>
+                <span class="resource-count" id="shells">0</span>
+            </div>
+        </div>
+        
+        <div id="wave-info">
+            <h2>WAVE <span id="wave-number">1</span></h2>
+            <div id="wave-timer">60</div>
+            <div id="enemy-count">Enemies: <span id="enemies-alive">0</span></div>
+        </div>
+        
+        <div id="buildings-panel">
+            <h3>🏗️ Buildings</h3>
+            
+            <div class="building-category">
+                <h4>Extraction</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="miner" draggable="true">
+                        <div class="building-preview" style="background:#6a6a6a;">⛏️</div>
+                        <div class="building-name">Miner</div>
+                        <div class="building-cost">10🔩 5ite</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Processing</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="furnace" draggable="true">
+                        <div class="building-preview" style="background:#c0392b;">🔥</div>
+                        <div class="building-name">Furnace</div>
+                        <div class="building-cost">15🔩 10◐</div>
+                    </div>
+                    <div class="building-item" data-building="assembler" draggable="true">
+                        <div class="building-preview" style="background:#2980b9;">⚙️</div>
+                        <div class="building-name">Assembler</div>
+                        <div class="building-cost">20🔩 10◈</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Production</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="ammo-factory" draggable="true">
+                        <div class="building-preview" style="background:#8e44ad;">icing</div>
+                        <div class="building-name">Ammo Factory</div>
+                        <div class="building-cost">25🔩 15◈</div>
+                    </div>
+                    <div class="building-item" data-building="circuit-factory" draggable="true">
+                        <div class="building-preview" style="background:#27ae60;">📟</div>
+                        <div class="building-name">Circuit Plant</div>
+                        <div class="building-cost">20🔩 10▬</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Defense</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="wall" draggable="true">
+                        <div class="building-preview" style="background:#7f8c8d;">🧱</div>
+                        <div class="building-name">Wall</div>
+                        <div class="building-cost">5◐</div>
+                    </div>
+                    <div class="building-item" data-building="turret" draggable="true">
+                        <div class="building-preview" style="background:#e74c3c;">🔫</div>
+                        <div class="building-name">Gun Turret</div>
+                        <div class="building-cost">30🔩 20◈</div>
+                    </div>
+                    <div class="building-item" data-building="laser-turret" draggable="true">
+                        <div class="building-preview" style="background:#3498db;">⚡</div>
+                        <div class="building-name">Laser Turret</div>
+                        <div class="building-cost">50🔩 40◈</div>
+                    </div>
+                    <div class="building-item" data-building="artillery" draggable="true">
+                        <div class="building-preview" style="background:#d35400;">💥</div>
+                        <div class="building-name">Artillery</div>
+                        <div class="building-cost">100🔩 50◈</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="building-category">
+                <h4>Logistics</h4>
+                <div class="building-grid">
+                    <div class="building-item" data-building="chest" draggable="true">
+                        <div class="building-preview" style="background:#f39c12;">📦</div>
+                        <div class="building-name">Storage</div>
+                        <div class="building-cost">10🔩</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="controls">
+            <h4>⌨️ Controls</h4>
+            <div class="control-row"><kbd>R</kbd> Rotate building</div>
+            <div class="control-row"><kbd>Q</kbd> Cancel placement</div>
+            <div class="control-row"><kbd>Del</kbd> Delete selected</div>
+            <div class="control-row"><kbd>WASD</kbd> Pan camera</div>
+            <div class="control-row"><kbd>Click</kbd> Place/Select</div>
+            <div class="control-row"><kbd>Drag</kbd> Move camera</div>
+        </div>
+        
+        <div id="action-buttons">
+            <button class="action-btn save" onclick="saveGame()">💾 Save</button>
+            <button class="action-btn load" onclick="loadGame()">📂 Load</button>
+            <button class="action-btn reset" onclick="resetGame()">🔄 Reset</button>
+        </div>
+    </div>
+    
+    <div id="main-area">
+        <div id="top-bar">
+            <div id="game-title">⚙️ FACTORIO DEFENSE</div>
+            <div id="game-stats">
+                Buildings: <span id="stat-buildings">0</span> |
+                Kills: <span id="stat-kills">0</span> |
+                Time: <span id="stat-time">00:00</span>
+            </div>
+        </div>
+        
+        <div id="world-container">
+            <div id="world"></div>
+            <div id="ghost-building"></div>
+        </div>
+        
+        <div id="minimap">
+            <canvas id="minimap-canvas"></canvas>
+            <div id="minimap-viewport"></div>
+        </div>
+        
+        <div id="production-panel">
+            <h4>📊 Production/min</h4>
+            <div id="production-stats"></div>
+        </div>
+        
+        <div id="notification"></div>
+        
+        <div id="tooltip">
+            <h4 id="tooltip-title">Building</h4>
+            <div id="tooltip-content"></div>
+        </div>
+    </div>
+</div>
+
+<div id="victory-screen">
+    <h1>🏆 VICTORY!</h1>
+    <p>You survived Wave 50! Continue for endless mode?</p>
+    <div>
+        <button class="screen-btn continue" onclick="continueGame()">Continue Playing</button>
+        <button class="screen-btn restart" onclick="resetGame()">New Game</button>
+    </div>
+</div>
+
+<div id="defeat-screen">
+    <h1>💀 DEFEAT</h1>
+    <p>Your base was destroyed at Wave <span id="defeat-wave">1</span></p>
+    <button class="screen-btn restart" onclick="resetGame()">Try Again</button>
+</div>
+
+<script src="js/game.js"></script>
+</body>
+</html>
