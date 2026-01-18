@@ -248,7 +248,6 @@ body {
     padding: 8px;
     border: none;
     border-radius: 4px;
-    cursor: pointer;
     font-family: inherit;
     font-size: 11px;
     font-weight: bold;
@@ -274,6 +273,11 @@ body {
 .action-btn:hover {
     transform: scale(1.05);
     filter: brightness(1.2);
+}
+
+/* Disable tile hover during building placement */
+.placing-building .tile:hover {
+    /* Empty - overrides .tile:hover rule */
 }
 
 #main-area {

@@ -15,7 +15,7 @@ function generateWorld() {
     const worldWidth = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE;
     world.style.width = worldWidth + 'px';
     world.style.height = worldWidth + 'px';
-    
+
     // Generate tiles
     for (let y = 0; y < CONFIG.WORLD_SIZE; y++) {
         for (let x = 0; x < CONFIG.WORLD_SIZE; x++) {
@@ -28,7 +28,7 @@ function generateWorld() {
             world.appendChild(tile);
         }
     }
-    
+
     // Generate resource deposits
     const depositTypes = ['iron', 'copper', 'coal', 'stone'];
     for (let i = 0; i < 40; i++) {
@@ -52,15 +52,16 @@ function generateWorld() {
         deposit.dataset.depositId = gameState.deposits.length - 1;
         world.appendChild(deposit);
     }
-    
+
     // Center camera on base
     centerCamera();
     updateMinimap();
 }
 
 function spawnBase() {
+    gameState.camera.x = 0;
+    gameState.camera.y = 0;
     const baseBuilding = {
-        id: Date.now(),
         type: 'base',
         x: CONFIG.BASE_CENTER.x,
         y: CONFIG.BASE_CENTER.y,
@@ -96,12 +97,63 @@ function updateCameraPosition() {
     // Account for zoom - visible area shrinks when zoomed in
     const visibleWidth = worldContainer.clientWidth / gameState.camera.zoom;
     const visibleHeight = worldContainer.clientHeight / gameState.camera.zoom;
-    
+
     const maxX = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE - visibleWidth;
     const maxY = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE - visibleHeight;
-    
+
     gameState.camera.x = Math.max(0, Math.min(maxX, gameState.camera.x));
     gameState.camera.y = Math.max(0, Math.min(maxY, gameState.camera.y));
     world.style.transform = `translate(${-gameState.camera.x}px, ${-gameState.camera.y}px) scale(${gameState.camera.zoom})`;
     updateMinimapViewport();
+}
+
+// ============= MINIMAP =============
+function updateMinimap() {
+    minimapCanvas.width = 180;
+    minimapCanvas.height = 180;
+
+    const scale = 180 / (CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE);
+
+    // Background
+    minimapCtx.fillStyle = '#0a0a15';
+    minimapCtx.fillRect(0, 0, 180, 180);
+
+    // Deposits
+    gameState.deposits.forEach(d => {
+        minimapCtx.fillStyle = d.type === 'iron' ? '#7f8c8d' :
+                              d.type === 'copper' ? '#e67e22' :
+                              d.type === 'coal' ? '#34495e' : '#95a5a6';
+        minimapCtx.fillRect(d.x * CONFIG.TILE_SIZE * scale, d.y * CONFIG.TILE_SIZE * scale, 4, 4);
+    });
+
+    // Buildings
+    gameState.buildings.forEach(b => {
+        minimapCtx.fillStyle = b.type === 'base' ? '#9b59b6' :
+                              b.type === 'turret' || b.type === 'laser-turret' ? '#e74c3c' :
+                              b.type === 'wall' ? '#7f8c8d' : '#3498db';
+        const size = BUILDINGS[b.type].size * CONFIG.TILE_SIZE * scale;
+        minimapCtx.fillRect(b.x * CONFIG.TILE_SIZE * scale, b.y * CONFIG.TILE_SIZE * scale, size, size);
+    });
+
+    // Enemies
+    minimapCtx.fillStyle = '#e74c3c';
+    gameState.enemies.forEach(e => {
+        minimapCtx.beginPath();
+        minimapCtx.arc(e.x * scale, e.y * scale, 2, 0, Math.PI * 2);
+        minimapCtx.fill();
+    });
+
+    updateMinimapViewport();
+}
+
+function updateMinimapViewport() {
+    const scale = 180 / (CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE);
+    const viewport = document.getElementById('minimap-viewport');
+    viewport.style.left = (gameState.camera.x * scale) + 'px';
+    viewport.style.top = (gameState.camera.y * scale) + 'px';
+    // Visible area shrinks when zoomed in (higher zoom = smaller viewport)
+    const visibleWidth = worldContainer.clientWidth / gameState.camera.zoom;
+    const visibleHeight = worldContainer.clientHeight / gameState.camera.zoom;
+    viewport.style.width = (visibleWidth * scale) + 'px';
+    viewport.style.height = (visibleHeight * scale) + 'px';
 }
