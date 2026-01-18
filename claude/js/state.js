@@ -25,10 +25,10 @@ let gameState = {
     gameTime: 0,
     kills: 0,
     isGameOver: false,
+    camera: { x: 0, y: 0, zoom: 1 },
     isPaused: false,
     selectedBuilding: null,
     placingBuilding: null,
     rotation: 0,
-    camera: { x: 0, y: 0 },
     production: {}
 };
