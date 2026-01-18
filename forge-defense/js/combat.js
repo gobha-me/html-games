@@ -1,9 +1,7 @@
 /**
- * FactorIO Defense - Combat System
- * Extracted from game.js per #53
+ * Forge Defense - Combat System
  */
 
-// ============= TURRET SYSTEM =============
 function updateTurrets() {
     const now = Date.now();
 
@@ -11,7 +9,6 @@ function updateTurrets() {
         const def = BUILDINGS[building.type];
         if (!def.combat) return;
 
-        // Check fire rate
         if (now - building.lastFire < def.combat.fireRate) return;
 
         // Check ammo
@@ -45,11 +42,11 @@ function updateTurrets() {
 
             building.lastFire = now;
             fireProjectile(building, target, def.combat);
+            AudioSystem.playTurretFire();
         }
     });
 }
 
-// ============= PROJECTILE SYSTEM =============
 function fireProjectile(building, target, combat) {
     const bx = building.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
     const by = building.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;

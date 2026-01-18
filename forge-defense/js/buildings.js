@@ -1,18 +1,12 @@
 /**
- * Building system for FactorIO Defense
+ * Forge Defense - Building System
  */
 
-/**
- * Check if player can afford building cost
- */
 function canAfford(cost) {
     if (!cost) return true;
     return Object.entries(cost).every(([res, amount]) => gameState.resources[res] >= amount);
 }
 
-/**
- * Select building type for placement
- */
 function selectBuildingForPlacement(type) {
     const def = BUILDINGS[type];
     if (!canAfford(def.cost)) {
@@ -32,63 +26,51 @@ function selectBuildingForPlacement(type) {
     worldContainer.style.cursor = 'crosshair';
 }
 
-/**
- * Handle clicking on the world for building placement or selection
- */
 function handleWorldClick(e) {
     if (!gameState.placingBuilding) {
-        // Select building
         const buildingEl = e.target.closest('.building');
         if (buildingEl) {
-            selectBuilding(parseInt(buildingEl.dataset.id));
+            // Use parseFloat since IDs are floats (Date.now() + Math.random())
+            selectBuilding(parseFloat(buildingEl.dataset.id));
         } else {
             deselectBuilding();
         }
         return;
     }
 
-    // Calculate tile coordinates accounting for zoom and camera offset
     const containerRect = worldContainer.getBoundingClientRect();
-    const worldX = (e.clientX - containerRect.left) / gameState.camera.zoom + gameState.camera.x;
-    const worldY = (e.clientY - containerRect.top) / gameState.camera.zoom + gameState.camera.y;
+    const scale = gameState.camera.scale;
+    // Account for scale when converting screen to world coordinates
+    const worldX = (e.clientX - containerRect.left) / scale + gameState.camera.x;
+    const worldY = (e.clientY - containerRect.top) / scale + gameState.camera.y;
     const x = Math.floor(worldX / CONFIG.TILE_SIZE);
     const y = Math.floor(worldY / CONFIG.TILE_SIZE);
 
     placeBuilding(x, y);
 }
 
-/**
- * Update ghost building position on mouse move
- */
 function handleWorldMouseMove(e) {
     if (!gameState.placingBuilding) return;
 
-    // Calculate tile position based on current mouse position
     const containerRect = worldContainer.getBoundingClientRect();
-    const worldX = (e.clientX - containerRect.left) / gameState.camera.zoom + gameState.camera.x;
-    const worldY = (e.clientY - containerRect.top) / gameState.camera.zoom + gameState.camera.y;
+    const scale = gameState.camera.scale;
+    // Account for scale when converting screen to world coordinates
+    const worldX = (e.clientX - containerRect.left) / scale + gameState.camera.x;
+    const worldY = (e.clientY - containerRect.top) / scale + gameState.camera.y;
     const tileX = Math.floor(worldX / CONFIG.TILE_SIZE);
     const tileY = Math.floor(worldY / CONFIG.TILE_SIZE);
 
-    // Position ghost building to match where it will be placed
     const def = BUILDINGS[gameState.placingBuilding];
-    const ghostSize = def.size * CONFIG.TILE_SIZE * gameState.camera.zoom;
-    
-    // Calculate screen position: (worldX - cameraX) * zoom
-    // This accounts for the CSS transform: translate(-camera.x)
-    const screenX = (tileX * CONFIG.TILE_SIZE - gameState.camera.x) * gameState.camera.zoom;
-    const screenY = (tileY * CONFIG.TILE_SIZE - gameState.camera.y) * gameState.camera.zoom;
+    // Ghost position in screen coordinates (already scaled by CSS)
+    const screenX = (tileX * CONFIG.TILE_SIZE - gameState.camera.x) * scale;
+    const screenY = (tileY * CONFIG.TILE_SIZE - gameState.camera.y) * scale;
 
     ghostBuilding.style.left = screenX + 'px';
     ghostBuilding.style.top = screenY + 'px';
-    ghostBuilding.firstElementChild.style.width = ghostSize + 'px';
-    ghostBuilding.firstElementChild.style.height = ghostSize + 'px';
-    ghostBuilding.firstElementChild.style.fontSize = (def.size * 20 * gameState.camera.zoom) + 'px';
+    ghostBuilding.style.transform = `scale(${scale})`;
+    ghostBuilding.style.transformOrigin = '0 0';
 }
 
-/**
- * Place a building at given coordinates
- */
 function placeBuilding(x, y) {
     const type = gameState.placingBuilding;
     const def = BUILDINGS[type];
@@ -103,7 +85,6 @@ function placeBuilding(x, y) {
         return;
     }
 
-    // Deduct cost
     Object.entries(def.cost).forEach(([res, amount]) => {
         gameState.resources[res] -= amount;
     });
@@ -122,18 +103,30 @@ function placeBuilding(x, y) {
 
     gameState.buildings.push(building);
     renderBuilding(building);
+    
+    // Reveal fog around the building
+    if (def.revealRadius && typeof revealArea === 'function') {
+        revealArea(x, y, def.revealRadius);
+    }
+    
     updateUI();
     updateMinimap();
+    
+    // Track for achievements
+    gameState.achievements.buildingsPlaced++;
+    if (type === 'turret' || type === 'laser-turret' || type === 'artillery') {
+        gameState.achievements.turretsBuilt++;
+    }
+    checkObjectives();
+    checkAchievements(gameState);
+    
+    AudioSystem.playBuildingPlace();
 
-    // Keep placing if shift held
     if (!window.event?.shiftKey) {
         cancelPlacement();
     }
 }
 
-/**
- * Check if building can be placed at coordinates
- */
 function canPlaceAt(x, y, size) {
     for (let dy = 0; dy < size; dy++) {
         for (let dx = 0; dx < size; dx++) {
@@ -149,9 +142,6 @@ function canPlaceAt(x, y, size) {
     return true;
 }
 
-/**
- * Render a building in the world
- */
 function renderBuilding(building) {
     const def = BUILDINGS[building.type];
     const el = document.createElement('div');
@@ -166,14 +156,11 @@ function renderBuilding(building) {
     el.innerHTML = `
         ${def.icon}
         <div class="health-bar"><div class="health-bar-fill" style="width:${(building.health/building.maxHealth)*100}%"></div></div>
-        ${def.combat ? '<div class="direction-indicator" style="top:-3px;left:50%;transform:translateX(-50%);"></div>' : ''}
+        ${def.combat ? '<div class="direction-indicator"></div>' : ''}
     `;
     world.appendChild(el);
 }
 
-/**
- * Rotate current building (placement or selected)
- */
 function rotateBuilding() {
     gameState.rotation = (gameState.rotation + 1) % 4;
     if (gameState.selectedBuilding !== null) {
@@ -186,9 +173,6 @@ function rotateBuilding() {
     }
 }
 
-/**
- * Select a building by ID
- */
 function selectBuilding(id) {
     deselectBuilding();
     gameState.selectedBuilding = id;
@@ -197,9 +181,6 @@ function selectBuilding(id) {
     showBuildingTooltip(id);
 }
 
-/**
- * Deselect current building
- */
 function deselectBuilding() {
     if (gameState.selectedBuilding !== null) {
         const el = document.querySelector(`[data-id="${gameState.selectedBuilding}"]`);
@@ -209,30 +190,38 @@ function deselectBuilding() {
     document.getElementById('tooltip').style.display = 'none';
 }
 
-/**
- * Delete selected building
- */
 function deleteSelectedBuilding() {
     if (gameState.selectedBuilding === null) return;
     const building = gameState.buildings.find(b => b.id === gameState.selectedBuilding);
-    if (!building || building.type === 'base') return;
+    if (!building || building.type === 'base') {
+        if (building?.type === 'base') {
+            showNotification('❌ Cannot delete Command Center!');
+        }
+        return;
+    }
 
     // Refund 50%
     const def = BUILDINGS[building.type];
-    Object.entries(def.cost || {}).forEach(([res, amount]) => {
-        gameState.resources[res] += Math.floor(amount * 0.5);
-    });
+    let refundMsg = '♻️ Salvaged: ';
+    if (def.cost) {
+        const refunds = [];
+        Object.entries(def.cost).forEach(([res, amount]) => {
+            const refund = Math.floor(amount * 0.5);
+            gameState.resources[res] += refund;
+            refunds.push(`+${refund} ${res.replace('-', ' ')}`);
+        });
+        refundMsg += refunds.join(', ');
+    }
 
     gameState.buildings = gameState.buildings.filter(b => b.id !== gameState.selectedBuilding);
     document.querySelector(`[data-id="${gameState.selectedBuilding}"]`)?.remove();
-    gameState.selectedBuilding = null;
+    deselectBuilding();
     updateUI();
     updateMinimap();
+    AudioSystem.playDeconstruct();
+    showNotification(refundMsg);
 }
 
-/**
- * Cancel building placement
- */
 function cancelPlacement() {
     gameState.placingBuilding = null;
     ghostBuilding.style.display = 'none';
@@ -241,9 +230,6 @@ function cancelPlacement() {
     worldContainer.style.cursor = 'grab';
 }
 
-/**
- * Show tooltip for selected building
- */
 function showBuildingTooltip(id) {
     const building = gameState.buildings.find(b => b.id === id);
     if (!building) return;
@@ -252,13 +238,16 @@ function showBuildingTooltip(id) {
     const tooltip = document.getElementById('tooltip');
     document.getElementById('tooltip-title').textContent = def.name;
 
-    let content = `<div class="stat">Health: <span>${building.health}/${building.maxHealth}</span></div>`;
+    let content = `<div class="stat">Health: <span>${Math.floor(building.health)}/${building.maxHealth}</span></div>`;
     if (def.combat) {
         content += `<div class="stat">Damage: <span>${def.combat.damage}</span></div>`;
         content += `<div class="stat">Range: <span>${def.combat.range} tiles</span></div>`;
     }
     if (def.production) {
         content += `<div class="stat">Production active</div>`;
+    }
+    if (def.desc) {
+        content += `<div class="stat" style="margin-top:6px;color:#888;">${def.desc}</div>`;
     }
 
     document.getElementById('tooltip-content').innerHTML = content;
@@ -267,33 +256,20 @@ function showBuildingTooltip(id) {
     tooltip.style.top = '60px';
 }
 
-/**
- * Track production for UI updates
- */
-function trackProduction(resource, amount) {
-    gameState.production[resource] = (gameState.production[resource] || 0) + amount;
-}
-
-/**
- * Update health bar for a building
- */
 function updateBuildingHealth(building) {
     const el = document.querySelector(`[data-id="${building.id}"] .health-bar-fill`);
     if (el) el.style.width = `${(building.health / building.maxHealth) * 100}%`;
 }
 
-/**
- * Update building production (called from game loop)
- */
 function updateBuildingProduction() {
     const now = Date.now();
+    gameState.production = {};
 
     gameState.buildings.forEach(building => {
         const def = BUILDINGS[building.type];
         if (!def.production) return;
 
         if (building.type === 'miner') {
-            // Find nearby deposit
             const deposit = gameState.deposits.find(d =>
                 Math.abs(d.x - building.x) <= 1 && Math.abs(d.y - building.y) <= 1 && d.amount > 0
             );
@@ -303,8 +279,8 @@ function updateBuildingProduction() {
                 gameState.resources[resourceKey] += def.production.rate;
                 deposit.amount -= def.production.rate;
                 building.lastProduction = now;
+                gameState.achievements.resourcesCollected += def.production.rate;
 
-                // Update deposit display
                 const depositEl = document.querySelector(`[data-deposit-id="${gameState.deposits.indexOf(deposit)}"]`);
                 if (depositEl) depositEl.textContent = deposit.amount;
 
@@ -314,7 +290,6 @@ function updateBuildingProduction() {
 
         if (building.type === 'furnace') {
             if (now - building.lastProduction >= def.production.time) {
-                // Try iron first, then copper
                 if (gameState.resources['iron-ore'] >= 1 && gameState.resources.coal >= 1) {
                     gameState.resources['iron-ore']--;
                     gameState.resources.coal--;
@@ -356,8 +331,7 @@ function updateBuildingProduction() {
         }
 
         if (building.type === 'assembler') {
-            // Make shells for artillery
-            if (now - building.lastProduction >= 5000) {
+            if (now - building.lastProduction >= def.production.time) {
                 if (gameState.resources['iron-plates'] >= 5 && gameState.resources.coal >= 2) {
                     gameState.resources['iron-plates'] -= 5;
                     gameState.resources.coal -= 2;
@@ -368,30 +342,52 @@ function updateBuildingProduction() {
             }
         }
     });
+    
+    checkObjectives();
 }
 
-/**
- * Setup all event listeners for building system
- */
+function trackProduction(resource, amount) {
+    gameState.production[resource] = (gameState.production[resource] || 0) + amount;
+}
+
 function setupEventListeners() {
     // Building palette
-    document.querySelectorAll('.building-item').forEach(item => {
-        item.addEventListener('click', () => selectBuildingForPlacement(item.dataset.building));
-        item.addEventListener('dragstart', (e) => {
-            selectBuildingForPlacement(item.dataset.building);
-            e.dataTransfer.setData('text/plain', item.dataset.building);
-        });
+    const buildingList = document.getElementById('building-list');
+    Object.entries(BUILDINGS).forEach(([type, def]) => {
+        if (def.isBase) return;
+        
+        const item = document.createElement('div');
+        item.className = 'building-item';
+        item.dataset.building = type;
+        item.innerHTML = `
+            ${def.key ? `<span class="keybind">${def.key}</span>` : ''}
+            <div class="building-preview" style="background:${def.color}">${def.icon}</div>
+            <div class="building-name">${def.name}</div>
+            <div class="building-cost">${formatCost(def.cost)}</div>
+        `;
+        item.addEventListener('click', () => selectBuildingForPlacement(type));
+        buildingList.appendChild(item);
     });
 
-    // World click
+    // World interactions
     worldContainer.addEventListener('click', handleWorldClick);
     worldContainer.addEventListener('mousemove', handleWorldMouseMove);
     worldContainer.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        
+        // If clicking on a building, delete it
+        const buildingEl = e.target.closest('.building');
+        if (buildingEl) {
+            const id = parseFloat(buildingEl.dataset.id);
+            selectBuilding(id);
+            deleteSelectedBuilding();
+            return;
+        }
+        
         cancelPlacement();
     });
 
-    // Camera drag - fixed direction
+    // Camera drag
     let isDragging = false;
     let dragStart = { x: 0, y: 0 };
     let cameraAtDragStart = { x: 0, y: 0 };
@@ -407,15 +403,10 @@ function setupEventListeners() {
 
     window.addEventListener('mousemove', (e) => {
         if (isDragging) {
-            // Drag camera - mouse movement delta added to camera position
-            gameState.camera.x = cameraAtDragStart.x + (dragStart.x - e.clientX);
-            gameState.camera.y = cameraAtDragStart.y + (dragStart.y - e.clientY);
-
-            // Bounds checking
-            const maxX = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE - worldContainer.clientWidth / gameState.camera.zoom;
-            const maxY = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE - worldContainer.clientHeight / gameState.camera.zoom;
-            gameState.camera.x = Math.max(0, Math.min(maxX, gameState.camera.x));
-            gameState.camera.y = Math.max(0, Math.min(maxY, gameState.camera.y));
+            const scale = gameState.camera.scale;
+            // Divide by scale so dragging feels natural at any zoom level
+            gameState.camera.x = cameraAtDragStart.x + (dragStart.x - e.clientX) / scale;
+            gameState.camera.y = cameraAtDragStart.y + (dragStart.y - e.clientY) / scale;
             updateCameraPosition();
         }
     });
@@ -427,24 +418,48 @@ function setupEventListeners() {
 
     // Keyboard
     window.addEventListener('keydown', (e) => {
-        const speed = 20;
+        const speed = 20 / gameState.camera.scale;  // Adjust for zoom
         switch(e.key.toLowerCase()) {
             case 'w': gameState.camera.y -= speed; updateCameraPosition(); break;
             case 's': gameState.camera.y += speed; updateCameraPosition(); break;
             case 'a': gameState.camera.x -= speed; updateCameraPosition(); break;
             case 'd': gameState.camera.x += speed; updateCameraPosition(); break;
             case 'r': rotateBuilding(); break;
-            case 'q': case 'escape': cancelPlacement(); break;
-            case 'delete': deleteSelectedBuilding(); break;
+            case 'q': case 'escape': cancelPlacement(); deselectBuilding(); break;
+            case 'delete': case 'backspace': deleteSelectedBuilding(); break;
+        }
+        
+        // Number keys for building selection
+        if (BUILDING_KEYS[e.key]) {
+            selectBuildingForPlacement(BUILDING_KEYS[e.key]);
         }
     });
 
-    // Minimap click
+    // Minimap click - navigate to clicked location
     minimapCanvas.addEventListener('click', (e) => {
         const rect = minimapCanvas.getBoundingClientRect();
-        const scale = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE / minimapCanvas.width;
-        gameState.camera.x = (e.clientX - rect.left) * scale - worldContainer.clientWidth / 2;
-        gameState.camera.y = (e.clientY - rect.top) * scale - worldContainer.clientHeight / 2;
+        const mmScale = CONFIG.WORLD_SIZE * CONFIG.TILE_SIZE / minimapCanvas.width;
+        const camScale = gameState.camera.scale;
+        // Calculate visible area size accounting for zoom
+        const visibleWidth = worldContainer.clientWidth / camScale;
+        const visibleHeight = worldContainer.clientHeight / camScale;
+        // Center camera on clicked point
+        gameState.camera.x = (e.clientX - rect.left) * mmScale - visibleWidth / 2;
+        gameState.camera.y = (e.clientY - rect.top) * mmScale - visibleHeight / 2;
         updateCameraPosition();
     });
+    
+    // Initialize audio on first interaction
+    document.addEventListener('click', () => AudioSystem.resume(), { once: true });
+}
+
+function formatCost(cost) {
+    if (!cost) return 'Free';
+    return Object.entries(cost).map(([res, amt]) => {
+        const icons = {
+            'iron-plates': '▬', 'copper-plates': '▬', stone: '◐', 
+            circuits: '◈', coal: '■', 'iron-ore': '⚫', 'copper-ore': '🟠'
+        };
+        return `${amt}${icons[res] || res.charAt(0)}`;
+    }).join(' ');
 }

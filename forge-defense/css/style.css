@@ -1,0 +1,1011 @@
+/* ============================================================================
+   FORGE DEFENSE - Main Stylesheet
+   ============================================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+body {
+    background: #0a0a12;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    color: #ddd;
+}
+
+#game-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* ============================================================================
+   SIDEBAR
+   ============================================================================ */
+
+#sidebar {
+    width: 280px;
+    background: linear-gradient(180deg, #12121a 0%, #0a0a12 100%);
+    border-right: 2px solid #e94560;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    gap: 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: #1a1a2e;
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background: #e94560;
+    border-radius: 3px;
+}
+
+#game-header h1 {
+    color: #e94560;
+    font-size: 18px;
+    text-align: center;
+    letter-spacing: 2px;
+    padding: 8px 0;
+    border-bottom: 1px solid #333;
+}
+
+#sidebar h3 {
+    color: #e94560;
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+#sidebar h3 .hint {
+    float: right;
+    color: #666;
+    font-weight: normal;
+}
+
+/* ============================================================================
+   OBJECTIVES
+   ============================================================================ */
+
+#objectives {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.objective {
+    font-size: 11px;
+    padding: 4px 6px;
+    margin: 2px 0;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.03);
+    transition: all 0.3s;
+}
+
+.objective.complete {
+    color: #2ecc71;
+    background: rgba(46,204,113,0.1);
+}
+
+.objective.complete::first-letter {
+    color: #2ecc71;
+}
+
+/* ============================================================================
+   RESOURCES
+   ============================================================================ */
+
+#resources {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.resource-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.resource-row {
+    display: flex;
+    align-items: center;
+    padding: 3px 6px;
+    background: rgba(83,52,131,0.15);
+    border-radius: 3px;
+    font-size: 11px;
+}
+
+.resource-row.separator {
+    margin-top: 6px;
+    border-top: 1px solid #333;
+    padding-top: 6px;
+}
+
+.res-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    margin-right: 8px;
+}
+
+.res-name {
+    flex: 1;
+    color: #aaa;
+}
+
+.res-count {
+    color: #fff;
+    font-weight: bold;
+    font-family: monospace;
+    min-width: 40px;
+    text-align: right;
+}
+
+/* ============================================================================
+   WAVE INFO
+   ============================================================================ */
+
+#wave-info {
+    background: linear-gradient(135deg, #e94560 0%, #533483 100%);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+}
+
+#wave-info h2 {
+    color: #fff;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+#wave-timer {
+    color: #ffd700;
+    font-size: 28px;
+    font-weight: bold;
+    font-family: monospace;
+}
+
+#enemy-count {
+    color: rgba(255,255,255,0.8);
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+/* ============================================================================
+   BUILDINGS PANEL
+   ============================================================================ */
+
+#buildings-panel {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.building-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.building-item {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 2px solid #333;
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    position: relative;
+}
+
+.building-item:hover {
+    border-color: #e94560;
+    transform: translateY(-2px);
+}
+
+.building-item.selected {
+    border-color: #ffd700;
+    box-shadow: 0 0 12px rgba(255,215,0,0.4);
+}
+
+.building-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.building-item .keybind {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 9px;
+    color: #666;
+}
+
+.building-preview {
+    width: 32px;
+    height: 32px;
+    margin: 0 auto 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border-radius: 4px;
+}
+
+.building-name {
+    color: #fff;
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.building-cost {
+    color: #888;
+    font-size: 8px;
+    margin-top: 2px;
+}
+
+/* ============================================================================
+   CRAFTING PANEL
+   ============================================================================ */
+
+#crafting-panel {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.craft-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+}
+
+.craft-btn {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px;
+    color: #ddd;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.craft-btn:hover {
+    background: #252540;
+    border-color: #e94560;
+}
+
+.craft-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.craft-btn small {
+    color: #888;
+    font-size: 9px;
+}
+
+/* ============================================================================
+   AUDIO & ACTION BUTTONS
+   ============================================================================ */
+
+#audio-controls {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+.audio-btn {
+    width: 40px;
+    height: 32px;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.audio-btn:hover {
+    background: #252540;
+}
+
+.audio-btn.off {
+    opacity: 0.4;
+}
+
+#action-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.action-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.action-btn.achievements { background: #f39c12; color: #000; }
+.action-btn.save { background: #2ecc71; color: #fff; }
+.action-btn.load { background: #3498db; color: #fff; }
+.action-btn.reset { background: #e74c3c; color: #fff; }
+
+.action-btn:hover {
+    filter: brightness(1.2);
+    transform: translateY(-1px);
+}
+
+/* ============================================================================
+   CONTROLS & STATS
+   ============================================================================ */
+
+#controls {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+#controls h4 {
+    color: #e94560;
+    font-size: 10px;
+    margin-bottom: 6px;
+}
+
+.control-row {
+    color: #888;
+    font-size: 10px;
+    margin: 2px 0;
+}
+
+.control-row kbd {
+    background: #333;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 9px;
+}
+
+#stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #888;
+    padding: 6px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+}
+
+#stats strong {
+    color: #fff;
+}
+
+/* ============================================================================
+   MAIN GAME AREA
+   ============================================================================ */
+
+#main-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #0a0a15;
+}
+
+#world-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+}
+
+#world-container.placing-building {
+    cursor: crosshair;
+}
+
+#world {
+    position: absolute;
+    transform-origin: 0 0;
+}
+
+/* ============================================================================
+   TILES
+   ============================================================================ */
+
+.tile {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255,255,255,0.03);
+}
+
+.tile.grass { background: #1a2a1a; }
+.tile.dirt { background: #2a2a1a; }
+
+.placing-building .tile:hover {
+    background: rgba(233,69,96,0.2) !important;
+}
+
+/* ============================================================================
+   RESOURCE DEPOSITS
+   ============================================================================ */
+
+.resource-deposit {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #fff;
+    text-shadow: 1px 1px 2px #000;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.05); opacity: 1; }
+}
+
+.resource-deposit.iron { 
+    background: radial-gradient(circle, #5d8aa8 0%, #3a5f77 100%);  /* Blue-steel color */
+    border: 2px solid #7fb3d3;
+}
+.resource-deposit.copper { 
+    background: radial-gradient(circle, #e67e22 0%, #a55a15 100%); 
+    border: 2px solid #f39c12;
+}
+.resource-deposit.coal { 
+    background: radial-gradient(circle, #2c3e50 0%, #1a252f 100%); 
+    border: 2px solid #34495e;
+}
+.resource-deposit.stone { 
+    background: radial-gradient(circle, #bdc3c7 0%, #7f8c8d 100%);  /* Light gray - clearly different from iron */
+    border: 2px solid #ecf0f1;
+}
+
+/* ============================================================================
+   BUILDINGS
+   ============================================================================ */
+
+.building {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 10;
+    transition: filter 0.1s;
+}
+
+.building:hover {
+    filter: brightness(1.2);
+    z-index: 20;
+}
+
+.building.selected-building {
+    box-shadow: 0 0 15px #ffd700;
+}
+
+.building .health-bar {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 3px;
+    background: #333;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.building .health-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e74c3c 0%, #2ecc71 100%);
+    transition: width 0.2s;
+}
+
+.building .direction-indicator {
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background: #ffd700;
+    border-radius: 50%;
+}
+
+/* ============================================================================
+   ENEMIES
+   ============================================================================ */
+
+.enemy {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    z-index: 15;
+    transition: left 0.1s linear, top 0.1s linear;
+}
+
+.enemy.basic {
+    background: radial-gradient(circle, #c0392b 0%, #7b241c 100%);
+    border: 2px solid #e74c3c;
+}
+
+.enemy.fast {
+    background: radial-gradient(circle, #8e44ad 0%, #5b2c6f 100%);
+    border: 2px solid #9b59b6;
+}
+
+.enemy.tank {
+    background: radial-gradient(circle, #1e8449 0%, #145a32 100%);
+    border: 3px solid #27ae60;
+}
+
+.enemy.boss {
+    background: radial-gradient(circle, #d35400 0%, #873600 100%);
+    border: 4px solid #e67e22;
+    animation: boss-pulse 0.5s infinite;
+}
+
+@keyframes boss-pulse {
+    0%, 100% { box-shadow: 0 0 10px #e67e22; }
+    50% { box-shadow: 0 0 25px #e67e22; }
+}
+
+.enemy .health-bar {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 3px;
+    background: #333;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.enemy .health-bar-fill {
+    height: 100%;
+    background: #2ecc71;
+    transition: width 0.15s;
+}
+
+/* ============================================================================
+   PROJECTILES & EFFECTS
+   ============================================================================ */
+
+.projectile {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #ffd700;
+    border-radius: 50%;
+    z-index: 25;
+    box-shadow: 0 0 8px #ffd700;
+}
+
+.projectile.artillery {
+    width: 12px;
+    height: 12px;
+    background: #e74c3c;
+    box-shadow: 0 0 15px #e74c3c;
+}
+
+.explosion {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffd700 0%, #e74c3c 50%, transparent 100%);
+    animation: explode 0.3s ease-out forwards;
+    z-index: 30;
+    pointer-events: none;
+}
+
+@keyframes explode {
+    0% { transform: scale(0); opacity: 1; }
+    100% { transform: scale(2); opacity: 0; }
+}
+
+.damage-number {
+    position: absolute;
+    color: #ffd700;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px #000;
+    animation: float-up 0.8s ease-out forwards;
+    pointer-events: none;
+    z-index: 35;
+}
+
+@keyframes float-up {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-30px); opacity: 0; }
+}
+
+/* ============================================================================
+   MINIMAP
+   ============================================================================ */
+
+#minimap {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 160px;
+    height: 160px;
+    background: #0a0a15;
+    border: 2px solid #533483;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+#minimap-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+#minimap-viewport {
+    position: absolute;
+    border: 2px solid #e94560;
+    pointer-events: none;
+}
+
+/* ============================================================================
+   GHOST BUILDING & UI OVERLAYS
+   ============================================================================ */
+
+#ghost-building {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.6;
+    z-index: 100;
+    display: none;
+}
+
+#notification {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #e94560 0%, #533483 100%);
+    padding: 12px 24px;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    z-index: 1000;
+    display: none;
+    animation: notify 0.3s ease-out;
+}
+
+@keyframes notify {
+    0% { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+    100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+#tooltip {
+    position: absolute;
+    background: rgba(10,10,20,0.95);
+    border: 2px solid #533483;
+    border-radius: 6px;
+    padding: 10px;
+    color: #fff;
+    font-size: 11px;
+    max-width: 180px;
+    z-index: 1000;
+    display: none;
+    pointer-events: none;
+}
+
+#tooltip h4 {
+    color: #e94560;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+#tooltip .stat {
+    color: #888;
+    margin: 2px 0;
+}
+
+#tooltip .stat span {
+    color: #fff;
+}
+
+/* ============================================================================
+   GAME SCREENS
+   ============================================================================ */
+
+.game-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.game-screen h1 {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+#victory-screen h1 { color: #ffd700; }
+#defeat-screen h1 { color: #e74c3c; }
+
+.game-screen p {
+    color: #ccc;
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+.screen-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.screen-btn {
+    padding: 15px 40px;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.screen-btn.continue { background: #2ecc71; color: #fff; }
+.screen-btn.restart { background: #e94560; color: #fff; }
+
+.screen-btn:hover {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+}
+
+/* ============================================================================
+   ACHIEVEMENT SYSTEM
+   ============================================================================ */
+
+.achievement-notification {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    border-radius: 8px;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    z-index: 3000;
+    animation: achievement-slide 0.5s ease-out;
+    box-shadow: 0 4px 20px rgba(243,156,18,0.4);
+}
+
+@keyframes achievement-slide {
+    0% { transform: translateX(120%); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+.achievement-notification.fade-out {
+    animation: achievement-fade 0.5s ease-out forwards;
+}
+
+@keyframes achievement-fade {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(120%); opacity: 0; }
+}
+
+.achievement-badge {
+    font-size: 32px;
+}
+
+.achievement-info {
+    color: #fff;
+}
+
+.achievement-name {
+    font-size: 10px;
+    opacity: 0.8;
+    text-transform: uppercase;
+}
+
+.achievement-title {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.achievement-points {
+    font-size: 11px;
+    color: #ffd700;
+}
+
+/* Achievement Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    animation: modal-fade-in 0.3s ease-out;
+}
+
+@keyframes modal-fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.modal-overlay.closing {
+    animation: modal-fade-out 0.3s ease-out forwards;
+}
+
+@keyframes modal-fade-out {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.achievements-modal-content {
+    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+    border: 2px solid #f39c12;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.achievements-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.achievements-header h2 {
+    color: #f39c12;
+    font-size: 20px;
+}
+
+.achievements-total {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+}
+
+.points-display {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.count-display {
+    color: #888;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.close-btn:hover {
+    color: #fff;
+}
+
+.achievements-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    border: 1px solid #333;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.3s;
+}
+
+.achievement-item.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.achievement-item.locked {
+    opacity: 0.4;
+}
+
+.achievement-item.unlocked {
+    border-color: #f39c12;
+    background: rgba(243,156,18,0.1);
+}
+
+.achievement-item-badge {
+    font-size: 28px;
+}
+
+.achievement-item-info {
+    flex: 1;
+}
+
+.achievement-item-name {
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.achievement-item-desc {
+    color: #888;
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.achievement-item-points {
+    color: #ffd700;
+    font-size: 10px;
+    margin-top: 4px;
+}
+
+.achievement-item-time {
+    color: #666;
+    font-size: 10px;
+}

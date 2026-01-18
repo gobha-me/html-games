@@ -1,9 +1,7 @@
 /**
- * FactorIO Defense - Enemy AI & Wave System
- * Extracted from game.js per #52
+ * Forge Defense - Enemy AI & Wave System
  */
 
-/** Spawn enemies for wave **/
 function waveTimer() {
     if (gameState.isGameOver || gameState.isPaused) return;
 
@@ -16,52 +14,81 @@ function waveTimer() {
     }
 }
 
-/** Spawn enemy wave **/
 function spawnWave() {
     const wave = gameState.wave;
-    showNotification(`⚔️ WAVE ${wave} INCOMING!`);
+    
+    let waveMsg = `⚔️ WAVE ${wave} INCOMING!`;
+    if (wave >= 5 && wave < 10) waveMsg += ' (Heavies!)';
+    if (wave >= 10) waveMsg += ' (Boss wave!)';
+    
+    showNotification(waveMsg);
+    AudioSystem.playWaveAnnounce();
 
     // Calculate enemy counts based on wave
     const basicCount = 5 + wave * 2;
     const fastCount = Math.floor(wave / 2);
-    const tankCount = Math.floor(wave / 5);
+    const tankCount = wave >= 5 ? Math.floor((wave - 4) / 2) : 0;
     const bossCount = wave % 10 === 0 ? 1 : 0;
 
     const spawnEnemies = (type, count) => {
         for (let i = 0; i < count; i++) {
-            setTimeout(() => spawnEnemy(type), i * 500);
+            setTimeout(() => spawnEnemy(type), i * 400);
         }
     };
 
     spawnEnemies('basic', basicCount);
-    spawnEnemies('fast', fastCount);
-    spawnEnemies('tank', tankCount);
-    if (bossCount) setTimeout(() => spawnEnemy('boss'), 3000);
+    setTimeout(() => spawnEnemies('fast', fastCount), 500);
+    setTimeout(() => spawnEnemies('tank', tankCount), 1000);
+    
+    if (bossCount) {
+        setTimeout(() => {
+            spawnEnemy('boss');
+            AudioSystem.playBossSpawn();
+        }, 2000);
+    }
 
     gameState.wave++;
+    gameState.achievements.wavesSurvived++;
     document.getElementById('wave-number').textContent = gameState.wave;
+    
+    checkObjectives();
+    checkAchievements(gameState);
 
     // Check victory
     if (wave >= CONFIG.VICTORY_WAVE) {
-        document.getElementById('victory-screen').style.display = 'flex';
+        setTimeout(() => {
+            AudioSystem.playVictory();
+            document.getElementById('victory-stats').textContent = 
+                `Kills: ${gameState.totalKills} | Buildings: ${gameState.buildings.length} | Time: ${formatTime(gameState.gameTime)}`;
+            document.getElementById('victory-screen').style.display = 'flex';
+            gameState.objectives.victory = true;
+        }, 3000);
     }
 }
 
-/** Create individual enemy **/
 function spawnEnemy(type) {
     const def = ENEMIES[type];
+    const wave = gameState.wave;
     const angle = Math.random() * Math.PI * 2;
     const distance = CONFIG.SPAWN_DISTANCE * CONFIG.TILE_SIZE;
+
+    // Calculate wave-scaled stats
+    const healthScale = 1 + (wave - 1) * WAVE_SCALING.healthMultiplier;
+    const damageScale = 1 + (wave - 1) * WAVE_SCALING.damageMultiplier;
+    const speedScale = Math.min(
+        1 + (wave - 1) * WAVE_SCALING.speedMultiplier,
+        WAVE_SCALING.maxSpeedMultiplier
+    );
 
     const enemy = {
         id: Date.now() + Math.random(),
         type,
         x: CONFIG.BASE_CENTER.x * CONFIG.TILE_SIZE + Math.cos(angle) * distance,
         y: CONFIG.BASE_CENTER.y * CONFIG.TILE_SIZE + Math.sin(angle) * distance,
-        health: def.health * (1 + gameState.wave * 0.1),
-        maxHealth: def.health * (1 + gameState.wave * 0.1),
-        speed: def.speed,
-        damage: def.damage * (1 + gameState.wave * 0.05)
+        health: def.health * healthScale,
+        maxHealth: def.health * healthScale,
+        speed: def.speed * speedScale,
+        damage: def.damage * damageScale
     };
 
     gameState.enemies.push(enemy);
@@ -69,7 +96,6 @@ function spawnEnemy(type) {
     updateEnemyCount();
 }
 
-/** Create enemy DOM element **/
 function renderEnemy(enemy) {
     const def = ENEMIES[enemy.type];
     const el = document.createElement('div');
@@ -77,16 +103,18 @@ function renderEnemy(enemy) {
     el.dataset.enemyId = enemy.id;
     el.style.left = enemy.x + 'px';
     el.style.top = enemy.y + 'px';
-    el.style.width = (enemy.type === 'boss' ? 50 : enemy.type === 'tank' ? 35 : 25) + 'px';
-    el.style.height = (enemy.type === 'boss' ? 50 : enemy.type === 'tank' ? 35 : 25) + 'px';
+    
+    const size = enemy.type === 'boss' ? 50 : enemy.type === 'tank' ? 35 : 25;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    
     el.innerHTML = `
-        ${enemy.type === 'boss' ? '👹' : enemy.type === 'tank' ? '🐛' : enemy.type === 'fast' ? '🦗' : '🐜'}
+        ${def.icon}
         <div class="health-bar"><div class="health-bar-fill" style="width:100%"></div></div>
     `;
     world.appendChild(el);
 }
 
-/** Enemy movement and AI **/
 function updateEnemies() {
     const base = gameState.buildings.find(b => b.type === 'base');
     if (!base) return;
@@ -95,8 +123,6 @@ function updateEnemies() {
     const baseY = base.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE;
 
     gameState.enemies.forEach(enemy => {
-        const def = ENEMIES[enemy.type];
-
         // Find nearest target (walls/turrets first, then base)
         let targetX = baseX;
         let targetY = baseY;
@@ -138,29 +164,33 @@ function updateEnemies() {
             updateBuildingHealth(targetBuilding);
         }
 
-        // Update position
+        // Update position and visibility (fog of war)
         const el = document.querySelector(`[data-enemy-id="${enemy.id}"]`);
         if (el) {
             el.style.left = enemy.x + 'px';
             el.style.top = enemy.y + 'px';
+            
+            // Hide enemies in fog of war
+            if (gameState.fogEnabled && typeof isRevealed === 'function') {
+                el.style.opacity = isRevealed(enemy.x, enemy.y) ? '1' : '0';
+            }
         }
     });
 
     updateMinimap();
 }
 
-/** Update enemy counter **/
 function updateEnemyCount() {
     document.getElementById('enemies-alive').textContent = gameState.enemies.length;
 }
 
-/** Apply damage to enemy **/
 function damageEnemy(enemy, damage) {
     enemy.health -= damage;
     showDamageNumber(enemy.x, enemy.y, Math.floor(damage));
+    AudioSystem.playEnemyHit();
 
-    // Update health bar
-    const el = document.querySelector(`[data-enemy-id="${enemy.id}"].health-bar-fill`);
+    // Update health bar - FIXED selector
+    const el = document.querySelector(`[data-enemy-id="${enemy.id}"] .health-bar-fill`);
     if (el) el.style.width = `${Math.max(0, (enemy.health / enemy.maxHealth) * 100)}%`;
 
     if (enemy.health <= 0) {
@@ -168,24 +198,26 @@ function damageEnemy(enemy, damage) {
     }
 }
 
-/** Handle enemy death **/
 function killEnemy(enemy) {
     const def = ENEMIES[enemy.type];
 
     // Reward
     Object.entries(def.reward).forEach(([res, amount]) => {
         gameState.resources[res] += amount;
+        gameState.achievements.resourcesCollected += amount;
     });
 
     gameState.kills++;
+    gameState.totalKills++;
+    gameState.achievements.enemiesKilled++;
     gameState.enemies = gameState.enemies.filter(e => e.id !== enemy.id);
     document.querySelector(`[data-enemy-id="${enemy.id}"]`)?.remove();
     createExplosion(enemy.x, enemy.y, 30);
     updateUI();
     updateEnemyCount();
+    checkAchievements(gameState);
 }
 
-/** Visual explosion effect **/
 function createExplosion(x, y, size) {
     const el = document.createElement('div');
     el.className = 'explosion';
@@ -197,7 +229,6 @@ function createExplosion(x, y, size) {
     setTimeout(() => el.remove(), 300);
 }
 
-/** Floating damage text **/
 function showDamageNumber(x, y, damage) {
     const el = document.createElement('div');
     el.className = 'damage-number';
@@ -206,4 +237,10 @@ function showDamageNumber(x, y, damage) {
     el.style.top = y + 'px';
     world.appendChild(el);
     setTimeout(() => el.remove(), 800);
+}
+
+function formatTime(ms) {
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
