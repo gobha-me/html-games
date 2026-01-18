@@ -129,7 +129,6 @@
                         <div class="building-name">Laser Turret</div>
                         <div class="building-cost">50🔩 40◈</div>
                     </div>
-<script src="js/buildings.js"></script>
                     <div class="building-item" data-building="artillery" draggable="true">
                         <div class="building-preview" style="background:#d35400;">💥</div>
                         <div class="building-name">Artillery</div>
@@ -190,10 +189,11 @@
         <div id="production-panel">
             <h4>📊 Production/min</h4>
             <div id="production-stats"></div>
-        <div id="notification"></div>
+<div id="notification"></div>
         <div id="tooltip">
             <h4 id="tooltip-title">Building</h4>
             <div id="tooltip-content"></div>
+        </div>
         </div>
     </div>
 </div>
@@ -213,6 +213,8 @@
     <button class="screen-btn restart" onclick="resetGame()">Try Again</button>
 </div>
 
+<script src="js/buildings.js"></script>
+<script src="js/enemies.js"></script>
 <script src="js/config.js"></script>
 <script src="js/state.js"></script>
 <script src="js/world.js"></script>
