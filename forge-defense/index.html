@@ -9,6 +9,24 @@
 <body>
 <div id="game-container">
     <div id="sidebar">
+        <div id="status-bar">
+            <div class="status-item">
+                <span class="status-icon">⚔️</span>
+                <span class="status-value" id="wave-number">1</span>
+                <span class="status-label">Wave</span>
+            </div>
+            <div class="status-item">
+                <span class="status-icon">⏱️</span>
+                <span class="status-value" id="wave-timer">60</span>
+                <span class="status-label">sec</span>
+            </div>
+            <div class="status-item">
+                <span class="status-icon">👾</span>
+                <span class="status-value" id="enemies-alive">0</span>
+                <span class="status-label">enemies</span>
+            </div>
+        </div>
+        
         <div id="game-header">
             <h1>⚒️ FORGE DEFENSE</h1>
         </div>
@@ -36,51 +54,47 @@
             </div>
         </div>
         
-        <div id="wave-info">
-            <h2>⚔️ WAVE <span id="wave-number">1</span></h2>
-            <div id="wave-timer">60</div>
-            <div id="enemy-count">Enemies: <span id="enemies-alive">0</span></div>
-        </div>
-        
-        <div id="buildings-panel">
-            <h3>🏗️ BUILDINGS <span class="hint">Press 1-9</span></h3>
-            <div class="building-grid" id="building-list"></div>
-        </div>
-        
-        <div id="crafting-panel">
-            <h3>🔨 MANUAL CRAFT</h3>
-            <div class="craft-grid">
-                <button class="craft-btn" onclick="manualCraft('circuits')">◈ Circuit<br><small>2🟠 1⚫</small></button>
-                <button class="craft-btn" onclick="manualCraft('ammo')">⁍ Ammo<br><small>2▬ 1▬</small></button>
+        <div id="interactive-panel">
+            <div id="buildings-panel">
+                <h3>🏗️ BUILDINGS <span class="hint">Press 1-9</span></h3>
+                <div class="building-grid" id="building-list"></div>
             </div>
-        </div>
-        
-        <div id="audio-controls">
-            <button class="audio-btn" id="sfx-toggle" onclick="toggleSfx()">🔊</button>
-            <button class="audio-btn" id="music-toggle" onclick="toggleMusic()">🎵</button>
-        </div>
-        
-        <div id="action-buttons">
-            <button class="action-btn achievements" onclick="openAchievements()">🏆 <span id="achievement-count">0</span></button>
-            <button class="action-btn save" onclick="saveGame()">💾</button>
-            <button class="action-btn load" onclick="loadGame()">📂</button>
-            <button class="action-btn reset" onclick="resetGame()">🔄</button>
-        </div>
-        
-        <div id="controls">
-            <h4>⌨️ CONTROLS</h4>
-            <div class="control-row"><kbd>1-9</kbd> Select building</div>
-            <div class="control-row"><kbd>R</kbd> Rotate</div>
-            <div class="control-row"><kbd>Q/Esc</kbd> Cancel</div>
-            <div class="control-row"><kbd>RMB</kbd> Delete building</div>
-            <div class="control-row"><kbd>WASD</kbd> Pan camera</div>
-            <div class="control-row"><kbd>Shift+Click</kbd> Multi-place</div>
-        </div>
-        
-        <div id="stats">
-            <span>Buildings: <strong id="stat-buildings">0</strong></span>
-            <span>Kills: <strong id="stat-kills">0</strong></span>
-            <span>Time: <strong id="stat-time">00:00</strong></span>
+            
+            <div id="crafting-panel">
+                <h3>🔨 MANUAL CRAFT</h3>
+                <div class="craft-grid">
+                    <button class="craft-btn" onclick="manualCraft('circuits')">◈ Circuit<br><small>2🟠 1⚫</small></button>
+                    <button class="craft-btn" onclick="manualCraft('ammo')">⁍ Ammo<br><small>2▬ 1▬</small></button>
+                </div>
+            </div>
+            
+            <div id="audio-controls">
+                <button class="audio-btn" id="sfx-toggle" onclick="toggleSfx()">🔊</button>
+                <button class="audio-btn" id="music-toggle" onclick="toggleMusic()">🎵</button>
+            </div>
+            
+            <div id="action-buttons">
+                <button class="action-btn achievements" onclick="openAchievements()">🏆 <span id="achievement-count">0</span></button>
+                <button class="action-btn save" onclick="saveGame()">💾</button>
+                <button class="action-btn load" onclick="loadGame()">📂</button>
+                <button class="action-btn reset" onclick="resetGame()">🔄</button>
+            </div>
+            
+            <div id="controls">
+                <h4>⌨️ CONTROLS</h4>
+                <div class="control-row"><kbd>1-9</kbd> Select building</div>
+                <div class="control-row"><kbd>R</kbd> Rotate</div>
+                <div class="control-row"><kbd>Q/Esc</kbd> Cancel</div>
+                <div class="control-row"><kbd>RMB</kbd> Delete building</div>
+                <div class="control-row"><kbd>WASD</kbd> Pan camera</div>
+                <div class="control-row"><kbd>Shift+Click</kbd> Multi-place</div>
+            </div>
+            
+            <div id="stats">
+                <span>Buildings: <strong id="stat-buildings">0</strong></span>
+                <span>Kills: <strong id="stat-kills">0</strong></span>
+                <span>Time: <strong id="stat-time">00:00</strong></span>
+            </div>
         </div>
     </div>
     
@@ -120,11 +134,38 @@
     <button class="screen-btn restart" onclick="resetGame()">Try Again</button>
 </div>
 
+<!-- Construction Popup Menu -->
+<div id="construction-popup" class="popup-overlay" style="display: none;">
+    <div class="popup-content">
+        <div class="popup-header">
+            <h3 id="popup-title">Construction</h3>
+            <button class="popup-close" onclick="closeConstructionPopup()">✕</button>
+        </div>
+        <div class="popup-options" id="popup-options">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+</div>
+
+<!-- Forge Production Menu -->
+<div id="forge-popup" class="popup-overlay" style="display: none;">
+    <div class="popup-content forge-popup">
+        <div class="popup-header">
+            <h3>🔥 Furnace Output</h3>
+            <button class="popup-close" onclick="closeForgePopup()">✕</button>
+        </div>
+        <div class="popup-options">
+            <button class="popup-btn" onclick="setForgeOutput('iron')">Iron Plates <small>1 ore + 1 coal</small></button>
+            <button class="popup-btn" onclick="setForgeOutput('copper')">Copper Plates <small>1 ore + 1 coal</small></button>
+        </div>
+    </div>
+</div>
+
 <script src="js/config.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/state.js"></script>
-<script src="js/world.js"></script>
 <script src="js/buildings.js"></script>
+<script src="js/world.js"></script>
 <script src="js/enemies.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/achievements.js"></script>

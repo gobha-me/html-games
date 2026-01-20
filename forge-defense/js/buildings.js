@@ -178,7 +178,23 @@ function selectBuilding(id) {
     gameState.selectedBuilding = id;
     const el = document.querySelector(`[data-id="${id}"]`);
     if (el) el.classList.add('selected-building');
-    showBuildingTooltip(id);
+    
+    const building = gameState.buildings.find(b => b.id === id);
+    
+    // Check if building has construction options - show popup instead of tooltip
+    if (building && CONSTRUCTION_OPTIONS[building.type]) {
+        showBuildingTooltip(id);
+        // Double-click to open construction menu
+        el.addEventListener('dblclick', () => {
+            if (building.type === 'furnace') {
+                openForgePopup(id);
+            } else {
+                openConstructionPopup(id);
+            }
+        }, { once: true });
+    } else {
+        showBuildingTooltip(id);
+    }
 }
 
 function deselectBuilding() {
@@ -244,7 +260,16 @@ function showBuildingTooltip(id) {
         content += `<div class="stat">Range: <span>${def.combat.range} tiles</span></div>`;
     }
     if (def.production) {
-        content += `<div class="stat">Production active</div>`;
+        content += `<div class="stat">Production: <span>Active</span></div>`;
+        // Show current production output if set
+        if (building.productionOutput) {
+            content += `<div class="stat" style="color:#2ecc71">Output: <span>${building.productionOutput}</span></div>`;
+        } else {
+            content += `<div class="stat" style="color:#f39c12">Double-click to configure</div>`;
+        }
+    }
+    if (def.revealRadius) {
+        content += `<div class="stat">Radar Range: <span>${def.revealRadius} tiles</span></div>`;
     }
     if (def.desc) {
         content += `<div class="stat" style="margin-top:6px;color:#888;">${def.desc}</div>`;
@@ -290,18 +315,23 @@ function updateBuildingProduction() {
 
         if (building.type === 'furnace') {
             if (now - building.lastProduction >= def.production.time) {
-                if (gameState.resources['iron-ore'] >= 1 && gameState.resources.coal >= 1) {
-                    gameState.resources['iron-ore']--;
-                    gameState.resources.coal--;
-                    gameState.resources['iron-plates']++;
-                    building.lastProduction = now;
-                    trackProduction('iron-plates', 1);
-                } else if (gameState.resources['copper-ore'] >= 1 && gameState.resources.coal >= 1) {
-                    gameState.resources['copper-ore']--;
-                    gameState.resources.coal--;
-                    gameState.resources['copper-plates']++;
-                    building.lastProduction = now;
-                    trackProduction('copper-plates', 1);
+                // Check which production type is selected
+                if (building.productionType === 'iron' || !building.productionType) {
+                    if (gameState.resources['iron-ore'] >= 1 && gameState.resources.coal >= 1) {
+                        gameState.resources['iron-ore']--;
+                        gameState.resources.coal--;
+                        gameState.resources['iron-plates']++;
+                        building.lastProduction = now;
+                        trackProduction('iron-plates', 1);
+                    }
+                } else if (building.productionType === 'copper') {
+                    if (gameState.resources['copper-ore'] >= 1 && gameState.resources.coal >= 1) {
+                        gameState.resources['copper-ore']--;
+                        gameState.resources.coal--;
+                        gameState.resources['copper-plates']++;
+                        building.lastProduction = now;
+                        trackProduction('copper-plates', 1);
+                    }
                 }
             }
         }

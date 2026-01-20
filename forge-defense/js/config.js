@@ -105,6 +105,17 @@ const BUILDINGS = {
         desc: 'Fires lasers (no ammo needed)',
         revealRadius: 8
     },
+    radar: {
+        name: 'Radar Station',
+        icon: '📡',
+        color: '#16a085',
+        size: 1,
+        cost: { 'iron-plates': 20, circuits: 10, stone: 10 },
+        health: 150,
+        key: '0',
+        desc: 'Reveals large areas of the map',
+        revealRadius: 12
+    },
     artillery: {
         name: 'Artillery',
         icon: '💥',
@@ -198,6 +209,35 @@ const CRAFT_RECIPES = {
         cost: { 'iron-plates': 2, 'copper-plates': 1 },
         output: 5,
         time: 2000
+    }
+};
+
+// Construction options for multi-output buildings
+const CONSTRUCTION_OPTIONS = {
+    'furnace': {
+        name: 'Furnace',
+        options: [
+            { id: 'iron', name: 'Iron Plates', cost: { 'iron-ore': 1, coal: 1 }, output: 'iron-plates' },
+            { id: 'copper', name: 'Copper Plates', cost: { 'copper-ore': 1, coal: 1 }, output: 'copper-plates' }
+        ]
+    },
+    'circuit-factory': {
+        name: 'Circuit Plant',
+        options: [
+            { id: 'circuits', name: 'Circuits', cost: { 'iron-plates': 1, 'copper-plates': 2 }, output: 'circuits' }
+        ]
+    },
+    'ammo-factory': {
+        name: 'Ammo Factory',
+        options: [
+            { id: 'ammo', name: 'Ammo', cost: { 'iron-plates': 2, 'copper-plates': 1 }, output: 'ammo' }
+        ]
+    },
+    'assembler': {
+        name: 'Shell Factory',
+        options: [
+            { id: 'shells', name: 'Shells', cost: { 'iron-plates': 5, coal: 2 }, output: 'shells' }
+        ]
     }
 };
 

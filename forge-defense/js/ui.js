@@ -26,8 +26,10 @@ function updateUI() {
 function updateGameStats() {
     const mins = Math.floor(gameState.gameTime / 60000);
     const secs = Math.floor((gameState.gameTime % 60000) / 1000);
-    document.getElementById('stat-time').textContent =
-        `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    
+    document.getElementById('stat-time').textContent = timeStr;
+    document.getElementById('game-time').textContent = timeStr;
 }
 
 function showNotification(text) {
@@ -123,3 +125,84 @@ function manualCraft(item) {
 }
 
 window.manualCraft = manualCraft;
+
+// Construction popup menu functions
+function openConstructionPopup(buildingId) {
+    const building = gameState.buildings.find(b => b.id === buildingId);
+    if (!building) return;
+    
+    const options = CONSTRUCTION_OPTIONS[building.type];
+    if (!options || !options.options.length) return;
+    
+    gameState.selectedPopupBuilding = buildingId;
+    
+    const popup = document.getElementById('construction-popup');
+    const popupTitle = document.getElementById('popup-title');
+    const popupOptions = document.getElementById('popup-options');
+    
+    popupTitle.textContent = options.name;
+    popupOptions.innerHTML = '';
+    
+    options.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'popup-btn';
+        btn.innerHTML = `${opt.name} <small>${formatOptionCost(opt.cost)}</small>`;
+        btn.onclick = () => selectConstructionOption(buildingId, opt);
+        popupOptions.appendChild(btn);
+    });
+    
+    popup.style.display = 'flex';
+}
+
+function closeConstructionPopup() {
+    document.getElementById('construction-popup').style.display = 'none';
+    gameState.selectedPopupBuilding = null;
+}
+
+function selectConstructionOption(buildingId, option) {
+    const building = gameState.buildings.find(b => b.id === buildingId);
+    if (!building) return;
+    
+    building.productionOutput = option.output;
+    building.productionCost = option.cost;
+    
+    closeConstructionPopup();
+    showNotification(`✅ ${option.name} selected`);
+}
+
+function formatOptionCost(cost) {
+    if (!cost) return 'Free';
+    return Object.entries(cost).map(([res, amt]) => {
+        const icons = {
+            'iron-plates': '▬', 'copper-plates': '▬', stone: '◐', 
+            circuits: '◈', coal: '■', 'iron-ore': '⚫', 'copper-ore': '🟠'
+        };
+        return `${amt}${icons[res] || res.charAt(0)}`;
+    }).join(' ');
+}
+
+// Forge popup functions
+function openForgePopup(buildingId) {
+    gameState.selectedPopupBuilding = buildingId;
+    document.getElementById('forge-popup').style.display = 'flex';
+}
+
+function closeForgePopup() {
+    document.getElementById('forge-popup').style.display = 'none';
+}
+
+function setForgeOutput(type) {
+    // Find selected furnace
+    const furnace = gameState.buildings.find(b => 
+        b.type === 'furnace' && b.id === gameState.selectedPopupBuilding
+    );
+    
+    if (furnace) {
+        furnace.productionType = type;
+        showNotification(`✅ Now producing ${type === 'iron' ? 'Iron' : 'Copper'} Plates`);
+    } else {
+        showNotification('❌ Furnace not found');
+    }
+    
+    closeForgePopup();
+}
