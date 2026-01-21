@@ -37,6 +37,7 @@ function loadGame() {
         document.querySelectorAll('.building').forEach(el => el.remove());
         document.querySelectorAll('.enemy').forEach(el => el.remove());
         document.querySelectorAll('.projectile').forEach(el => el.remove());
+        document.querySelectorAll('.resource-deposit').forEach(el => el.remove());
         
         // Restore state
         gameState.resources = saveData.resources || gameState.resources;
@@ -53,6 +54,7 @@ function loadGame() {
         gameState.achievements = saveData.achievements || gameState.achievements;
         gameState.objectives = saveData.objectives || gameState.objectives;
         gameState.isGameOver = false;
+        gameState.isPaused = false;
         
         // Restore fog of war
         gameState.revealed = new Set(saveData.revealed || []);
@@ -63,6 +65,21 @@ function loadGame() {
             saveData.buildings.forEach(b => {
                 gameState.buildings.push(b);
                 renderBuilding(b);
+            });
+        }
+        
+        // Re-render deposits
+        if (saveData.deposits) {
+            saveData.deposits.forEach((d, index) => {
+                const deposit = document.createElement('div');
+                deposit.className = 'resource-deposit ' + d.type;
+                deposit.style.left = (d.x * CONFIG.TILE_SIZE + 5) + 'px';
+                deposit.style.top = (d.y * CONFIG.TILE_SIZE + 5) + 'px';
+                deposit.style.width = '30px';
+                deposit.style.height = '30px';
+                deposit.textContent = d.amount;
+                deposit.dataset.depositId = index;
+                world.appendChild(deposit);
             });
         }
         

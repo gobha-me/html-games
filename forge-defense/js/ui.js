@@ -18,9 +18,11 @@ function updateUI() {
         }
     });
 
-    // Update stats
-    document.getElementById('stat-buildings').textContent = gameState.buildings.length;
-    document.getElementById('stat-kills').textContent = gameState.totalKills;
+    // Update stats (optional elements - may not exist in all layouts)
+    const statBuildings = document.getElementById('stat-buildings');
+    const statKills = document.getElementById('stat-kills');
+    if (statBuildings) statBuildings.textContent = gameState.buildings.length;
+    if (statKills) statKills.textContent = gameState.totalKills;
 }
 
 function updateGameStats() {
@@ -28,8 +30,11 @@ function updateGameStats() {
     const secs = Math.floor((gameState.gameTime % 60000) / 1000);
     const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     
-    document.getElementById('stat-time').textContent = timeStr;
-    document.getElementById('game-time').textContent = timeStr;
+    // Optional elements - may not exist in all layouts
+    const statTime = document.getElementById('stat-time');
+    const gameTime = document.getElementById('game-time');
+    if (statTime) statTime.textContent = timeStr;
+    if (gameTime) gameTime.textContent = timeStr;
 }
 
 function showNotification(text) {
