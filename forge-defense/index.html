@@ -8,111 +8,117 @@
 </head>
 <body>
 <div id="game-container">
-    <div id="sidebar">
-        <div id="status-bar">
-            <div class="status-item">
-                <span class="status-icon">⚔️</span>
-                <span class="status-value" id="wave-number">1</span>
-                <span class="status-label">Wave</span>
-            </div>
-            <div class="status-item">
-                <span class="status-icon">⏱️</span>
-                <span class="status-value" id="wave-timer">60</span>
-                <span class="status-label">sec</span>
-            </div>
-            <div class="status-item">
-                <span class="status-icon">👾</span>
-                <span class="status-value" id="enemies-alive">0</span>
-                <span class="status-label">enemies</span>
-            </div>
+    <!-- TOP BAR - Status displays (non-interactive) -->
+    <div id="top-status-bar">
+        <div class="status-item">
+            <span class="status-icon">⚔️</span>
+            <span class="status-value" id="wave-number">1</span>
+            <span class="status-label">Wave</span>
         </div>
-        
-        <div id="game-header">
-            <h1>⚒️ FORGE DEFENSE</h1>
+        <div class="status-item">
+            <span class="status-icon">⏱️</span>
+            <span class="status-value" id="wave-timer">60</span>
+            <span class="status-label">sec</span>
         </div>
-        
-        <div id="objectives">
-            <h3>📋 OBJECTIVES</h3>
-            <div class="objective" id="obj-turrets">⚪ Build 5 turrets (0/5)</div>
-            <div class="objective" id="obj-waves">⚪ Survive 10 waves (0/10)</div>
-            <div class="objective" id="obj-resources">⚪ Stockpile 500 resources</div>
-            <div class="objective" id="obj-victory">⚪ Reach wave 50</div>
+        <div class="status-item">
+            <span class="status-icon">👾</span>
+            <span class="status-value" id="enemies-alive">0</span>
+            <span class="status-label">enemies</span>
         </div>
-        
-        <div id="resources">
-            <h3>📦 RESOURCES</h3>
-            <div class="resource-grid">
-                <div class="resource-row"><span class="res-icon" style="background:#5d8aa8">Fe</span><span class="res-name">Iron Ore</span><span class="res-count" id="iron-ore">0</span></div>
-                <div class="resource-row"><span class="res-icon" style="background:#e67e22">Cu</span><span class="res-name">Copper Ore</span><span class="res-count" id="copper-ore">0</span></div>
-                <div class="resource-row"><span class="res-icon" style="background:#2c3e50">ite</span><span class="res-name">Coal</span><span class="res-count" id="coal">0</span></div>
-                <div class="resource-row"><span class="res-icon" style="background:#bdc3c7;color:#333">ite</span><span class="res-name">Stone</span><span class="res-count" id="stone">0</span></div>
-                <div class="resource-row separator"><span class="res-icon" style="background:#5d8aa8">▬</span><span class="res-name">Iron Plates</span><span class="res-count" id="iron-plates">0</span></div>
-                <div class="resource-row"><span class="res-icon" style="background:#e67e22">▬</span><span class="res-name">Copper Plates</span><span class="res-count" id="copper-plates">0</span></div>
-                <div class="resource-row"><span class="res-icon" style="background:#2ecc71">◈</span><span class="res-name">Circuits</span><span class="res-count" id="circuits">0</span></div>
-                <div class="resource-row"><span class="res-icon" style="background:#e74c3c">⁍</span><span class="res-name">Ammo</span><span class="res-count" id="ammo">0</span></div>
-                <div class="resource-row"><span class="res-icon" style="background:#9b59b6">💣</span><span class="res-name">Shells</span><span class="res-count" id="shells">0</span></div>
-            </div>
+        <div class="status-item resource-item">
+            <span class="res-icon" style="background:#5d8aa8">Fe</span>
+            <span class="status-value" id="iron-ore">0</span>
         </div>
-        
-        <div id="interactive-panel">
-            <div id="buildings-panel">
-                <h3>🏗️ BUILDINGS <span class="hint">Press 1-9</span></h3>
-                <div class="building-grid" id="building-list"></div>
-            </div>
-            
-            <div id="crafting-panel">
-                <h3>🔨 MANUAL CRAFT</h3>
-                <div class="craft-grid">
-                    <button class="craft-btn" onclick="manualCraft('circuits')">◈ Circuit<br><small>2🟠 1⚫</small></button>
-                    <button class="craft-btn" onclick="manualCraft('ammo')">⁍ Ammo<br><small>2▬ 1▬</small></button>
-                </div>
-            </div>
-            
-            <div id="audio-controls">
-                <button class="audio-btn" id="sfx-toggle" onclick="toggleSfx()">🔊</button>
-                <button class="audio-btn" id="music-toggle" onclick="toggleMusic()">🎵</button>
-            </div>
-            
-            <div id="action-buttons">
-                <button class="action-btn achievements" onclick="openAchievements()">🏆 <span id="achievement-count">0</span></button>
-                <button class="action-btn save" onclick="saveGame()">💾</button>
-                <button class="action-btn load" onclick="loadGame()">📂</button>
-                <button class="action-btn reset" onclick="resetGame()">🔄</button>
-            </div>
-            
-            <div id="controls">
-                <h4>⌨️ CONTROLS</h4>
-                <div class="control-row"><kbd>1-9</kbd> Select building</div>
-                <div class="control-row"><kbd>R</kbd> Rotate</div>
-                <div class="control-row"><kbd>Q/Esc</kbd> Cancel</div>
-                <div class="control-row"><kbd>RMB</kbd> Delete building</div>
-                <div class="control-row"><kbd>WASD</kbd> Pan camera</div>
-                <div class="control-row"><kbd>Shift+Click</kbd> Multi-place</div>
-            </div>
-            
-            <div id="stats">
-                <span>Buildings: <strong id="stat-buildings">0</strong></span>
-                <span>Kills: <strong id="stat-kills">0</strong></span>
-                <span>Time: <strong id="stat-time">00:00</strong></span>
-            </div>
+        <div class="status-item resource-item">
+            <span class="res-icon" style="background:#e67e22">Cu</span>
+            <span class="status-value" id="copper-ore">0</span>
+        </div>
+        <div class="status-item resource-item">
+            <span class="res-icon" style="background:#2c3e50">■</span>
+            <span class="status-value" id="coal">0</span>
+        </div>
+        <div class="status-item resource-item">
+            <span class="res-icon" style="background:#bdc3c7;color:#333">◐</span>
+            <span class="status-value" id="stone">0</span>
+        </div>
+        <div class="status-item resource-item">
+            <span class="res-icon" style="background:#2ecc71">◈</span>
+            <span class="status-value" id="circuits">0</span>
+        </div>
+        <div class="status-item resource-item">
+            <span class="res-icon" style="background:#e74c3c">⁍</span>
+            <span class="status-value" id="ammo">0</span>
         </div>
     </div>
     
-    <div id="main-area">
-        <div id="world-container">
-            <div id="world"></div>
-            <div id="ghost-building"></div>
+    <div id="main-container">
+        <div id="sidebar">
+            <!-- Interactive bar - Audio and action buttons -->
+            <div id="interactive-bar">
+                <div class="audio-controls">
+                    <button class="audio-btn" id="sfx-toggle" onclick="toggleSfx()">🔊</button>
+                    <button class="audio-btn" id="music-toggle" onclick="toggleMusic()">🎵</button>
+                </div>
+                <div class="action-buttons-row">
+                    <button class="action-btn achievements" onclick="openAchievements()">🏆 <span id="achievement-count">0</span></button>
+                    <button class="action-btn save" onclick="saveGame()">💾</button>
+                    <button class="action-btn load" onclick="loadGame()">📂</button>
+                    <button class="action-btn reset" onclick="resetGame()">🔄</button>
+                </div>
+            </div>
+            
+            <div id="game-header">
+                <h1>⚒️ FORGE DEFENSE</h1>
+            </div>
+            
+            <div id="objectives">
+                <h3>📋 OBJECTIVES</h3>
+                <div class="objective" id="obj-turrets">⚪ Build 5 turrets (0/5)</div>
+                <div class="objective" id="obj-waves">⚪ Survive 10 waves (0/10)</div>
+                <div class="objective" id="obj-resources">⚪ Stockpile 500 resources</div>
+                <div class="objective" id="obj-victory">⚪ Reach wave 50</div>
+            </div>
+            
+            <div id="interactive-panel">
+                <div id="buildings-panel">
+                    <h3>🏗️ BUILDINGS <span class="hint">Press 1-9</span></h3>
+                    <div class="building-grid" id="building-list"></div>
+                </div>
+                
+                <div id="crafting-panel">
+                    <h3>🔨 MANUAL CRAFT</h3>
+                    <div class="craft-grid">
+                        <button class="craft-btn" onclick="manualCraft('circuits')">◈ Circuit<br><small>2🟠 1⚫</small></button>
+                        <button class="craft-btn" onclick="manualCraft('ammo')">⁍ Ammo<br><small>2▬ 1▬</small></button>
+                    </div>
+                </div>
+                
+                <div id="controls">
+                    <h4>⌨️ CONTROLS</h4>
+                    <div class="control-row"><kbd>1-9</kbd> Select building</div>
+                    <div class="control-row"><kbd>R</kbd> Rotate</div>
+                    <div class="control-row"><kbd>Q/Esc</kbd> Cancel</div>
+                    <div class="control-row"><kbd>RMB</kbd> Delete building</div>
+                </div>
+            </div>
         </div>
         
-        <div id="minimap">
-            <canvas id="minimap-canvas"></canvas>
-            <div id="minimap-viewport"></div>
-        </div>
-        
-        <div id="notification"></div>
-        <div id="tooltip">
-            <h4 id="tooltip-title">Building</h4>
-            <div id="tooltip-content"></div>
+        <div id="main-area">
+            <div id="world-container">
+                <div id="world"></div>
+                <div id="ghost-building"></div>
+            </div>
+            
+            <div id="minimap">
+                <canvas id="minimap-canvas"></canvas>
+                <div id="minimap-viewport"></div>
+            </div>
+            
+            <div id="notification"></div>
+            <div id="tooltip">
+                <h4 id="tooltip-title">Building</h4>
+                <div id="tooltip-content"></div>
+            </div>
         </div>
     </div>
 </div>

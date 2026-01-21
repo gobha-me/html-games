@@ -18,13 +18,80 @@ body {
 
 #game-container {
     display: flex;
+    flex-direction: column;
     height: 100vh;
     width: 100vw;
 }
 
 /* ============================================================================
-   SIDEBAR
+   TOP STATUS BAR - Horizontal, non-interactive
    ============================================================================ */
+
+#top-status-bar {
+    display: flex;
+    gap: 8px;
+    background: linear-gradient(135deg, #e94560 0%, #533483 100%);
+    padding: 10px 15px;
+    height: 50px;
+    align-items: center;
+    justify-content: center;
+}
+
+#top-status-bar .status-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+    padding: 4px 12px;
+}
+
+#top-status-bar .status-icon {
+    font-size: 16px;
+}
+
+#top-status-bar .status-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+    font-family: monospace;
+#top-status-bar .resource-item {
+    padding: 2px 8px;
+}
+
+#top-status-bar .resource-item .res-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+    margin-right: 4px;
+    margin-bottom: 0;
+}
+
+#top-status-bar .resource-item .status-value {
+    font-size: 14px;
+    min-width: 35px;
+}
+
+    min-width: 30px;
+    text-align: center;
+}
+
+#top-status-bar .status-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    opacity: 0.8;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================================================
+   MAIN LAYOUT - Sidebar + Game Area
+   ============================================================================ */
+
+#main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
 
 #sidebar {
     width: 280px;
@@ -75,54 +142,65 @@ body {
 }
 
 /* ============================================================================
-   STATUS BAR (Top - Read Only Info)
+   INTERACTIVE BAR - Audio and action buttons
    ============================================================================ */
 
-#status-bar {
+#interactive-bar {
     display: flex;
     gap: 8px;
-    background: linear-gradient(135deg, #e94560 0%, #533483 100%);
-    border-radius: 6px;
-    padding: 10px;
+    padding: 0;
 }
 
-#status-bar .status-item {
-    flex: 1;
-    background: rgba(0,0,0,0.2);
-    border-radius: 4px;
-    padding: 6px;
-    text-align: center;
+.audio-controls {
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    gap: 4px;
 }
 
-#status-bar .status-icon {
-    font-size: 14px;
-    margin-bottom: 2px;
+.audio-btn {
+    width: 36px;
+    height: 36px;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
 }
 
-#status-bar .status-label {
-    font-size: 8px;
-    text-transform: uppercase;
-    opacity: 0.8;
-    letter-spacing: 0.5px;
+.audio-btn:hover {
+    background: #252540;
+    border-color: #e94560;
 }
 
-#status-bar .status-value {
-    font-size: 18px;
-    font-weight: bold;
-    color: #fff;
-    font-family: monospace;
+.audio-btn.off {
+    opacity: 0.4;
 }
 
-#status-bar .timer-display .status-value {
-    color: #ffd700;
-    font-size: 22px;
+.action-buttons-row {
+    display: flex;
+    gap: 4px;
+    flex: 1;
 }
 
-#status-bar .enemy-display .status-value {
-    color: #ff6b6b;
+.action-btn {
+    flex: 1;
+    padding: 8px 4px;
+    border: none;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.action-btn.achievements { background: #f39c12; color: #000; }
+.action-btn.save { background: #2ecc71; color: #fff; }
+.action-btn.load { background: #3498db; color: #fff; }
+.action-btn.reset { background: #e74c3c; color: #fff; }
+
+.action-btn:hover {
+    filter: brightness(1.2);
+    transform: translateY(-1px);
 }
 
 /* ============================================================================
@@ -347,62 +425,7 @@ body {
 }
 
 /* ============================================================================
-   AUDIO & ACTION BUTTONS
-   ============================================================================ */
-
-#audio-controls {
-    display: flex;
-    gap: 6px;
-    justify-content: center;
-}
-
-.audio-btn {
-    width: 40px;
-    height: 32px;
-    background: #1a1a2e;
-    border: 1px solid #333;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.audio-btn:hover {
-    background: #252540;
-}
-
-.audio-btn.off {
-    opacity: 0.4;
-}
-
-#action-buttons {
-    display: flex;
-    gap: 6px;
-}
-
-.action-btn {
-    flex: 1;
-    padding: 8px;
-    border: none;
-    border-radius: 4px;
-    font-family: inherit;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.action-btn.achievements { background: #f39c12; color: #000; }
-.action-btn.save { background: #2ecc71; color: #fff; }
-.action-btn.load { background: #3498db; color: #fff; }
-.action-btn.reset { background: #e74c3c; color: #fff; }
-
-.action-btn:hover {
-    filter: brightness(1.2);
-    transform: translateY(-1px);
-}
-
-/* ============================================================================
-   CONTROLS & STATS
+   CONTROLS
    ============================================================================ */
 
 #controls {
@@ -431,20 +454,6 @@ body {
     color: #fff;
     font-family: inherit;
     font-size: 9px;
-}
-
-#stats {
-    display: flex;
-    justify-content: space-between;
-    font-size: 10px;
-    color: #888;
-    padding: 6px;
-    background: rgba(0,0,0,0.3);
-    border-radius: 4px;
-}
-
-#stats strong {
-    color: #fff;
 }
 
 /* ============================================================================
@@ -736,7 +745,7 @@ body {
 
 #notification {
     position: absolute;
-    top: 20px;
+    top: 60px;
     left: 50%;
     transform: translateX(-50%);
     background: linear-gradient(135deg, #e94560 0%, #533483 100%);
