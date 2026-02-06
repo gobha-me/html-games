@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Games</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            color: #00d4ff;
+        }
+        p {
+            color: #888;
+            margin-bottom: 3rem;
+            font-size: 1.1rem;
+        }
+        .games {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .game-card {
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 250px;
+            transition: transform 0.2s, border-color 0.2s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .game-card:hover {
+            transform: translateY(-5px);
+            border-color: #00d4ff;
+        }
+        .game-card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+        .game-card p {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 1rem;
+        }
+        .play-btn {
+            display: inline-block;
+            background: #00d4ff;
+            color: #1a1a2e;
+            padding: 0.5rem 1.5rem;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HTML Games</h1>
+        <p>A collection of browser-based games</p>
+        
+        <div class="games">
+            <a href="/forge-defense/" class="game-card">
+                <h2>Forge Defense</h2>
+                <p>Defend your forge against waves of enemies</p>
+                <span class="play-btn">Play</span>
+            </a>
+            
+            <a href="/kimi/" class="game-card">
+                <h2>Kimi</h2>
+                <p>A mysterious adventure game</p>
+                <span class="play-btn">Play</span>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

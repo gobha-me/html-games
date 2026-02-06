@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: html-games-deployment
+  labels:
+    app: html-games
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: html-games
+  template:
+    metadata:
+      labels:
+        app: html-games
+    spec:
+      containers:
+      - name: html-games
+        image: registry.gobha.me:5000/xcaliber/html-games:latest
+        ports:
+        - containerPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: html-games-service
+spec:
+  selector:
+    app: html-games
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: html-games-strip-prefix
+spec:
+  stripPrefix:
+    prefixes:
+      - "/games"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: html-games-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: default-html-games-strip-prefix@kubernetescrd
+spec:
+  rules:
+  - host: ai.gobha.me
+    http:
+      paths:
+      - path: /games
+        pathType: Prefix
+        backend:
+          service:
+            name: html-games-service
+            port:
+              number: 80

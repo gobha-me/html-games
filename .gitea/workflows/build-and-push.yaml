@@ -1,0 +1,21 @@
+name: Build and Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Build
+      run: |
+        docker build -t registry.gobha.me:5000/xcaliber/html-games:latest .
+
+    - name: Push
+      run: |
+        docker push registry.gobha.me:5000/xcaliber/html-games:latest
