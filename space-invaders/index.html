@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders - Classic Arcade Shooter</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>👾 SPACE INVADERS</h1>
+            <div class="controls-info">
+                <h3>HOW TO PLAY</h3>
+                <div class="control-row">
+                    <kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd>
+                    <span>Move Ship</span>
+                </div>
+                <div class="control-row">
+                    <kbd>SPACE</kbd>
+                    <span>Fire Laser</span>
+                </div>
+                <div class="control-row">
+                    <kbd>P</kbd>
+                    <span>Pause/Resume</span>
+                </div>
+                <div class="control-row">
+                    <kbd>R</kbd>
+                    <span>Restart (Game Over)</span>
+                </div>
+            </div>
+            <div class="objective">
+                <h3>OBJECTIVE</h3>
+                <p>Defend Earth by destroying waves of alien invaders!</p>
+                <p>Don't let them reach the bottom!</p>
+            </div>
+            <button id="start-btn" class="main-btn">START GAME</button>
+            <div class="high-score-display">
+                <p>High Score: <span id="menu-high-score">0</span></p>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen" style="display: none;">
+            <div class="score-panel">
+                <div class="stat">
+                    <div class="stat-label">SCORE</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">HIGH SCORE</div>
+                    <div class="stat-value" id="high-score">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">WAVE</div>
+                    <div class="stat-value" id="wave">1</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">LIVES</div>
+                    <div class="stat-value" id="lives">❤️❤️❤️</div>
+                </div>
+            </div>
+            <canvas id="game-canvas"></canvas>
+            
+            <!-- Pause Overlay -->
+            <div id="pause-overlay" class="overlay" style="display: none;">
+                <h2>⏸️ PAUSED</h2>
+                <p>Press <kbd>P</kbd> to resume</p>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="screen" style="display: none;">
+            <h1>GAME OVER</h1>
+            <div class="stats-summary">
+                <div class="final-stat">
+                    <div class="stat-label">FINAL SCORE</div>
+                    <div class="stat-value" id="final-score">0</div>
+                </div>
+                <div class="final-stat">
+                    <div class="stat-label">WAVES COMPLETED</div>
+                    <div class="stat-value" id="final-wave">0</div>
+                </div>
+                <div class="final-stat">
+                    <div class="stat-label">ALIENS DESTROYED</div>
+                    <div class="stat-value" id="aliens-killed">0</div>
+                </div>
+                <div id="new-high-score" style="display: none;">
+                    <p class="achievement">🏆 NEW HIGH SCORE! 🏆</p>
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="restart-btn" class="main-btn">PLAY AGAIN</button>
+                <button id="menu-btn" class="secondary-btn">MAIN MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/audio.js"></script>
+    <script src="js/projectile.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/alien.js"></script>
+    <script src="js/barrier.js"></script>
+    <script src="js/ufo.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
