@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>🐍 SNAKE</h1>
+            <div class="menu-section">
+                <h3>Select Difficulty</h3>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+                    <button class="difficulty-btn active" data-difficulty="normal">Normal</button>
+                    <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+                </div>
+            </div>
+            <div class="menu-section">
+                <h3>Controls</h3>
+                <div class="controls-info">
+                    <div class="control-row">
+                        <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                        <span>Move</span>
+                    </div>
+                    <div class="control-row">
+                        <kbd>Space</kbd> or <kbd>P</kbd>
+                        <span>Pause</span>
+                    </div>
+                </div>
+            </div>
+            <button id="start-btn" class="main-btn">Start Game</button>
+            <div class="high-score">
+                High Score: <span id="menu-high-score">0</span>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen" style="display: none;">
+            <div id="game-header">
+                <div class="score-panel">
+                    <div class="stat">
+                        <span class="stat-label">Score</span>
+                        <span class="stat-value" id="score">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">High Score</span>
+                        <span class="stat-value" id="high-score">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Length</span>
+                        <span class="stat-value" id="length">3</span>
+                    </div>
+                </div>
+                <button id="pause-btn" class="icon-btn">⏸️</button>
+            </div>
+            
+            <div id="canvas-container">
+                <canvas id="game-canvas"></canvas>
+                <div id="pause-overlay" class="overlay" style="display: none;">
+                    <h2>⏸️ PAUSED</h2>
+                    <p>Press <kbd>Space</kbd> or <kbd>P</kbd> to resume</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="screen" style="display: none;">
+            <h1>💀 GAME OVER</h1>
+            <div class="gameover-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Final Score</span>
+                    <span class="stat-value" id="final-score">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Snake Length</span>
+                    <span class="stat-value" id="final-length">0</span>
+                </div>
+                <div class="stat-item new-high-score" id="new-high-score" style="display: none;">
+                    🏆 New High Score! 🏆
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="play-again-btn" class="main-btn">Play Again</button>
+                <button id="menu-btn" class="secondary-btn">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/state.js"></script>
+    <script src="js/snake.js"></script>
+    <script src="js/food.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

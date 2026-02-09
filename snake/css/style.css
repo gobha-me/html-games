@@ -1,0 +1,364 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#game-container {
+    width: 100%;
+    max-width: 800px;
+    padding: 1rem;
+}
+
+.screen {
+    text-align: center;
+}
+
+/* Start Screen */
+#start-screen h1 {
+    font-size: 4rem;
+    color: #00d4ff;
+    margin-bottom: 2rem;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+.menu-section {
+    margin: 2rem 0;
+}
+
+.menu-section h3 {
+    color: #00d4ff;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+}
+
+.difficulty-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.difficulty-btn {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    color: #eee;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.difficulty-btn:hover {
+    border-color: #00d4ff;
+    transform: translateY(-2px);
+}
+
+.difficulty-btn.active {
+    background: #00d4ff;
+    color: #1a1a2e;
+    border-color: #00d4ff;
+}
+
+.controls-info {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 0.75rem 0;
+    font-size: 0.95rem;
+}
+
+kbd {
+    background: #0f3460;
+    border: 2px solid #00d4ff;
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    font-family: monospace;
+    font-weight: bold;
+    color: #00d4ff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    min-width: 2rem;
+    text-align: center;
+    display: inline-block;
+}
+
+.main-btn {
+    background: #00d4ff;
+    color: #1a1a2e;
+    border: none;
+    padding: 1rem 3rem;
+    font-size: 1.3rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 2rem 0;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+}
+
+.main-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 212, 255, 0.5);
+}
+
+.main-btn:active {
+    transform: translateY(0);
+}
+
+.secondary-btn {
+    background: #16213e;
+    color: #00d4ff;
+    border: 2px solid #00d4ff;
+    padding: 0.75rem 2rem;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.secondary-btn:hover {
+    background: #0f3460;
+    transform: translateY(-2px);
+}
+
+.high-score {
+    color: #888;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+}
+
+#menu-high-score {
+    color: #00d4ff;
+    font-weight: bold;
+}
+
+/* Game Screen */
+#game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.score-panel {
+    display: flex;
+    gap: 2rem;
+    flex: 1;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #00d4ff;
+}
+
+.icon-btn {
+    background: #0f3460;
+    border: 2px solid #00d4ff;
+    color: #00d4ff;
+    font-size: 1.5rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover {
+    background: #00d4ff;
+    transform: scale(1.05);
+}
+
+#canvas-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+#game-canvas {
+    border: 3px solid #00d4ff;
+    border-radius: 8px;
+    background: #0f1419;
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+}
+
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 600px;
+    height: 100%;
+    background: rgba(26, 26, 46, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.overlay h2 {
+    font-size: 3rem;
+    color: #00d4ff;
+    margin-bottom: 1rem;
+}
+
+.overlay p {
+    font-size: 1.2rem;
+    color: #888;
+}
+
+/* Game Over Screen */
+#gameover-screen h1 {
+    font-size: 3.5rem;
+    color: #ff4444;
+    margin-bottom: 2rem;
+    text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+}
+
+.gameover-stats {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 12px;
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 400px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid #0f3460;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-item .stat-label {
+    font-size: 1.1rem;
+    color: #888;
+}
+
+.stat-item .stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #00d4ff;
+}
+
+.new-high-score {
+    color: #ffd700;
+    font-size: 1.3rem;
+    font-weight: bold;
+    justify-content: center;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+    }
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #start-screen h1 {
+        font-size: 3rem;
+    }
+
+    .difficulty-buttons {
+        flex-direction: column;
+    }
+
+    .score-panel {
+        gap: 1rem;
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+    }
+
+    #game-canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .overlay h2 {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    #start-screen h1 {
+        font-size: 2.5rem;
+    }
+
+    .main-btn {
+        font-size: 1.1rem;
+        padding: 0.75rem 2rem;
+    }
+
+    #gameover-screen h1 {
+        font-size: 2.5rem;
+    }
+}
