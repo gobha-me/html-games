@@ -17,6 +17,14 @@ const Renderer = {
         foodGlow: 'rgba(255, 68, 68, 0.5)'
     },
 
+    // Player colors for multiplayer
+    playerColors: {
+        1: { body: '#00d4ff', head: '#00ffff', glow: 'rgba(0, 212, 255, 0.5)' },
+        2: { body: '#00ff88', head: '#66ffaa', glow: 'rgba(0, 255, 136, 0.5)' },
+        3: { body: '#ff00ff', head: '#ff66ff', glow: 'rgba(255, 0, 255, 0.5)' },
+        4: { body: '#ff8800', head: '#ffaa66', glow: 'rgba(255, 136, 0, 0.5)' }
+    },
+
     /**
      * Initialize renderer
      */
@@ -63,22 +71,22 @@ const Renderer = {
     },
 
     /**
-     * Draw snake
+     * Draw a single snake with specified color
      */
-    drawSnake() {
-        Snake.body.forEach((segment, index) => {
+    drawSnakeBody(body, colors) {
+        body.forEach((segment, index) => {
             const x = segment.x * GameState.cellSize;
             const y = segment.y * GameState.cellSize;
 
             // Head is brighter
             if (index === 0) {
-                this.ctx.fillStyle = this.colors.snakeHead;
+                this.ctx.fillStyle = colors.head;
                 this.ctx.shadowBlur = 10;
-                this.ctx.shadowColor = this.colors.snakeHead;
+                this.ctx.shadowColor = colors.glow;
             } else {
-                this.ctx.fillStyle = this.colors.snake;
+                this.ctx.fillStyle = colors.body;
                 this.ctx.shadowBlur = 5;
-                this.ctx.shadowColor = this.colors.snake;
+                this.ctx.shadowColor = colors.glow;
             }
 
             // Draw rounded rectangle
@@ -93,6 +101,27 @@ const Renderer = {
             // Reset shadow
             this.ctx.shadowBlur = 0;
         });
+    },
+
+    /**
+     * Draw snake(s)
+     */
+    drawSnake() {
+        if (GameState.isMultiplayer()) {
+            // Draw all player snakes
+            for (const player of Multiplayer.players) {
+                if (!player.alive) continue;
+                const colors = this.playerColors[player.id];
+                this.drawSnakeBody(player.snake.body, colors);
+            }
+        } else {
+            // Single player - draw single snake
+            this.drawSnakeBody(Snake.body, {
+                body: this.colors.snake,
+                head: this.colors.snakeHead,
+                glow: this.colors.snake
+            });
+        }
     },
 
     /**

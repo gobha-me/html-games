@@ -11,7 +11,13 @@ const Game = {
      * Initialize game
      */
     init() {
-        Snake.init();
+        if (GameState.isMultiplayer()) {
+            // Initialize multiplayer
+            Multiplayer.initMultiplayer(GameState.playerCount);
+        } else {
+            // Single player
+            Snake.init();
+        }
         Food.spawn();
         Renderer.init();
         this.updateUI();
@@ -24,6 +30,37 @@ const Game = {
         GameState.currentState = GameState.PLAYING;
         this.lastUpdateTime = performance.now();
         this.loop();
+    },
+
+    /**
+     * Start multiplayer game with countdown
+     */
+    startMultiplayer() {
+        GameState.currentState = 'countdown';
+        
+        // Show countdown overlay
+        const countdownOverlay = document.getElementById('countdown-overlay');
+        if (countdownOverlay) {
+            countdownOverlay.style.display = 'flex';
+        }
+        
+        let count = 3;
+        const countdownText = document.getElementById('countdown-text');
+        
+        const interval = setInterval(() => {
+            if (countdownText) {
+                countdownText.textContent = count > 0 ? count : 'GO!';
+            }
+            
+            if (count < 0) {
+                clearInterval(interval);
+                if (countdownOverlay) {
+                    countdownOverlay.style.display = 'none';
+                }
+                this.start();
+            }
+            count--;
+        }, 1000);
     },
 
     /**
@@ -54,6 +91,17 @@ const Game = {
      * Update game state
      */
     update() {
+        if (GameState.isMultiplayer()) {
+            this.updateMultiplayer();
+        } else {
+            this.updateSinglePlayer();
+        }
+    },
+
+    /**
+     * Update single player game
+     */
+    updateSinglePlayer() {
         // Move snake
         Snake.update();
 
@@ -66,6 +114,32 @@ const Game = {
         // Check food collision
         if (Food.checkCollision()) {
             this.eatFood();
+        }
+    },
+
+    /**
+     * Update multiplayer game
+     */
+    updateMultiplayer() {
+        // Update all snakes
+        Multiplayer.update();
+
+        // Check collisions
+        Multiplayer.checkCollisions();
+
+        // Check if game over (one player left)
+        if (Multiplayer.isGameOver()) {
+            this.multiplayerGameOver();
+            return;
+        }
+
+        // Check food collision
+        if (Food.checkCollision()) {
+            // Spawn new food
+            Food.spawn();
+            
+            // Update UI
+            this.updateMultiplayerUI();
         }
     },
 
@@ -146,6 +220,53 @@ const Game = {
     },
 
     /**
+     * Multiplayer game over
+     */
+    multiplayerGameOver() {
+        GameState.currentState = GameState.GAMEOVER;
+        cancelAnimationFrame(this.animationFrameId);
+
+        // Get winner
+        const winner = Multiplayer.winner;
+        
+        // Update game over screen for multiplayer
+        const winnerText = document.getElementById('winner-text');
+        const winnerScore = document.getElementById('winner-score');
+        
+        if (winner) {
+            winnerText.textContent = `Player ${winner.id} Wins!`;
+            winnerText.style.color = winner.color;
+            winnerScore.textContent = `Score: ${winner.score}`;
+        } else {
+            winnerText.textContent = 'Draw!';
+            winnerText.style.color = '#fff';
+            winnerScore.textContent = 'All players eliminated!';
+        }
+
+        // Show game over screen
+        this.showScreen('gameover-screen');
+    },
+
+    /**
+     * Update multiplayer UI
+     */
+    updateMultiplayerUI() {
+        // Update scoreboard if exists
+        for (const player of Multiplayer.players) {
+            const scoreEl = document.getElementById(`player${player.id}-score`);
+            const statusEl = document.getElementById(`player${player.id}-status`);
+            
+            if (scoreEl) {
+                scoreEl.textContent = player.score;
+            }
+            if (statusEl) {
+                statusEl.textContent = player.alive ? 'Alive' : 'Eliminated';
+                statusEl.style.color = player.alive ? '#00ff88' : '#ff4444';
+            }
+        }
+    },
+
+    /**
      * Reset and start new game
      */
     reset() {
@@ -158,8 +279,12 @@ const Game = {
         // Show game screen
         this.showScreen('game-screen');
 
-        // Start game
-        this.start();
+        // Start game based on mode
+        if (GameState.isMultiplayer()) {
+            this.startMultiplayer();
+        } else {
+            this.start();
+        }
     },
 
     /**

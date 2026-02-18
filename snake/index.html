@@ -11,15 +11,51 @@
         <!-- Start Screen -->
         <div id="start-screen" class="screen">
             <h1>🐍 SNAKE</h1>
+            
+            <!-- Game Mode Selection -->
             <div class="menu-section">
-                <h3>Select Difficulty</h3>
-                <div class="difficulty-buttons">
-                    <button class="difficulty-btn" data-difficulty="easy">Easy</button>
-                    <button class="difficulty-btn active" data-difficulty="normal">Normal</button>
-                    <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+                <h3>Select Mode</h3>
+                <div class="mode-buttons">
+                    <button class="mode-btn active" data-mode="single">Single Player</button>
+                    <button class="mode-btn" data-mode="multiplayer">Multiplayer</button>
                 </div>
             </div>
-            <div class="menu-section">
+            
+            <!-- Player Count Selection (for multiplayer) -->
+            <div class="menu-section" id="player-count-section" style="display: none;">
+                <h3>Number of Players</h3>
+                <div class="player-count-buttons">
+                    <button class="player-count-btn active" data-count="2">2 Players</button>
+                    <button class="player-count-btn" data-count="3">3 Players</button>
+                    <button class="player-count-btn" data-count="4">4 Players</button>
+                </div>
+            </div>
+            
+            <!-- Multiplayer Controls Preview -->
+            <div class="menu-section" id="multiplayer-controls" style="display: none;">
+                <h3>Controls</h3>
+                <div class="controls-info">
+                    <div class="control-row">
+                        <span style="color: #00d4ff; font-weight: bold;">Player 1:</span>
+                        <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>
+                    </div>
+                    <div class="control-row">
+                        <span style="color: #00ff88; font-weight: bold;">Player 2:</span>
+                        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                    </div>
+                    <div class="control-row">
+                        <span style="color: #ff00ff; font-weight: bold;">Player 3:</span>
+                        <kbd>I</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd>
+                    </div>
+                    <div class="control-row">
+                        <span style="color: #ff8800; font-weight: bold;">Player 4:</span>
+                        <kbd>8</kbd><kbd>4</kbd><kbd>5</kbd><kbd>6</kbd> (Numpad)
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Single Player Controls -->
+            <div class="menu-section" id="single-controls">
                 <h3>Controls</h3>
                 <div class="controls-info">
                     <div class="control-row">
@@ -30,6 +66,15 @@
                         <kbd>Space</kbd> or <kbd>P</kbd>
                         <span>Pause</span>
                     </div>
+                </div>
+            </div>
+            
+            <div class="menu-section">
+                <h3>Select Difficulty</h3>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+                    <button class="difficulty-btn active" data-difficulty="normal">Normal</button>
+                    <button class="difficulty-btn" data-difficulty="hard">Hard</button>
                 </div>
             </div>
             <button id="start-btn" class="main-btn">Start Game</button>
@@ -58,19 +103,51 @@
                 <button id="pause-btn" class="icon-btn">⏸️</button>
             </div>
             
+            <!-- Multiplayer Scoreboard -->
+            <div id="multiplayer-scoreboard" class="scoreboard" style="display: none;">
+                <div class="player-score" id="player1-score-display">
+                    <span class="player-dot" style="background: #00d4ff;"></span>
+                    <span>P1:</span>
+                    <span id="player1-score">0</span>
+                    <span id="player1-status" class="player-status">Alive</span>
+                </div>
+                <div class="player-score" id="player2-score-display">
+                    <span class="player-dot" style="background: #00ff88;"></span>
+                    <span>P2:</span>
+                    <span id="player2-score">0</span>
+                    <span id="player2-status" class="player-status">Alive</span>
+                </div>
+                <div class="player-score" id="player3-score-display">
+                    <span class="player-dot" style="background: #ff00ff;"></span>
+                    <span>P3:</span>
+                    <span id="player3-score">0</span>
+                    <span id="player3-status" class="player-status">Alive</span>
+                </div>
+                <div class="player-score" id="player4-score-display">
+                    <span class="player-dot" style="background: #ff8800;"></span>
+                    <span>P4:</span>
+                    <span id="player4-score">0</span>
+                    <span id="player4-status" class="player-status">Alive</span>
+                </div>
+            </div>
+            
             <div id="canvas-container">
                 <canvas id="game-canvas"></canvas>
                 <div id="pause-overlay" class="overlay" style="display: none;">
                     <h2>⏸️ PAUSED</h2>
                     <p>Press <kbd>Space</kbd> or <kbd>P</kbd> to resume</p>
                 </div>
+                <div id="countdown-overlay" class="overlay" style="display: none;">
+                    <h2 id="countdown-text">3</h2>
+                </div>
             </div>
         </div>
 
         <!-- Game Over Screen -->
         <div id="gameover-screen" class="screen" style="display: none;">
-            <h1>💀 GAME OVER</h1>
-            <div class="gameover-stats">
+            <h1 id="gameover-title">💀 GAME OVER</h1>
+            <!-- Single player stats -->
+            <div class="gameover-stats" id="single-stats">
                 <div class="stat-item">
                     <span class="stat-label">Final Score</span>
                     <span class="stat-value" id="final-score">0</span>
@@ -81,6 +158,13 @@
                 </div>
                 <div class="stat-item new-high-score" id="new-high-score" style="display: none;">
                     🏆 New High Score! 🏆
+                </div>
+            </div>
+            <!-- Multiplayer stats -->
+            <div class="gameover-stats" id="multiplayer-stats" style="display: none;">
+                <div class="winner-display">
+                    <span class="winner-text" id="winner-text">Player 1 Wins!</span>
+                    <span class="winner-score" id="winner-score">Score: 0</span>
                 </div>
             </div>
             <div class="button-group">
@@ -94,6 +178,8 @@
     <script src="js/snake.js"></script>
     <script src="js/food.js"></script>
     <script src="js/renderer.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/multiplayer.js"></script>
     <script src="js/game.js"></script>
     <script src="js/main.js"></script>
 </body>

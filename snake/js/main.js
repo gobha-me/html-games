@@ -25,6 +25,41 @@ function updateMenuHighScore() {
  * Setup all event listeners
  */
 function setupEventListeners() {
+    // Mode selection (single/multiplayer)
+    const modeButtons = document.querySelectorAll('.mode-btn');
+    modeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active class from all buttons
+            modeButtons.forEach(b => b.classList.remove('active'));
+            
+            // Add active class to clicked button
+            btn.classList.add('active');
+            
+            // Set game mode
+            const mode = btn.dataset.mode;
+            GameState.setGameMode(mode);
+            
+            // Show/hide appropriate UI elements
+            updateModeUI(mode);
+        });
+    });
+    
+    // Player count selection
+    const playerCountButtons = document.querySelectorAll('.player-count-btn');
+    playerCountButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active class from all buttons
+            playerCountButtons.forEach(b => b.classList.remove('active'));
+            
+            // Add active class to clicked button
+            btn.classList.add('active');
+            
+            // Set player count
+            const count = parseInt(btn.dataset.count);
+            GameState.setPlayerCount(count);
+        });
+    });
+
     // Difficulty selection
     const difficultyButtons = document.querySelectorAll('.difficulty-btn');
     difficultyButtons.forEach(btn => {
@@ -60,64 +95,123 @@ function setupEventListeners() {
     document.getElementById('menu-btn').addEventListener('click', () => {
         Game.showScreen('start-screen');
         updateMenuHighScore();
+        // Reset to single player mode
+        GameState.setGameMode('single');
+        updateModeUI('single');
     });
 
     // Keyboard controls
-    document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+}
+
+/**
+ * Update UI based on selected mode
+ */
+function updateModeUI(mode) {
+    const playerCountSection = document.getElementById('player-count-section');
+    const multiplayerControls = document.getElementById('multiplayer-controls');
+    const singleControls = document.getElementById('single-controls');
+    
+    if (mode === 'multiplayer') {
+        playerCountSection.style.display = 'block';
+        multiplayerControls.style.display = 'block';
+        singleControls.style.display = 'none';
+    } else {
+        playerCountSection.style.display = 'none';
+        multiplayerControls.style.display = 'none';
+        singleControls.style.display = 'block';
+    }
 }
 
 /**
  * Start new game
  */
 function startNewGame() {
+    // Show appropriate scoreboard
+    const scoreboard = document.getElementById('multiplayer-scoreboard');
+    if (GameState.isMultiplayer()) {
+        scoreboard.style.display = 'flex';
+        // Update visible player displays based on player count
+        for (let i = 1; i <= 4; i++) {
+            const display = document.getElementById(`player${i}-score-display`);
+            if (display) {
+                display.style.display = i <= GameState.playerCount ? 'flex' : 'none';
+            }
+        }
+    } else {
+        scoreboard.style.display = 'none';
+    }
+    
     Game.reset();
 }
 
 /**
- * Handle keyboard input
+ * Handle keyboard input - key down
  */
-function handleKeyPress(event) {
+function handleKeyDown(event) {
+    // Handle multiplayer controls
+    if (GameState.isMultiplayer()) {
+        Controls.handleKeyDown(event);
+    }
+    
     // Only handle keys during gameplay
     if (GameState.currentState === GameState.PLAYING || GameState.currentState === GameState.PAUSED) {
         switch (event.key) {
             // Arrow keys
             case 'ArrowUp':
-                event.preventDefault();
-                Snake.setDirection(0, -1);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(0, -1);
+                }
                 break;
             case 'ArrowDown':
-                event.preventDefault();
-                Snake.setDirection(0, 1);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(0, 1);
+                }
                 break;
             case 'ArrowLeft':
-                event.preventDefault();
-                Snake.setDirection(-1, 0);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(-1, 0);
+                }
                 break;
             case 'ArrowRight':
-                event.preventDefault();
-                Snake.setDirection(1, 0);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(1, 0);
+                }
                 break;
 
             // WASD keys
             case 'w':
             case 'W':
-                event.preventDefault();
-                Snake.setDirection(0, -1);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(0, -1);
+                }
                 break;
             case 's':
             case 'S':
-                event.preventDefault();
-                Snake.setDirection(0, 1);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(0, 1);
+                }
                 break;
             case 'a':
             case 'A':
-                event.preventDefault();
-                Snake.setDirection(-1, 0);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(-1, 0);
+                }
                 break;
             case 'd':
             case 'D':
-                event.preventDefault();
-                Snake.setDirection(1, 0);
+                if (!GameState.isMultiplayer()) {
+                    event.preventDefault();
+                    Snake.setDirection(1, 0);
+                }
                 break;
 
             // Pause keys
@@ -128,5 +222,14 @@ function handleKeyPress(event) {
                 Game.togglePause();
                 break;
         }
+    }
+}
+
+/**
+ * Handle keyboard input - key up
+ */
+function handleKeyUp(event) {
+    if (GameState.isMultiplayer()) {
+        Controls.handleKeyUp(event);
     }
 }

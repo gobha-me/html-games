@@ -13,6 +13,12 @@ const GameState = {
     // Current state
     currentState: 'menu',
 
+    // Game mode: 'single' or 'multiplayer'
+    gameMode: 'single',
+
+    // Number of players (for multiplayer)
+    playerCount: 2,
+
     // Difficulty settings
     difficulties: {
         easy: {
@@ -103,5 +109,26 @@ const GameState = {
      */
     isNewHighScore() {
         return this.score === this.highScore && this.score > 0;
+    },
+
+    /**
+     * Set game mode
+     */
+    setGameMode(mode) {
+        this.gameMode = mode;
+    },
+
+    /**
+     * Set number of players
+     */
+    setPlayerCount(count) {
+        this.playerCount = Math.max(2, Math.min(4, count));
+    },
+
+    /**
+     * Check if in multiplayer mode
+     */
+    isMultiplayer() {
+        return this.gameMode === 'multiplayer';
     }
 };

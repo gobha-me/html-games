@@ -73,6 +73,68 @@ body {
     border-color: #00d4ff;
 }
 
+/* Mode Selection */
+.mode-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.mode-btn {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    color: #eee;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.mode-btn:hover {
+    border-color: #00d4ff;
+    transform: translateY(-2px);
+}
+
+.mode-btn.active {
+    background: #00d4ff;
+    color: #1a1a2e;
+    border-color: #00d4ff;
+}
+
+/* Player Count Selection */
+.player-count-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.player-count-btn {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    color: #eee;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.player-count-btn:hover {
+    border-color: #00ff88;
+    transform: translateY(-2px);
+}
+
+.player-count-btn.active {
+    background: #00ff88;
+    color: #1a1a2e;
+    border-color: #00ff88;
+}
+
 .controls-info {
     background: #16213e;
     border: 2px solid #0f3460;
@@ -124,6 +186,69 @@ kbd {
     box-shadow: 0 6px 16px rgba(0, 212, 255, 0.5);
 }
 
+/* Multiplayer Scoreboard */
+.scoreboard {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.player-score {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #16213e;
+    border: 2px solid #0f3460;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.player-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.player-status {
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+}
+
+/* Countdown Overlay */
+#countdown-overlay h2 {
+    font-size: 5rem;
+    color: #00d4ff;
+    text-shadow: 0 0 30px rgba(0, 212, 255, 0.8);
+    animation: pulse 0.5s ease-in-out;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Winner Display */
+.winner-display {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.winner-text {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.winner-score {
+    font-size: 1.2rem;
+    color: #aaa;
+}
 .main-btn:active {
     transform: translateY(0);
 }

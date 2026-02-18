@@ -16,10 +16,27 @@ const Snake = {
     // Growing flag
     growing: false,
 
+    // Player ID (for multiplayer)
+    playerId: 1,
+
+    // Color for this snake
+    color: '#00d4ff',
+
     /**
      * Initialize snake at center of grid
      */
-    init() {
+    init(playerId = 1) {
+        this.playerId = playerId;
+        
+        // Set color based on player
+        const colors = {
+            1: '#00d4ff',
+            2: '#00ff88',
+            3: '#ff00ff',
+            4: '#ff8800'
+        };
+        this.color = colors[playerId] || colors[1];
+
         const center = Math.floor(GameState.gridSize / 2);
         this.body = [
             { x: center, y: center },
