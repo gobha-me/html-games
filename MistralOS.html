@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MistralOS - Standalone Web OS Demonstration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e6e6e6;
+            overflow: hidden;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Desktop Wallpaper */
+        .wallpaper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.02) 0%, transparent 50%),
+                            radial-gradient(circle at 80% 70%, rgba(0,255,255,0.02) 0%, transparent 50%);
+            z-index: 1;
+        }
+
+        /* Start Menu */
+        .start-menu {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            background: rgba(40, 40, 60, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            width: 250px;
+            max-height: 40vh;
+            overflow-y: auto;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .start-menu.open {
+            transform: translateY(0);
+        }
+
+        .start-menu-header {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .start-menu-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(45deg, #00b4d8, #7209b7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .start-menu-search {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .start-menu-search input {
+            width: 100%;
+            padding: 8px;
+            background: rgba(60, 60, 80, 0.8);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            color: white;
+        }
+
+        .start-menu-apps {
+            padding: 10px;
+        }
+
+        .app-icon {
+            display: inline-block;
+            width: 60px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 8px;
+        }
+
+        .app-icon:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .app-icon-icon {
+            width: 32px;
+            height: 32px;
+            margin: 0 auto 5px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .app-icon-name {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        /* Taskbar */
+        .taskbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: rgba(20, 20, 40, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            z-index: 100;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .taskbar-left, .taskbar-center, .taskbar-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .taskbar-button {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .taskbar-button:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .start-button {
+            background: linear-gradient(45deg, #00b4d8, #7209b7);
+            padding: 5px 15px;
+            border-radius: 4px;
+        }
+
+        .taskbar-clock {
+            font-size: 14px;
+            padding: 5px 10px;
+            background: rgba(60, 60, 80, 0.5);
+            border-radius: 4px;
+        }
+
+        /* Window System */
+        .window {
+            position: absolute;
+            background: linear-gradient(145deg, #2d3748, #1a202c);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 10;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            resize: both;
+            min-width: 300px;
+            min-height: 200px;
+        }
+
+        .window.open {
+            display: flex;
+        }
+
+        .window-header {
+            padding: 10px 15px;
+            background: linear-gradient(90deg, #3a4a5c, #2d3748);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            user-select: none;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }
+
+        .window-title {
+            font-weight: 600;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .window-control {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .window-control.minimize {
+            background: #f59e0b;
+        }
+
+        .window-control.maximize {
+            background: #10b981;
+        }
+
+        .window-control.close {
+            background: #ef4444;
+        }
+
+        .window-body {
+            flex: 1;
+            padding: 15px;
+            overflow: auto;
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* App Styles */
+        .app-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Game App - Snake */
+        .snake-game {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        #snakeCanvas {
+            background: #000;
+            border-radius: 4px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .snake-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .snake-control-btn {
+            padding: 8px 16px;
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .snake-score {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* Calculator App */
+        .calculator {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .calc-display {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 4px;
+            text-align: right;
+            font-size: 24px;
+            margin-bottom: 15px;
+            height: 40px;
+            overflow: hidden;
+        }
+
+        .calc-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .calc-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 4px;
+            background: linear-gradient(145deg, #3a3a3a, #2a2a2a);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .calc-btn:hover {
+            background: linear-gradient(145deg, #4a4a4a, #3a3a3a);
+        }
+
+        .calc-btn.operator {
+            background: linear-gradient(145deg, #f59e0b, #d97706);
+        }
+
+        .calc-btn.equals {
+            background: linear-gradient(145deg, #10b981, #059669);
+        }
+
+        /* Text Editor App */
+        .text-editor {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        #editorContent {
+            width: 100%;
+            height: 300px;
+            background: #252526;
+            color: #e6e6e6;
+            border: none;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Consolas', monospace;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+        }
+
+        .editor-toolbar {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .editor-btn {
+            padding: 5px 10px;
+            background: #3a3a3a;
+            border: none;
+            border-radius: 3px;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        /* Browser App */
+        .browser {
+            background: #252527;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .browser-address-bar {
+            background: #3a3a3a;
+            border-radius: 4px;
+            padding: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .browser-address-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 5px;
+            outline: none;
+        }
+
+        .browser-nav-btn {
+            background: #4a4a4a;
+            border: none;
+            border-radius: 3px;
+            padding: 3px 8px;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .browser-content {
+            flex: 1;
+            background: #1e1e1e;
+            border-radius: 4px;
+            padding: 15px;
+            overflow: auto;
+        }
+
+        .browser-demo-content {
+            color: #aaa;
+            line-height: 1.6;
+        }
+
+        /* Tic-Tac-Toe Game */
+        .tictactoe-game {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .tictactoe-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            margin: 20px auto;
+            max-width: 200px;
+        }
+
+        .tictactoe-cell {
+            width: 60px;
+            height: 60px;
+            background: #3a3a3a;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .tictactoe-cell:hover {
+            background: #4a4a4a;
+        }
+
+        /* System Info App */
+        .system-info {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .system-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .system-info-card {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 3px solid #00b4d8;
+        }
+
+        .system-info-card h4 {
+            margin-bottom: 10px;
+            color: #00b4d8;
+        }
+
+        .system-info-card p {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        /* Window Selector */
+        .window-selector {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(40, 40, 60, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 1000;
+        }
+
+        .window-selector h4 {
+            margin-bottom: 10px;
+            color: #00b4d8;
+        }
+
+        .window-selector-btn {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            background: #3a3a3a;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .window-selector-btn:hover {
+            background: #4a4a4a;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .window {
+                min-width: 280px;
+                min-height: 180px;
+            }
+            .start-menu {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    
+    <!-- Start Menu -->
+    <div class="start-menu" id="startMenu">
+        <div class="start-menu-header">
+            <div class="start-menu-logo">M</div>
+            <div>MistralOS</div>
+        </div>
+        <div class="start-menu-search">
+            <input type="text" placeholder="Search apps..." id="startMenuSearch">
+        </div>
+        <div class="start-menu-apps">
+            <div class="app-icon" onclick="openApp('calculator')">
+                <div class="app-icon-icon" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect fill=%22%233b82f6%22 x=%224%22 y=%224%22 width=%223%22 height=%2210%22/><rect fill=%22%23ef4444%22 x=%229%22 y=%224%22 width=%223%22 height=%2210%22/><rect fill=%22%23f59e0b%22 x=%2214%22 y=%224%22 width=%223%22 height=%2210%22/><rect fill=%22%2310b981%22 x=%224%22 y=%2214%22 width=%223%22 height=%2210%22/><rect fill=%22%238b5cf6%22 x=%229%22 y=%2214%22 width=%223%22 height=%2210%22/><rect fill=%22%23ec4899%22 x=%2214%22 y=%2214%22 width=%223%22 height=%2210%22/></svg>');"></div>
+                <div class="app-icon-name">Calculator</div>
+            </div>
+            <div class="app-icon" onclick="openApp('textEditor')">
+                <div class="app-icon-icon" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect fill=%22%2360a5fa%22 x=%224%22 y=%222%22 width=%2216%22 height=%224%22/><path fill=%22%2334d399%22 d=%22M6 6h12v12H6z%22/><path fill=%22%23fbbf24%22 d=%22M6 6l3 3h6v-3l-3-3z%22/><path fill=%22%23f87171%22 d=%22M15 15l3 3v-3l-3-3z%22/></svg>');"></div>
+                <div class="app-icon-name">Text Editor</div>
+            </div>
+            <div class="app-icon" onclick="openApp('snake')">
+                <div class="app-icon-icon" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><circle fill=%22%2310b981%22 cx=%2212%22 cy=%2212%22 r=%228%22/><circle fill=%22%23065f46%22 cx=%2212%22 cy=%2212%22 r=%224%22/></svg>');"></div>
+                <div class="app-icon-name">Snake Game</div>
+            </div>
+            <div class="app-icon" onclick="openApp('browser')">
+                <div class="app-icon-icon" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect fill=%22%233b82f6%22 x=%223%22 y=%223%22 width=%2218%22 height=%2212%22/><rect fill=%22%23ffffff%22 x=%225%22 y=%227%22 width=%2214%22 height=%224%22/><circle fill=%22%23ef4444%22 cx=%228%22 cy=%228%22 r=%221.5%22/><circle fill=%22%2306b6d4%22 cx=%2212%22 cy=%228%22 r=%221.5%22/><circle fill=%22%23ec4899%22 cx=%2216%22 cy=%228%22 r=%221.5%22/></svg>');"></div>
+                <div class="app-icon-name">Browser</div>
+            </div>
+            <div class="app-icon" onclick="openApp('tictactoe')">
+                <div class="app-icon-icon" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect fill=%22%23fbbf24%22 x=%224%22 y=%224%22 width=%227%22 height=%227%22/><rect fill=%22%2310b981%22 x=%2213%22 y=%224%22 width=%227%22 height=%227%22/><rect fill=%22%23ef4444%22 x=%224%22 y=%2213%22 width=%227%22 height=%227%22/><rect fill=%22%233b82f6%22 x=%2213%22 y=%2213%22 width=%227%22 height=%227%22/></svg>');"></div>
+                <div class="app-icon-name">Tic-Tac-Toe</div>
+            </div>
+            <div class="app-icon" onclick="openApp('systemInfo')">
+                <div class="app-icon-icon" style="background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect fill=%22%2360a5fa%22 x=%224%22 y=%224%22 width=%2216%22 height=%2212%22/><rect fill=%22%2334d399%22 x=%226%22 y=%226%22 width=%2212%22 height=%228%22/><rect fill=%22%23fbbf24%22 x=%228%22 y=%228%22 width=%228%22 height=%224%22/></svg>');"></div>
+                <div class="app-icon-name">System Info</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Taskbar -->
+    <div class="taskbar">
+        <div class="taskbar-left">
+            <button class="taskbar-button start-button" onclick="toggleStartMenu()">
+                <span>🌐</span> Start
+            </button>
+        </div>
+        <div class="taskbar-center" id="taskbarApps"></div>
+        <div class="taskbar-right">
+            <div class="taskbar-clock" id="systemClock">00:00:00</div>
+        </div>
+    </div>
+    
+    <!-- Window Selector -->
+    <div class="window-selector" id="windowSelector">
+        <h4>Active Windows</h4>
+        <button class="window-selector-btn" onclick="bringToFront('calculatorWindow')">Calculator</button>
+        <button class="window-selector-btn" onclick="bringToFront('textEditorWindow')">Text Editor</button>
+        <button class="window-selector-btn" onclick="bringToFront('snakeWindow')">Snake Game</button>
+        <button class="window-selector-btn" onclick="bringToFront('browserWindow')">Browser</button>
+        <button class="window-selector-btn" onclick="bringToFront('tictactoeWindow')">Tic-Tac-Toe</button>
+        <button class="window-selector-btn" onclick="bringToFront('systemInfoWindow')">System Info</button>
+    </div>
+    
+    <!-- Calculator Window -->
+    <div class="window" id="calculatorWindow">
+        <div class="window-header">
+            <div class="window-title">Calculator - MistralOS</div>
+            <div class="window-controls">
+                <div class="window-control minimize" onclick="minimizeWindow('calculatorWindow')">−</div>
+                <div class="window-control maximize" onclick="maximizeWindow('calculatorWindow')">⛶</div>
+                <div class="window-control close" onclick="closeWindow('calculatorWindow')">×</div>
+            </div>
+        </div>
+        <div class="window-body">
+            <div class="app-container">
+                <div class="calculator">
+                    <div class="calc-display" id="calcDisplay">0</div>
+                    <div class="calc-buttons">
+                        <button class="calc-btn" onclick="clearCalc()">C</button>
+                        <button class="calc-btn" onclick="appendCalc('(')">(</button>
+                        <button class="calc-btn" onclick="appendCalc(')')">)</button>
+                        <button class="calc-btn operator" onclick="appendCalc('/')">/</button>
+                        
+                        <button class="calc-btn" onclick="appendCalc('7')">7</button>
+                        <button class="calc-btn" onclick="appendCalc('8')">8</button>
+                        <button class="calc-btn" onclick="appendCalc('9')">9</button>
+                        <button class="calc-btn operator" onclick="appendCalc('*')">×</button>
+                        
+                        <button class="calc-btn" onclick="appendCalc('4')">4</button>
+                        <button class="calc-btn" onclick="appendCalc('5')">5</button>
+                        <button class="calc-btn" onclick="appendCalc('6')">6</button>
+                        <button class="calc-btn operator" onclick="appendCalc('-')">−</button>
+                        
+                        <button class="calc-btn" onclick="appendCalc('1')">1</button>
+                        <button class="calc-btn" onclick="appendCalc('2')">2</button>
+                        <button class="calc-btn" onclick="appendCalc('3')">3</button>
+                        <button class="calc-btn operator" onclick="appendCalc('+')">+</button>
+                        
+                        <button class="calc-btn" onclick="appendCalc('0')">0</button>
+                        <button class="calc-btn" onclick="appendCalc('.')">.</button>
+                        <button class="calc-btn equals" onclick="calculate()">=</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Text Editor Window -->
+    <div class="window" id="textEditorWindow">
+        <div class="window-header">
+            <div class="window-title">Text Editor - MistralOS</div>
+            <div class="window-controls">
+                <div class="window-control minimize" onclick="minimizeWindow('textEditorWindow')">−</div>
+                <div class="window-control maximize" onclick="maximizeWindow('textEditorWindow')">⛶</div>
+                <div class="window-control close" onclick="closeWindow('textEditorWindow')">×</div>
+            </div>
+        </div>
+        <div class="window-body">
+            <div class="app-container">
+                <div class="text-editor">
+                    <div class="editor-toolbar">
+                        <button class="editor-btn" onclick="formatText('bold')">B</button>
+                        <button class="editor-btn" onclick="formatText('italic')">I</button>
+                        <button class="editor-btn" onclick="formatText('underline')">U</button>
+                        <button class="editor-btn" onclick="saveFile()">Save</button>
+                    </div>
+                    <textarea id="editorContent" placeholder="Type your text here..."></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Snake Game Window -->
+    <div class="window" id="snakeWindow">
+        <div class="window-header">
+            <div class="window-title">Snake Game - MistralOS</div>
+            <div class="window-controls">
+                <div class="window-control minimize" onclick="minimizeWindow('snakeWindow')">−</div>
+                <div class="window-control maximize" onclick="maximizeWindow('snakeWindow')">⛶</div>
+                <div class="window-control close" onclick="closeWindow('snakeWindow')">×</div>
+            </div>
+        </div>
+        <div class="window-body">
+            <div class="app-container">
+                <div class="snake-game">
+                    <div class="snake-score">Score: <span id="snakeScore">0</span></div>
+                    <canvas id="snakeCanvas" width="300" height="300"></canvas>
+                    <div class="snake-controls">
+                        <button class="snake-control-btn" onclick="startSnakeGame()">Start Game</button>
+                        <button class="snake-control-btn" onclick="resetSnakeGame()">Reset</button>
+                        <button class="snake-control-btn" onclick="pauseSnakeGame()">Pause</button>
+                    </div>
+                    <div style="margin-top: 15px; font-size: 14px; color: #aaa;">
+                        Use arrow keys to control the snake
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Browser Window -->
+    <div class="window" id="browserWindow">
+        <div class="window-header">
+            <div class="window-title">Browser - MistralOS</div>
+            <div class="window-controls">
+                <div class="window-control minimize" onclick="minimizeWindow('browserWindow')">−</div>
+                <div class="window-control maximize" onclick="maximizeWindow('browserWindow')">⛶</div>
+                <div class="window-control close" onclick="closeWindow('browserWindow')">×</div>
+            </div>
+        </div>
+        <div class="window-body">
+            <div class="app-container">
+                <div class="browser">
+                    <div class="browser-address-bar">
+                        <button class="browser-nav-btn" onclick="browserBack()">←</button>
+                        <button class="browser-nav-btn" onclick="browserForward()">→</button>
+                        <button class="browser-nav-btn" onclick="browserRefresh()">↻</button>
+                        <input type="text" id="browserUrl" placeholder="https://mistralos.demo" value="mistralos://demo">
+                        <button class="browser-nav-btn" onclick="loadBrowserPage()">Go</button>
+                    </div>
+                    <div class="browser-content" id="browserContent">
+                        <div class="browser-demo-content">
+                            <h3 style="margin-bottom: 20px;">Welcome to MistralOS Browser</h3>
+                            <p>This is a demonstration of the MistralOS web-based operating system.</p>
+                            <p>Try navigating to different "websites" by entering URLs like:</p>
+                            <ul style="margin: 15px 0; padding-left: 20px;">
+                                <li>mistralos://games</li>
+                                <li>mistralos://editor</li>
+                                <li>mistralos://system</li>
+                                <li>mistralos://calculator</li>
+                            </ul>
+                            <p>Each URL loads different content in your browser.</p>
+                            
+                            <div style="margin-top: 30px; padding: 15px; background: rgba(0,180,216,0.1); border-left: 3px solid #00b4d8; border-radius: 4px;">
+                                <strong>💡 Tip:</strong> Right-click on the desktop and select "New" to create files!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tic-Tac-Toe Window -->
+    <div class="window" id="tictactoeWindow">
+        <div class="window-header">
+            <div class="window-title">Tic-Tac-Toe - MistralOS</div>
+            <div class="window-controls">
+                <div class="window-control minimize" onclick="minimizeWindow('tictactoeWindow')">−</div>
+                <div class="window-control maximize" onclick="maximizeWindow('tictactoeWindow')">⛶</div>
+                <div class="window-control close" onclick="closeWindow('tictactoeWindow')">×</div>
+            </div>
+        </div>
+        <div class="window-body">
+            <div class="app-container">
+                <div class="tictactoe-game">
+                    <h3 style="margin-bottom: 20px;">Tic-Tac-Toe</h3>
+                    <div class="tictactoe-board" id="tictactoeBoard"></div>
+                    <div style="margin-top: 20px;">
+                        <button class="snake-control-btn" onclick="resetTicTacToe()">New Game</button>
+                        <div id="gameStatus" style="margin-top: 15px; font-size: 16px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Info Window -->
+    <div class="window" id="systemInfoWindow">
+        <div class="window-header">
+            <div class="window-title">System Information - MistralOS</div>
+            <div class="window-controls">
+                <div class="window-control minimize" onclick="minimizeWindow('systemInfoWindow')">−</div>
+                <div class="window-control maximize" onclick="maximizeWindow('systemInfoWindow')">⛶</div>
+                <div class="window-control close" onclick="closeWindow('systemInfoWindow')">×</div>
+            </div>
+        </div>
+        <div class="window-body">
+            <div class="app-container">
+                <div class="system-info">
+                    <h3 style="margin-bottom: 15px;">MistralOS System Information</h3>
+                    <p style="margin-bottom: 15px; color: #aaa; font-size: 14px;">
+                        A demonstration web-based operating system built with HTML5, CSS3, and JavaScript.
+                    </p>
+                    
+                    <div class="system-info-grid">
+                        <div class="system-info-card">
+                            <h4>🖥️ System</h4>
+                            <p>MistralOS v1.0.0</p>
+                            <p>Web-Based OS</p>
+                        </div>
+                        <div class="system-info-card">
+                            <h4>🌐 Browser</h4>
+                            <p>HTML5 / CSS3 / JavaScript</p>
+                            <p id="userAgent">Loading...</p>
+                        </div>
+                        <div class="system-info-card">
+                            <h4>🧠 Capabilities</h4>
+                            <p>Window Management</p>
+                            <p>Multi-App Support</p>
+                            <p>Interactive UI</p>
+                        </div>
+                        <div class="system-info-card">
+                            <h4>🎮 Apps</h4>
+                            <p>Calculator</p>
+                            <p>Text Editor</p>
+                            <p>Browser</p>
+                            <p>Snake Game</p>
+                            <p>Tic-Tac-Toe</p>
+                        </div>
+                        <div class="system-info-card">
+                            <h4>📊 Stats</h4>
+                            <p id="windowCount">0</p>
+                            <p>Windows Open</p>
+                        </div>
+                        <div class="system-info-card">
+                            <h4>🔧 Features</h4>
+                            <p>Draggable Windows</p>
+                            <p>Resizable</p>
+                            <p>Minimize/Maximize</p>
+                            <p>Taskbar Integration</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Window Management System
+        let zIndexCounter = 10;
+        let activeWindow = null;
+        let windowPositions = {};
+        const windows = ['calculatorWindow', 'textEditorWindow', 'snakeWindow', 'browserWindow', 'tictactoeWindow', 'systemInfoWindow'];
+        
+        function bringToFront(windowId) {
+            const window = document.getElementById(windowId);
+            if (window) {
+                zIndexCounter++;
+                window.style.zIndex = zIndexCounter;
+                activeWindow = windowId;
+                updateWindowSelector();
+            }
+        }
+        
+        function closeWindow(windowId) {
+            const window = document.getElementById(windowId);
+            if (window) {
+                window.classList.remove('open');
+                setTimeout(() => window.remove(), 300);
+                updateTaskbar();
+                updateWindowSelector();
+                updateWindowCount();
+            }
+        }
+        
+        function minimizeWindow(windowId) {
+            const window = document.getElementById(windowId);
+            if (window) {
+                window.classList.remove('open');
+                updateTaskbar();
+            }
+        }
+        
+        function maximizeWindow(windowId) {
+            const window = document.getElementById(windowId);
+            if (window) {
+                const isMaximized = window.style.width === '100%' && window.style.height === '100%' && window.style.left === '0px' && window.style.top === '0px';
+                
+                if (isMaximized) {
+                    // Restore
+                    window.style.width = windowPositions[windowId]?.width || '600px';
+                    window.style.height = windowPositions[windowId]?.height || '500px';
+                    window.style.left = windowPositions[windowId]?.left || '50px';
+                    window.style.top = windowPositions[windowId]?.top || '50px';
+                } else {
+                    // Maximize
+                    windowPositions[windowId] = {
+                        width: window.style.width,
+                        height: window.style.height,
+                        left: window.style.left,
+                        top: window.style.top
+                    };
+                    window.style.width = '100%';
+                    window.style.height = 'calc(100vh - 40px)';
+                    window.style.left = '0px';
+                    window.style.top = '0px';
+                    window.style.bottom = '40px';
+                    window.style.right = '0px';
+                }
+            }
+        }
+        
+        function openApp(appName) {
+            toggleStartMenu();
+            
+            const windowId = appName + 'Window';
+            let window = document.getElementById(windowId);
+            
+            if (window) {
+                // Window already exists
+                if (!window.classList.contains('open')) {
+                    window.classList.add('open');
+                }
+                bringToFront(windowId);
+                updateTaskbar();
+            } else {
+                // Create new window
+                createWindow(appName);
+            }
+        }
+        
+        function createWindow(appName) {
+            const windowHTML = `
+                <div class="window" id="${appName}Window">
+                    <div class="window-header">
+                        <div class="window-title">${getAppTitle(appName)}</div>
+                        <div class="window-controls">
+                            <div class="window-control minimize" onclick="minimizeWindow('${appName}Window')">−</div>
+                            <div class="window-control maximize" onclick="maximizeWindow('${appName}Window')">⛶</div>
+                            <div class="window-control close" onclick="closeWindow('${appName}Window')">×</div>
+                        </div>
+                    </div>
+                    <div class="window-body">
+                        <div class="app-container">
+                            ${getAppContent(appName)}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.insertAdjacentHTML('beforeend', windowHTML);
+            const window = document.getElementById(appName + 'Window');
+            
+            // Position window
+            window.style.left = '50px';
+            window.style.top = '50px';
+            window.style.width = '600px';
+            window.style.height = '500px';
+            window.style.zIndex = ++zIndexCounter;
+            window.classList.add('open');
+            
+            updateTaskbar();
+            updateWindowSelector();
+            updateWindowCount();
+        }
+        
+        function getAppTitle(appName) {
+            const titles = {
+                'calculator': 'Calculator - MistralOS',
+                'textEditor': 'Text Editor - MistralOS',
+                'snake': 'Snake Game - MistralOS',
+                'browser': 'Browser - MistralOS',
+                'tictactoe': 'Tic-Tac-Toe - MistralOS',
+                'systemInfo': 'System Information - MistralOS'
+            };
+            return titles[appName];
+        }
+        
+        function getAppContent(appName) {
+            const contents = {
+                'calculator': `
+                    <div class="calculator">
+                        <div class="calc-display" id="calcDisplay${appName}">0</div>
+                        <div class="calc-buttons">
+                            <button class="calc-btn" onclick="clearCalc('${appName}')">C</button>
+                            <button class="calc-btn" onclick="appendCalc('(', '${appName}')">(</button>
+                            <button class="calc-btn" onclick="appendCalc(')', '${appName}')">)</button>
+                            <button class="calc-btn operator" onclick="appendCalc('/', '${appName}')">/</button>
+                            
+                            <button class="calc-btn" onclick="appendCalc('7', '${appName}')">7</button>
+                            <button class="calc-btn" onclick="appendCalc('8', '${appName}')">8</button>
+                            <button class="calc-btn" onclick="appendCalc('9', '${appName}')">9</button>
+                            <button class="calc-btn operator" onclick="appendCalc('*', '${appName}')">×</button>
+                            
+                            <button class="calc-btn" onclick="appendCalc('4', '${appName}')">4</button>
+                            <button class="calc-btn" onclick="appendCalc('5', '${appName}')">5</button>
+                            <button class="calc-btn" onclick="appendCalc('6', '${appName}')">6</button>
+                            <button class="calc-btn operator" onclick="appendCalc('-', '${appName}')">−</button>
+                            
+                            <button class="calc-btn" onclick="appendCalc('1', '${appName}')">1</button>
+                            <button class="calc-btn" onclick="appendCalc('2', '${appName}')">2</button>
+                            <button class="calc-btn" onclick="appendCalc('3', '${appName}')">3</button>
+                            <button class="calc-btn operator" onclick="appendCalc('+', '${appName}')">+</button>
+                            
+                            <button class="calc-btn" onclick="appendCalc('0', '${appName}')">0</button>
+                            <button class="calc-btn" onclick="appendCalc('.', '${appName}')">.</button>
+                            <button class="calc-btn equals" onclick="calculate('${appName}')">=</button>
+                        </div>
+                    </div>
+                `,
+                'textEditor': `
+                    <div class="text-editor">
+                        <div class="editor-toolbar">
+                            <button class="editor-btn" onclick="formatText('bold', '${appName}')">B</button>
+                            <button class="editor-btn" onclick="formatText('italic', '${appName}')">I</button>
+                            <button class="editor-btn" onclick="formatText('underline', '${appName}')">U</button>
+                            <button class="editor-btn" onclick="saveFile('${appName}')">Save</button>
+                        </div>
+                        <textarea id="editorContent${appName}" placeholder="Type your text here..."></textarea>
+                    </div>
+                `,
+                'snake': `
+                    <div class="snake-game">
+                        <div class="snake-score">Score: <span id="snakeScore${appName}">0</span></div>
+                        <canvas id="snakeCanvas${appName}" width="300" height="300"></canvas>
+                        <div class="snake-controls">
+                            <button class="snake-control-btn" onclick="startSnakeGame('${appName}')">Start Game</button>
+                            <button class="snake-control-btn" onclick="resetSnakeGame('${appName}')">Reset</button>
+                            <button class="snake-control-btn" onclick="pauseSnakeGame('${appName}')">Pause</button>
+                        </div>
+                        <div style="margin-top: 15px; font-size: 14px; color: #aaa;">
+                            Use arrow keys to control the snake
+                        </div>
+                    </div>
+                `,
+                'browser': `
+                    <div class="browser">
+                        <div class="browser-address-bar">
+                            <button class="browser-nav-btn" onclick="browserBack('${appName}')">←</button>
+                            <button class="browser-nav-btn" onclick="browserForward('${appName}')">→</button>
+                            <button class="browser-nav-btn" onclick="browserRefresh('${appName}')">↻</button>
+                            <input type="text" id="browserUrl${appName}" placeholder="https://mistralos.demo" value="mistralos://demo">
+                            <button class="browser-nav-btn" onclick="loadBrowserPage('${appName}')">Go</button>
+                        </div>
+                        <div class="browser-content" id="browserContent${appName}">
+                            <div class="browser-demo-content">
+                                <h3 style="margin-bottom: 20px;">Welcome to MistralOS Browser</h3>
+                                <p>This is a demonstration of the MistralOS web-based operating system.</p>
+                                <p>Try navigating to different "websites" by entering URLs like:</p>
+                                <ul style="margin: 15px 0; padding-left: 20px;">
+                                    <li>mistralos://games</li>
+                                    <li>mistralos://editor</li>
+                                    <li>mistralos://system</li>
+                                    <li>mistralos://calculator</li>
+                                </ul>
+                                <p>Each URL loads different content in your browser.</p>
+                                
+                                <div style="margin-top: 30px; padding: 15px; background: rgba(0,180,216,0.1); border-left: 3px solid #00b4d8; border-radius: 4px;">
+                                    <strong>💡 Tip:</strong> Right-click on the desktop and select "New" to create files!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                'tictactoe': `
+                    <div class="tictactoe-game">
+                        <h3 style="margin-bottom: 20px;">Tic-Tac-Toe</h3>
+                        <div class="tictactoe-board" id="tictactoeBoard${appName}"></div>
+                        <div style="margin-top: 20px;">
+                            <button class="snake-control-btn" onclick="resetTicTacToe('${appName}')">New Game</button>
+                            <div id="gameStatus${appName}" style="margin-top: 15px; font-size: 16px;"></div>
+                        </div>
+                    </div>
+                `,
+                'systemInfo': `
+                    <div class="system-info">
+                        <h3 style="margin-bottom: 15px;">MistralOS System Information</h3>
+                        <p style="margin-bottom: 15px; color: #aaa; font-size: 14px;">
+                            A demonstration web-based operating system built with HTML5, CSS3, and JavaScript.
+                        </p>
+                        
+                        <div class="system-info-grid">
+                            <div class="system-info-card">
+                                <h4>🖥️ System</h4>
+                                <p>MistralOS v1.0.0</p>
+                                <p>Web-Based OS</p>
+                            </div>
+                            <div class="system-info-card">
+                                <h4>🌐 Browser</h4>
+                                <p>HTML5 / CSS3 / JavaScript</p>
+                                <p id="userAgent${appName}">Loading...</p>
+                            </div>
+                            <div class="system-info-card">
+                                <h4>🧠 Capabilities</h4>
+                                <p>Window Management</p>
+                                <p>Multi-App Support</p>
+                                <p>Interactive UI</p>
+                            </div>
+                            <div class="system-info-card">
+                                <h4>🎮 Apps</h4>
+                                <p>Calculator</p>
+                                <p>Text Editor</p>
+                                <p>Browser</p>
+                                <p>Snake Game</p>
+                                <p>Tic-Tac-Toe</p>
+                            </div>
+                            <div class="system-info-card">
+                                <h4>📊 Stats</h4>
+                                <p id="windowCount${appName}">0</p>
+                                <p>Windows Open</p>
+                            </div>
+                            <div class="system-info-card">
+                                <h4>🔧 Features</h4>
+                                <p>Draggable Windows</p>
+                                <p>Resizable</p>
+                                <p>Minimize/Maximize</p>
+                                <p>Taskbar Integration</p>
+                            </div>
+                        </div>
+                    </div>
+                `
+            };
+            return contents[appName];
+        }
+        
+        // Taskbar
+        function updateTaskbar() {
+            const taskbarApps = document.getElementById('taskbarApps');
+            taskbarApps.innerHTML = '';
+            
+            windows.forEach(windowId => {
+                const window = document.getElementById(windowId);
+                if (window && window.classList.contains('open')) {
+                    const appName = windowId.replace('Window', '');
+                    const iconHtml = `
+                        <button class="taskbar-button" onclick="bringToFront('${windowId}')">
+                            ${getAppIcon(appName)} ${getAppTitle(appName).split(' - ')[0]}
+                        </button>
+                    `;
+                    taskbarApps.insertAdjacentHTML('beforeend', iconHtml);
+                }
+            });
+        }
+        
+        function getAppIcon(appName) {
+            const icons = {
+                'calculator': '🧮',
+                'textEditor': '📝',
+                'snake': '🐍',
+                'browser': '🌐',
+                'tictactoe': '❌',
+                'systemInfo': '💻'
+            };
+            return icons[appName] || '📱';
+        }
+        
+        // Window Selector
+        function updateWindowSelector() {
+            const windowSelector = document.getElementById('windowSelector');
+            const buttons = windowSelector.querySelectorAll('.window-selector-btn');
+            
+            windows.forEach(windowId => {
+                const window = document.getElementById(windowId);
+                const button = document.querySelector(`.window-selector-btn[onclick="bringToFront('${windowId}')"]`);
+                if (button) {
+                    if (window && window.classList.contains('open')) {
+                        button.style.display = 'block';
+                    } else {
+                        button.style.display = 'none';
+                    }
+                }
+            });
+        }
+        
+        function updateWindowCount() {
+            const openWindows = windows.filter(id => {
+                const window = document.getElementById(id);
+                return window && window.classList.contains('open');
+            }).length;
+            
+            document.querySelectorAll('[id^="windowCount"]').forEach(el => {
+                el.textContent = openWindows;
+            });
+        }
+        
+        // Start Menu
+        function toggleStartMenu() {
+            const startMenu = document.getElementById('startMenu');
+            startMenu.classList.toggle('open');
+        }
+        
+        // Calculator Functions
+        function appendCalc(value, appName = '') {
+            const display = document.getElementById(`calcDisplay${appName}`);
+            if (display.textContent === '0' || display.textContent === 'Error') {
+                display.textContent = value;
+            } else {
+                display.textContent += value;
+            }
+        }
+        
+        function clearCalc(appName = '') {
+            document.getElementById(`calcDisplay${appName}`).textContent = '0';
+        }
+        
+        function calculate(appName = '') {
+            try {
+                const display = document.getElementById(`calcDisplay${appName}`);
+                const expression = display.textContent
+                    .replace(/×/g, '*')
+                    .replace(/−/g, '-')
+                    .replace(/÷/g, '/');
+                
+                display.textContent = eval(expression);
+            } catch (e) {
+                document.getElementById(`calcDisplay${appName}`).textContent = 'Error';
+            }
+        }
+        
+        // Text Editor Functions
+        function formatText(command, appName = '') {
+            const editor = document.getElementById(`editorContent${appName}`);
+            editor.focus();
+            document.execCommand(command, false, null);
+        }
+        
+        function saveFile(appName = '') {
+            const content = document.getElementById(`editorContent${appName}`).value;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'document.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('File saved successfully!');
+        }
+        
+        // Snake Game
+        let snake = [];
+        let food = {};
+        let direction = 'right';
+        let nextDirection = 'right';
+        let gameInterval = null;
+        let score = 0;
+        let gameSpeed = 150;
+        let isPaused = false;
+        
+        function startSnakeGame(appName = '') {
+            if (gameInterval) clearInterval(gameInterval);
+            
+            snake = [{x: 5, y: 10}];
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            gameSpeed = 150;
+            updateSnakeScore(appName);
+            generateFood(appName);
+            isPaused = false;
+            
+            gameInterval = setInterval(() => {
+                if (!isPaused) moveSnake(appName);
+            }, gameSpeed);
+        }
+        
+        function resetSnakeGame(appName = '') {
+            clearInterval(gameInterval);
+            snake = [];
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            updateSnakeScore(appName);
+            
+            const canvas = document.getElementById(`snakeCanvas${appName}`);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function pauseSnakeGame(appName = '') {
+            isPaused = !isPaused;
+            const button = event.target;
+            button.textContent = isPaused ? 'Resume' : 'Pause';
+        }
+        
+        function moveSnake(appName = '') {
+            direction = nextDirection;
+            
+            const head = {x: snake[0].x, y: snake[0].y};
+            
+            switch(direction) {
+                case 'up': head.y--; break;
+                case 'down': head.y++; break;
+                case 'left': head.x--; break;
+                case 'right': head.x++; break;
+            }
+            
+            // Check collisions
+            if (head.x < 0 || head.y < 0 || head.x >= 20 || head.y >= 20 || 
+                snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                gameOver(appName);
+                return;
+            }
+            
+            snake.unshift(head);
+            
+            // Check if food eaten
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                updateSnakeScore(appName);
+                generateFood(appName);
+                // Increase speed every 50 points
+                if (score % 50 === 0 && gameSpeed > 50) {
+                    gameSpeed -= 10;
+                    clearInterval(gameInterval);
+                    gameInterval = setInterval(() => {
+                        if (!isPaused) moveSnake(appName);
+                    }, gameSpeed);
+                }
+            } else {
+                snake.pop();
+            }
+            
+            drawSnake(appName);
+        }
+        
+        function drawSnake(appName = '') {
+            const canvas = document.getElementById(`snakeCanvas${appName}`);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#3a3a3a';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < 20; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * 15, 0);
+                ctx.lineTo(i * 15, 300);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, i * 15);
+                ctx.lineTo(300, i * 15);
+                ctx.stroke();
+            }
+            
+            // Draw snake
+            snake.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? '#10b981' : '#34d399';
+                ctx.fillRect(segment.x * 15, segment.y * 15, 15, 15);
+            });
+            
+            // Draw food
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(food.x * 15, food.y * 15, 15, 15);
+        }
+        
+        function generateFood(appName = '') {
+            let validPosition = false;
+            let x, y;
+            
+            while (!validPosition) {
+                x = Math.floor(Math.random() * 20);
+                y = Math.floor(Math.random() * 20);
+                validPosition = !snake.some(segment => segment.x === x && segment.y === y);
+            }
+            
+            food = {x, y};
+            drawSnake(appName);
+        }
+        
+        function updateSnakeScore(appName = '') {
+            document.getElementById(`snakeScore${appName}`).textContent = score;
+        }
+        
+        function gameOver(appName = '') {
+            clearInterval(gameInterval);
+            alert(`Game Over! Your score: ${score}`);
+        }
+        
+        // Keyboard Controls for Snake
+        document.addEventListener('keydown', (e) => {
+            const appWindows = ['snakeWindow', 'snakeWindowopen'];
+            const isSnakeActive = appWindows.some(id => {
+                const window = document.getElementById(id);
+                return window && window.classList.contains('open');
+            });
+            
+            if (!isSnakeActive) return;
+            
+            switch(e.key) {
+                case 'ArrowUp': if (direction !== 'down') nextDirection = 'up'; break;
+                case 'ArrowDown': if (direction !== 'up') nextDirection = 'down'; break;
+                case 'ArrowLeft': if (direction !== 'right') nextDirection = 'left'; break;
+                case 'ArrowRight': if (direction !== 'left') nextDirection = 'right'; break;
+            }
+        });
+        
+        // Tic-Tac-Toe
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'X';
+        let gameActive = true;
+        
+        function resetTicTacToe(appName = '') {
+            board = ['', '', '', '', '', '', '', '', ''];
+            currentPlayer = 'X';
+            gameActive = true;
+            
+            const cells = document.querySelectorAll(`#tictactoeBoard${appName} .tictactoe-cell`);
+            cells.forEach(cell => cell.textContent = '');
+            document.getElementById(`gameStatus${appName}`).textContent = '';
+            
+            const statusDisplay = document.getElementById(`gameStatus${appName}`);
+            if (statusDisplay) statusDisplay.textContent = '';
+        }
+        
+        function makeMove(index, appName = '') {
+            if (!gameActive || board[index] !== '') return;
+            
+            board[index] = currentPlayer;
+            const cell = document.querySelector(`#tictactoeBoard${appName} .tictactoe-cell:nth-child(${index + 1})`);
+            cell.textContent = currentPlayer;
+            
+            if (checkWin()) {
+                document.getElementById(`gameStatus${appName}`).textContent = `Player ${currentPlayer} wins!`;
+                gameActive = false;
+                return;
+            }
+            
+            if (checkDraw()) {
+                document.getElementById(`gameStatus${appName}`).textContent = 'Draw!';
+                gameActive = false;
+                return;
+            }
+            
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            document.getElementById(`gameStatus${appName}`).textContent = `Player ${currentPlayer}'s turn`;
+        }
+        
+        function checkWin() {
+            const winPatterns = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // columns
+                [0, 4, 8], [2, 4, 6] // diagonals
+            ];
+            
+            return winPatterns.some(pattern => 
+                board[pattern[0]] !== '' &&
+                board[pattern[0]] === board[pattern[1]] &&
+                board[pattern[1]] === board[pattern[2]]
+            );
+        }
+        
+        function checkDraw() {
+            return board.every(cell => cell !== '');
+        }
+        
+        // Initialize Tic-Tac-Toe board
+        function initTicTacToeBoard(appName = '') {
+            const boardElement = document.getElementById(`tictactoeBoard${appName}`);
+            boardElement.innerHTML = '';
+            
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'tictactoe-cell';
+                cell.onclick = () => makeMove(i, appName);
+                boardElement.appendChild(cell);
+            }
+            
+            resetTicTacToe(appName);
+        }
+        
+        // Browser Functions
+        function loadBrowserPage(appName = '') {
+            const url = document.getElementById(`browserUrl${appName}`).value;
+            const content = document.getElementById(`browserContent${appName}`);
+            
+            // Simple URL routing
+            let pageContent = '';
+            
+            if (url.includes('games')) {
+                pageContent = `
+                    <h3>🎮 Games Center</h3>
+                    <p>Play different games in MistralOS:</p>
+                    <ul style="margin: 15px 0; padding-left: 20px;">
+                        <li><strong>Snake Game</strong> - Classic snake game</li>
+                        <li><strong>Tic-Tac-Toe</strong> - X and O game</li>
+                        <li>More games coming soon!</li>
+                    </ul>
+                    <p>Launch games from the Start Menu.</p>
+                `;
+            } else if (url.includes('editor')) {
+                pageContent = `
+                    <h3>📝 Text Editor</h3>
+                    <p>The built-in text editor allows you to create and edit text documents.</p>
+                    <p>Features:</p>
+                    <ul style="margin: 15px 0; padding-left: 20px;">
+                        <li>Basic text formatting (bold, italic, underline)</li>
+                        <li>Save documents to your device</li>
+                        <li>Syntax highlighting support</li>
+                    </ul>
+                `;
+            } else if (url.includes('system')) {
+                pageContent = `
+                    <h3>💻 System Information</h3>
+                    <p>View system details and capabilities of MistralOS.</p>
+                    <div style="background: rgba(0,180,216,0.1); border-left: 3px solid #00b4d8; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                        <p><strong>MistralOS v1.0.0</strong></p>
+                        <p>Web-Based Operating System</p>
+                        <p>Built with: HTML5, CSS3, JavaScript</p>
+                    </div>
+                `;
+            } else if (url.includes('calculator')) {
+                pageContent = `
+                    <h3>🧮 Calculator</h3>
+                    <p>The built-in calculator provides basic and advanced operations.</p>
+                    <p>Supported operations:</p>
+                    <ul style="margin: 15px 0; padding-left: 20px;">
+                        <li>Addition, Subtraction</li>
+                        <li>Multiplication, Division</li>
+                        <li>Parentheses for grouping</li>
+                        <li>Decimal numbers</li>
+                    </ul>
+                `;
+            } else {
+                pageContent = `
+                    <h3>Welcome to MistralOS Browser</h3>
+                    <p>Enter URLs like:</p>
+                    <ul style="margin: 15px 0; padding-left: 20px;">
+                        <li>mistralos://games</li>
+                        <li>mistralos://editor</li>
+                        <li>mistralos://system</li>
+                        <li>mistralos://calculator</li>
+                    </ul>
+                    <p>to navigate to different pages.</p>
+                `;
+            }
+            
+            content.innerHTML = `<div class="browser-demo-content">${pageContent}</div>`;
+        }
+        
+        function browserBack(appName = '') {
+            console.log('Back button clicked');
+        }
+        
+        function browserForward(appName = '') {
+            console.log('Forward button clicked');
+        }
+        
+        function browserRefresh(appName = '') {
+            loadBrowserPage(appName);
+        }
+        
+        // System Info
+        document.getElementById('userAgent').textContent = navigator.userAgent.substring(0, 50) + '...';
+        document.querySelectorAll('[id^="userAgent"]').forEach(el => {
+            el.textContent = navigator.userAgent.substring(0, 50) + '...';
+        });
+        
+        // Window Dragging
+        let isDragging = false;
+        let currentWindow = null;
+        let offsetX, offsetY;
+        
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('window-header')) {
+                isDragging = true;
+                currentWindow = e.target.closest('.window');
+                offsetX = e.clientX - currentWindow.getBoundingClientRect().left;
+                offsetY = e.clientY - currentWindow.getBoundingClientRect().top;
+                bringToFront(currentWindow.id);
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging || !currentWindow) return;
+            
+            currentWindow.style.left = (e.clientX - offsetX) + 'px';
+            currentWindow.style.top = (e.clientY - offsetY) + 'px';
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            currentWindow = null;
+        });
+        
+        // Close start menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const startMenu = document.getElementById('startMenu');
+            if (!startMenu.contains(e.target) && !document.querySelector('.start-button').contains(e.target)) {
+                startMenu.classList.remove('open');
+            }
+        });
+        
+        // Initialize all apps on page load
+        window.addEventListener('load', () => {
+            // Create initial windows
+            openApp('calculator');
+            openApp('textEditor');
+            
+            // Initialize Tic-Tac-Toe boards
+            initTicTacToeBoard();
+            initTicTacToeBoard('tictactoe');
+            
+            // Update system info
+            setInterval(() => {
+                const now = new Date();
+                document.getElementById('systemClock').textContent = 
+                    now.toLocaleTimeString();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
