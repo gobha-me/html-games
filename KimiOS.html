@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KimiOS</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --accent: #0f3460;
+    --highlight: #e94560;
+    --text: #eaeaea;
+    --text-dim: #a0a0a0;
+    --window-bg: rgba(22, 33, 62, 0.95);
+    --border: rgba(255,255,255,0.08);
+    --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: var(--text); }
+
+  /* Desktop */
+  #desktop { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(auto-fill, 90px); grid-auto-rows: 100px; gap: 10px; padding: 15px; padding-bottom: 60px; align-content: start; z-index: 1; }
+  .desktop-icon { display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px; padding: 8px; transition: background 0.2s, transform 0.15s; width: 90px; height: 100px; text-align: center; }
+  .desktop-icon:hover { background: rgba(255,255,255,0.08); transform: scale(1.05); }
+  .desktop-icon .icon { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 26px; margin-bottom: 6px; background: linear-gradient(135deg, var(--accent), var(--highlight)); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .desktop-icon span { font-size: 12px; color: var(--text); text-shadow: 0 1px 3px rgba(0,0,0,0.6); pointer-events: none; user-select: none; }
+
+  /* Taskbar */
+  #taskbar { position: fixed; bottom: 0; left: 0; right: 0; height: 48px; background: rgba(15, 15, 30, 0.85); backdrop-filter: blur(16px); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 8px; z-index: 9999; }
+  #start-btn { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--highlight), #ff6b6b); display: grid; place-items: center; font-size: 18px; cursor: pointer; transition: transform 0.15s; border: none; color: white; }
+  #start-btn:hover { transform: scale(1.1); }
+  #taskbar-apps { flex: 1; display: flex; gap: 6px; overflow-x: auto; }
+  .taskbar-item { height: 36px; padding: 0 12px; border-radius: 8px; background: rgba(255,255,255,0.06); border: 1px solid transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; white-space: nowrap; color: var(--text); }
+  .taskbar-item:hover, .taskbar-item.active { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.2); }
+  #clock { font-size: 13px; color: var(--text-dim); padding: 0 8px; font-variant-numeric: tabular-nums; }
+
+  /* Start Menu */
+  #start-menu { position: fixed; bottom: 56px; left: 12px; width: 320px; background: rgba(20, 20, 40, 0.95); backdrop-filter: blur(20px); border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); padding: 16px; display: none; flex-direction: column; gap: 8px; z-index: 10000; }
+  #start-menu.open { display: flex; }
+  .start-header { font-size: 18px; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 4px; background: linear-gradient(90deg, var(--highlight), #ff9f43); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .start-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+  .start-item:hover { background: rgba(255,255,255,0.08); }
+  .start-item .sicon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-size: 18px; background: linear-gradient(135deg, var(--accent), var(--highlight)); }
+
+  /* Windows */
+  .window { position: absolute; background: var(--window-bg); border-radius: 14px; border: 1px solid var(--border); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; min-width: 260px; min-height: 180px; z-index: 10; backdrop-filter: blur(12px); }
+  .window.maximized { top: 0 !important; left: 0 !important; width: 100vw !important; height: calc(100vh - 48px) !important; border-radius: 0; }
+  .window-header { height: 40px; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 10px; cursor: grab; user-select: none; }
+  .window-header:active { cursor: grabbing; }
+  .window-title { flex: 1; font-size: 13px; font-weight: 600; color: var(--text-dim); pointer-events: none; }
+  .win-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; transition: transform 0.15s; }
+  .win-btn:hover { transform: scale(1.2); }
+  .win-close { background: #ff5f57; }
+  .win-min { background: #febc2e; }
+  .win-max { background: #28c840; }
+  .window-body { flex: 1; overflow: auto; position: relative; }
+  .resize-handle { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: se-resize; z-index: 5; }
+
+  /* Apps */
+  /* Calculator */
+  .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 16px; }
+  .calc-display { grid-column: 1 / -1; background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px 16px; font-size: 24px; text-align: right; min-height: 56px; word-break: break-all; }
+  .calc-btn { padding: 14px; border-radius: 10px; border: none; background: rgba(255,255,255,0.08); color: var(--text); font-size: 18px; cursor: pointer; transition: all 0.15s; }
+  .calc-btn:hover { background: rgba(255,255,255,0.16); }
+  .calc-btn.op { background: var(--accent); }
+  .calc-btn.eq { background: var(--highlight); }
+  .calc-btn.ac { background: rgba(233, 69, 96, 0.3); }
+
+  /* Notepad */
+  .notepad { width: 100%; height: 100%; background: #0d1117; color: #c9d1d9; border: none; outline: none; padding: 12px; font-size: 14px; resize: none; line-height: 1.6; }
+  .notepad-toolbar { display: flex; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border); }
+  .np-btn { padding: 4px 10px; border-radius: 6px; border: none; background: rgba(255,255,255,0.08); color: var(--text); font-size: 12px; cursor: pointer; }
+  .np-btn:hover { background: rgba(255,255,255,0.16); }
+
+  /* Browser */
+  .browser-bar { display: flex; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border); }
+  .browser-bar input { flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; color: var(--text); outline: none; }
+  .browser-frame { width: 100%; height: calc(100% - 45px); border: none; background: white; }
+
+  /* Snake */
+  canvas.snake-canvas { display: block; margin: auto; background: #0d1117; border-radius: 8px; }
+  .snake-wrap { display: flex; flex-direction: column; align-items: center; padding: 12px; gap: 8px; }
+  .snake-hud { display: flex; gap: 16px; font-size: 14px; color: var(--text-dim); }
+  .snake-controls { display: flex; gap: 8px; }
+  .snake-controls button { padding: 6px 14px; border-radius: 8px; border: none; background: var(--accent); color: white; cursor: pointer; }
+
+  /* Paint */
+  .paint-toolbar { display: flex; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .paint-toolbar input[type="color"] { width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer; background: none; }
+  .paint-toolbar button { padding: 6px 10px; border-radius: 6px; border: none; background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; }
+  .paint-toolbar button.active { background: var(--highlight); }
+  canvas.paint-canvas { background: white; cursor: crosshair; display: block; }
+
+  /* Terminal */
+  .terminal { background: #0a0a0a; color: #00ff88; padding: 12px; font-family: 'Fira Code', 'Consolas', monospace; font-size: 13px; line-height: 1.6; height: 100%; overflow: auto; white-space: pre-wrap; }
+  .terminal-input-line { display: flex; gap: 6px; }
+  .terminal-prompt { color: var(--highlight); user-select: none; }
+  .terminal-input { background: transparent; border: none; outline: none; color: inherit; font-family: inherit; font-size: inherit; flex: 1; caret-color: #00ff88; }
+
+  /* Music */
+  .music-player { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .music-visual { width: 100%; height: 120px; background: rgba(0,0,0,0.3); border-radius: 12px; display: flex; align-items: flex-end; justify-content: center; gap: 4px; padding: 12px; overflow: hidden; }
+  .music-bar { width: 8px; background: linear-gradient(to top, var(--highlight), #ff9f43); border-radius: 4px; transition: height 0.1s; }
+  .music-info { text-align: center; }
+  .music-controls { display: flex; gap: 12px; }
+  .music-controls button { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--accent); color: white; font-size: 18px; cursor: pointer; display: grid; place-items: center; }
+  .music-controls button.primary { width: 56px; height: 56px; background: var(--highlight); }
+
+  /* File Manager */
+  .fm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 12px; padding: 16px; }
+  .fm-item { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+  .fm-item:hover { background: rgba(255,255,255,0.08); }
+  .fm-item .fm-icon { font-size: 32px; }
+  .fm-item span { font-size: 12px; text-align: center; word-break: break-word; }
+
+  /* Settings */
+  .settings { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 10px; }
+  .setting-row label { font-size: 14px; }
+  .toggle { width: 44px; height: 24px; background: rgba(255,255,255,0.1); border-radius: 12px; position: relative; cursor: pointer; transition: background 0.2s; }
+  .toggle::after { content: ''; position: absolute; width: 20px; height: 20px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.2s; }
+  .toggle.on { background: var(--highlight); }
+  .toggle.on::after { left: 22px; }
+
+  /* About */
+  .about { padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .about-logo { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, var(--highlight), #ff9f43); display: grid; place-items: center; font-size: 40px; box-shadow: 0 8px 24px rgba(233, 69, 96, 0.3); }
+  .about h2 { font-size: 22px; }
+  .about p { color: var(--text-dim); font-size: 13px; max-width: 320px; line-height: 1.6; }
+  .about-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 300px; margin-top: 8px; }
+  .stat-box { background: rgba(255,255,255,0.04); padding: 10px; border-radius: 10px; }
+  .stat-box b { display: block; font-size: 18px; color: var(--highlight); }
+  .stat-box span { font-size: 11px; color: var(--text-dim); }
+
+  /* Boot Screen */
+  #boot { position: fixed; inset: 0; background: #0a0a1a; z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; transition: opacity 0.8s; }
+  #boot.hidden { opacity: 0; pointer-events: none; }
+  .boot-logo { width: 100px; height: 100px; border-radius: 24px; background: linear-gradient(135deg, var(--highlight), #ff9f43); display: grid; place-items: center; font-size: 52px; animation: pulse 1.5s infinite; box-shadow: 0 0 40px rgba(233, 69, 96, 0.4); }
+  .boot-text { font-size: 28px; font-weight: 700; letter-spacing: 2px; background: linear-gradient(90deg, var(--highlight), #ff9f43); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .boot-bar { width: 240px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .boot-bar-inner { height: 100%; width: 0%; background: linear-gradient(90deg, var(--highlight), #ff9f43); border-radius: 2px; animation: bootLoad 2s ease-out forwards; }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  @keyframes bootLoad { to { width: 100%; } }
+
+  /* Context Menu */
+  #ctx-menu { position: fixed; background: rgba(25,25,45,0.98); border: 1px solid var(--border); border-radius: 10px; padding: 6px; display: none; flex-direction: column; min-width: 160px; z-index: 99999; box-shadow: var(--shadow); }
+  .ctx-item { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text); }
+  .ctx-item:hover { background: rgba(255,255,255,0.08); }
+</style>
+</head>
+<body>
+
+<!-- Boot Screen -->
+<div id="boot">
+  <div class="boot-logo">K</div>
+  <div class="boot-text">KimiOS</div>
+  <div class="boot-bar"><div class="boot-bar-inner"></div></div>
+</div>
+
+<!-- Desktop -->
+<div id="desktop"></div>
+
+<!-- Taskbar -->
+<div id="taskbar">
+  <button id="start-btn">K</button>
+  <div id="taskbar-apps"></div>
+  <div id="clock">00:00</div>
+</div>
+
+<!-- Start Menu -->
+<div id="start-menu">
+  <div class="start-header">KimiOS</div>
+</div>
+
+<!-- Context Menu -->
+<div id="ctx-menu"></div>
+
+<script>
+/* ===================== KimiOS Kernel ===================== */
+const desktop = document.getElementById('desktop');
+const taskbarApps = document.getElementById('taskbar-apps');
+const startMenu = document.getElementById('start-menu');
+const startBtn = document.getElementById('start-btn');
+const clockEl = document.getElementById('clock');
+const ctxMenu = document.getElementById('ctx-menu');
+
+let zIndexCounter = 100;
+let activeWindow = null;
+let windowMap = new Map(); // id -> {el, taskbarEl, minimized, maximized}
+
+const APPS = [
+  { id: 'notepad', name: 'Notepad', icon: '📝', color: '#4ecdc4', width: 520, height: 400 },
+  { id: 'calc', name: 'Calculator', icon: '🧮', color: '#ff6b6b', width: 320, height: 460 },
+  { id: 'browser', name: 'Browser', icon: '🌐', color: '#48dbfb', width: 700, height: 500 },
+  { id: 'snake', name: 'Snake', icon: '🐍', color: '#1dd1a1', width: 420, height: 520 },
+  { id: 'paint', name: 'Paint', icon: '🎨', color: '#ff9ff3', width: 600, height: 480 },
+  { id: 'terminal', name: 'Terminal', icon: '💻', color: '#00d2d3', width: 560, height: 380 },
+  { id: 'files', name: 'Files', icon: '📁', color: '#feca57', width: 480, height: 360 },
+  { id: 'music', name: 'Music', icon: '🎵', color: '#5f27cd', width: 380, height: 420 },
+  { id: 'settings', name: 'Settings', icon: '⚙️', color: '#8395a7', width: 380, height: 420 },
+  { id: 'about', name: 'About', icon: 'ℹ️', color: '#e94560', width: 360, height: 400 },
+];
+
+/* ---------------- Boot ---------------- */
+setTimeout(() => {
+  document.getElementById('boot').classList.add('hidden');
+}, 2200);
+
+/* ---------------- Desktop Icons ---------------- */
+APPS.forEach(app => {
+  const el = document.createElement('div');
+  el.className = 'desktop-icon';
+  el.innerHTML = `<div class="icon" style="background:linear-gradient(135deg, ${app.color}, #222)">${app.icon}</div><span>${app.name}</span>`;
+  el.ondblclick = () => openWindow(app);
+  desktop.appendChild(el);
+});
+
+/* ---------------- Start Menu ---------------- */
+APPS.forEach(app => {
+  const item = document.createElement('div');
+  item.className = 'start-item';
+  item.innerHTML = `<div class="sicon" style="background:linear-gradient(135deg, ${app.color}, #222)">${app.icon}</div><span>${app.name}</span>`;
+  item.onclick = () => { openWindow(app); toggleStart(); };
+  startMenu.appendChild(item);
+});
+
+startBtn.onclick = toggleStart;
+function toggleStart() { startMenu.classList.toggle('open'); }
+document.addEventListener('click', e => {
+  if (!startMenu.contains(e.target) && e.target !== startBtn) startMenu.classList.remove('open');
+  ctxMenu.style.display = 'none';
+});
+
+/* ---------------- Clock ---------------- */
+function updateClock() {
+  const now = new Date();
+  clockEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ---------------- Window Manager ---------------- */
+function openWindow(app) {
+  if (windowMap.has(app.id)) {
+    const w = windowMap.get(app.id);
+    w.minimized = false;
+    w.el.style.display = 'flex';
+    focusWindow(app.id);
+    return;
+  }
+
+  const win = document.createElement('div');
+  win.className = 'window';
+  win.style.width = app.width + 'px';
+  win.style.height = app.height + 'px';
+  win.style.left = (50 + Math.random() * 100) + 'px';
+  win.style.top = (40 + Math.random() * 80) + 'px';
+  win.style.zIndex = ++zIndexCounter;
+
+  win.innerHTML = `
+    <div class="window-header">
+      <span style="font-size:16px">${app.icon}</span>
+      <span class="window-title">${app.name}</span>
+      <button class="win-btn win-min"></button>
+      <button class="win-btn win-max"></button>
+      <button class="win-btn win-close"></button>
+    </div>
+    <div class="window-body" id="body-${app.id}"></div>
+    <div class="resize-handle"></div>
+  `;
+
+  document.body.appendChild(win);
+
+  // Taskbar item
+  const tItem = document.createElement('div');
+  tItem.className = 'taskbar-item';
+  tItem.innerHTML = `<span>${app.icon}</span><span>${app.name}</span>`;
+  tItem.onclick = () => {
+    const w = windowMap.get(app.id);
+    if (w.minimized || w.el.style.display === 'none') {
+      w.minimized = false;
+      w.el.style.display = 'flex';
+      focusWindow(app.id);
+    } else if (activeWindow === app.id) {
+      minimizeWindow(app.id);
+    } else {
+      focusWindow(app.id);
+    }
+  };
+  taskbarApps.appendChild(tItem);
+
+  windowMap.set(app.id, { el: win, taskbarEl: tItem, minimized: false, maximized: false });
+  activeWindow = app.id;
+  updateTaskbar();
+
+  // Header controls
+  const header = win.querySelector('.window-header');
+  header.querySelector('.win-close').onclick = e => { e.stopPropagation(); closeWindow(app.id); };
+  header.querySelector('.win-min').onclick = e => { e.stopPropagation(); minimizeWindow(app.id); };
+  header.querySelector('.win-max').onclick = e => { e.stopPropagation(); toggleMaximize(app.id); };
+
+  // Drag
+  let dx, dy, dragging = false;
+  header.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('win-btn')) return;
+    const w = windowMap.get(app.id);
+    if (w.maximized) return;
+    dragging = true;
+    dx = e.clientX - win.offsetLeft;
+    dy = e.clientY - win.offsetTop;
+    focusWindow(app.id);
+  });
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    win.style.left = (e.clientX - dx) + 'px';
+    win.style.top = (e.clientY - dy) + 'px';
+  });
+  window.addEventListener('mouseup', () => dragging = false);
+
+  // Resize
+  const rh = win.querySelector('.resize-handle');
+  let rs = false;
+  rh.addEventListener('mousedown', e => { rs = true; e.stopPropagation(); focusWindow(app.id); });
+  window.addEventListener('mousemove', e => {
+    if (!rs) return;
+    win.style.width = Math.max(260, e.clientX - win.offsetLeft) + 'px';
+    win.style.height = Math.max(180, e.clientY - win.offsetTop) + 'px';
+  });
+  window.addEventListener('mouseup', () => rs = false);
+
+  win.addEventListener('mousedown', () => focusWindow(app.id));
+
+  // Init app content
+  initApp(app.id, win.querySelector('.window-body'));
+}
+
+function closeWindow(id) {
+  const w = windowMap.get(id);
+  if (!w) return;
+  w.el.remove();
+  w.taskbarEl.remove();
+  windowMap.delete(id);
+  if (activeWindow === id) activeWindow = null;
+  updateTaskbar();
+}
+
+function minimizeWindow(id) {
+  const w = windowMap.get(id);
+  w.minimized = true;
+  w.el.style.display = 'none';
+  if (activeWindow === id) activeWindow = null;
+  updateTaskbar();
+}
+
+function toggleMaximize(id) {
+  const w = windowMap.get(id);
+  w.maximized = !w.maximized;
+  w.el.classList.toggle('maximized', w.maximized);
+}
+
+function focusWindow(id) {
+  const w = windowMap.get(id);
+  if (!w) return;
+  activeWindow = id;
+  w.el.style.zIndex = ++zIndexCounter;
+  updateTaskbar();
+}
+
+function updateTaskbar() {
+  windowMap.forEach((w, id) => {
+    w.taskbarEl.classList.toggle('active', id === activeWindow && !w.minimized);
+  });
+}
+
+/* ---------------- Context Menu ---------------- */
+desktop.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  ctxMenu.style.left = e.clientX + 'px';
+  ctxMenu.style.top = e.clientY + 'px';
+  ctxMenu.style.display = 'flex';
+  ctxMenu.innerHTML = `
+    <div class="ctx-item" onclick="location.reload()">🔄 Refresh</div>
+    <div class="ctx-item" onclick="document.documentElement.requestFullscreen()">⛶ Fullscreen</div>
+    <div class="ctx-item" onclick="alert('KimiOS v1.0\\nBuilt by Kimi K2.6')">ℹ️ About</div>
+  `;
+});
+
+/* ===================== Apps ===================== */
+function initApp(id, body) {
+  switch (id) {
+    case 'calc': initCalc(body); break;
+    case 'notepad': initNotepad(body); break;
+    case 'browser': initBrowser(body); break;
+    case 'snake': initSnake(body); break;
+    case 'paint': initPaint(body); break;
+    case 'terminal': initTerminal(body); break;
+    case 'files': initFiles(body); break;
+    case 'music': initMusic(body); break;
+    case 'settings': initSettings(body); break;
+    case 'about': initAbout(body); break;
+  }
+}
+
+/* -------- Calculator -------- */
+function initCalc(body) {
+  body.innerHTML = `
+    <div class="calc-grid">
+      <div class="calc-display" id="c-display">0</div>
+      <button class="calc-btn ac" onclick="cClear()">AC</button>
+      <button class="calc-btn" onclick="cInput('(')">(</button>
+      <button class="calc-btn" onclick="cInput(')')">)</button>
+      <button class="calc-btn op" onclick="cOp('/')">÷</button>
+      <button class="calc-btn" onclick="cInput('7')">7</button>
+      <button class="calc-btn" onclick="cInput('8')">8</button>
+      <button class="calc-btn" onclick="cInput('9')">9</button>
+      <button class="calc-btn op" onclick="cOp('*')">×</button>
+      <button class="calc-btn" onclick="cInput('4')">4</button>
+      <button class="calc-btn" onclick="cInput('5')">5</button>
+      <button class="calc-btn" onclick="cInput('6')">6</button>
+      <button class="calc-btn op" onclick="cOp('-')">−</button>
+      <button class="calc-btn" onclick="cInput('1')">1</button>
+      <button class="calc-btn" onclick="cInput('2')">2</button>
+      <button class="calc-btn" onclick="cInput('3')">3</button>
+      <button class="calc-btn op" onclick="cOp('+')">+</button>
+      <button class="calc-btn" onclick="cInput('0')">0</button>
+      <button class="calc-btn" onclick="cInput('.')">.</button>
+      <button class="calc-btn" onclick="cBack()">⌫</button>
+      <button class="calc-btn eq" onclick="cEq()">=</button>
+    </div>`;
+  window.cDisp = '0';
+  window.cInput = v => { window.cDisp = window.cDisp === '0' ? v : window.cDisp + v; document.getElementById('c-display').textContent = window.cDisp; };
+  window.cOp = v => { window.cDisp += v; document.getElementById('c-display').textContent = window.cDisp; };
+  window.cClear = () => { window.cDisp = '0'; document.getElementById('c-display').textContent = '0'; };
+  window.cBack = () => { window.cDisp = window.cDisp.slice(0, -1) || '0'; document.getElementById('c-display').textContent = window.cDisp; };
+  window.cEq = () => { try { window.cDisp = String(eval(window.cDisp) || 0); } catch { window.cDisp = 'Error'; } document.getElementById('c-display').textContent = window.cDisp; };
+}
+
+/* -------- Notepad -------- */
+function initNotepad(body) {
+  body.innerHTML = `
+    <div class="notepad-toolbar">
+      <button class="np-btn" onclick="npDownload()">💾 Save</button>
+      <button class="np-btn" onclick="npLoad()">📂 Open</button>
+      <button class="np-btn" onclick="npClear()">🗑️ Clear</button>
+    </div>
+    <textarea class="notepad" id="np-area" placeholder="Start typing..."></textarea>
+    <input type="file" id="np-file" style="display:none" accept=".txt">
+  `;
+  window.npDownload = () => {
+    const blob = new Blob([document.getElementById('np-area').value], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'note.txt';
+    a.click();
+  };
+  window.npClear = () => { document.getElementById('np-area').value = ''; };
+  window.npLoad = () => document.getElementById('np-file').click();
+  document.getElementById('np-file').onchange = e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => { document.getElementById('np-area').value = ev.target.result; };
+    r.readAsText(f);
+  };
+}
+
+/* -------- Browser -------- */
+function initBrowser(body) {
+  body.innerHTML = `
+    <div class="browser-bar">
+      <button class="np-btn" onclick="brBack()">◀</button>
+      <button class="np-btn" onclick="brFwd()">▶</button>
+      <input id="br-url" value="https://example.com" onkeydown="if(event.key==='Enter')brGo()">
+      <button class="np-btn" onclick="brGo()">Go</button>
+    </div>
+    <iframe class="browser-frame" id="br-frame" src="https://example.com"></iframe>
+  `;
+  window.brGo = () => {
+    let u = document.getElementById('br-url').value.trim();
+    if (!u.startsWith('http')) u = 'https://' + u;
+    document.getElementById('br-frame').src = u;
+  };
+  window.brBack = () => document.getElementById('br-frame').contentWindow.history.back();
+  window.brFwd = () => document.getElementById('br-frame').contentWindow.history.forward();
+}
+
+/* -------- Snake -------- */
+function initSnake(body) {
+  body.innerHTML = `
+    <div class="snake-wrap">
+      <div class="snake-hud"><span>Score: <b id="sn-score">0</b></span><span>High: <b id="sn-high">0</b></span></div>
+      <canvas class="snake-canvas" id="sn-canvas" width="360" height="360"></canvas>
+      <div class="snake-controls">
+        <button onclick="snStart()">Start</button>
+        <button onclick="snPause()">Pause</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-dim)">Use Arrow Keys or WASD</div>
+    </div>`;
+  const canvas = document.getElementById('sn-canvas');
+  const ctx = canvas.getContext('2d');
+  const GS = 20, TC = 18;
+  let snake = [{ x: 9, y: 9 }], food = { x: 13, y: 13 }, dx = 0, dy = 0, score = 0, high = localStorage.getItem('sn-high') || 0, running = false, interval;
+  document.getElementById('sn-high').textContent = high;
+
+  function draw() {
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#e94560';
+    ctx.fillRect(food.x * GS, food.y * GS, GS - 2, GS - 2);
+    ctx.fillStyle = '#1dd1a1';
+    snake.forEach((s, i) => {
+      ctx.fillStyle = i === 0 ? '#2ecc71' : '#1dd1a1';
+      ctx.fillRect(s.x * GS, s.y * GS, GS - 2, GS - 2);
+    });
+  }
+  function step() {
+    const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+    if (head.x < 0 || head.x >= TC || head.y < 0 || head.y >= TC || snake.some(s => s.x === head.x && s.y === head.y)) {
+      running = false; clearInterval(interval); alert('Game Over! Score: ' + score); return;
+    }
+    snake.unshift(head);
+    if (head.x === food.x && head.y === food.y) {
+      score++; document.getElementById('sn-score').textContent = score;
+      if (score > high) { high = score; localStorage.setItem('sn-high', high); document.getElementById('sn-high').textContent = high; }
+      do { food = { x: Math.floor(Math.random() * TC), y: Math.floor(Math.random() * TC) }; } while (snake.some(s => s.x === food.x && s.y === food.y));
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+  window.snStart = () => { if (running) return; snake = [{ x: 9, y: 9 }]; dx = 1; dy = 0; score = 0; document.getElementById('sn-score').textContent = 0; running = true; interval = setInterval(step, 120); draw(); };
+  window.snPause = () => { running = false; clearInterval(interval); };
+  document.addEventListener('keydown', e => {
+    if (!running) return;
+    const k = e.key;
+    if ((k === 'ArrowUp' || k === 'w') && dy === 0) { dx = 0; dy = -1; }
+    if ((k === 'ArrowDown' || k === 's') && dy === 0) { dx = 0; dy = 1; }
+    if ((k === 'ArrowLeft' || k === 'a') && dx === 0) { dx = -1; dy = 0; }
+    if ((k === 'ArrowRight' || k === 'd') && dx === 0) { dx = 1; dy = 0; }
+  });
+  draw();
+}
+
+/* -------- Paint -------- */
+function initPaint(body) {
+  body.innerHTML = `
+    <div class="paint-toolbar">
+      <input type="color" id="pt-color" value="#e94560">
+      <button onclick="ptSetTool('brush')" id="pt-brush" class="active">🖌️</button>
+      <button onclick="ptSetTool('line')" id="pt-line">📏</button>
+      <button onclick="ptSetTool('rect')" id="pt-rect">▭</button>
+      <button onclick="ptSetTool('circle')" id="pt-circle">◯</button>
+      <button onclick="ptSetTool('eraser')" id="pt-eraser">🧼</button>
+      <input type="range" id="pt-size" min="1" max="30" value="4" style="width:80px">
+      <button onclick="ptClear()">🗑️</button>
+      <button onclick="ptSave()">💾</button>
+    </div>
+    <canvas class="paint-canvas" id="pt-canvas" width="560" height="380"></canvas>
+  `;
+  const c = document.getElementById('pt-canvas');
+  const x = c.getContext('2d');
+  let drawing = false, tool = 'brush', start = null, snapshot;
+  function getP(e) { const r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  c.addEventListener('mousedown', e => {
+    drawing = true; start = getP(e); snapshot = x.getImageData(0, 0, c.width, c.height);
+    x.strokeStyle = document.getElementById('pt-color').value;
+    x.fillStyle = document.getElementById('pt-color').value;
+    x.lineWidth = document.getElementById('pt-size').value;
+    x.lineCap = 'round';
+    if (tool === 'brush' || tool === 'eraser') { x.beginPath(); x.moveTo(start.x, start.y); }
+  });
+  c.addEventListener('mousemove', e => {
+    if (!drawing) return;
+    const p = getP(e);
+    if (tool === 'brush') { x.lineTo(p.x, p.y); x.stroke(); }
+    else if (tool === 'eraser') { x.globalCompositeOperation = 'destination-out'; x.lineTo(p.x, p.y); x.stroke(); x.globalCompositeOperation = 'source-over'; }
+    else { x.putImageData(snapshot, 0, 0); x.beginPath();
+      if (tool === 'line') { x.moveTo(start.x, start.y); x.lineTo(p.x, p.y); }
+      if (tool === 'rect') { x.rect(start.x, start.y, p.x - start.x, p.y - start.y); }
+      if (tool === 'circle') { const r = Math.hypot(p.x - start.x, p.y - start.y); x.arc(start.x, start.y, r, 0, Math.PI * 2); }
+      x.stroke();
+    }
+  });
+  c.addEventListener('mouseup', () => drawing = false);
+  window.ptSetTool = t => { tool = t; document.querySelectorAll('.paint-toolbar button').forEach(b => b.classList.remove('active')); document.getElementById('pt-' + t).classList.add('active'); };
+  window.ptClear = () => x.clearRect(0, 0, c.width, c.height);
+  window.ptSave = () => { const a = document.createElement('a'); a.href = c.toDataURL(); a.download = 'paint.png'; a.click(); };
+}
+
+/* -------- Terminal -------- */
+function initTerminal(body) {
+  body.innerHTML = `<div class="terminal" id="term"></div>`;
+  const term = document.getElementById('term');
+  const history = [];
+  let hIdx = 0;
+  function print(t) { term.insertAdjacentHTML('beforeend', t + '\n'); term.scrollTop = term.scrollHeight; }
+  function prompt() {
+    const line = document.createElement('div');
+    line.className = 'terminal-input-line';
+    line.innerHTML = `<span class="terminal-prompt">user@kimiOS:~$</span><input class="terminal-input" spellcheck="false">`;
+    term.appendChild(line);
+    const inp = line.querySelector('input');
+    inp.focus();
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const v = inp.value.trim();
+        inp.disabled = true;
+        history.push(v); hIdx = history.length;
+        runCmd(v);
+        prompt();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault(); if (hIdx > 0) { hIdx--; inp.value = history[hIdx] || ''; }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault(); if (hIdx < history.length) { hIdx++; inp.value = history[hIdx] || ''; }
+      }
+    });
+    term.scrollTop = term.scrollHeight;
+  }
+  function runCmd(cmd) {
+    const args = cmd.split(' ');
+    switch (args[0]) {
+      case 'help': print('Available commands: help, echo, clear, date, calc, whoami, uname, ls, reboot, fortune'); break;
+      case 'echo': print(args.slice(1).join(' ')); break;
+      case 'clear': term.innerHTML = ''; break;
+      case 'date': print(new Date().toString()); break;
+      case 'calc': try { print(eval(args.slice(1).join(' '))); } catch { print('Error'); } break;
+      case 'whoami': print('guest'); break;
+      case 'uname': print('KimiOS 1.0.0 - Kimi K2.6 Kernel'); break;
+      case 'ls': print('Documents  Downloads  Pictures  Music  Desktop'); break;
+      case 'reboot': location.reload(); break;
+      case 'fortune': const f = ['The early bird gets the worm.', 'Patience is a virtue.', 'Code is poetry.', 'Stay curious.']; print(f[Math.floor(Math.random()*f.length)]); break;
+      case '': break;
+      default: print('Command not found: ' + args[0]);
+    }
+  }
+  print('KimiOS Terminal v1.0\nType "help" for available commands.\n');
+  prompt();
+}
+
+/* -------- Files -------- */
+function initFiles(body) {
+  const files = [
+    { name: 'Documents', icon: '📁', type: 'folder' },
+    { name: 'Photos', icon: '📁', type: 'folder' },
+    { name: 'Music', icon: '📁', type: 'folder' },
+    { name: 'Projects', icon: '📁', type: 'folder' },
+    { name: 'notes.txt', icon: '📄', type: 'file' },
+    { name: 'todo.txt', icon: '📄', type: 'file' },
+    { name: 'budget.csv', icon: '📊', type: 'file' },
+    { name: 'script.js', icon: '📜', type: 'file' },
+  ];
+  body.innerHTML = `<div class="fm-grid"></div>`;
+  const grid = body.querySelector('.fm-grid');
+  files.forEach(f => {
+    const el = document.createElement('div');
+    el.className = 'fm-item';
+    el.innerHTML = `<div class="fm-icon">${f.icon}</div><span>${f.name}</span>`;
+    el.ondblclick = () => alert(`Opening ${f.name}...`);
+    grid.appendChild(el);
+  });
+}
+
+/* -------- Music -------- */
+function initMusic(body) {
+  body.innerHTML = `
+    <div class="music-player">
+      <div class="music-visual" id="music-vis"></div>
+      <div class="music-info">
+        <div style="font-size:18px;font-weight:700" id="music-title">Synth Wave</div>
+        <div style="font-size:13px;color:var(--text-dim)">KimiOS Audio Player</div>
+      </div>
+      <div class="music-controls">
+        <button>⏮</button>
+        <button class="primary" id="music-play" onclick="musicToggle()">▶</button>
+        <button>⏭</button>
+      </div>
+    </div>
+  `;
+  const vis = document.getElementById('music-vis');
+  const bars = [];
+  for (let i = 0; i < 24; i++) {
+    const b = document.createElement('div');
+    b.className = 'music-bar';
+    b.style.height = '10px';
+    vis.appendChild(b);
+    bars.push(b);
+  }
+  let playing = false, musicInt;
+  window.musicToggle = () => {
+    playing = !playing;
+    document.getElementById('music-play').textContent = playing ? '⏸' : '▶';
+    if (playing) {
+      musicInt = setInterval(() => {
+        bars.forEach(b => b.style.height = (10 + Math.random() * 90) + 'px');
+      }, 120);
+    } else {
+      clearInterval(musicInt);
+      bars.forEach(b => b.style.height = '10px');
+    }
+  };
+}
+
+/* -------- Settings -------- */
+function initSettings(body) {
+  body.innerHTML = `
+    <div class="settings">
+      <div class="setting-row"><label>🔔 Notifications</label><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="setting-row"><label>🌙 Dark Mode</label><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="setting-row"><label>🔒 Privacy Lock</label><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+      <div class="setting-row"><label>☁️ Cloud Sync</label><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+      <div class="setting-row"><label>🎵 Sound Effects</label><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="setting-row"><label>📍 Location Services</label><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+  `;
+}
+
+/* -------- About -------- */
+function initAbout(body) {
+  body.innerHTML = `
+    <div class="about">
+      <div class="about-logo">K</div>
+      <h2>KimiOS</h2>
+      <p>A fully functional desktop environment built entirely in a single HTML file by Kimi K2.6. Features window management, apps, games, and more.</p>
+      <div class="about-stats">
+        <div class="stat-box"><b>10</b><span>Apps</span></div>
+        <div class="stat-box"><b>1</b><span>File</span></div>
+        <div class="stat-box"><b>0</b><span>Dependencies</span></div>
+        <div class="stat-box"><b>∞</b><span>Possibilities</span></div>
+      </div>
+      <p style="margin-top:8px;font-size:11px">Version 1.0.0 • Build 2026.04.21</p>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
