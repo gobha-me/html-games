@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Computational Canvas — Six Interactive Demos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #0a0e17; --bg-secondary: #111827; --bg-tertiary: #1a2235;
+  --bg-elevated: #1e293b; --bg-input: #0f172a; --border: #2a3a52;
+  --border-focus: #3b82f6; --text-primary: #e2e8f0; --text-secondary: #94a3b8;
+  --text-muted: #64748b; --accent: #3b82f6; --accent-hover: #60a5fa;
+  --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+  --purple: #8b5cf6; --cyan: #06b6d4; --pink: #ec4899;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --radius: 8px; --transition: 0.2s ease;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+.app-header { background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; height: 56px; position: sticky; top: 0; z-index: 100; }
+.app-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-right: 32px; white-space: nowrap; }
+.tab-bar { display: flex; gap: 2px; height: 100%; align-items: flex-end; overflow-x: auto; scrollbar-width: none; }
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-btn { font-family: var(--font-sans); font-size: 13px; font-weight: 500; padding: 8px 16px; background: transparent; color: var(--text-muted); border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all var(--transition); white-space: nowrap; position: relative; bottom: -1px; }
+.tab-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: rgba(59, 130, 246, 0.05); }
+.tab-btn .tab-icon { margin-right: 6px; }
+.demo-panel { display: none; height: calc(100vh - 56px); overflow: hidden; }
+.demo-panel.active { display: flex; }
+.demo-layout { display: flex; width: 100%; height: 100%; }
+.demo-canvas-wrap { flex: 1; position: relative; background: var(--bg-primary); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.demo-canvas-wrap canvas { display: block; cursor: crosshair; }
+.demo-sidebar { width: 280px; min-width: 280px; background: var(--bg-secondary); border-left: 1px solid var(--border); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.sidebar-section { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.sidebar-section h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
+.control-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.control-row:last-child { margin-bottom: 0; }
+.control-row label { font-size: 12px; color: var(--text-secondary); }
+.control-row input[type="range"] { width: 100px; accent-color: var(--accent); cursor: pointer; }
+.control-row input[type="number"], .control-row select { width: 70px; padding: 4px 6px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; outline: none; }
+.control-row input[type="number"]:focus, .control-row select:focus { border-color: var(--border-focus); }
+.btn { font-family: var(--font-sans); font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); cursor: pointer; transition: all var(--transition); }
+.btn:hover { border-color: var(--accent); background: var(--bg-tertiary); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-danger { border-color: var(--danger); color: var(--danger); }
+.btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
+.btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.telemetry { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+.telemetry span { color: var(--text-secondary); }
+.telemetry .val { color: var(--accent); font-weight: 500; }
+.telemetry .success { color: var(--success); }
+.telemetry .warning { color: var(--warning); }
+.toggle-group { display: flex; gap: 4px; }
+.toggle-btn { font-family: var(--font-sans); font-size: 11px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all var(--transition); }
+.toggle-btn:hover { color: var(--text-secondary); }
+.toggle-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lisp-editor { width: 100%; height: 100%; display: flex; flex-direction: column; }
+.lisp-top { flex: 1; display: flex; min-height: 0; }
+.lisp-editor-pane { flex: 1; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+.lisp-output-pane { flex: 1; display: flex; flex-direction: column; background: var(--bg-primary); }
+.lisp-pane-header { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 8px 12px; background: var(--bg-tertiary); border-bottom: 1px solid var(--border); }
+.lisp-textarea { flex: 1; background: var(--bg-input); color: var(--text-primary); font-family: var(--font-mono); font-size: 13px; line-height: 1.6; padding: 12px; border: none; outline: none; resize: none; tab-size: 2; }
+.lisp-output { flex: 1; padding: 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; overflow-y: auto; color: var(--text-secondary); }
+.lisp-output .result { color: var(--success); }
+.lisp-output .error { color: var(--danger); }
+.lisp-output .info { color: var(--text-muted); }
+.lisp-toolbar { display: flex; gap: 6px; padding: 8px 12px; background: var(--bg-tertiary); border-bottom: 1px solid var(--border); align-items: center; }
+.lisp-toolbar .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<header class="app-header">
+  <div class="app-title">⬡ Computational Canvas</div>
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="astar"><span class="tab-icon">⊞</span>A* Pathfinder</button>
+    <button class="tab-btn" data-tab="mandelbrot"><span class="tab-icon">◎</span>Mandelbrot</button>
+    <button class="tab-btn" data-tab="neuralnet"><span class="tab-icon">◉</span>Neural Net</button>
+    <button class="tab-btn" data-tab="cloth"><span class="tab-icon">◇</span>Cloth Sim</button>
+    <button class="tab-btn" data-tab="lisp"><span class="tab-icon">λ</span>Mini Lisp</button>
+    <button class="tab-btn" data-tab="renderer3d"><span class="tab-icon">△</span>3D Renderer</button>
+  </nav>
+</header>
+
+<div id="panel-astar" class="demo-panel active">
+  <div class="demo-layout">
+    <div class="demo-canvas-wrap"><canvas id="astar-canvas"></canvas></div>
+    <div class="demo-sidebar">
+      <div class="sidebar-section"><h3>Controls</h3>
+        <div class="btn-group" style="margin-bottom:8px">
+          <button class="btn btn-primary" id="astar-run">▶ Run</button>
+          <button class="btn" id="astar-step">⏭ Step</button>
+          <button class="btn btn-danger" id="astar-reset">↺ Reset</button>
+        </div>
+        <div class="btn-group">
+          <button class="btn" id="astar-maze">⚡ Maze</button>
+          <button class="btn" id="astar-clear">✕ Clear Walls</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Tool</h3>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-tool="wall">🧱 Wall</button>
+          <button class="toggle-btn" data-tool="erase">🧹 Erase</button>
+          <button class="toggle-btn" data-tool="start">🟢 Start</button>
+          <button class="toggle-btn" data-tool="goal">🔴 Goal</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Heuristic</h3>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-heuristic="manhattan">Manhattan</button>
+          <button class="toggle-btn" data-heuristic="euclidean">Euclidean</button>
+          <button class="toggle-btn" data-heuristic="chebyshev">Chebyshev</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Speed</h3>
+        <div class="control-row"><label>Delay (ms)</label><input type="range" id="astar-speed" min="0" max="100" value="10"></div>
+      </div>
+      <div class="sidebar-section"><h3>Telemetry</h3>
+        <div class="telemetry" id="astar-telemetry">
+          <div>Grid: <span class="val">50 × 30</span></div>
+          <div>Visited: <span class="val" id="astar-visited">0</span></div>
+          <div>Frontier: <span class="val" id="astar-frontier">0</span></div>
+          <div>Path length: <span class="val" id="astar-pathlen">—</span></div>
+          <div>Status: <span class="val" id="astar-status">Ready</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-mandelbrot" class="demo-panel">
+  <div class="demo-layout">
+    <div class="demo-canvas-wrap"><canvas id="mandelbrot-canvas"></canvas></div>
+    <div class="demo-sidebar">
+      <div class="sidebar-section"><h3>Navigation</h3>
+        <p style="font-size:11px;color:var(--text-muted);line-height:1.5;margin-bottom:8px">Click to zoom in · Right-click to zoom out · Drag to pan</p>
+        <div class="btn-group">
+          <button class="btn" id="mb-reset">↺ Reset View</button>
+          <button class="btn" id="mb-zoomin">⊕ Zoom In</button>
+          <button class="btn" id="mb-zoomout">⊖ Zoom Out</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Parameters</h3>
+        <div class="control-row"><label>Iterations</label><input type="number" id="mb-iter" value="200" min="20" max="2000" step="20"></div>
+        <div class="control-row"><label>Zoom</label><span class="telemetry"><span class="val" id="mb-zoom-val">1.0×</span></span></div>
+      </div>
+      <div class="sidebar-section"><h3>Color Palette</h3>
+        <div class="toggle-group" id="mb-palette-group">
+          <button class="toggle-btn active" data-palette="ultra">Ultra</button>
+          <button class="toggle-btn" data-palette="fire">Fire</button>
+          <button class="toggle-btn" data-palette="ice">Ice</button>
+          <button class="toggle-btn" data-palette="rainbow">Rainbow</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Telemetry</h3>
+        <div class="telemetry" id="mb-telemetry">
+          <div>Center: <span class="val" id="mb-center">-0.5 + 0i</span></div>
+          <div>Scale: <span class="val" id="mb-scale">3.0</span></div>
+          <div>Render: <span class="val" id="mb-render-time">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-neuralnet" class="demo-panel">
+  <div class="demo-layout">
+    <div class="demo-canvas-wrap"><canvas id="nn-canvas"></canvas></div>
+    <div class="demo-sidebar">
+      <div class="sidebar-section"><h3>Training</h3>
+        <div class="btn-group" style="margin-bottom:8px">
+          <button class="btn btn-primary" id="nn-train">▶ Train</button>
+          <button class="btn" id="nn-pause">⏸ Pause</button>
+          <button class="btn btn-danger" id="nn-reset">↺ Reset</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Dataset</h3>
+        <div class="toggle-group" id="nn-dataset-group">
+          <button class="toggle-btn active" data-dataset="xor">XOR</button>
+          <button class="toggle-btn" data-dataset="spiral">Spiral</button>
+          <button class="toggle-btn" data-dataset="moons">Moons</button>
+          <button class="toggle-btn" data-dataset="circle">Circle</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Architecture</h3>
+        <div class="control-row"><label>Hidden layers</label><input type="number" id="nn-hidden" value="2" min="1" max="4"></div>
+        <div class="control-row"><label>Neurons/layer</label><input type="number" id="nn-neurons" value="16" min="2" max="64"></div>
+        <div class="control-row"><label>Learning rate</label><input type="range" id="nn-lr" min="-3" max="-0.3" value="-1.5" step="0.1"></div>
+      </div>
+      <div class="sidebar-section"><h3>Telemetry</h3>
+        <div class="telemetry" id="nn-telemetry">
+          <div>Epoch: <span class="val" id="nn-epoch">0</span></div>
+          <div>Loss: <span class="val" id="nn-loss">—</span></div>
+          <div>Accuracy: <span class="val" id="nn-accuracy">—</span></div>
+          <div>Params: <span class="val" id="nn-params">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-cloth" class="demo-panel">
+  <div class="demo-layout">
+    <div class="demo-canvas-wrap"><canvas id="cloth-canvas"></canvas></div>
+    <div class="demo-sidebar">
+      <div class="sidebar-section"><h3>Controls</h3>
+        <div class="btn-group">
+          <button class="btn btn-danger" id="cloth-reset">↺ Reset</button>
+          <button class="btn" id="cloth-tear">✂ Tear Mode</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Physics</h3>
+        <div class="control-row"><label>Gravity</label><input type="range" id="cloth-gravity" min="0" max="2000" value="800" step="50"></div>
+        <div class="control-row"><label>Stiffness</label><input type="range" id="cloth-stiffness" min="1" max="50" value="20" step="1"></div>
+        <div class="control-row"><label>Damping</label><input type="range" id="cloth-damping" min="0.9" max="1.0" value="0.985" step="0.001"></div>
+        <div class="control-row"><label>Tear threshold</label><input type="range" id="cloth-tearthresh" min="30" max="200" value="100" step="5"></div>
+      </div>
+      <div class="sidebar-section"><h3>Mesh</h3>
+        <div class="control-row"><label>Columns</label><input type="number" id="cloth-cols" value="40" min="10" max="80"></div>
+        <div class="control-row"><label>Rows</label><input type="number" id="cloth-rows" value="25" min="5" max="50"></div>
+      </div>
+      <div class="sidebar-section"><h3>Telemetry</h3>
+        <div class="telemetry" id="cloth-telemetry">
+          <div>Points: <span class="val" id="cloth-points">0</span></div>
+          <div>Constraints: <span class="val" id="cloth-constraints">0</span></div>
+          <div>Torn: <span class="val" id="cloth-torn">0</span></div>
+          <div>FPS: <span class="val" id="cloth-fps">0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-lisp" class="demo-panel">
+  <div class="demo-layout">
+    <div class="lisp-editor">
+      <div class="lisp-top">
+        <div class="lisp-editor-pane">
+          <div class="lisp-pane-header">Editor</div>
+          <textarea class="lisp-textarea" id="lisp-input" spellcheck="false">; Mini Lisp — try these examples:
+
+; Basic arithmetic
+(+ 1 2 3 4 5)
+
+; Define and call a function
+(define (factorial n)
+  (if (<= n 1)
+      1
+      (* n (factorial (- n 1)))))
+(factorial 10)
+
+; Closures
+(define (make-adder x)
+  (lambda (y) (+ x y)))
+(define add5 (make-adder 5))
+(add5 12)
+
+; Higher-order: map
+(define (double x) (* x 2))
+(map double (list 1 2 3 4 5))
+
+; Higher-order: reduce
+(define (sum a b) (+ a b))
+(reduce sum 0 (list 1 2 3 4 5 6 7 8 9 10))
+
+; Fibonacci
+(define (fib n)
+  (if (<= n 2)
+      1
+      (+ (fib (- n 1)) (fib (- n 2)))))
+(map fib (list 1 2 3 4 5 6 7 8 9 10))
+
+; Nested closures
+(define (make-counter)
+  (let ((count 0))
+    (lambda ()
+      (set! count (+ count 1))
+      count)))
+(define c (make-counter))
+(c)
+(c)
+(c)</textarea>
+        </div>
+        <div class="lisp-output-pane">
+          <div class="lisp-pane-header">Output</div>
+          <div class="lisp-output" id="lisp-output"></div>
+        </div>
+      </div>
+      <div class="lisp-toolbar">
+        <button class="btn btn-primary" id="lisp-run">▶ Run All</button>
+        <button class="btn" id="lisp-run-line">▶ Run Line</button>
+        <span class="spacer"></span>
+        <div class="telemetry" id="lisp-telemetry"><span id="lisp-status">Ready</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-renderer3d" class="demo-panel">
+  <div class="demo-layout">
+    <div class="demo-canvas-wrap"><canvas id="r3d-canvas"></canvas></div>
+    <div class="demo-sidebar">
+      <div class="sidebar-section"><h3>Mesh</h3>
+        <div class="toggle-group" id="r3d-mesh-group">
+          <button class="toggle-btn active" data-mesh="torus">Torus</button>
+          <button class="toggle-btn" data-mesh="cube">Cube</button>
+          <button class="toggle-btn" data-mesh="sphere">Sphere</button>
+          <button class="toggle-btn" data-mesh="knot">Knot</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Shading</h3>
+        <div class="toggle-group" id="r3d-shading-group">
+          <button class="toggle-btn active" data-shading="flat">Flat</button>
+          <button class="toggle-btn" data-shading="smooth">Smooth</button>
+          <button class="toggle-btn" data-shading="wireframe">Wire</button>
+          <button class="toggle-btn" data-shading="normals">Normals</button>
+        </div>
+      </div>
+      <div class="sidebar-section"><h3>Lighting</h3>
+        <div class="control-row"><label>Light X</label><input type="range" id="r3d-lx" min="-5" max="5" value="2" step="0.1"></div>
+        <div class="control-row"><label>Light Y</label><input type="range" id="r3d-ly" min="-5" max="5" value="3" step="0.1"></div>
+        <div class="control-row"><label>Light Z</label><input type="range" id="r3d-lz" min="-5" max="5" value="4" step="0.1"></div>
+        <div class="control-row"><label>Ambient</label><input type="range" id="r3d-ambient" min="0" max="0.5" value="0.15" step="0.01"></div>
+      </div>
+      <div class="sidebar-section"><h3>Controls</h3>
+        <div class="btn-group">
+          <button class="btn" id="r3d-autorotate">⟳ Auto Rotate</button>
+          <button class="btn" id="r3d-reset">↺ Reset</button>
+        </div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:8px">Drag to rotate · Scroll to zoom</p>
+      </div>
+      <div class="sidebar-section"><h3>Telemetry</h3>
+        <div class="telemetry" id="r3d-telemetry">
+          <div>Vertices: <span class="val" id="r3d-verts">0</span></div>
+          <div>Triangles: <span class="val" id="r3d-tris">0</span></div>
+          <div>Rotation: <span class="val" id="r3d-rot">0°, 0°</span></div>
+          <div>FPS: <span class="val" id="r3d-fps">0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   TAB SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.demo-panel');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+      window.dispatchEvent(new Event('demo-switch'));
+    });
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DEMO 1: A* PATHFINDER
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('astar-canvas');
+  const ctx = canvas.getContext('2d');
+  const COLS = 50, ROWS = 30;
+  let cellW, cellH, grid = [], startNode, goalNode;
+  let currentTool = 'wall', heuristic = 'manhattan';
+  let isRunning = false, openSet = [], closedSet = [], path = [];
+  let mouseDown = false, speed = 10, animFrame = null, lastStepTime = 0;
+
+  function resize() {
+    const wrap = canvas.parentElement;
+    canvas.width = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+    cellW = canvas.width / COLS;
+    cellH = canvas.height / ROWS;
+    draw();
+  }
+
+  function initGrid() {
+    grid = [];
+    for (let y = 0; y < ROWS; y++) {
+      grid[y] = [];
+      for (let x = 0; x < COLS; x++)
+        grid[y][x] = { x, y, wall: false, g: Infinity, h: 0, f: Infinity, parent: null, inOpen: false, inClosed: false };
+    }
+    startNode = grid[Math.floor(ROWS/2)][5];
+    goalNode = grid[Math.floor(ROWS/2)][COLS - 6];
+    path = []; openSet = []; closedSet = [];
+    isRunning = false;
+    if (animFrame) cancelAnimationFrame(animFrame);
+    updateTelemetry();
+  }
+
+  function h(a, b) {
+    const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+    if (heuristic === 'manhattan') return dx + dy;
+    if (heuristic === 'euclidean') return Math.sqrt(dx*dx + dy*dy);
+    return Math.max(dx, dy);
+  }
+
+  function resetSearch() {
+    for (let y = 0; y < ROWS; y++)
+      for (let x = 0; x < COLS; x++) {
+        const n = grid[y][x];
+        n.g = Infinity; n.h = 0; n.f = Infinity; n.parent = null; n.inOpen = false; n.inClosed = false;
+      }
+    openSet = []; closedSet = []; path = [];
+    isRunning = false;
+    if (animFrame) cancelAnimationFrame(animFrame);
+    updateTelemetry();
+  }
+
+  function step() {
+    if (openSet.length === 0) {
+      isRunning = false;
+      document.getElementById('astar-status').textContent = 'No path found';
+      document.getElementById('astar-status').className = 'warning';
+      return false;
+    }
+    let best = 0;
+    for (let i = 1; i < openSet.length; i++)
+      if (openSet[i].f < openSet[best].f) best = i;
+    const current = openSet[best];
+    if (current === goalNode) {
+      isRunning = false;
+      path = [];
+      let n = current;
+      while (n) { path.unshift(n); n = n.parent; }
+      document.getElementById('astar-status').textContent = 'Path found!';
+      document.getElementById('astar-status').className = 'success';
+      document.getElementById('astar-pathlen').textContent = path.length;
+      return false;
+    }
+    openSet.splice(best, 1);
+    current.inOpen = false; current.inClosed = true;
+    closedSet.push(current);
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+      const nx = current.x + dx, ny = current.y + dy;
+      if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && !grid[ny][nx].wall) {
+        const nb = grid[ny][nx];
+        if (nb.inClosed) continue;
+        const tentG = current.g + 1;
+        if (tentG < nb.g) {
+          nb.parent = current; nb.g = tentG;
+          nb.h = h(nb, goalNode); nb.f = nb.g + nb.h;
+          if (!nb.inOpen) { openSet.push(nb); nb.inOpen = true; }
+        }
+      }
+    }
+    return true;
+  }
+
+  function animate(time) {
+    if (!isRunning) return;
+    const delay = Math.max(0, 101 - speed) * 2;
+    if (time - lastStepTime >= delay) {
+      if (!step()) { draw(); return; }
+      lastStepTime = time;
+    }
+    draw();
+    animFrame = requestAnimationFrame(animate);
+  }
+
+  function run() {
+    if (isRunning) return;
+    resetSearch();
+    startNode.g = 0; startNode.h = h(startNode, goalNode); startNode.f = startNode.h;
+    openSet.push(startNode); startNode.inOpen = true;
+    isRunning = true;
+    document.getElementById('astar-status').textContent = 'Searching...';
+    document.getElementById('astar-status').className = 'val';
+    animFrame = requestAnimationFrame(animate);
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0a0e17';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(42, 58, 82, 0.3)'; ctx.lineWidth = 0.5;
+    for (let x = 0; x <= COLS; x++) { ctx.beginPath(); ctx.moveTo(x*cellW, 0); ctx.lineTo(x*cellW, canvas.height); ctx.stroke(); }
+    for (let y = 0; y <= ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y*cellH); ctx.lineTo(canvas.width, y*cellH); ctx.stroke(); }
+    for (const n of closedSet) { ctx.fillStyle = 'rgba(59,130,246,0.15)'; ctx.fillRect(n.x*cellW+1, n.y*cellH+1, cellW-2, cellH-2); }
+    for (const n of openSet) { ctx.fillStyle = 'rgba(59,130,246,0.35)'; ctx.fillRect(n.x*cellW+1, n.y*cellH+1, cellW-2, cellH-2); }
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+      if (grid[y][x].wall) { ctx.fillStyle = '#334155'; ctx.fillRect(x*cellW, y*cellH, cellW, cellH); }
+    if (path.length > 0) {
+      ctx.strokeStyle = '#10b981'; ctx.lineWidth = Math.min(cellW, cellH)*0.4;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(path[0].x*cellW+cellW/2, path[0].y*cellH+cellH/2);
+      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x*cellW+cellW/2, path[i].y*cellH+cellH/2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#10b981'; ctx.beginPath();
+    ctx.arc(startNode.x*cellW+cellW/2, startNode.y*cellH+cellH/2, Math.min(cellW,cellH)*0.35, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ef4444'; ctx.beginPath();
+    ctx.arc(goalNode.x*cellW+cellW/2, goalNode.y*cellH+cellH/2, Math.min(cellW,cellH)*0.35, 0, Math.PI*2); ctx.fill();
+    updateTelemetry();
+  }
+
+  function updateTelemetry() {
+    document.getElementById('astar-visited').textContent = closedSet.length;
+    document.getElementById('astar-frontier').textContent = openSet.length;
+    if (!isRunning && path.length === 0) document.getElementById('astar-pathlen').textContent = '—';
+  }
+
+  function getCell(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left) / cellW);
+    const y = Math.floor((e.clientY - rect.top) / cellH);
+    if (x >= 0 && x < COLS && y >= 0 && y < ROWS) return grid[y][x];
+    return null;
+  }
+
+  function applyTool(cell) {
+    if (!cell) return;
+    if (currentTool === 'wall') { cell.wall = true; resetSearch(); }
+    else if (currentTool === 'erase') { cell.wall = false; resetSearch(); }
+    else if (currentTool === 'start') { startNode = cell; resetSearch(); }
+    else if (currentTool === 'goal') { goalNode = cell; resetSearch(); }
+    draw();
+  }
+
+  canvas.addEventListener('mousedown', e => { mouseDown = true; applyTool(getCell(e)); });
+  canvas.addEventListener('mousemove', e => { if (mouseDown && (currentTool === 'wall' || currentTool === 'erase')) applyTool(getCell(e)); });
+  canvas.addEventListener('mouseup', () => mouseDown = false);
+  canvas.addEventListener('mouseleave', () => mouseDown = false);
+
+  document.getElementById('astar-run').addEventListener('click', run);
+  document.getElementById('astar-step').addEventListener('click', () => {
+    if (!isRunning) {
+      resetSearch(); startNode.g = 0; startNode.h = h(startNode, goalNode); startNode.f = startNode.h;
+      openSet.push(startNode); startNode.inOpen = true; isRunning = true;
+      document.getElementById('astar-status').textContent = 'Stepping...';
+      document.getElementById('astar-status').className = 'val';
+    }
+    if (step()) draw();
+  });
+  document.getElementById('astar-reset').addEventListener('click', () => { initGrid(); draw(); });
+  document.getElementById('astar-maze').addEventListener('click', () => {
+    resetSearch();
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++)
+      if (Math.random() < 0.3 && grid[y][x] !== startNode && grid[y][x] !== goalNode) grid[y][x].wall = true;
+    draw();
+  });
+  document.getElementById('astar-clear').addEventListener('click', () => {
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) grid[y][x].wall = false;
+    resetSearch(); draw();
+  });
+  document.getElementById('astar-speed').addEventListener('input', e => { speed = +e.target.value; });
+  document.querySelectorAll('[data-tool]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); currentTool = btn.dataset.tool;
+    });
+  });
+  document.querySelectorAll('[data-heuristic]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-heuristic]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); heuristic = btn.dataset.heuristic;
+    });
+  });
+  window.addEventListener('demo-switch', resize);
+  initGrid(); resize();
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DEMO 2: MANDELBROT EXPLORER
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('mandelbrot-canvas');
+  const ctx = canvas.getContext('2d');
+  let centerX = -0.5, centerY = 0, scale = 3.0, maxIter = 200, palette = 'ultra';
+  let isDragging = false, dragStartX, dragStartY, dragCenterX, dragCenterY;
+  let renderTimeout = null;
+
+  function resize() {
+    const wrap = canvas.parentElement;
+    canvas.width = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+    render();
+  }
+
+  const palettes = {
+    ultra: t => [Math.floor(9*(1-t)*t*t*t*255), Math.floor(15*(1-t)*(1-t)*t*t*255), Math.floor(8.5*(1-t)*(1-t)*(1-t)*t*255)],
+    fire: t => [Math.min(255,Math.floor(t*3*255)), Math.min(255,Math.floor(Math.max(0,t*3-1)*255)), Math.min(255,Math.floor(Math.max(0,t*3-2)*255))],
+    ice: t => [Math.floor(t*t*200), Math.floor(t*180+40), Math.min(255,Math.floor(150+t*105))],
+    rainbow: t => {
+      const h = t*360, s = 0.8, v = 0.9, c = v*s, x = c*(1-Math.abs((h/60)%2-1)), m = v-c;
+      let r,g,b;
+      if(h<60){r=c;g=x;b=0}else if(h<120){r=x;g=c;b=0}else if(h<180){r=0;g=c;b=x}
+      else if(h<240){r=0;g=x;b=c}else if(h<300){r=x;g=0;b=c}else{r=c;g=0;b=x}
+      return [Math.floor((r+m)*255),Math.floor((g+m)*255),Math.floor((b+m)*255)];
+    }
+  };
+
+  function render() {
+    const t0 = performance.now();
+    const w = canvas.width, h = canvas.height;
+    if (w === 0 || h === 0) return;
+    const imgData = ctx.createImageData(w, h);
+    const data = imgData.data;
+    const colorFn = palettes[palette];
+    const aspect = w / h;
+    const xRange = scale * aspect, yRange = scale;
+    const xMin = centerX - xRange/2, yMin = centerY - yRange/2;
+    for (let py = 0; py < h; py++) {
+      for (let px = 0; px < w; px++) {
+        const x0 = xMin + (px/w)*xRange, y0 = yMin + (py/h)*yRange;
+        let x = 0, y = 0, iter = 0, x2 = 0, y2 = 0;
+        while (x2 + y2 <= 4 && iter < maxIter) {
+          y = 2*x*y + y0; x = x2 - y2 + x0; x2 = x*x; y2 = y*y; iter++;
+        }
+        const idx = (py*w + px)*4;
+        if (iter === maxIter) { data[idx] = data[idx+1] = data[idx+2] = 0; }
+        else {
+          const log2 = Math.log(2);
+          const nu = Math.log(Math.log(Math.sqrt(x2+y2))/log2)/log2;
+          const smooth = (iter + 1 - nu) / maxIter;
+          const [r,g,b] = colorFn(Math.sqrt(smooth));
+          data[idx] = r; data[idx+1] = g; data[idx+2] = b;
+        }
+        data[idx+3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    document.getElementById('mb-render-time').textContent = (performance.now()-t0).toFixed(0)+'ms';
+    updateTelemetry();
+  }
+
+  function updateTelemetry() {
+    document.getElementById('mb-center').textContent = centerX.toFixed(6)+(centerY>=0?' + ':' − ')+Math.abs(centerY).toFixed(6)+'i';
+    document.getElementById('mb-scale').textContent = scale.toExponential(2);
+    document.getElementById('mb-zoom-val').textContent = (3.0/scale).toFixed(1)+'×';
+  }
+
+  function screenToComplex(sx, sy) {
+    const w = canvas.width, h = canvas.height, aspect = w/h;
+    const xRange = scale*aspect, yRange = scale;
+    return { x: centerX-xRange/2+(sx/w)*xRange, y: centerY-yRange/2+(sy/h)*yRange };
+  }
+
+  canvas.addEventListener('mousedown', e => {
+    if (e.button === 0) { isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY; dragCenterX = centerX; dragCenterY = centerY; }
+  });
+  canvas.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX-dragStartX, dy = e.clientY-dragStartY;
+    const w = canvas.width, h = canvas.height, aspect = w/h;
+    centerX = dragCenterX-(dx/w)*scale*aspect; centerY = dragCenterY-(dy/h)*scale;
+    scheduleRender();
+  });
+  canvas.addEventListener('mouseup', e => {
+    if (e.button === 0 && isDragging) {
+      const dx = Math.abs(e.clientX-dragStartX), dy = Math.abs(e.clientY-dragStartY);
+      if (dx < 5 && dy < 5) {
+        const rect = canvas.getBoundingClientRect();
+        const c = screenToComplex(e.clientX-rect.left, e.clientY-rect.top);
+        centerX = c.x; centerY = c.y; scale *= 0.5; scheduleRender();
+      }
+      isDragging = false;
+    }
+  });
+  canvas.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const c = screenToComplex(e.clientX-rect.left, e.clientY-rect.top);
+    centerX = c.x; centerY = c.y; scale *= 2; scheduleRender();
+  });
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const c = screenToComplex(e.clientX-rect.left, e.clientY-rect.top);
+    const factor = e.deltaY > 0 ? 1.3 : 1/1.3;
+    centerX = c.x+(centerX-c.x)*(1-1/factor); centerY = c.y+(centerY-c.y)*(1-1/factor);
+    scale *= factor; scheduleRender();
+  }, { passive: false });
+
+  function scheduleRender() { if (renderTimeout) clearTimeout(renderTimeout); renderTimeout = setTimeout(render, 50); }
+
+  document.getElementById('mb-reset').addEventListener('click', () => { centerX=-0.5; centerY=0; scale=3.0; render(); });
+  document.getElementById('mb-zoomin').addEventListener('click', () => { scale*=0.5; render(); });
+  document.getElementById('mb-zoomout').addEventListener('click', () => { scale*=2; render(); });
+  document.getElementById('mb-iter').addEventListener('change', e => { maxIter=Math.max(20,Math.min(2000,+e.target.value)); render(); });
+  document.querySelectorAll('[data-palette]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-palette]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); palette = btn.dataset.palette; render();
+    });
+  });
+  window.addEventListener('demo-switch', resize);
+  resize();
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DEMO 3: NEURAL NETWORK
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('nn-canvas');
+  const ctx = canvas.getContext('2d');
+  let dataset = 'xor', hiddenLayers = 2, neuronsPerLayer = 16;
+  let lr = Math.pow(10, -1.5), epoch = 0, isTraining = false;
+  let net = null, data = [], animId = null, lossHistory = [];
+
+  function genXOR(n) { const pts=[]; for(let i=0;i<n;i++){const x=Math.random()*2-1,y=Math.random()*2-1;pts.push({x,y,label:(x*y>0)?1:0});} return pts; }
+  function genSpiral(n) { const pts=[],h=Math.floor(n/2); for(let i=0;i<h;i++){const r=i/h,t=1.75*i/h*2*Math.PI+Math.random()*0.3;pts.push({x:r*Math.cos(t),y:r*Math.sin(t),label:0});pts.push({x:r*Math.cos(t+Math.PI),y:r*Math.sin(t+Math.PI),label:1});} return pts; }
+  function genMoons(n) { const pts=[],h=Math.floor(n/2); for(let i=0;i<h;i++){const a=Math.PI*i/h;pts.push({x:Math.cos(a)+(Math.random()-0.5)*0.15,y:Math.sin(a)+(Math.random()-0.5)*0.15,label:0});pts.push({x:1-Math.cos(a)+(Math.random()-0.5)*0.15,y:1-Math.sin(a)-0.5+(Math.random()-0.5)*0.15,label:1});} return pts; }
+  function genCircle(n) { const pts=[]; for(let i=0;i<n;i++){const x=Math.random()*2-1,y=Math.random()*2-1;pts.push({x,y,label:(x*x+y*y<0.5)?1:0});} return pts; }
+
+  function createNetwork(inputSize, layerSizes) {
+    const layers = []; let prevSize = inputSize;
+    for (const size of layerSizes) {
+      const w=[], b=[];
+      for (let j=0;j<size;j++) { const row=[]; for(let i=0;i<prevSize;i++) row.push((Math.random()-0.5)*Math.sqrt(2/prevSize)); w.push(row); b.push(0.01); }
+      layers.push({w,b,size}); prevSize = size;
+    }
+    return {layers};
+  }
+
+  function sigmoid(x) { return 1/(1+Math.exp(-Math.max(-500,Math.min(500,x)))); }
+  function sigmoidDeriv(x) { return x*(1-x); }
+
+  function forward(net, input) {
+    const activations = [input.slice()]; let current = input.slice();
+    for (const layer of net.layers) {
+      const next = [];
+      for (let j=0;j<layer.size;j++) { let sum=layer.b[j]; for(let i=0;i<current.length;i++) sum+=layer.w[j][i]*current[i]; next.push(sigmoid(sum)); }
+      activations.push(next); current = next;
+    }
+    return {activations, output: current};
+  }
+
+  function trainStep(net, input, target, lr) {
+    const {activations, output} = forward(net, input);
+    const deltas = new Array(net.layers.length);
+    const outLayer = net.layers[net.layers.length-1];
+    deltas[net.layers.length-1] = [];
+    for (let j=0;j<outLayer.size;j++) deltas[net.layers.length-1].push((output[j]-target[j])*sigmoidDeriv(output[j]));
+    for (let l=net.layers.length-2;l>=0;l--) {
+      deltas[l] = [];
+      for (let j=0;j<net.layers[l].size;j++) {
+        let err=0; for(let k=0;k<net.layers[l+1].size;k++) err+=deltas[l+1][k]*net.layers[l+1].w[k][j];
+        deltas[l].push(err*sigmoidDeriv(activations[l+1][j]));
+      }
+    }
+    for (let l=0;l<net.layers.length;l++)
+      for (let j=0;j<net.layers[l].size;j++) {
+        for (let i=0;i<activations[l].length;i++) net.layers[l].w[j][i]-=lr*deltas[l][j]*activations[l][i];
+        net.layers[l].b[j]-=lr*deltas[l][j];
+      }
+    let loss=0; for(let j=0;j<output.length;j++) loss+=(output[j]-target[j])**2;
+    return loss/output.length;
+  }
+
+  function countParams(net) { let count=0,prevSize=2; for(const l of net.layers){count+=l.size*prevSize+l.size;prevSize=l.size;} return count; }
+
+  function resize() {
+    const wrap = canvas.parentElement;
+    canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
+    if (canvas.width > 0 && canvas.height > 0) draw();
+  }
+
+  function draw() {
+    const w = canvas.width, h = canvas.height;
+    if (w === 0 || h === 0) return;
+    ctx.fillStyle = '#0a0e17'; ctx.fillRect(0, 0, w, h);
+    if (net) {
+      const res = 6, margin = 40, plotW = w-margin*2, plotH = h-margin*2;
+      for (let py=0;py<plotH;py+=res) {
+        for (let px=0;px<plotW;px+=res) {
+          const x=(px/plotW)*2.4-1.2, y=(py/plotH)*2.4-1.2;
+          const {output} = forward(net, [x,y]);
+          const v = output[0];
+          ctx.fillStyle = `rgb(${Math.floor(v*59+(1-v)*10)},${Math.floor(v*130+(1-v)*14)},${Math.floor(v*246+(1-v)*23)})`;
+          ctx.fillRect(margin+px, margin+py, res, res);
+        }
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+      for (let i=0;i<=10;i++) {
+        const x=margin+(i/10)*plotW; ctx.beginPath(); ctx.moveTo(x,margin); ctx.lineTo(x,margin+plotH); ctx.stroke();
+        const y=margin+(i/10)*plotH; ctx.beginPath(); ctx.moveTo(margin,y); ctx.lineTo(margin+plotW,y); ctx.stroke();
+      }
+    }
+    for (const p of data) {
+      const px=((p.x+1.2)/2.4)*(w-80)+40, py=((p.y+1.2)/2.4)*(h-80)+40;
+      ctx.fillStyle = p.label===1?'#10b981':'#ef4444';
+      ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#0a0e17'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  }
+
+  function updateTelemetry() {
+    document.getElementById('nn-epoch').textContent = epoch;
+    if (lossHistory.length > 0) document.getElementById('nn-loss').textContent = lossHistory[lossHistory.length-1].toFixed(6);
+    if (net && data.length > 0) {
+      let correct=0;
+      for (const p of data) { const {output}=forward(net,[p.x,p.y]); if((output[0]>0.5?1:0)===p.label) correct++; }
+      document.getElementById('nn-accuracy').textContent = (correct/data.length*100).toFixed(1)+'%';
+    }
+    document.getElementById('nn-params').textContent = net ? countParams(net).toLocaleString() : '—';
+  }
+
+  function initNetwork() {
+    const sizes = []; for(let i=0;i<hiddenLayers;i++) sizes.push(neuronsPerLayer); sizes.push(1);
+    net = createNetwork(2, sizes); epoch = 0; lossHistory = [];
+  }
+
+  function initData() {
+    const n = 400;
+    if (dataset==='xor') data=genXOR(n); else if (dataset==='spiral') data=genSpiral(n);
+    else if (dataset==='moons') data=genMoons(n); else data=genCircle(n);
+  }
+
+  function trainBatch() {
+    if (!net || !isTraining) return;
+    let totalLoss=0;
+    for (let b=0;b<32;b++) { const p=data[Math.floor(Math.random()*data.length)]; totalLoss+=trainStep(net,[p.x,p.y],[p.label],lr); }
+    epoch+=32; lossHistory.push(totalLoss/32);
+    draw(); updateTelemetry();
+    animId = requestAnimationFrame(trainBatch);
+  }
+
+  document.getElementById('nn-train').addEventListener('click', () => { if(!net){initData();initNetwork();} isTraining=true; trainBatch(); });
+  document.getElementById('nn-pause').addEventListener('click', () => { isTraining=false; if(animId)cancelAnimationFrame(animId); });
+  document.getElementById('nn-reset').addEventListener('click', () => { isTraining=false; if(animId)cancelAnimationFrame(animId); initData();initNetwork();draw();updateTelemetry(); });
+  document.querySelectorAll('[data-dataset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-dataset]').forEach(b=>b.classList.remove('active')); btn.classList.add('active');
+      dataset=btn.dataset.dataset; isTraining=false; if(animId)cancelAnimationFrame(animId);
+      initData();initNetwork();draw();updateTelemetry();
+    });
+  });
+  document.getElementById('nn-hidden').addEventListener('change', e => { hiddenLayers=Math.max(1,Math.min(4,+e.target.value)); isTraining=false; if(animId)cancelAnimationFrame(animId); initNetwork();draw();updateTelemetry(); });
+  document.getElementById('nn-neurons').addEventListener('change', e => { neuronsPerLayer=Math.max(2,Math.min(64,+e.target.value)); isTraining=false; if(animId)cancelAnimationFrame(animId); initNetwork();draw();updateTelemetry(); });
+  document.getElementById('nn-lr').addEventListener('input', e => { lr=Math.pow(10,+e.target.value); });
+  window.addEventListener('demo-switch', resize);
+  initData(); initNetwork(); resize(); updateTelemetry();
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DEMO 4: CLOTH SIMULATION
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('cloth-canvas');
+  const ctx = canvas.getContext('2d');
+  let points=[], constraints=[];
+  let gravity=800, stiffness=20, damping=0.985, tearThresh=100;
+  let cols=40, rows=25, tearMode=false, tornCount=0;
+  let mouse={x:0,y:0,down:false,grabbed:null};
+  let fps=0, frameCount=0, lastFpsTime=0;
+
+  function resize() {
+    const wrap = canvas.parentElement;
+    canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
+  }
+
+  function initCloth() {
+    points=[]; constraints=[]; tornCount=0;
+    const spacingX = Math.min(canvas.width*0.8/cols, 15);
+    const spacingY = Math.min(canvas.height*0.5/rows, 15);
+    const startX = (canvas.width-(cols-1)*spacingX)/2, startY = 30;
+    for (let y=0;y<rows;y++) for (let x=0;x<cols;x++)
+      points.push({x:startX+x*spacingX, y:startY+y*spacingY, oldX:startX+x*spacingX, oldY:startY+y*spacingY, pinned:y===0&&x%3===0});
+    for (let y=0;y<rows;y++) for (let x=0;x<cols;x++) {
+      const i=y*cols+x;
+      if(x<cols-1) constraints.push({a:i,b:i+1,restLen:spacingX,torn:false});
+      if(y<rows-1) constraints.push({a:i,b:i+cols,restLen:spacingY,torn:false});
+      if(x<cols-1&&y<rows-1) constraints.push({a:i,b:i+cols+1,restLen:Math.sqrt(spacingX*spacingX+spacingY*spacingY),torn:false});
+    }
+    updateTelemetry();
+  }
+
+  function simulate(dt) {
+    dt = Math.min(dt, 0.02);
+    for (const p of points) {
+      if (p.pinned) continue;
+      const vx=(p.x-p.oldX)*damping, vy=(p.y-p.oldY)*damping;
+      p.oldX=p.x; p.oldY=p.y; p.x+=vx; p.y+=vy+gravity*dt*dt;
+    }
+    if (mouse.down && mouse.grabbed !== null) {
+      const gp = points[mouse.grabbed];
+      if (!gp.pinned) {
+        if (tearMode) {
+          for (const c of constraints) {
+            if (c.torn) continue;
+            if (c.a===mouse.grabbed||c.b===mouse.grabbed) {
+              const other=points[c.a===mouse.grabbed?c.b:c.a];
+              if (Math.sqrt((gp.x-other.x)**2+(gp.y-other.y)**2)>tearThresh*0.3) { c.torn=true; tornCount++; }
+            }
+          }
+        }
+        gp.x=mouse.x; gp.y=mouse.y; gp.oldX=mouse.x; gp.oldY=mouse.y;
+      }
+    }
+    for (let iter=0;iter<stiffness;iter++)
+      for (const c of constraints) {
+        if (c.torn) continue;
+        const pa=points[c.a], pb=points[c.b];
+        const dx=pb.x-pa.x, dy=pb.y-pa.y, dist=Math.sqrt(dx*dx+dy*dy);
+        if (dist===0) continue;
+        const diff=(c.restLen-dist)/dist*0.5, ox=dx*diff, oy=dy*diff;
+        if(!pa.pinned){pa.x-=ox;pa.y-=oy;} if(!pb.pinned){pb.x+=ox;pb.y+=oy;}
+        if(dist>tearThresh){c.torn=true;tornCount++;}
+      }
+  }
+
+  function draw() {
+    ctx.fillStyle='#0a0e17'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    for (const c of constraints) {
+      if(c.torn) continue;
+      const pa=points[c.a], pb=points[c.b];
+      const stretch=Math.sqrt((pb.x-pa.x)**2+(pb.y-pa.y)**2)/c.restLen;
+      const intensity=Math.min(1,Math.max(0,(stretch-1)*3));
+      ctx.strokeStyle=`rgba(${Math.floor(59+intensity*180)},${Math.floor(130-intensity*80)},${Math.floor(246-intensity*180)},0.6)`;
+      ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+    }
+    for (let i=0;i<points.length;i++) if(points[i].pinned){ctx.fillStyle='#f59e0b';ctx.beginPath();ctx.arc(points[i].x,points[i].y,3,0,Math.PI*2);ctx.fill();}
+    if(mouse.grabbed!==null){ctx.strokeStyle='#06b6d4';ctx.lineWidth=2;ctx.beginPath();ctx.arc(points[mouse.grabbed].x,points[mouse.grabbed].y,8,0,Math.PI*2);ctx.stroke();}
+  }
+
+  function updateTelemetry() {
+    document.getElementById('cloth-points').textContent=points.length;
+    document.getElementById('cloth-constraints').textContent=constraints.filter(c=>!c.torn).length;
+    document.getElementById('cloth-torn').textContent=tornCount;
+    document.getElementById('cloth-fps').textContent=fps;
+  }
+
+  function loop(time) {
+    frameCount++;
+    if(time-lastFpsTime>500){fps=Math.round(frameCount/((time-lastFpsTime)/1000));frameCount=0;lastFpsTime=time;updateTelemetry();}
+    simulate(1/60); draw();
+    requestAnimationFrame(loop);
+  }
+
+  function findNearestPoint(x,y){let best=-1,bestDist=30;for(let i=0;i<points.length;i++){const d=Math.sqrt((points[i].x-x)**2+(points[i].y-y)**2);if(d<bestDist){bestDist=d;best=i;}}return best;}
+
+  canvas.addEventListener('mousedown',e=>{const rect=canvas.getBoundingClientRect();mouse.x=e.clientX-rect.left;mouse.y=e.clientY-rect.top;mouse.down=true;mouse.grabbed=findNearestPoint(mouse.x,mouse.y);});
+  canvas.addEventListener('mousemove',e=>{const rect=canvas.getBoundingClientRect();mouse.x=e.clientX-rect.left;mouse.y=e.clientY-rect.top;});
+  canvas.addEventListener('mouseup',()=>{mouse.down=false;mouse.grabbed=null;});
+  canvas.addEventListener('mouseleave',()=>{mouse.down=false;mouse.grabbed=null;});
+
+  document.getElementById('cloth-reset').addEventListener('click',initCloth);
+  document.getElementById('cloth-tear').addEventListener('click',function(){tearMode=!tearMode;this.classList.toggle('btn-danger',tearMode);this.classList.toggle('active',tearMode);this.textContent=tearMode?'✂ Tear ON':'✂ Tear Mode';});
+  document.getElementById('cloth-gravity').addEventListener('input',e=>gravity=+e.target.value);
+  document.getElementById('cloth-stiffness').addEventListener('input',e=>stiffness=+e.target.value);
+  document.getElementById('cloth-damping').addEventListener('input',e=>damping=+e.target.value);
+  document.getElementById('cloth-tearthresh').addEventListener('input',e=>tearThresh=+e.target.value);
+  document.getElementById('cloth-cols').addEventListener('change',e=>{cols=Math.max(10,Math.min(80,+e.target.value));initCloth();});
+  document.getElementById('cloth-rows').addEventListener('change',e=>{rows=Math.max(5,Math.min(50,+e.target.value));initCloth();});
+  window.addEventListener('demo-switch',resize);
+  resize(); initCloth(); requestAnimationFrame(loop);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DEMO 5: MINI LISP INTERPRETER
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const input = document.getElementById('lisp-input');
+  const output = document.getElementById('lisp-output');
+  const status = document.getElementById('lisp-status');
+  let outputEl;
+
+  function tokenize(src) {
+    const tokens=[]; let i=0;
+    while(i<src.length){
+      if(/\s/.test(src[i])){i++;continue;}
+      if(src[i]===';'){while(i<src.length&&src[i]!=='\n')i++;continue;}
+      if('()\''.includes(src[i])){tokens.push(src[i]);i++;continue;}
+      if(src[i]==='"'){let s='';i++;while(i<src.length&&src[i]!=='"'){if(src[i]==='\\'){i++;s+=src[i]==='n'?'\n':src[i];}else s+=src[i];i++;}i++;tokens.push(s);continue;}
+      let w='';while(i<src.length&&!/\s|[();'"#]/.test(src[i])){w+=src[i];i++;}
+      if(w)tokens.push(w);
+    }
+    return tokens;
+  }
+
+  function parse(tokens) {
+    let i=0;
+    function read(){
+      if(i>=tokens.length)throw new Error('Unexpected end of input');
+      const t=tokens[i];
+      if(t==='('){i++;const list=[];while(tokens[i]!==')'){if(i>=tokens.length)throw new Error('Missing )');list.push(read());}i++;return list;}
+      if(t===')')throw new Error('Unexpected )');
+      if(t==="'"){i++;return['quote',read()];}
+      i++;
+      if(/^-?\d+(\.\d+)?$/.test(t))return Number(t);
+      if(t==='#t')return true; if(t==='#f')return false;
+      return{sym:t};
+    }
+    const exprs=[]; while(i<tokens.length)exprs.push(read()); return exprs;
+  }
+
+  function makeEnv(bindings,outer){const env={map:new Map(),outer};if(bindings)for(const[k,v]of Object.entries(bindings))env.map.set(k,v);return env;}
+  function lookup(env,name){if(env.map.has(name))return env.map.get(name);if(env.outer)return lookup(env.outer,name);throw new Error('Undefined: '+name);}
+  function setVar(env,name,value){env.map.set(name,value);}
+
+  function formatVal(v){
+    if(v===null)return'()';if(v===true)return'#t';if(v===false)return'#f';
+    if(Array.isArray(v))return'('+v.map(formatVal).join(' ')+')';
+    if(v&&v.sym!==undefined)return v.sym;
+    if(typeof v==='function')return'#<procedure>';
+    return String(v);
+  }
+
+  const builtins = {
+    '+':(...args)=>args.reduce((a,b)=>a+b,0),
+    '-':(a,...rest)=>rest.length===0?-a:rest.reduce((acc,b)=>acc-b,a),
+    '*':(...args)=>args.reduce((a,b)=>a*b,1),
+    '/':(a,...rest)=>rest.length===0?1/a:rest.reduce((acc,b)=>acc/b,a),
+    '=':(a,b)=>a===b,'<':(a,b)=>a<b,'>':(a,b)=>a>b,'<=':(a,b)=>a<=b,'>=':(a,b)=>a>=b,
+    'not':a=>!a,'and':(...args)=>args.every(Boolean),'or':(...args)=>args.some(Boolean),
+    'cons':(a,b)=>[a,b],'car':p=>Array.isArray(p)?p[0]:null,'cdr':p=>Array.isArray(p)?p[1]:null,
+    'list':(...args)=>args,'append':(...args)=>args.reduce((acc,a)=>acc.concat(Array.isArray(a)?a:[a]),[]),
+    'length':a=>Array.isArray(a)?a.length:0,'null?':a=>a===null||(Array.isArray(a)&&a.length===0),
+    'pair?':a=>Array.isArray(a),'list?':a=>a===null||Array.isArray(a),
+    'number?':a=>typeof a==='number','symbol?':a=>a&&a.sym!==undefined,'procedure?':a=>typeof a==='function',
+    'display':(...args)=>{outputEl.innerHTML+='<span class="result">'+args.map(formatVal).join(' ')+'</span>\n';},
+    'newline':()=>{outputEl.innerHTML+='\n';},
+    'abs':a=>Math.abs(a),'min':(...args)=>Math.min(...args),'max':(...args)=>Math.max(...args),
+    'modulo':(a,b)=>((a%b)+b)%b,'remainder':(a,b)=>a%b,'floor':a=>Math.floor(a),'ceiling':a=>Math.ceil(a),
+    'sqrt':a=>Math.sqrt(a),'expt':(a,b)=>Math.pow(a,b),
+    'map':(fn,...lists)=>{const len=Math.min(...lists.map(l=>l.length));const result=[];for(let i=0;i<len;i++){const args=lists.map(l=>l[i]);result.push(evalExpr(fn,args));}return result;},
+    'reduce':(fn,init,list)=>{let acc=init;for(const item of list)acc=evalExpr(fn,[acc,item]);return acc;},
+    'filter':(fn,list)=>list.filter(item=>evalExpr(fn,[item])),
+  };
+
+  function evalExpr(expr, env) {
+    if(typeof expr==='number'||typeof expr==='string'||typeof expr==='boolean')return expr;
+    if(expr===null)return null;
+    if(expr&&expr.sym!==undefined)return lookup(env,expr.sym);
+    if(Array.isArray(expr)){
+      if(expr.length===0)return null;
+      const head=expr[0];
+      if(head==='quote')return expr[1];
+      if(head==='if')return evalExpr(expr[1],env)?evalExpr(expr[2],env):(expr[3]?evalExpr(expr[3],env):null);
+      if(head==='define'){
+        if(Array.isArray(expr[1])){const name=expr[1].sym||expr[1];const params=expr[1].slice(1);const body=expr.slice(2);setVar(env,name,{type:'lambda',params,body,env});return name;}
+        setVar(env,expr[1].sym,evalExpr(expr[2],env));return expr[1].sym;
+      }
+      if(head==='set!'){const val=evalExpr(expr[2],env);setVar(env,expr[1].sym,val);return val;}
+      if(head==='lambda')return{type:'lambda',params:expr[1],body:expr.slice(2),env};
+      if(head==='let'){
+        const bindings=expr[1],newEnv=makeEnv({},env);
+        for(const[name,valExpr]of bindings)setVar(newEnv,name.sym||name,evalExpr(valExpr,env));
+        let result=null;for(let i=2;i<expr.length;i++)result=evalExpr(expr[i],newEnv);return result;
+      }
+      if(head==='begin'){let result=null;for(let i=1;i<expr.length;i++)result=evalExpr(expr[i],env);return result;}
+      if(head==='cond'){for(let i=1;i<expr.length;i++){const clause=expr[i];if(clause[0]==='else'||evalExpr(clause[0],env)){let result=null;for(let j=1;j<clause.length;j++)result=evalExpr(clause[j],env);return result;}}return null;}
+      const proc=evalExpr(head,env),args=expr.slice(1).map(a=>evalExpr(a,env));
+      if(typeof proc==='function')return proc(...args);
+      if(proc&&proc.type==='lambda'){
+        const newEnv=makeEnv({},proc.env);
+        for(let i=0;i<proc.params.length;i++)setVar(newEnv,proc.params[i].sym||proc.params[i],args[i]);
+        let result=null;for(const bodyExpr of proc.body)result=evalExpr(bodyExpr,newEnv);return result;
+      }
+      throw new Error('Not a procedure: '+formatVal(proc));
+    }
+    throw new Error('Cannot evaluate: '+formatVal(expr));
+  }
+
+  function run() {
+    outputEl=output; output.innerHTML=''; status.textContent='Running...';
+    const t0=performance.now();
+    try {
+      const globalEnv=makeEnv(builtins,null);
+      const tokens=tokenize(input.value),exprs=parse(tokens);
+      let result=null; for(const expr of exprs)result=evalExpr(expr,globalEnv);
+      if(result!==undefined&&result!==null)output.innerHTML+='<span class="result">→ '+formatVal(result)+'</span>\n';
+      status.textContent='Done ('+(performance.now()-t0).toFixed(1)+'ms)';
+    } catch(e){output.innerHTML+='<span class="error">Error: '+e.message+'</span>\n';status.textContent='Error';}
+  }
+
+  function runLine() {
+    outputEl=output;
+    const lines=input.value.split('\n'),cursorPos=input.selectionStart;
+    const lineNum=input.value.substring(0,cursorPos).split('\n').length-1;
+    const line=lines[lineNum].trim(); if(!line||line.startsWith(';'))return;
+    try {
+      const globalEnv=makeEnv(builtins,null); let result=null;
+      for(let i=0;i<=lineNum;i++){const l=lines[i].trim();if(!l||l.startsWith(';'))continue;const tokens=tokenize(l),exprs=parse(tokens);for(const expr of exprs)result=evalExpr(expr,globalEnv);}
+      if(result!==undefined&&result!==null)output.innerHTML+='<span class="info">Line '+(lineNum+1)+': </span><span class="result">→ '+formatVal(result)+'</span>\n';
+      status.textContent='Line '+(lineNum+1)+' done';
+    } catch(e){output.innerHTML+='<span class="error">Line '+(lineNum+1)+': '+e.message+'</span>\n';status.textContent='Error';}
+  }
+
+  document.getElementById('lisp-run').addEventListener('click',run);
+  document.getElementById('lisp-run-line').addEventListener('click',runLine);
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Tab'){e.preventDefault();const start=input.selectionStart;input.value=input.value.substring(0,start)+'  '+input.value.substring(input.selectionEnd);input.selectionStart=input.selectionEnd=start+2;}
+    if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();run();}
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DEMO 6: 3D SOFTWARE RENDERER
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const canvas = document.getElementById('r3d-canvas');
+  const ctx = canvas.getContext('2d');
+  let meshType='torus', shadingMode='flat';
+  let lightPos={x:2,y:3,z:4}, ambient=0.15, autoRotate=true;
+  let rotX=0.4, rotY=0, zoom=4;
+  let isDragging=false, lastMX=0, lastMY=0;
+  let vertices=[], faces=[], normals=[];
+  let fps=0, frameCount=0, lastFpsTime=0;
+
+  function resize() {
+    const wrap = canvas.parentElement;
+    canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
+  }
+
+  function genTorus(R,r,segs,rings){
+    const verts=[],faces=[];
+    for(let i=0;i<=rings;i++){const theta=(i/rings)*Math.PI*2;for(let j=0;j<=segs;j++){const phi=(j/segs)*Math.PI*2;verts.push([(R+r*Math.cos(phi))*Math.cos(theta),r*Math.sin(phi),(R+r*Math.cos(phi))*Math.sin(theta)]);}}
+    for(let i=0;i<rings;i++)for(let j=0;j<segs;j++){const a=i*(segs+1)+j,b=a+segs+1;faces.push([a,b,a+1]);faces.push([a+1,b,b+1]);}
+    return{verts,faces};
+  }
+  function genCube(size){const s=size/2;return{verts:[[-s,-s,-s],[s,-s,-s],[s,s,-s],[-s,s,-s],[-s,-s,s],[s,-s,s],[s,s,s],[-s,s,s]],faces:[[0,1,2],[0,2,3],[4,6,5],[4,7,6],[0,4,5],[0,5,1],[2,6,7],[2,7,3],[0,3,7],[0,7,4],[1,5,6],[1,6,2]]};}
+  function genSphere(radius,slices,stacks){
+    const verts=[],faces=[];
+    for(let i=0;i<=stacks;i++){const phi=(i/stacks)*Math.PI;for(let j=0;j<=slices;j++){const theta=(j/slices)*Math.PI*2;verts.push([radius*Math.sin(phi)*Math.cos(theta),radius*Math.cos(phi),radius*Math.sin(phi)*Math.sin(theta)]);}}
+    for(let i=0;i<stacks;i++)for(let j=0;j<slices;j++){const a=i*(slices+1)+j,b=a+slices+1;faces.push([a,b,a+1]);faces.push([a+1,b,b+1]);}
+    return{verts,faces};
+  }
+  function genTorusKnot(R,r,p,q,segs,tubeSegs){
+    const verts=[],faces=[];
+    for(let i=0;i<=segs;i++){
+      const u=(i/segs)*Math.PI*2;
+      const cx=(R+r*Math.cos(q*u))*Math.cos(p*u),cy=(R+r*Math.cos(q*u))*Math.sin(p*u),cz=r*Math.sin(q*u);
+      const eps=0.01,u2=u+eps;
+      const tx=(R+r*Math.cos(q*u2))*Math.cos(p*u2)-cx,ty=(R+r*Math.cos(q*u2))*Math.sin(p*u2)-cy,tz=r*Math.sin(q*u2)-cz;
+      const tLen=Math.sqrt(tx*tx+ty*ty+tz*tz)||1;
+      const T=[tx/tLen,ty/tLen,tz/tLen];
+      let N=[0,1,0];if(Math.abs(T[1])>0.9)N=[1,0,0];
+      const B=[T[1]*N[2]-T[2]*N[1],T[2]*N[0]-T[0]*N[2],T[0]*N[1]-T[1]*N[0]];
+      const bLen=Math.sqrt(B[0]*B[0]+B[1]*B[1]+B[2]*B[2])||1;
+      B[0]/=bLen;B[1]/=bLen;B[2]/=bLen;
+      N=[B[1]*T[2]-B[2]*T[1],B[2]*T[0]-B[0]*T[2],B[0]*T[1]-B[1]*T[0]];
+      for(let j=0;j<=tubeSegs;j++){const v=(j/tubeSegs)*Math.PI*2;const cosV=Math.cos(v),sinV=Math.sin(v);verts.push([cx+r*(cosV*N[0]+sinV*B[0]),cy+r*(cosV*N[1]+sinV*B[1]),cz+r*(cosV*N[2]+sinV*B[2])]);}
+    }
+    for(let i=0;i<segs;i++)for(let j=0;j<tubeSegs;j++){const a=i*(tubeSegs+1)+j,b=a+tubeSegs+1;faces.push([a,b,a+1]);faces.push([a+1,b,b+1]);}
+    return{verts,faces};
+  }
+
+  function buildMesh() {
+    let m;
+    if(meshType==='torus')m=genTorus(1.2,0.5,24,40);
+    else if(meshType==='cube')m=genCube(2);
+    else if(meshType==='sphere')m=genSphere(1.5,32,24);
+    else m=genTorusKnot(1.2,0.4,2,3,120,16);
+    vertices=m.verts; faces=m.faces;
+    normals=[];
+    for(const f of faces){
+      const a=vertices[f[0]],b=vertices[f[1]],c=vertices[f[2]];
+      const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+      const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+      const len=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;
+      normals.push([nx/len,ny/len,nz/len]);
+    }
+    updateTelemetry();
+  }
+
+  function rotateX(v,a){const c=Math.cos(a),s=Math.sin(a);return[v[0],v[1]*c-v[2]*s,v[1]*s+v[2]*c];}
+  function rotateY(v,a){const c=Math.cos(a),s=Math.sin(a);return[v[0]*c+v[2]*s,v[1],-v[0]*s+v[2]*c];}
+  function project(v){const fov=3,z=v[2]+zoom,scale=fov/(z||0.001),w=canvas.width,h=canvas.height;return[v[0]*scale+w/2,-v[1]*scale+h/2,z];}
+  function transformNormal(n){let v=rotateX(n,rotX);v=rotateY(v,rotY);return v;}
+
+  function render() {
+    const w=canvas.width,h=canvas.height;
+    if(w===0||h===0)return;
+    ctx.fillStyle='#0a0e17';ctx.fillRect(0,0,w,h);
+    const transformed=vertices.map(v=>{let tv=rotateX(v,rotX);tv=rotateY(tv,rotY);return tv;});
+    const projected=transformed.map(v=>project(v));
+    const faceData=faces.map((f,i)=>{const avgZ=(transformed[f[0]][2]+transformed[f[1]][2]+transformed[f[2]][2])/3;return{face:f,normal:normals[i],avgZ};});
+    faceData.sort((a,b)=>a.avgZ-b.avgZ);
+    const lightLen=Math.sqrt(lightPos.x**2+lightPos.y**2+lightPos.z**2)||1;
+    const L=[lightPos.x/lightLen,lightPos.y/lightLen,lightPos.z/lightLen];
+    for(const fd of faceData){
+      const f=fd.face,p0=projected[f[0]],p1=projected[f[1]],p2=projected[f[2]];
+      if(shadingMode==='wireframe'){ctx.strokeStyle='#3b82f6';ctx.lineWidth=0.8;ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.closePath();ctx.stroke();continue;}
+      if(shadingMode!=='normals'){const crossZ=(p1[0]-p0[0])*(p2[1]-p0[1])-(p1[1]-p0[1])*(p2[0]-p0[0]);if(crossZ>0)continue;}
+      const N=transformNormal(fd.normal);
+      const dot=Math.max(0,N[0]*L[0]+N[1]*L[1]+N[2]*L[2]);
+      const brightness=ambient+(1-ambient)*dot;
+      if(shadingMode==='normals'){ctx.fillStyle=`rgb(${Math.floor((N[0]*0.5+0.5)*255)},${Math.floor((N[1]*0.5+0.5)*255)},${Math.floor((N[2]*0.5+0.5)*255)})`;}
+      else{const base=meshType==='torus'?[59,130,246]:meshType==='cube'?[139,92,246]:meshType==='sphere'?[6,182,212]:[236,72,153];ctx.fillStyle=`rgb(${Math.floor(base[0]*brightness)},${Math.floor(base[1]*brightness)},${Math.floor(base[2]*brightness)})`;}
+      ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.lineTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.closePath();ctx.fill();
+      if(shadingMode==='flat'){ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=0.5;ctx.stroke();}
+    }
+    if(autoRotate)rotY+=0.008;
+  }
+
+  function updateTelemetry() {
+    document.getElementById('r3d-verts').textContent=vertices.length.toLocaleString();
+    document.getElementById('r3d-tris').textContent=faces.length.toLocaleString();
+    document.getElementById('r3d-rot').textContent=(rotX*180/Math.PI).toFixed(0)+'°, '+(rotY*180/Math.PI).toFixed(0)+'°';
+    document.getElementById('r3d-fps').textContent=fps;
+  }
+
+  function loop(time) {
+    frameCount++;
+    if(time-lastFpsTime>500){fps=Math.round(frameCount/((time-lastFpsTime)/1000));frameCount=0;lastFpsTime=time;}
+    render(); updateTelemetry();
+    requestAnimationFrame(loop);
+  }
+
+  canvas.addEventListener('mousedown',e=>{isDragging=true;lastMX=e.clientX;lastMY=e.clientY;});
+  canvas.addEventListener('mousemove',e=>{if(!isDragging)return;const dx=e.clientX-lastMX,dy=e.clientY-lastMY;rotY+=dx*0.008;rotX+=dy*0.008;rotX=Math.max(-Math.PI/2,Math.min(Math.PI/2,rotX));lastMX=e.clientX;lastMY=e.clientY;});
+  canvas.addEventListener('mouseup',()=>isDragging=false);
+  canvas.addEventListener('mouseleave',()=>isDragging=false);
+  canvas.addEventListener('wheel',e=>{e.preventDefault();zoom+=e.deltaY*0.005;zoom=Math.max(2,Math.min(10,zoom));},{passive:false});
+
+  document.querySelectorAll('[data-mesh]').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('[data-mesh]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');meshType=btn.dataset.mesh;buildMesh();});});
+  document.querySelectorAll('[data-shading]').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('[data-shading]').forEach(b=>b.classList.remove('active'));btn.classList.add('active');shadingMode=btn.dataset.shading;});});
+  document.getElementById('r3d-lx').addEventListener('input',e=>lightPos.x=+e.target.value);
+  document.getElementById('r3d-ly').addEventListener('input',e=>lightPos.y=+e.target.value);
+  document.getElementById('r3d-lz').addEventListener('input',e=>lightPos.z=+e.target.value);
+  document.getElementById('r3d-ambient').addEventListener('input',e=>ambient=+e.target.value);
+  document.getElementById('r3d-autorotate').addEventListener('click',function(){autoRotate=!autoRotate;this.classList.toggle('active',autoRotate);});
+  document.getElementById('r3d-reset').addEventListener('click',()=>{rotX=0.4;rotY=0;zoom=4;autoRotate=true;lightPos={x:2,y:3,z:4};ambient=0.15;document.getElementById('r3d-lx').value=2;document.getElementById('r3d-ly').value=3;document.getElementById('r3d-lz').value=4;document.getElementById('r3d-ambient').value=0.15;});
+  window.addEventListener('demo-switch',resize);
+  resize(); buildMesh(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
