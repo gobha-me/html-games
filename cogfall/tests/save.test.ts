@@ -17,7 +17,7 @@ import { FACTIONS } from '../src/data/factions';
 import type { Faction, FactionIdx } from '../src/core/types';
 
 // Local faction builder — avoids importing systems/setup.ts (which reaches
-// into render/canvas at module-load and throws on the missing #map-canvas
+// into render/pixi at module-load and throws on the missing #map-canvas
 // DOM element under jsdom).
 function makeFaction(idx: number, isAI: boolean): Faction {
   const tpl = FACTIONS[idx];

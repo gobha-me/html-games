@@ -34,7 +34,7 @@ import { updateUI } from './ui/topbar';
 
 // Wire render → minimap so every render() call (turn end, drag, zoom,
 // setupGame, save load, selection panel) also repaints the minimap.
-// canvas.ts can't import minimap.ts directly without an awkward layering
+// render/pixi can't import minimap.ts directly without an awkward layering
 // flip, so it runs whatever hook main.ts hands it.
 setMinimapHook(renderMinimap);
 import { populateSeedInput, renderFactionList } from './ui/setupModal';

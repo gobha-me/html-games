@@ -3,7 +3,7 @@
 //
 // Each resource declares which terrains it can spawn on and what yield
 // deltas it adds when a city works the tile. Glyphs render as small
-// gold-tinted overlays in render/canvas.ts (mirroring the improvement
+// gold-tinted overlays in render/pixi.ts (mirroring the improvement
 // glyph pattern). Steampunk-flavored.
 
 import type { TerrainId } from './terrain';
