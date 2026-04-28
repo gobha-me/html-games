@@ -3,6 +3,9 @@
 //
 // Render order: tiles (visible/seen only) → ownership borders → cities →
 // units → selection outline → SVG overlay. No z-sorting; matches prototype.
+//
+// Phase 2h.5: a parallel PixiJS renderer lives at ./pixi.ts. This file is
+// the active renderer until the import swap in the next commit.
 
 import { HEX_DIRS, HEX_SIZE, hexToPixel } from '../core/hex';
 import { DOM_IDS } from '../core/dom';
