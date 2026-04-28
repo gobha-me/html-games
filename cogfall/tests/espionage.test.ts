@@ -7,6 +7,7 @@ import { aiPickBuild } from '../src/ai/cityAI';
 import { aiSaboteurAction } from '../src/ai/unitAI';
 import { createCity } from '../src/systems/city';
 import {
+  rollSpyDetection,
   sabotageBuilding,
   sabotageableBuildings,
   stealTech,
@@ -353,7 +354,10 @@ describe('aiSaboteurAction', () => {
     G.currentFactionIdx = asFactionIdx(0);
     G.aiMemory = {};
     G.events = [];
-    initGameRng(99);
+    // Seed 4: first mulberry32(4) draw is ~0.924 — well above DETECTION_MAX
+    // (0.65), so spy actions in this fixture clear detection deterministically.
+    // The detection branch is exercised separately in describe('rollSpyDetection').
+    initGameRng(4);
   });
 
   afterEach(() => {
@@ -536,5 +540,151 @@ describe('sabotageBuilding (2f-4)', () => {
     const a = setup();
     const b = setup();
     expect(a).toBe(b);
+  });
+});
+
+describe('rollSpyDetection (2f-5)', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = buildPlainsMap();
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFaction(0, 'militaristic'), makeFaction(1, 'scientific')];
+    G.factions[0].diplo = { 1: 'war' };
+    G.factions[1].diplo = { 0: 'war' };
+    G.aiMemory = {};
+    G.aiMemory[1] = {
+      grudges: {},
+      strategicPhase: 'expand',
+      targetEnemy: null,
+      targetCityId: null,
+      lastDeclareWarTurn: 0,
+    };
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 10;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.events = [];
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('chance scales with defender minus attacker cunning (1000-trial bias check)', () => {
+    G.factions[0].personality = 'economic';
+    G.factions[1].personality = 'scientific';
+    initGameRng(1);
+    let stealthyHits = 0;
+    for (let i = 0; i < 1000; i++) {
+      const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+      const city = createCity(asFactionIdx(1), 2, 1, `S${i}`);
+      if (rollSpyDetection(sab, city).detected) stealthyHits++;
+    }
+
+    G.factions[0].personality = 'militaristic';
+    G.units = [];
+    G.cities = [];
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    initGameRng(1);
+    let bluntHits = 0;
+    for (let i = 0; i < 1000; i++) {
+      const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+      const city = createCity(asFactionIdx(1), 2, 1, `B${i}`);
+      if (rollSpyDetection(sab, city).detected) bluntHits++;
+    }
+
+    expect(bluntHits).toBeGreaterThan(stealthyHits);
+    expect(stealthyHits / 1000).toBeGreaterThan(0.18);
+    expect(stealthyHits / 1000).toBeLessThan(0.32);
+    expect(bluntHits / 1000).toBeGreaterThan(0.27);
+    expect(bluntHits / 1000).toBeLessThan(0.40);
+  });
+
+  it('detected steal: saboteur dies, no tech transferred, defender gains a grudge', () => {
+    initGameRng(99);
+    G.factions[1].techs.add('rediscovery');
+    G.factions[1].techs.add('aetherics');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+    const city = createCity(asFactionIdx(1), 2, 1, 'Trapped');
+    stealTech(sab, city);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(G.factions[0].techs.size).toBe(0);
+    expect(G.aiMemory[1]!.grudges[0]).toBe(30);
+    expect(G.events[0]?.type).toBe('warning');
+    expect(G.events[0]?.msg).toContain('caught');
+  });
+
+  it('detected sabotage: building NOT removed, saboteur dies, grudge added', () => {
+    initGameRng(99);
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+    const city = createCity(asFactionIdx(1), 2, 1, 'Trapped');
+    city.buildings.add('workshop');
+    city.buildings.add('granary');
+    sabotageBuilding(sab, city);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(city.buildings.has('workshop')).toBe(true);
+    expect(city.buildings.has('granary')).toBe(true);
+    expect(G.aiMemory[1]!.grudges[0]).toBe(30);
+  });
+
+  it('not detected: existing stealTech behavior unchanged', () => {
+    initGameRng(4);
+    G.factions[1].techs.add('rediscovery');
+    G.factions[1].techs.add('aetherics');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+    const city = createCity(asFactionIdx(1), 2, 1, 'Loose');
+    stealTech(sab, city);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(G.factions[0].techs.size).toBe(1);
+    expect(G.events[0]?.type).toBe('tech');
+  });
+
+  it('replay parity: same seed → same detect outcome', () => {
+    const setup = () => {
+      G.units = [];
+      G.cities = [];
+      G.factions = [makeFaction(0, 'militaristic'), makeFaction(1, 'scientific')];
+      G.aiMemory = {};
+      G.aiMemory[1] = {
+        grudges: {},
+        strategicPhase: 'expand',
+        targetEnemy: null,
+        targetCityId: null,
+        lastDeclareWarTurn: 0,
+      };
+      G.nextUnitId = 1;
+      G.nextCityId = 1;
+      initGameRng(99);
+      const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+      const city = createCity(asFactionIdx(1), 2, 1, 'X');
+      return rollSpyDetection(sab, city).detected;
+    };
+    expect(setup()).toBe(setup());
+  });
+
+  it('clamp bounds: chance never goes outside [DETECTION_MIN, DETECTION_MAX]', () => {
+    initGameRng(1);
+    G.factions[0].personality = 'militaristic'; // 0.30
+    G.factions[1].personality = 'economic'; //     0.70
+    let max = 0;
+    let min = 1;
+    for (let i = 0; i < 1000; i++) {
+      const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+      const city = createCity(asFactionIdx(1), 2, 1, `P${i}`);
+      const c = rollSpyDetection(sab, city).chance;
+      if (c > max) max = c;
+      if (c < min) min = c;
+      G.units = [];
+      G.cities = [];
+      G.nextUnitId = 1;
+      G.nextCityId = 1;
+    }
+    expect(max).toBeLessThanOrEqual(0.65);
+    expect(min).toBeGreaterThanOrEqual(0.05);
   });
 });
