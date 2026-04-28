@@ -8,6 +8,7 @@ import { pixelToHex } from '../core/hex';
 import { DOM_IDS } from '../core/dom';
 import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { combat } from '../systems/combat';
+import { stealTech } from '../systems/espionage';
 import { computeAttackTargets, computeMoveTargets, moveUnit } from '../systems/movement';
 import { endTurn } from '../systems/turn';
 import { canvas, centerOnHex, render } from '../render/canvas';
@@ -83,6 +84,19 @@ canvas.addEventListener('click', (e) => {
     G.selected.ref.factionIdx === G.playerFactionIdx
   ) {
     const u = G.selected.ref;
+    if (G.sabotageTargets.some((t) => t.q === q && t.r === r)) {
+      const victim = getCityAt(q, r);
+      if (victim) {
+        stealTech(u, victim);
+        G.selected = null;
+        G.moveTargets = [];
+        G.attackTargets = [];
+        G.sabotageTargets = [];
+        render();
+        updateUI();
+        return;
+      }
+    }
     if (G.attackTargets.some((t) => t.q === q && t.r === r)) {
       combat(u, { q, r, target: 'unit' });
       if (G.units.includes(u)) {
@@ -93,6 +107,7 @@ canvas.addEventListener('click', (e) => {
         G.moveTargets = [];
         G.attackTargets = [];
       }
+      G.sabotageTargets = [];
       render();
       updateUI();
       return;
@@ -101,6 +116,7 @@ canvas.addEventListener('click', (e) => {
       moveUnit(u, q, r);
       G.moveTargets = computeMoveTargets(u);
       G.attackTargets = computeAttackTargets(u);
+      G.sabotageTargets = [];
       render();
       updateUI();
       return;
@@ -121,6 +137,7 @@ canvas.addEventListener('click', (e) => {
     G.moveTargets = [];
     G.attackTargets = [];
   }
+  G.sabotageTargets = [];
   render();
   updateUI();
 });
@@ -153,6 +170,7 @@ window.addEventListener('keydown', (e) => {
     G.selected = null;
     G.moveTargets = [];
     G.attackTargets = [];
+    G.sabotageTargets = [];
     render();
     updateUI();
   }
@@ -173,6 +191,7 @@ export function selectNextUnit(): void {
   G.selected = { type: 'unit', ref: u };
   G.moveTargets = computeMoveTargets(u);
   G.attackTargets = computeAttackTargets(u);
+  G.sabotageTargets = [];
   centerOnHex(u.q, u.r);
   render();
   updateUI();

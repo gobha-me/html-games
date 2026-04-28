@@ -12,6 +12,7 @@ import type { City, Tile, Unit } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
 import { createCity, cityYields, pickCityName } from '../systems/city';
+import { adjacentSabotageTargets } from '../systems/espionage';
 import { killUnit } from '../systems/movement';
 import { recomputeVisibility } from '../systems/visibility';
 import { renderCityDetailsRight } from './cityPanel';
@@ -76,6 +77,16 @@ export function renderUnitPanel(unit: Unit): void {
     }
     if (UNIT_TYPES[unit.typeId].atk > 0 && !unit.fortified) {
       html += `<button class="action-btn" onclick="playerFortify()">◫ Fortify (+30% def)</button>`;
+    }
+    const tpl2 = UNIT_TYPES[unit.typeId];
+    if ('abilities' in tpl2 && (tpl2.abilities as readonly string[]).includes('steal_tech') && unit.mp > 0) {
+      const targets = adjacentSabotageTargets(unit);
+      const armed = G.sabotageTargets.length > 0;
+      html += `<button class="action-btn" ${
+        targets.length === 0 ? 'disabled' : ''
+      } onclick="playerSteal()">${armed ? '✗ Cancel steal' : '🎭 Steal Tech'}${
+        targets.length === 0 ? ' (no adjacent rival)' : ''
+      }</button>`;
     }
   }
   const sc = document.getElementById(DOM_IDS.SELECTION_CONTENT);
@@ -164,13 +175,31 @@ function playerFortify(): void {
   updateUI();
 }
 
+function playerSteal(): void {
+  const sel = G.selected;
+  if (!sel || sel.type !== 'unit') return;
+  const u = sel.ref;
+  if (u.factionIdx !== G.playerFactionIdx || u.mp <= 0) return;
+  const tpl = UNIT_TYPES[u.typeId];
+  if (!('abilities' in tpl) || !(tpl.abilities as readonly string[]).includes('steal_tech')) return;
+  if (G.sabotageTargets.length > 0) {
+    G.sabotageTargets = [];
+  } else {
+    G.sabotageTargets = adjacentSabotageTargets(u);
+  }
+  render();
+  updateUI();
+}
+
 // Expose for the inline onclick attributes generated above.
 const w = window as Window &
   typeof globalThis & {
     playerFoundCity: typeof playerFoundCity;
     playerImprove: typeof playerImprove;
     playerFortify: typeof playerFortify;
+    playerSteal: typeof playerSteal;
   };
 w.playerFoundCity = playerFoundCity;
 w.playerImprove = playerImprove;
 w.playerFortify = playerFortify;
+w.playerSteal = playerSteal;

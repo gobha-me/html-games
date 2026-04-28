@@ -14,6 +14,8 @@ export { svg };
 const MOVE_INDICATOR_RADIUS = 0.3;
 const ATTACK_INDICATOR_RADIUS = 0.45;
 const ATTACK_GLYPH_SIZE = 18;
+const SABOTAGE_INDICATOR_RADIUS = 0.45;
+const SABOTAGE_GLYPH_SIZE = 18;
 
 export function renderSVGOverlay(): void {
   if (!svg) return;
@@ -34,6 +36,16 @@ export function renderSVGOverlay(): void {
     html += `<text x="${px}" y="${py + 6}" text-anchor="middle" font-size="${
       ATTACK_GLYPH_SIZE * G.zoom
     }" fill="#f4e4bc" font-family="serif">⚔</text>`;
+  }
+  for (const t of G.sabotageTargets) {
+    const { x, y } = hexToPixel(t.q, t.r);
+    const px = x * G.zoom + G.cameraX;
+    const py = y * G.zoom + G.cameraY;
+    const r = HEX_SIZE * SABOTAGE_INDICATOR_RADIUS * G.zoom;
+    html += `<circle cx="${px}" cy="${py}" r="${r}" fill="rgba(160,96,224,0.35)" stroke="#a060e0" stroke-width="3" stroke-dasharray="6 3"/>`;
+    html += `<text x="${px}" y="${py + 6}" text-anchor="middle" font-size="${
+      SABOTAGE_GLYPH_SIZE * G.zoom
+    }" fill="#f4e4bc" font-family="serif">ƒ</text>`;
   }
   svg.innerHTML = html;
 }

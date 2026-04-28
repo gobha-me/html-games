@@ -199,6 +199,7 @@ export function loadGameState(data: SaveData): void {
   G.selected = null;
   G.moveTargets = [];
   G.attackTargets = [];
+  G.sabotageTargets = [];
   G.isDragging = false;
   G.dragStart = null as DragStart | null;
 }

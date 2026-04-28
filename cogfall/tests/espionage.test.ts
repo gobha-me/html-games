@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TECHS } from '../src/data/techs';
+import type { TechId } from '../src/data/techs';
 import { UNIT_TYPES, isNaval, isSpy } from '../src/data/units';
 import type { UnitTypeId } from '../src/data/units';
 import { aiPickBuild } from '../src/ai/cityAI';
 import { createCity } from '../src/systems/city';
-import { createSeededRng } from '../src/core/rng';
+import { stealTech, stealableTechs } from '../src/systems/espionage';
+import { createUnit } from '../src/systems/movement';
+import { createSeededRng, initGameRng } from '../src/core/rng';
 import { G } from '../src/core/state';
 import type { Faction, FactionIdx, GameMap } from '../src/core/types';
 import { asFactionIdx } from '../src/core/types';
@@ -213,5 +216,90 @@ describe('isSpy', () => {
         (tpl.abilities as readonly string[]).includes('steal_tech');
       expect(isSpy(id)).toBe(tagged);
     }
+  });
+});
+
+describe('stealTech', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = null;
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFaction(0, 'militaristic'), makeFaction(1, 'scientific')];
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 10;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.aiMemory = {};
+    G.events = [];
+    initGameRng(42);
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('transfers a stealable tech, removes the saboteur, and logs', () => {
+    const thief = G.factions[0];
+    const victim = G.factions[1];
+    victim.techs.add('aetherics');
+    victim.techs.add('rediscovery');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+    const city = createCity(asFactionIdx(1), 2, 1, 'Loomwerks');
+    stealTech(sab, city);
+    expect(thief.techs.size).toBeGreaterThan(0);
+    const stolen = [...thief.techs][0];
+    expect(victim.techs.has(stolen)).toBe(true);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(G.events[0]?.type).toBe('tech');
+    expect(G.events[0]?.msg).toContain('Loomwerks');
+  });
+
+  it('with empty pool: removes saboteur, no tech transferred, warns', () => {
+    const thief = G.factions[0];
+    thief.techs.add('aetherics');
+    G.factions[1].techs.add('aetherics');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+    const city = createCity(asFactionIdx(1), 2, 1, 'Hollowgate');
+    const beforeSize = thief.techs.size;
+    stealTech(sab, city);
+    expect(thief.techs.size).toBe(beforeSize);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(G.events[0]?.type).toBe('warning');
+  });
+
+  it('excludes isVictory techs from the stealable pool', () => {
+    const victim = G.factions[1];
+    victim.techs.add('grand_apparatus' as TechId);
+    victim.techs.add('rediscovery');
+    const pool = stealableTechs(0, 1);
+    expect(pool).toContain('rediscovery');
+    expect(pool).not.toContain('grand_apparatus');
+  });
+
+  it('replay parity: same seed → same tech stolen', () => {
+    const setup = () => {
+      G.units = [];
+      G.cities = [];
+      G.factions = [makeFaction(0, 'militaristic'), makeFaction(1, 'scientific')];
+      G.factions[1].techs.add('rediscovery');
+      G.factions[1].techs.add('aetherics');
+      G.factions[1].techs.add('cartography');
+      G.factions[1].techs.add('metallurgy');
+      G.nextUnitId = 1;
+      G.nextCityId = 1;
+      G.events = [];
+      initGameRng(2026);
+      const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+      const city = createCity(asFactionIdx(1), 2, 1, 'Same');
+      stealTech(sab, city);
+      return [...G.factions[0].techs][0];
+    };
+    const a = setup();
+    const b = setup();
+    expect(a).toBe(b);
   });
 });

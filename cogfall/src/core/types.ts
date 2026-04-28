@@ -137,6 +137,11 @@ export interface AttackTarget {
   target: 'unit' | 'city';
 }
 
+export interface SabotageTarget {
+  q: number;
+  r: number;
+}
+
 export interface DragStart {
   x: number;
   y: number;
@@ -159,6 +164,7 @@ export interface GameState {
   selected: Selection | null;
   moveTargets: MoveTarget[];
   attackTargets: AttackTarget[];
+  sabotageTargets: SabotageTarget[];
   events: LogEntry[];
   cameraX: number;
   cameraY: number;

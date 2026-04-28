@@ -35,6 +35,13 @@
 //     (polish), not a 2c smuggle. Don't "helpfully" wire river logic into
 //     movement.ts, combat.ts, or city yields mid-2c — replay parity and
 //     scope discipline both depend on this staying inert.
+//
+//  6. Espionage (Phase 2e) — saboteur actions resolve with the seeded game
+//     rng (getGameRng) so replay parity holds. sabotageTargets is a UI
+//     transient (parallel to moveTargets / attackTargets) — populated when
+//     the player clicks "Steal Tech", consumed on the follow-up click,
+//     never persisted. No new shape on Faction or City; outcomes write
+//     directly to Faction.techs.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
@@ -55,6 +62,7 @@ export const G: GameState = {
   selected: null,
   moveTargets: [],
   attackTargets: [],
+  sabotageTargets: [],
   events: [],
   cameraX: 0,
   cameraY: 0,
