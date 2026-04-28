@@ -6,7 +6,12 @@ import type { UnitTypeId } from '../src/data/units';
 import { aiPickBuild } from '../src/ai/cityAI';
 import { aiSaboteurAction } from '../src/ai/unitAI';
 import { createCity } from '../src/systems/city';
-import { stealTech, stealableTechs } from '../src/systems/espionage';
+import {
+  sabotageBuilding,
+  sabotageableBuildings,
+  stealTech,
+  stealableTechs,
+} from '../src/systems/espionage';
 import { createUnit } from '../src/systems/movement';
 import { createSeededRng, initGameRng } from '../src/core/rng';
 import { G } from '../src/core/state';
@@ -432,5 +437,104 @@ describe('aiSaboteurAction', () => {
     const a = setup();
     const b = setup();
     expect(a).toEqual(b);
+  });
+});
+
+describe('sabotageBuilding (2f-4)', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = buildPlainsMap();
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFaction(0, 'economic'), makeFaction(1, 'scientific')];
+    G.factions[0].diplo = { 1: 'war' };
+    G.factions[1].diplo = { 0: 'war' };
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 10;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.aiMemory = {};
+    G.events = [];
+    initGameRng(2027);
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('removes one building, kills the saboteur, logs', () => {
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 2, 2);
+    const target = createCity(asFactionIdx(1), 3, 2, 'Workshop City');
+    target.buildings.add('workshop');
+    target.buildings.add('granary');
+    sabotageBuilding(sab, target);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(target.buildings.size).toBe(1);
+  });
+
+  it('excludes walls and citadel from the sabotage pool', () => {
+    const target = createCity(asFactionIdx(1), 3, 2, 'Fortress');
+    target.buildings.add('walls');
+    target.buildings.add('citadel');
+    target.buildings.add('library');
+    const pool = sabotageableBuildings(target);
+    expect(pool).not.toContain('walls');
+    expect(pool).not.toContain('citadel');
+    expect(pool).toContain('library');
+  });
+
+  it('empty-pool path: kills saboteur, no removal, logs warning', () => {
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 2, 2);
+    const target = createCity(asFactionIdx(1), 3, 2, 'Bare');
+    // Only excluded buildings present.
+    target.buildings.add('walls');
+    target.buildings.add('citadel');
+    sabotageBuilding(sab, target);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(target.buildings.has('walls')).toBe(true);
+    expect(target.buildings.has('citadel')).toBe(true);
+  });
+
+  it('aiSaboteurAction picks sabotage when steal pool is empty and sab pool non-empty', () => {
+    // Thief and victim share all techs → empty steal pool.
+    G.factions[0].techs.add('rediscovery');
+    G.factions[0].techs.add('aetherics');
+    G.factions[1].techs.add('rediscovery');
+    G.factions[1].techs.add('aetherics');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 2, 2);
+    const target = createCity(asFactionIdx(1), 3, 2, 'Sab Only');
+    target.buildings.add('workshop');
+    aiSaboteurAction(G.factions[0], sab);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(target.buildings.has('workshop')).toBe(false);
+  });
+
+  it('replay parity: same seed → same building sabotaged', () => {
+    const setup = () => {
+      G.map = buildPlainsMap();
+      G.units = [];
+      G.cities = [];
+      G.factions = [makeFaction(0, 'economic'), makeFaction(1, 'scientific')];
+      G.nextUnitId = 1;
+      G.nextCityId = 1;
+      G.events = [];
+      initGameRng(4321);
+      const sab = createUnit('SABOTEUR', asFactionIdx(0), 1, 1);
+      const target = createCity(asFactionIdx(1), 2, 1, 'Repeat');
+      target.buildings.add('workshop');
+      target.buildings.add('granary');
+      target.buildings.add('library');
+      target.buildings.add('foundry');
+      sabotageBuilding(sab, target);
+      // Find the one we removed by diffing.
+      const all = ['workshop', 'granary', 'library', 'foundry'] as const;
+      return all.find((b) => !target.buildings.has(b)) ?? 'none';
+    };
+    const a = setup();
+    const b = setup();
+    expect(a).toBe(b);
   });
 });

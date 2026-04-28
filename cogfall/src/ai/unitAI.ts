@@ -12,7 +12,12 @@ import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
 import { PERSONALITIES } from '../data/personalities';
 import { combat } from '../systems/combat';
-import { stealTech, stealableTechs } from '../systems/espionage';
+import {
+  sabotageBuilding,
+  sabotageableBuildings,
+  stealTech,
+  stealableTechs,
+} from '../systems/espionage';
 import { computeAttackTargets, computeMoveTargets, killUnit, moveUnit } from '../systems/movement';
 import { createCity, pickCityName } from '../systems/city';
 import { isCoast } from '../systems/mapgen';
@@ -374,33 +379,47 @@ export function aiNavalAction(faction: Faction, unit: Unit): void {
   unit.mp = 0;
 }
 
+const SABOTAGE_PREFERENCE_THRESHOLD = 0.6;
+
 export function aiSaboteurAction(faction: Faction, unit: Unit): void {
   if (!G.map) return;
+  const p = PERSONALITIES[faction.personality];
   const warEnemies = new Set(
     G.factions.filter((f) => f.alive && faction.diplo[f.idx] === 'war').map((f) => f.idx)
   );
 
-  // Adjacent to a war-enemy city with a non-empty steal pool → steal now.
+  // Adjacent to a war-enemy city with a non-empty action pool → act now.
+  // Steal vs sabotage is a deterministic decision tree (no rng) — empty
+  // pools cascade, then high-cunning factions favor sabotage.
   for (const n of hexNeighbors(unit.q, unit.r)) {
     const c = getCityAt(n.q, n.r);
     if (!c) continue;
     if (!warEnemies.has(c.factionIdx)) continue;
-    const pool = stealableTechs(faction.idx, c.factionIdx);
-    if (pool.length === 0) continue;
-    stealTech(unit, c);
+    const stealPool = stealableTechs(faction.idx, c.factionIdx);
+    const sabPool = sabotageableBuildings(c);
+    if (stealPool.length === 0 && sabPool.length === 0) continue;
+    if (stealPool.length === 0) {
+      sabotageBuilding(unit, c);
+    } else if (sabPool.length === 0) {
+      stealTech(unit, c);
+    } else if (p.cunning >= SABOTAGE_PREFERENCE_THRESHOLD) {
+      sabotageBuilding(unit, c);
+    } else {
+      stealTech(unit, c);
+    }
     return;
   }
 
-  // Move toward the nearest war-enemy city that still has stealable tech.
-  // Prefer-with-pool prevents wandering at empty-pool capitals once we've
-  // drained them.
+  // Move toward the nearest war-enemy city that still has *some* spy work
+  // available. Prefer-with-pool prevents wandering at fully-drained capitals.
   if (warEnemies.size) {
     let best: { q: number; r: number } | null = null;
     let bestDist = Infinity;
     for (const c of G.cities) {
       if (!warEnemies.has(c.factionIdx)) continue;
-      const pool = stealableTechs(faction.idx, c.factionIdx);
-      if (pool.length === 0) continue;
+      const stealPool = stealableTechs(faction.idx, c.factionIdx);
+      const sabPool = sabotageableBuildings(c);
+      if (stealPool.length === 0 && sabPool.length === 0) continue;
       const d = hexDistance({ q: unit.q, r: unit.r }, c);
       if (d < bestDist) {
         bestDist = d;
