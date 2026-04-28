@@ -11,7 +11,7 @@ import { log } from '../core/log';
 import { getGameRng } from '../core/rng';
 import type { AttackTarget, FactionIdx, MoveTarget, Tile, Unit, UnitTypeId } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
-import { UNIT_TYPES } from '../data/units';
+import { UNIT_TYPES, isNaval } from '../data/units';
 import { recomputeVisibility } from './visibility';
 
 const RUIN_GOLD_THRESHOLD = 0.35;
@@ -50,6 +50,7 @@ export function killUnit(unit: Unit): void {
 
 export function computeMoveTargets(unit: Unit): MoveTarget[] {
   const start = { q: unit.q, r: unit.r };
+  const naval = isNaval(unit.typeId);
   const visited = new Map<TileKey, { cost: number }>();
   visited.set(hexKey(start.q, start.r), { cost: 0 });
   const frontier: { q: number; r: number; cost: number }[] = [{ q: start.q, r: start.r, cost: 0 }];
@@ -61,8 +62,10 @@ export function computeMoveTargets(unit: Unit): MoveTarget[] {
       const t = getTile(n.q, n.r);
       if (!t) continue;
       const tt = TERRAIN_TYPES[t.terrain];
-      if (!tt.walkable) continue;
-      const newCost = cur.cost + tt.moveCost;
+      const passable = naval ? 'isWater' in tt : tt.walkable;
+      if (!passable) continue;
+      const stepCost = naval ? 1 : tt.moveCost;
+      const newCost = cur.cost + stepCost;
       if (newCost > unit.mp) continue;
       const occupant = getUnitAt(n.q, n.r);
       if (occupant && occupant.factionIdx !== unit.factionIdx) continue;
