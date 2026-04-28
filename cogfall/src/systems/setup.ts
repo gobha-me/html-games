@@ -1,0 +1,185 @@
+// Game setup orchestration. setupGame() is called when the player clicks
+// "Begin the Awakening" — it reads the form, generates the map, creates the
+// player + AI factions, places starting cities and units, and centers the
+// camera on the player capital.
+
+import { hexNeighbors } from '../core/hex';
+import { log } from '../core/log';
+import { shuffle } from '../core/rng';
+import { G, getTile, getUnitAt } from '../core/state';
+import type { Difficulty, Faction, FactionIdx } from '../core/types';
+import { FACTIONS, type MapSizeId, type FactionDef } from '../data/factions';
+import { TERRAIN_TYPES } from '../data/terrain';
+import { UNIT_TYPES } from '../data/units';
+import { initAIMemory } from '../ai/memory';
+import { createCity, pickCityName, resetCityNames } from './city';
+import { generateMap, findFactionStarts } from './mapgen';
+import { createUnit } from './movement';
+import { recomputeVisibility } from './visibility';
+import { DOM_IDS } from '../core/dom';
+import { centerOnHex, resizeCanvas } from '../render/canvas';
+import { closeModal } from '../ui/modals';
+import { updateUI } from '../ui/topbar';
+import { render } from '../render/canvas';
+import { getSelectedFactionIdx } from '../ui/setupModal';
+
+const STARTING_GOLD = 50;
+const COIN_BONUS_GOLD = 50;
+const HARD_AI_GOLD_BONUS = 100;
+const HARD_AI_SCIENCE_BONUS = 20;
+const HEGEMONY_GOLD_QUICK = 3000;
+const HEGEMONY_GOLD_STANDARD = 5000;
+const HEGEMONY_GOLD_LONG = 8000;
+const MAX_OPPONENTS = 4;
+
+export function createFaction(template: FactionDef, isAI: boolean, idx: number): Faction {
+  const f: Faction = {
+    idx: idx as FactionIdx,
+    id: template.id,
+    name: template.name,
+    color: template.color,
+    glyph: template.glyph,
+    personality: template.personality,
+    desc: template.desc,
+    isAI,
+    alive: true,
+    resources: { gold: STARTING_GOLD, aether: 0 },
+    science: 0,
+    researchProgress: 0,
+    techs: new Set(template.startTechs || []),
+    currentResearch: null,
+    score: 0,
+    diplo: {},
+    startBonus: 'startBonus' in template ? template.startBonus : undefined,
+    traits: template.traits,
+  };
+  if (template.id === 'coin') f.resources.gold += COIN_BONUS_GOLD;
+  return f;
+}
+
+export function setupGame(): void {
+  const mapSizeEl = document.getElementById(DOM_IDS.MAP_SIZE) as HTMLSelectElement;
+  const opponentCountEl = document.getElementById(DOM_IDS.OPPONENT_COUNT) as HTMLInputElement;
+  const difficultyEl = document.getElementById(DOM_IDS.DIFFICULTY) as HTMLSelectElement;
+  const speedEl = document.getElementById(DOM_IDS.GAME_SPEED) as HTMLSelectElement;
+
+  const mapSize = mapSizeEl.value as MapSizeId;
+  const opponentCount = Math.max(
+    1,
+    Math.min(MAX_OPPONENTS, parseInt(opponentCountEl.value, 10) || 3)
+  );
+  G.difficulty = difficultyEl.value as Difficulty;
+  const speed = speedEl.value;
+  G.goldHegemonyThreshold =
+    speed === 'quick' ? HEGEMONY_GOLD_QUICK : speed === 'long' ? HEGEMONY_GOLD_LONG : HEGEMONY_GOLD_STANDARD;
+
+  // Reset module-scope state from any previous game.
+  resetCityNames();
+  G.factions = [];
+  G.units = [];
+  G.cities = [];
+  G.events = [];
+  G.goldHegemonyCounter = {};
+  G.aiMemory = {};
+  G.gameOver = false;
+  G.turn = 1;
+  G.nextUnitId = 1;
+  G.nextCityId = 1;
+  G.selected = null;
+  G.moveTargets = [];
+  G.attackTargets = [];
+
+  G.map = generateMap(mapSize);
+
+  // Build factions: player + N AI.
+  const selFactionIdx = getSelectedFactionIdx();
+  const playerFaction = FACTIONS[selFactionIdx];
+  const aiCandidates = FACTIONS.filter((_, i) => i !== selFactionIdx).slice() as unknown as FactionDef[];
+  shuffle(aiCandidates);
+  G.factions.push(createFaction(playerFaction as unknown as FactionDef, false, 0));
+  for (let i = 0; i < opponentCount; i++) {
+    G.factions.push(createFaction(aiCandidates[i], true, i + 1));
+  }
+  G.playerFactionIdx = 0 as FactionIdx;
+  G.currentFactionIdx = 0 as FactionIdx;
+
+  // Initial diplo: all unmet.
+  for (const f of G.factions) {
+    for (const f2 of G.factions) if (f !== f2) f.diplo[f2.idx] = 'unmet';
+  }
+
+  // AI memory.
+  for (const f of G.factions) if (f.isAI) initAIMemory(f.idx);
+
+  // Faction starts: capital + initial units.
+  const starts = findFactionStarts(G.factions.length);
+  for (let i = 0; i < G.factions.length; i++) {
+    const f = G.factions[i];
+    const s = starts[i];
+    const c = createCity(f.idx, s.q, s.r, pickCityName());
+    c.isCapital = true;
+
+    const cogSpot = hexNeighbors(s.q, s.r).find((n) => {
+      const t = getTile(n.q, n.r);
+      return t && TERRAIN_TYPES[t.terrain].walkable && !getUnitAt(n.q, n.r);
+    });
+    if (cogSpot) createUnit('COGMAN', f.idx, cogSpot.q, cogSpot.r);
+
+    const tpl = FACTIONS.find((ff) => ff.id === f.id);
+    if (tpl && 'startBonus' in tpl) {
+      if (tpl.startBonus === 'extra_warrior') {
+        const spot = hexNeighbors(s.q, s.r).find((n) => {
+          const t = getTile(n.q, n.r);
+          return t && TERRAIN_TYPES[t.terrain].walkable && !getUnitAt(n.q, n.r);
+        });
+        if (spot) createUnit('COGMAN', f.idx, spot.q, spot.r);
+      }
+      if (tpl.startBonus === 'extra_pioneer') {
+        const spot = hexNeighbors(s.q, s.r).find((n) => {
+          const t = getTile(n.q, n.r);
+          return t && TERRAIN_TYPES[t.terrain].walkable && !getUnitAt(n.q, n.r);
+        });
+        if (spot) createUnit('PIONEER', f.idx, spot.q, spot.r);
+      }
+    }
+
+    const spot2 = hexNeighbors(s.q, s.r).find((n) => {
+      const t = getTile(n.q, n.r);
+      return t && TERRAIN_TYPES[t.terrain].walkable && !getUnitAt(n.q, n.r);
+    });
+    if (spot2) createUnit('PIONEER', f.idx, spot2.q, spot2.r);
+    const spot3 = hexNeighbors(s.q, s.r).find((n) => {
+      const t = getTile(n.q, n.r);
+      return t && TERRAIN_TYPES[t.terrain].walkable && !getUnitAt(n.q, n.r);
+    });
+    if (spot3) createUnit('SCOUT', f.idx, spot3.q, spot3.r);
+  }
+
+  // Difficulty bonus for AI.
+  if (G.difficulty === 'hard') {
+    for (const f of G.factions) {
+      if (f.isAI) {
+        f.resources.gold += HARD_AI_GOLD_BONUS;
+        f.science += HARD_AI_SCIENCE_BONUS;
+      }
+    }
+  }
+
+  recomputeVisibility();
+  const myCap = G.cities.find((c) => c.factionIdx === G.playerFactionIdx);
+  if (myCap) centerOnHex(myCap.q, myCap.r);
+
+  closeModal(DOM_IDS.SETUP_MODAL);
+  resizeCanvas();
+  log(`The Awakening begins. ${G.factions[0].name} stirs from the ash.`, 'flavor');
+  log(
+    `Your goal: dominate, ascend, or amass ${G.goldHegemonyThreshold} gold for ${G.goldHegemonyRequired} turns.`,
+    'flavor'
+  );
+
+  for (const u of G.units.filter((u) => u.factionIdx === G.playerFactionIdx)) {
+    u.mp = UNIT_TYPES[u.typeId].mp;
+  }
+  updateUI();
+  render();
+}
