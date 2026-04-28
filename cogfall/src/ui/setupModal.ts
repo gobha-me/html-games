@@ -4,6 +4,7 @@
 
 import { DOM_IDS } from '../core/dom';
 import { FACTIONS } from '../data/factions';
+import { isMinimapVisible, setMinimapVisible } from './minimap';
 
 let setupSelectedFaction = 0;
 
@@ -60,3 +61,15 @@ function setupSelectFaction(i: number): void {
 // Wire the 🎲 button. Inline onclick would also work, but the button has no
 // other handler so a single addEventListener at module load is cleaner.
 document.getElementById(DOM_IDS.SEED_REGEN)?.addEventListener('click', randomizeSetupSeed);
+
+// Phase 2h-2: hydrate the minimap checkbox from the persisted preference so
+// the user sees their last setting reflected when the modal opens. Toggle
+// is live — flipping the box hides/shows the minimap immediately, no need
+// to wait for Begin.
+const minimapCheckbox = document.getElementById(DOM_IDS.SHOW_MINIMAP) as HTMLInputElement | null;
+if (minimapCheckbox) {
+  minimapCheckbox.checked = isMinimapVisible();
+  minimapCheckbox.addEventListener('change', () => {
+    setMinimapVisible(minimapCheckbox.checked);
+  });
+}

@@ -630,6 +630,26 @@ body {
   background: rgba(212, 74, 58, 0.1);
   border-color: var(--danger);
 }
+/* Phase 2h-2 minimap. Sits above the help-hint, hugs the right rail.
+ * Hidden when the player turns it off in the setup modal — toggle is
+ * persisted in localStorage['cogfall:ui:minimap']. */
+#minimap {
+  position: absolute;
+  bottom: 130px;
+  right: 12px;
+  width: 160px;
+  height: 120px;
+  background: rgba(10, 8, 5, 0.85);
+  border: 2px dashed var(--brass-d);
+  border-radius: 4px;
+  z-index: 9;
+  cursor: crosshair;
+  box-shadow: 0 0 12px var(--shadow);
+  display: block;
+}
+#minimap.hidden {
+  display: none;
+}
 .help-hint {
   position: absolute;
   bottom: 70px;

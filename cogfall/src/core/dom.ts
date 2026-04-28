@@ -7,6 +7,7 @@ export const DOM_IDS = {
   // Canvas + overlay
   MAP_CANVAS: 'map-canvas',
   OVERLAY_SVG: 'overlay-svg',
+  MINIMAP: 'minimap',
 
   // Bars
   TOP_BAR: 'top-bar',
@@ -71,6 +72,7 @@ export const DOM_IDS = {
   SETUP_SEED: 'setup-seed',
   SEED_REGEN: 'seed-regen',
   CULTURAL_VICTORY: 'cultural-victory',
+  SHOW_MINIMAP: 'show-minimap',
   START_GAME: 'start-game',
 } as const;
 

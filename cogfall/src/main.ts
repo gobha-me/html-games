@@ -24,10 +24,12 @@ import './ui/techModal';
 import './ui/diploModal';
 import './ui/setupModal';
 import './ui/saveModal';
+import './ui/minimap';
 
 import { DOM_IDS } from './core/dom';
 import { setRequestRedraw } from './systems/turn';
 import { resizeCanvas, render } from './render/canvas';
+import { renderMinimap } from './ui/minimap';
 import { updateUI } from './ui/topbar';
 import { populateSeedInput, renderFactionList } from './ui/setupModal';
 import { setupGame } from './systems/setup';
@@ -39,6 +41,7 @@ import { log } from './core/log';
 setRequestRedraw(() => {
   updateUI();
   render();
+  renderMinimap();
 });
 
 // Wire the "Begin the Awakening" button.
@@ -62,6 +65,7 @@ if (continueBtn) {
     log(`Records read. The Awakening resumes at turn ${data.turn}.`, 'flavor');
     updateUI();
     render();
+    renderMinimap();
   });
 }
 
