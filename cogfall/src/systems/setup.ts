@@ -5,7 +5,7 @@
 
 import { hexNeighbors } from '../core/hex';
 import { log } from '../core/log';
-import { shuffle } from '../core/rng';
+import { getGameRng, initGameRng, shuffle } from '../core/rng';
 import { G, getTile, getUnitAt } from '../core/state';
 import type { Difficulty, Faction, FactionIdx } from '../core/types';
 import { FACTIONS, type MapSizeId, type FactionDef } from '../data/factions';
@@ -21,7 +21,7 @@ import { centerOnHex, resizeCanvas } from '../render/canvas';
 import { closeModal } from '../ui/modals';
 import { updateUI } from '../ui/topbar';
 import { render } from '../render/canvas';
-import { getSelectedFactionIdx } from '../ui/setupModal';
+import { getSelectedFactionIdx, getSetupSeed } from '../ui/setupModal';
 
 const STARTING_GOLD = 50;
 const COIN_BONUS_GOLD = 50;
@@ -93,7 +93,12 @@ export function setupGame(): void {
   G.moveTargets = [];
   G.attackTargets = [];
 
-  G.map = generateMap(mapSize);
+  // RNG: stamp the seed and initialise the game rng *before* mapgen so the
+  // world is fully reproducible from this seed alone.
+  G.seed = getSetupSeed();
+  initGameRng(G.seed);
+
+  G.map = generateMap(mapSize, getGameRng());
 
   // Build factions: player + N AI.
   const selFactionIdx = getSelectedFactionIdx();
@@ -101,7 +106,7 @@ export function setupGame(): void {
   const aiCandidates = FACTIONS.filter(
     (_, i) => i !== selFactionIdx
   ).slice() as unknown as FactionDef[];
-  shuffle(aiCandidates);
+  shuffle(aiCandidates, getGameRng());
   G.factions.push(createFaction(playerFaction as unknown as FactionDef, false, 0));
   for (let i = 0; i < opponentCount; i++) {
     G.factions.push(createFaction(aiCandidates[i], true, i + 1));

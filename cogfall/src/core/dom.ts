@@ -64,6 +64,8 @@ export const DOM_IDS = {
   OPPONENT_COUNT: 'opponent-count',
   DIFFICULTY: 'difficulty',
   GAME_SPEED: 'game-speed',
+  SETUP_SEED: 'setup-seed',
+  SEED_REGEN: 'seed-regen',
   START_GAME: 'start-game',
 } as const;
 

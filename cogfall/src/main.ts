@@ -29,7 +29,7 @@ import { DOM_IDS } from './core/dom';
 import { setRequestRedraw } from './systems/turn';
 import { resizeCanvas, render } from './render/canvas';
 import { updateUI } from './ui/topbar';
-import { renderFactionList } from './ui/setupModal';
+import { populateSeedInput, renderFactionList } from './ui/setupModal';
 import { setupGame } from './systems/setup';
 import { AUTOSAVE_KEY, hasAutosave, loadGameState, readSlot } from './core/save';
 import { closeModal } from './ui/modals';
@@ -65,6 +65,7 @@ if (continueBtn) {
   });
 }
 
-// Initial render: faction picker is visible inside the setup modal.
+// Initial render: faction picker + world-seed default.
 renderFactionList();
+populateSeedInput();
 resizeCanvas();

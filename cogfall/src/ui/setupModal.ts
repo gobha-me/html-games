@@ -1,6 +1,6 @@
-// Setup modal — faction picker. The actual game start (mapgen, faction
-// creation, starting units, etc.) happens in systems/setup.ts (step 10);
-// this module is just the form/picker UI.
+// Setup modal — faction picker + world-seed input. The actual game start
+// (mapgen, faction creation, starting units, etc.) happens in
+// systems/setup.ts; this module is just the form/picker UI.
 
 import { DOM_IDS } from '../core/dom';
 import { FACTIONS } from '../data/factions';
@@ -9,6 +9,34 @@ let setupSelectedFaction = 0;
 
 export function getSelectedFactionIdx(): number {
   return setupSelectedFaction;
+}
+
+/**
+ * Read the world-seed value from the setup form. Clamped to a 32-bit
+ * unsigned int so it fits mulberry32's state. Falls back to a fresh random
+ * seed if the field is missing or non-numeric (defensive — the populate
+ * helper below should always have run by the time the user clicks Begin).
+ */
+export function getSetupSeed(): number {
+  const el = document.getElementById(DOM_IDS.SETUP_SEED) as HTMLInputElement | null;
+  if (!el) return freshSeed();
+  const raw = parseInt(el.value, 10);
+  if (!Number.isFinite(raw)) return freshSeed();
+  return raw >>> 0;
+}
+
+function freshSeed(): number {
+  return (Math.random() * 0x100000000) >>> 0;
+}
+
+export function populateSeedInput(): void {
+  const el = document.getElementById(DOM_IDS.SETUP_SEED) as HTMLInputElement | null;
+  if (!el) return;
+  el.value = String(freshSeed());
+}
+
+function randomizeSetupSeed(): void {
+  populateSeedInput();
 }
 
 export function renderFactionList(): void {
@@ -28,3 +56,7 @@ function setupSelectFaction(i: number): void {
 (
   window as Window & typeof globalThis & { setupSelectFaction: typeof setupSelectFaction }
 ).setupSelectFaction = setupSelectFaction;
+
+// Wire the 🎲 button. Inline onclick would also work, but the button has no
+// other handler so a single addEventListener at module load is cleaner.
+document.getElementById(DOM_IDS.SEED_REGEN)?.addEventListener('click', randomizeSetupSeed);
