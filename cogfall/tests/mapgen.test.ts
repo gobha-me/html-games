@@ -88,6 +88,83 @@ describe('mapgen', () => {
       }
       G.map = null;
     });
+
+    it('never returns water, ruin, or aether starts (2c-4)', () => {
+      G.map = generateMap('medium', createSeededRng(42));
+      const starts = findFactionStarts(4, createSeededRng(42));
+      for (const s of starts) {
+        expect(s.terrain).not.toBe('WATER');
+        expect(s.terrain).not.toBe('RUINS');
+        expect(s.terrain).not.toBe('AETHER');
+      }
+      G.map = null;
+    });
+
+    it('respects the minimum distance gate between starts (2c-4)', () => {
+      G.map = generateMap('medium', createSeededRng(42));
+      const starts = findFactionStarts(4, createSeededRng(42));
+      // Spacing floor matches MIN_FACTION_SPACING_FLOOR in mapgen.ts.
+      const minDist = 6;
+      for (let i = 0; i < starts.length; i++) {
+        for (let j = i + 1; j < starts.length; j++) {
+          const d =
+            (Math.abs(starts[i].q - starts[j].q) +
+              Math.abs(starts[i].q + starts[i].r - starts[j].q - starts[j].r) +
+              Math.abs(starts[i].r - starts[j].r)) /
+            2;
+          expect(d).toBeGreaterThanOrEqual(minDist);
+        }
+      }
+      G.map = null;
+    });
+
+    it('produces deterministic starts for a given map + seed (2c-4)', () => {
+      G.map = generateMap('medium', createSeededRng(123));
+      const a = findFactionStarts(4, createSeededRng(7));
+      const b = findFactionStarts(4, createSeededRng(7));
+      expect(a.map((t) => `${t.q},${t.r}`)).toEqual(b.map((t) => `${t.q},${t.r}`));
+      G.map = null;
+    });
+
+    it('smart starts cluster near resources more than random walkable (2c-4)', () => {
+      let smartResNearby = 0;
+      let randomResNearby = 0;
+      const trials = 10;
+      for (let seed = 1; seed <= trials; seed++) {
+        G.map = generateMap('medium', createSeededRng(seed));
+        const map = G.map;
+        const smart = findFactionStarts(4, createSeededRng(seed));
+        for (const s of smart) {
+          for (const t of map.tiles.values()) {
+            const d =
+              (Math.abs(s.q - t.q) +
+                Math.abs(s.q + s.r - t.q - t.r) +
+                Math.abs(s.r - t.r)) /
+              2;
+            if (d <= 2 && t.resource) smartResNearby++;
+          }
+        }
+        // Random sampling: 4 walkable land tiles per seed.
+        const walkable = [...map.tiles.values()].filter((t) => {
+          const tt = TERRAIN_TYPES[t.terrain];
+          return tt.walkable && !('isAether' in tt) && !('isRuin' in tt);
+        });
+        const rng = createSeededRng(seed + 9000);
+        for (let p = 0; p < 4; p++) {
+          const s = walkable[Math.floor(rng() * walkable.length)];
+          for (const t of map.tiles.values()) {
+            const d =
+              (Math.abs(s.q - t.q) +
+                Math.abs(s.q + s.r - t.q - t.r) +
+                Math.abs(s.r - t.r)) /
+              2;
+            if (d <= 2 && t.resource) randomResNearby++;
+          }
+        }
+        G.map = null;
+      }
+      expect(smartResNearby).toBeGreaterThan(randomResNearby);
+    });
   });
 
   describe('water + coasts (2c-1)', () => {

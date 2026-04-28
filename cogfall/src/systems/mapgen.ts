@@ -22,7 +22,7 @@ import { defaultRng, shuffle, type Rng } from '../core/rng';
 import { G } from '../core/state';
 import type { GameMap, Tile, TerrainId } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
-import { RESOURCES, type ResourceDef } from '../data/resources';
+import { RESOURCES, type ResourceDef, getResource } from '../data/resources';
 import { MAP_SIZES, type MapSizeId } from '../data/factions';
 
 const RUIN_FRACTION = 0.025;
@@ -34,8 +34,11 @@ const RIVER_MAX_STEPS = 200;
 const RESOURCE_DENSITY = 0.08;
 const MIN_FACTION_SPACING_FLOOR = 6;
 const MIN_FACTION_SPACING_RATIO = 1.2;
-const MAX_PLACEMENT_ATTEMPTS = 3000;
 const MIN_GOOD_NEIGHBORS = 3;
+const START_SCORE_RADIUS = 2;
+const START_COAST_BONUS = 4;
+const START_WALLED_PENALTY = 8;
+const START_WALLED_NEIGHBOR_THRESHOLD = 4;
 
 export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
   const dim = MAP_SIZES[size];
@@ -217,42 +220,95 @@ export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
   return { w, h, tiles: tiles as GameMap['tiles'] };
 }
 
-// Pick `numFactions` start tiles, evenly spread, biased toward open ground
-// (≥3 walkable neighbors). Falls back to random walkable tiles if the
-// constraint can't be satisfied within MAX_PLACEMENT_ATTEMPTS attempts.
+// Pick `numFactions` start tiles by scoring viable candidates and greedily
+// taking the highest-scoring tile that respects the spacing gate. Score
+// rewards resource yield in a 2-tile radius and coast access; penalizes
+// being walled in by unwalkable terrain. Falls back to random walkable
+// tiles if the spacing gate exhausts the candidate pool.
 export function findFactionStarts(numFactions: number, rng: Rng = defaultRng): Tile[] {
   if (!G.map) throw new Error('findFactionStarts requires G.map');
-  const walkable = [...G.map.tiles.values()].filter(
-    (t) =>
-      TERRAIN_TYPES[t.terrain].walkable &&
-      !('isAether' in TERRAIN_TYPES[t.terrain]) &&
-      !('isRuin' in TERRAIN_TYPES[t.terrain])
-  );
-  const starts: Tile[] = [];
-  let attempts = 0;
+  const map = G.map;
+
+  const viable = [...map.tiles.values()].filter((t) => {
+    const tt = TERRAIN_TYPES[t.terrain];
+    if (!tt.walkable) return false;
+    if ('isAether' in tt || 'isRuin' in tt) return false;
+    const goodNeighbors = hexNeighbors(t.q, t.r).filter((n) => {
+      const nt = map.tiles.get(hexKey(n.q, n.r));
+      return nt && TERRAIN_TYPES[nt.terrain].walkable;
+    }).length;
+    return goodNeighbors >= MIN_GOOD_NEIGHBORS;
+  });
+
+  // Score once, sort once. No rng draws here — tie-break uses tile coords
+  // so two scores are resolved deterministically without burning cursor.
+  const scored = viable
+    .map((t) => ({ tile: t, score: scoreStart(t, map) }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (a.tile.q !== b.tile.q) return a.tile.q - b.tile.q;
+      return a.tile.r - b.tile.r;
+    });
+
   const minDist = Math.max(
     MIN_FACTION_SPACING_FLOOR,
-    Math.floor(Math.sqrt(G.map.tiles.size / numFactions) * MIN_FACTION_SPACING_RATIO)
+    Math.floor(Math.sqrt(map.tiles.size / numFactions) * MIN_FACTION_SPACING_RATIO),
   );
 
-  while (starts.length < numFactions && attempts < MAX_PLACEMENT_ATTEMPTS) {
-    const candidate = walkable[Math.floor(rng() * walkable.length)];
-    const ok = starts.every((s) => hexDistance(s, candidate) >= minDist);
-    if (ok) {
-      const goodNeighbors = hexNeighbors(candidate.q, candidate.r).filter((n) => {
-        const t = G.map!.tiles.get(hexKey(n.q, n.r));
-        return t && TERRAIN_TYPES[t.terrain].walkable;
-      }).length;
-      if (goodNeighbors >= MIN_GOOD_NEIGHBORS) starts.push(candidate);
+  // Greedy at full minDist; if we can't fit numFactions, relax distance
+  // by 1 until we hit MIN_FACTION_SPACING_FLOOR. As a last resort allow
+  // dist=0 (no spacing) so we always return numFactions starts. The
+  // schedule is deterministic, so seed → starts is reproducible.
+  const starts: Tile[] = [];
+  const distSchedule: number[] = [];
+  for (let d = minDist; d >= MIN_FACTION_SPACING_FLOOR; d--) distSchedule.push(d);
+  distSchedule.push(0);
+  for (const dist of distSchedule) {
+    if (starts.length >= numFactions) break;
+    for (const c of scored) {
+      if (starts.length >= numFactions) break;
+      if (starts.includes(c.tile)) continue;
+      if (starts.every((s) => hexDistance(s, c.tile) >= dist)) {
+        starts.push(c.tile);
+      }
     }
-    attempts++;
   }
 
-  while (starts.length < numFactions) {
-    starts.push(walkable[Math.floor(rng() * walkable.length)]);
+  // Belt-and-suspenders fallback: if `scored` was somehow empty (a map
+  // with no viable land at all), pick from any walkable tile.
+  if (starts.length < numFactions) {
+    const walkableAny = [...map.tiles.values()].filter((t) => {
+      const tt = TERRAIN_TYPES[t.terrain];
+      return tt.walkable && !('isAether' in tt) && !('isRuin' in tt);
+    });
+    while (starts.length < numFactions && walkableAny.length > 0) {
+      starts.push(walkableAny[Math.floor(rng() * walkableAny.length)]);
+    }
   }
 
   return starts;
+}
+
+function scoreStart(tile: Tile, map: GameMap): number {
+  let score = 0;
+  let coastFound = false;
+
+  for (const t of map.tiles.values()) {
+    const d = hexDistance({ q: tile.q, r: tile.r }, { q: t.q, r: t.r });
+    if (d > START_SCORE_RADIUS) continue;
+    const res = getResource(t.resource);
+    if (res) score += (res.food ?? 0) + (res.prod ?? 0) + (res.gold ?? 0);
+    if (!coastFound && isCoast(t, map)) coastFound = true;
+  }
+  if (coastFound) score += START_COAST_BONUS;
+
+  const blockedCount = hexNeighbors(tile.q, tile.r).filter((n) => {
+    const nt = map.tiles.get(hexKey(n.q, n.r));
+    return !nt || !TERRAIN_TYPES[nt.terrain].walkable;
+  }).length;
+  if (blockedCount >= START_WALLED_NEIGHBOR_THRESHOLD) score -= START_WALLED_PENALTY;
+
+  return score;
 }
 
 // A land tile is a coast iff at least one neighbor is WATER. Used by
