@@ -28,6 +28,9 @@ import { TECHS, TECH_BRANCHES } from '../src/data/techs';
 import { BUILDING_TYPES } from '../src/data/buildings';
 import { TERRAIN_TYPES } from '../src/data/terrain';
 import { getAvailableTechs } from '../src/systems/research';
+import { aiPickTech } from '../src/ai/techAI';
+import { aiPickBuild } from '../src/ai/cityAI';
+import { initAIMemory } from '../src/ai/memory';
 import type { Faction, FactionIdx, Tile } from '../src/core/types';
 
 function TERRAIN_TYPES_walkable(t: Tile): boolean {
@@ -504,6 +507,192 @@ describe('Phase 2g-1: culture types and save migration', () => {
     const r2 = processCulturalHegemony(G.factions[0]);
     expect(r2.victory).toBe(false);
     expect(G.culturalHegemonyCounter[0]).toBe(0);
+  });
+
+  it('high-culture personalities pick culture-branch tech more often than low-culture ones', () => {
+    // Defensive (culture 0.65) vs militaristic (culture 0.20). The +40
+    // p.mil unlocks bonus and various branch +tech bonuses dominate
+    // unless we deplete the rest of the tree, so the comparison runs
+    // with every non-culture tech (excluding banking, kept as a
+    // single competitor) pre-researched. Available to both: lithography,
+    // banking. Defensive's culture×30 lifts lithography clear of
+    // banking; militaristic's barely does.
+    const allNonCulture = (Object.keys(TECHS) as (keyof typeof TECHS)[]).filter(
+      (id) => TECHS[id].branch !== 'culture' && id !== 'banking'
+    );
+    const trials = 50;
+    let defCulture = 0;
+    let milCulture = 0;
+    for (let seed = 1; seed <= trials; seed++) {
+      const def: Faction = { ...makeFaction(3, true) }; // verdant -> defensive
+      def.techs = new Set(allNonCulture);
+      const mil: Faction = { ...makeFaction(2, true) }; // iron -> militaristic
+      mil.techs = new Set(allNonCulture);
+      const dPick = aiPickTech(def, createSeededRng(seed));
+      const mPick = aiPickTech(mil, createSeededRng(seed));
+      if (dPick && TECHS[dPick].branch === 'culture') defCulture++;
+      if (mPick && TECHS[mPick].branch === 'culture') milCulture++;
+    }
+    expect(defCulture).toBeGreaterThan(milCulture);
+    expect(defCulture).toBeGreaterThan(0);
+  });
+
+  it('aiPickBuild biases toward opera_house more in peace than at war for high-culture factions', () => {
+    // Synthetic 2-faction scenario. Faction 0 is defensive (high
+    // culture, p.culture = 0.65) with salons researched so opera_house
+    // sits in the candidate set. The setup intentionally tilts away
+    // from the AI's usual military/expansion bias: phase = 'fortify'
+    // (no pioneer option), 2 COGMAN garrison (so the bestMil branch
+    // skips the !garrison +50 and the under-quota +30), late game
+    // (turn 30, no scout). At peace, opera_house should out-score
+    // COGMAN; at war, the -40 penalty reverses that.
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(3, true), makeFaction(2, true)]; // verdant + iron
+    G.units = [];
+    G.cities = [];
+    G.events = [];
+    G.aiMemory = {};
+    G.gameOver = false;
+    G.turn = 30;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+    initAIMemory(0 as FactionIdx);
+    initAIMemory(1 as FactionIdx);
+    G.aiMemory[0]!.strategicPhase = 'fortify';
+
+    G.factions[0].techs.add('rediscovery');
+    G.factions[0].techs.add('lithography');
+    G.factions[0].techs.add('salons');
+    const cap = createCity(0 as FactionIdx, 0, 0, 'Salon Capital');
+    cap.isCapital = true;
+    cap.population = 4;
+    // Pre-build the always-available cheap-and-flat-score buildings so
+    // the only viable building options are culture (workshop and walls
+    // would otherwise dominate at 74 / 81 score).
+    cap.buildings.add('workshop');
+    cap.buildings.add('walls');
+    cap.buildings.add('granary');
+    cap.buildings.add('library');
+
+    // Garrison: 2 COGMAN at the city. Skips the !garrison +50 and the
+    // myMilUnits<myCityCount*2 +30 in bestMil scoring.
+    const cog1 = {
+      id: G.nextUnitId++,
+      typeId: 'COGMAN' as const,
+      factionIdx: 0 as FactionIdx,
+      q: cap.q,
+      r: cap.r,
+      hp: 20,
+      maxHp: 20,
+      mp: 2,
+      maxMp: 2,
+      fortified: false,
+    };
+    const cog2 = { ...cog1, id: G.nextUnitId++ };
+    G.units = [cog1, cog2];
+
+    const trials = 60;
+    let peacePicks = 0;
+    let warPicks = 0;
+    for (let seed = 1; seed <= trials; seed++) {
+      G.factions[0].diplo[1] = 'peace';
+      G.factions[1].diplo[0] = 'peace';
+      const peace = aiPickBuild(G.factions[0], cap, createSeededRng(seed));
+      if (peace?.kind === 'building' && peace.id === 'opera_house') peacePicks++;
+      G.factions[0].diplo[1] = 'war';
+      G.factions[1].diplo[0] = 'war';
+      const war = aiPickBuild(G.factions[0], cap, createSeededRng(seed));
+      if (war?.kind === 'building' && war.id === 'opera_house') warPicks++;
+    }
+    expect(peacePicks).toBeGreaterThan(warPicks);
+    expect(peacePicks).toBeGreaterThan(0);
+  });
+
+  it('opera_house is gated behind salons; printing_press behind lithography', () => {
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(3, true)];
+    G.units = [];
+    G.cities = [];
+    G.events = [];
+    G.aiMemory = {};
+    G.gameOver = false;
+    G.turn = 30;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+    initAIMemory(0 as FactionIdx);
+    G.aiMemory[0]!.strategicPhase = 'fortify';
+
+    const cap = createCity(0 as FactionIdx, 0, 0, 'Capital');
+    cap.isCapital = true;
+    cap.population = 4;
+    // Pre-build dominators so culture buildings can surface as picks.
+    cap.buildings.add('workshop');
+    cap.buildings.add('walls');
+    cap.buildings.add('granary');
+    cap.buildings.add('library');
+
+    // No culture techs: neither building should reach the candidate set.
+    let reached = new Set<string>();
+    for (let seed = 1; seed <= 80; seed++) {
+      const pick = aiPickBuild(G.factions[0], cap, createSeededRng(seed));
+      if (pick?.kind === 'building') reached.add(pick.id);
+    }
+    expect(reached.has('printing_press')).toBe(false);
+    expect(reached.has('opera_house')).toBe(false);
+
+    // Lithography only: printing_press is gated open, opera_house still gated.
+    G.factions[0].techs.add('rediscovery');
+    G.factions[0].techs.add('lithography');
+    reached = new Set<string>();
+    for (let seed = 1; seed <= 80; seed++) {
+      const pick = aiPickBuild(G.factions[0], cap, createSeededRng(seed));
+      if (pick?.kind === 'building') reached.add(pick.id);
+    }
+    expect(reached.has('opera_house')).toBe(false);
+
+    // Salons unlocks opera_house — at least one trial should reach it
+    // given the defensive faction's culture bias.
+    G.factions[0].techs.add('salons');
+    // Add a garrison so the bestMil score calms enough to let
+    // opera_house surface.
+    G.units = [
+      {
+        id: G.nextUnitId++,
+        typeId: 'COGMAN',
+        factionIdx: 0 as FactionIdx,
+        q: cap.q,
+        r: cap.r,
+        hp: 20,
+        maxHp: 20,
+        mp: 2,
+        maxMp: 2,
+        fortified: false,
+      },
+      {
+        id: G.nextUnitId++,
+        typeId: 'COGMAN',
+        factionIdx: 0 as FactionIdx,
+        q: cap.q,
+        r: cap.r,
+        hp: 20,
+        maxHp: 20,
+        mp: 2,
+        maxMp: 2,
+        fortified: false,
+      },
+    ];
+    reached = new Set<string>();
+    for (let seed = 1; seed <= 80; seed++) {
+      const pick = aiPickBuild(G.factions[0], cap, createSeededRng(seed));
+      if (pick?.kind === 'building') reached.add(pick.id);
+    }
+    expect(reached.has('opera_house')).toBe(true);
   });
 
   it('migrates a v2 save (no cultural fields) to v3 defaults', () => {

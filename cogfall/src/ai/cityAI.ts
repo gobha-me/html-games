@@ -45,6 +45,15 @@ export function aiPickBuild(
     if (bid === 'spire') score += 70 * p.sci;
     if (bid === 'academy') score += 80 * p.sci;
     if (bid === 'citadel') score += 50 * p.defenseFocus + (atWar ? 30 : 0);
+    // 2g-5: culture buildings — peacetime priorities. Weights tuned so
+    // a defensive faction (p.culture=0.65) at peace, with a settled
+    // garrison and full military bench, will reliably reach for
+    // opera_house ahead of more COGMAN. The atWar penalty flips the
+    // priority back toward walls / military, then slides back once
+    // fighting eases. Low-culture personalities (militaristic 0.20)
+    // never get a meaningful score even at peace — the bias is real.
+    if (bid === 'printing_press') score += 60 * p.culture - (atWar ? 30 : 0);
+    if (bid === 'opera_house') score += 85 * p.culture - (atWar ? 40 : 0);
     score -= b.cost * 0.15;
     options.push({ kind: 'building', id: bid as keyof typeof BUILDING_TYPES, score });
   }

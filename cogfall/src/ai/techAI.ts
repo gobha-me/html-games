@@ -19,6 +19,12 @@ export function aiPickTech(faction: Faction, rng: Rng = defaultRng): TechId | nu
     if (t.branch === 'industry') score += (p.mil + p.econ) * 20;
     if (t.branch === 'economy') score += p.econ * 30;
     if (t.branch === 'expansion') score += p.expand * 25;
+    // 2g-5: culture branch is gated on the dim added in 2g-1. Linear
+    // weight matches the 'science'/'economy' branches above; high-
+    // culture personalities (defensive 0.65, scientific 0.55, economic
+    // 0.5) drift toward lithography/salons over more contested
+    // industry picks.
+    if (t.branch === 'culture') score += p.culture * 30;
     if ('unlocks' in t && t.unlocks) score += 40 * p.mil;
     if (t.id === 'grand_apparatus') score += 120 + p.sci * 60;
     if (t.id === 'gunpowder' && p.mil > 0.6) score += 50;
