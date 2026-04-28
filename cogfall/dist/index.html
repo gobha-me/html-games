@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Cogfall — A Steampunk 4X</title>
+  <script type="module" crossorigin src="./assets/index-1gjFCxIw.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-D1lkdKZ9.css">
+</head>
+<body>
+<body>
+<div id="game">
+<canvas id="map-canvas"></canvas>
+<svg id="overlay-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="top-bar">
+<div class="faction-emblem" id="cur-faction-emblem">⚒</div>
+<div><div class="faction-name" id="cur-faction-name">—</div><div class="turn-info" id="cur-turn">Turn 1</div></div>
+<div class="resource-cluster">
+<div class="resource-pill gold" title="Gold treasury"><span class="icon">⚜</span> <span id="r-gold">0</span> <span class="delta" id="r-gold-d">+0</span></div>
+<div class="resource-pill aether" title="Aether crystals"><span class="icon">✦</span> <span id="r-aether">0</span> <span class="delta" id="r-aether-d">+0</span></div>
+<div class="resource-pill science" title="Science per turn"><span class="icon">⊞</span> <span id="r-sci-d">+0</span></div>
+</div>
+<button class="btn small" id="tech-btn">Knowledge</button>
+<button class="btn small" id="diplo-btn">Banners</button>
+</div>
+<div id="bottom-bar">
+<div id="status-text" style="font-style:italic;color:var(--parchment-d)">Awaiting your orders, Steward...</div>
+<div style="display:flex;gap:8px">
+<button class="btn small" id="next-unit-btn">Next Unit</button>
+<button class="btn primary" id="end-turn-btn">End Turn ⟹</button>
+</div>
+</div>
+<div id="left-panel" class="panel">
+<h3>Selection</h3>
+<div id="selection-content" style="color:var(--parchment-d);font-style:italic">Click a tile to inspect.</div>
+</div>
+<div id="right-panel" class="panel">
+<h3 id="right-title">Details</h3>
+<div id="right-content"></div>
+</div>
+<div id="event-log"></div>
+<div id="tooltip"></div>
+<div id="ai-thinking"><div class="spinner"></div><span id="ai-thinking-text">The factions stir...</span></div>
+<div class="help-hint"><kbd>L-Click</kbd> select/move · <kbd>R-Click drag</kbd> pan · <kbd>Wheel</kbd> zoom · <kbd>Space</kbd> end turn · <kbd>N</kbd> next unit · <kbd>F</kbd> fortify</div>
+<div id="setup-modal" class="modal show">
+<div class="modal-content">
+<h2>The Cogfall — A Steampunk 4X</h2>
+<p style="color:var(--parchment-d);margin-bottom:14px;font-style:italic">Long ago the Great Engine fell silent, and with it most of human knowledge. Now the factions stir from the ash, scrambling for the relics of the Old World. Choose your banner, Steward.</p>
+<div class="setup-section"><label>Choose your faction</label><div id="faction-list"></div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+<div class="setup-section"><label>Map size</label><select id="map-size"><option value="small">Small (cozy duel)</option><option value="medium" selected>Medium (standard)</option><option value="large">Large (epic)</option></select></div>
+<div class="setup-section"><label>Opponents (1-4)</label><input type="number" id="opponent-count" min="1" max="4" value="3"></div>
+<div class="setup-section"><label>Difficulty</label><select id="difficulty"><option value="easy">Apprentice (AI handicapped)</option><option value="medium" selected>Journeyman (fair)</option><option value="hard">Master (AI bonuses)</option></select></div>
+<div class="setup-section"><label>Hegemony threshold</label><select id="game-speed"><option value="quick">3000 gold (quick)</option><option value="standard" selected>5000 gold (standard)</option><option value="long">8000 gold (epic)</option></select></div>
+</div>
+<div style="text-align:right;margin-top:16px"><button class="btn primary" id="start-game">Begin the Awakening</button></div>
+</div></div>
+<div id="tech-modal" class="modal">
+<div class="modal-content" style="width:920px">
+<h2>The Tree of Forgotten Lore</h2>
+<p style="color:var(--parchment-d);margin-bottom:14px" id="research-status">Choose a path of rediscovery.</p>
+<div id="tech-tree-container"></div>
+<div style="text-align:right;margin-top:16px"><button class="btn" onclick="closeModal('tech-modal')">Close</button></div>
+</div></div>
+<div id="diplo-modal" class="modal">
+<div class="modal-content" style="width:600px">
+<h2>The Other Banners</h2>
+<p style="color:var(--parchment-d);margin-bottom:14px;font-style:italic">Watch them. They watch you.</p>
+<div id="diplo-content"></div>
+<div style="text-align:right;margin-top:16px"><button class="btn" onclick="closeModal('diplo-modal')">Close</button></div>
+</div></div>
+<div id="game-over-modal" class="modal">
+<div class="modal-content" style="width:520px">
+<div id="game-over-content"></div>
+<div style="text-align:right;margin-top:16px"><button class="btn primary" onclick="location.reload()">Begin Anew</button></div>
+</div></div>
+</body>
+</html>
