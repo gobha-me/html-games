@@ -71,7 +71,7 @@ interface SerializedMap {
   tiles: Array<[TileKey, Tile]>;
 }
 
-interface SerializedGameState {
+export interface SerializedGameState {
   map: SerializedMap | null;
   factions: SerializedFaction[];
   units: Unit[];
@@ -238,26 +238,16 @@ export function validateSaveAgainstData(
 const DEFAULT_CULTURAL_HEGEMONY_THRESHOLD = 0.4;
 const DEFAULT_CULTURAL_HEGEMONY_REQUIRED = 5;
 
-export function loadGameState(data: SaveData): void {
-  if (
-    data.version !== 1 &&
-    data.version !== 2 &&
-    data.version !== 3 &&
-    data.version !== SAVE_VERSION
-  ) {
-    throw new SaveVersionMismatchError(data.version, SAVE_VERSION);
-  }
-  const s = data.state;
-  const activeHash = getActiveMod()?.hash;
-  const saveHash = s.modHash;
-  if (saveHash !== activeHash) {
-    throw new ModMismatchError(saveHash, s.modName);
-  }
-  const missing = validateSaveAgainstData(s);
-  if (missing.length > 0) {
-    throw new SaveDataMismatchError(missing);
-  }
-
+/**
+ * Apply a deserialized state to the live G singleton. Used by both
+ * loadGameState (full game-load semantics) and the Phase 2k replay viewer
+ * (read-only scrub that preserves the live RNG cursor + telemetry log).
+ *
+ * Does NOT touch the RNG cursor, transient selection state, or any
+ * runtime log — those live outside the snapshot and the caller decides
+ * whether to reset them.
+ */
+export function applySerializedStateToG(s: SerializedGameState): void {
   G.map = s.map
     ? ({
         w: s.map.w,
@@ -288,6 +278,29 @@ export function loadGameState(data: SaveData): void {
   G.nextCityId = s.nextCityId;
   G.gameOver = s.gameOver;
   G.aiMemory = { ...s.aiMemory };
+}
+
+export function loadGameState(data: SaveData): void {
+  if (
+    data.version !== 1 &&
+    data.version !== 2 &&
+    data.version !== 3 &&
+    data.version !== SAVE_VERSION
+  ) {
+    throw new SaveVersionMismatchError(data.version, SAVE_VERSION);
+  }
+  const s = data.state;
+  const activeHash = getActiveMod()?.hash;
+  const saveHash = s.modHash;
+  if (saveHash !== activeHash) {
+    throw new ModMismatchError(saveHash, s.modName);
+  }
+  const missing = validateSaveAgainstData(s);
+  if (missing.length > 0) {
+    throw new SaveDataMismatchError(missing);
+  }
+
+  applySerializedStateToG(s);
 
   // RNG: v2 saves restore the exact mulberry32 cursor; v1 saves get a fresh
   // Date.now() seed since the field didn't exist when they were written.
