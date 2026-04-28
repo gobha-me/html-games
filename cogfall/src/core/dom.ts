@@ -80,6 +80,10 @@ export const DOM_IDS = {
   MOD_FILE: 'mod-file',
   MOD_CLEAR_BTN: 'mod-clear',
   MOD_STATUS: 'mod-status',
+
+  // Phase 2j: telemetry
+  TELEMETRY_ENABLED: 'telemetry-enabled',
+  TELEMETRY_DOWNLOAD_BTN: 'telemetry-download',
 } as const;
 
 export type DomId = (typeof DOM_IDS)[keyof typeof DOM_IDS];

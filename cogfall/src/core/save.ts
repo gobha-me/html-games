@@ -11,6 +11,7 @@ import { G } from './state';
 import { log } from './log';
 import { getGameRngState, initGameRng, setGameRngState } from './rng';
 import { getActiveMod } from './mod';
+import { clearTelemetryLog } from '../systems/telemetry';
 import { UNIT_TYPES } from '../data/units';
 import { BUILDING_TYPES } from '../data/buildings';
 import { TECHS } from '../data/techs';
@@ -315,6 +316,9 @@ export function loadGameState(data: SaveData): void {
   G.sabotageTargets = [];
   G.isDragging = false;
   G.dragStart = null as DragStart | null;
+
+  // Telemetry log scopes to the current timeline; loading switches timelines.
+  clearTelemetryLog();
 }
 
 // --- Slot management -------------------------------------------------------

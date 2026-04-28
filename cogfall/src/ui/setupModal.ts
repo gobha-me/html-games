@@ -8,6 +8,7 @@ import { AUTOSAVE_KEY, readSlot } from '../core/save';
 import { FACTIONS } from '../data/factions';
 import { isMinimapVisible, setMinimapVisible } from './minimap';
 import { isAudioMuted, setAudioMuted } from '../systems/audio';
+import { isTelemetryEnabled, setTelemetryEnabled } from '../systems/telemetry';
 
 let setupSelectedFaction = 0;
 
@@ -84,6 +85,18 @@ if (soundCheckbox) {
   soundCheckbox.checked = !isAudioMuted();
   soundCheckbox.addEventListener('change', () => {
     setAudioMuted(!soundCheckbox.checked);
+  });
+}
+
+// Phase 2j-5: telemetry checkbox. Default-on; live toggle so a player who
+// flips it mid-setup gets the new state when they hit Begin.
+const telemetryCheckbox = document.getElementById(
+  DOM_IDS.TELEMETRY_ENABLED
+) as HTMLInputElement | null;
+if (telemetryCheckbox) {
+  telemetryCheckbox.checked = isTelemetryEnabled();
+  telemetryCheckbox.addEventListener('change', () => {
+    setTelemetryEnabled(telemetryCheckbox.checked);
   });
 }
 

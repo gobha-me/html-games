@@ -23,6 +23,7 @@ import { log } from '../core/log';
 import { closeModal } from './modals';
 import { updateUI } from './topbar';
 import { render } from '../render/pixi';
+import { dumpTelemetry, getTelemetryLog } from '../systems/telemetry';
 
 export function renderSaveModal(): void {
   const slots = listSlots();
@@ -30,6 +31,7 @@ export function renderSaveModal(): void {
   const html = slots.map((s) => renderSlotRow(s, inGame)).join('');
   const content = document.getElementById(DOM_IDS.SAVE_CONTENT);
   if (content) content.innerHTML = html;
+  refreshTelemetryButton();
 }
 
 function renderSlotRow(slot: Slot, inGame: boolean): string {
@@ -149,3 +151,32 @@ const w = window as Window &
 w.saveToSlot = saveToSlot;
 w.loadFromSlot = loadFromSlot;
 w.deleteFromSlot = deleteFromSlot;
+
+// Phase 2j-5: telemetry download. Greys out when there's nothing to dump
+// (no events recorded) — mirrors the Continue-button greying pattern.
+const telemetryBtn = document.getElementById(
+  DOM_IDS.TELEMETRY_DOWNLOAD_BTN
+) as HTMLButtonElement | null;
+
+export function refreshTelemetryButton(): void {
+  if (!telemetryBtn) return;
+  const empty = getTelemetryLog().length === 0;
+  telemetryBtn.disabled = empty;
+  telemetryBtn.style.opacity = empty ? '0.55' : '';
+  telemetryBtn.title = empty
+    ? 'No telemetry recorded yet — start a game and play a few turns.'
+    : 'Download a JSON log of this game\'s AI turns, combats, and build picks';
+}
+
+if (telemetryBtn) {
+  telemetryBtn.addEventListener('click', () => {
+    const data = dumpTelemetry();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cogfall-telemetry-seed${data.seed}-turn${data.turn}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}

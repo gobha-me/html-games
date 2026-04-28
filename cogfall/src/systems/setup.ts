@@ -21,6 +21,7 @@ import {
 } from './mapgen';
 import { createUnit } from './movement';
 import { recomputeVisibility } from './visibility';
+import { clearTelemetryLog } from './telemetry';
 import { DOM_IDS } from '../core/dom';
 import { centerOnHex, resizeCanvas } from '../render/pixi';
 import { closeModal } from '../ui/modals';
@@ -90,6 +91,7 @@ export function setupGame(): void {
 
   // Reset module-scope state from any previous game.
   resetCityNames();
+  clearTelemetryLog();
   G.factions = [];
   G.units = [];
   G.cities = [];
