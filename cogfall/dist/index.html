@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Cogfall — A Steampunk 4X</title>
-  <script type="module" crossorigin src="./assets/index-TmiVsBeB.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CSaAgG_a.css">
+  <script type="module" crossorigin src="./assets/index-CgOH5VXv.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BdcVZv6d.css">
 </head>
 <body>
 <body>
@@ -19,6 +19,7 @@
 <div class="resource-pill gold" title="Gold treasury"><span class="icon">⚜</span> <span id="r-gold">0</span> <span class="delta" id="r-gold-d">+0</span></div>
 <div class="resource-pill aether" title="Aether crystals"><span class="icon">✦</span> <span id="r-aether">0</span> <span class="delta" id="r-aether-d">+0</span></div>
 <div class="resource-pill science" title="Science per turn"><span class="icon">⊞</span> <span id="r-sci-d">+0</span></div>
+<div class="resource-pill culture" title="Renown per turn / cultural share"><span class="icon">✺</span> <span id="r-culture-d">+0</span> <span class="delta" id="r-culture-share">0%</span></div>
 </div>
 <button class="btn small" id="tech-btn">Knowledge</button>
 <button class="btn small" id="diplo-btn">Banners</button>
@@ -56,6 +57,7 @@
 <div class="setup-section"><label>Water</label><select id="water-level"><option value="none">None (all land)</option><option value="lakes">Lakes (scattered)</option><option value="coasts" selected>Coasts (standard)</option><option value="continents">Continents (heavy seas)</option></select></div>
 <div class="setup-section"><label>Resource density</label><select id="resource-density"><option value="sparse">Sparse</option><option value="standard" selected>Standard</option><option value="lush">Lush</option></select></div>
 </div>
+<div class="setup-section" style="margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="cultural-victory" checked> <span>Cultural victory enabled (✺ 40% claimed tiles for 5 turns)</span></label></div>
 <div class="setup-section" style="margin-top:14px"><label>World seed</label><div style="display:flex;gap:8px;align-items:stretch"><input type="number" id="setup-seed" min="0" max="4294967295" step="1" style="flex:1" title="Same seed produces the same world. Type a number or click the die."><button class="btn small" id="seed-regen" type="button" title="Generate a new random seed">🎲</button></div></div>
 <div style="text-align:right;margin-top:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="continue-btn" style="display:none">Continue Last Game</button><button class="btn primary" id="start-game">Begin the Awakening</button></div>
 </div></div>
