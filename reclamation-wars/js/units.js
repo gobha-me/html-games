@@ -12,7 +12,7 @@ class Unit {
         this.defense = template.defense;
         this.maxHp = template.hp;
         this.hp = template.hp;
-        this.movement = template.movement + (FACTIONS.find(f => f.id === owner)?.getMoveBonus() || 0);
+        this.movement = template.movement + (owner === 'dust_runners' ? 1 : 0);
         this.movementLeft = this.movement;
         this.range = template.range || 1;
         this.hasAttacked = false;
