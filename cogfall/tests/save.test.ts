@@ -4,9 +4,11 @@ import {
   loadGameState,
   readSlot,
   SAVE_VERSION,
+  SaveDataMismatchError,
   SaveVersionMismatchError,
   saveAuto,
   serializeGameState,
+  validateSaveAgainstData,
   writeSlot,
 } from '../src/core/save';
 import { updateAIStrategy } from '../src/ai/strategy';
@@ -175,6 +177,71 @@ describe('save / load', () => {
     expect(got).not.toBeNull();
     expect(got!.turn).toBe(data.turn);
     expect(got!.factionName).toBe(data.factionName);
+  });
+
+  it('loads a v3 save (no modHash/modName) cleanly as if no mod was active', () => {
+    // v3 → v4 migration smoke test: v3 saves predate the mod system, so
+    // their SerializedGameState lacks modHash/modName. Loading must succeed
+    // and leave G in a usable state.
+    buildSmallScenario();
+    const data = serializeGameState();
+    data.version = 3;
+    delete (data.state as { modHash?: string }).modHash;
+    delete (data.state as { modName?: string }).modName;
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    expect(() => loadGameState(round)).not.toThrow();
+    expect(G.factions).toHaveLength(2);
+    expect(G.turn).toBe(7);
+  });
+
+  it('validateSaveAgainstData detects unknown unit / building / tech IDs', () => {
+    buildSmallScenario();
+    const data = serializeGameState();
+    // Inject unknown ids into the serialized shape.
+    data.state.units.push({
+      id: 99,
+      typeId: 'PHANTOM_UNIT' as never,
+      factionIdx: 0 as FactionIdx,
+      q: 0,
+      r: 0,
+      hp: 1,
+      maxHp: 1,
+      mp: 0,
+      maxMp: 0,
+      fortified: false,
+    });
+    data.state.cities.push({
+      id: 99,
+      factionIdx: 0 as FactionIdx,
+      q: 0,
+      r: 0,
+      name: 'Ghost',
+      buildings: ['phantom_building' as never],
+      population: 1,
+      foodStored: 0,
+      foodNeeded: 10,
+      productionStored: 0,
+      buildQueue: null,
+      isCapital: false,
+      hp: 10,
+      maxHp: 10,
+    });
+    data.state.factions[0].techs.push('phantom_tech' as never);
+
+    const missing = validateSaveAgainstData(data.state);
+    const ids = missing.map((m) => `${m.kind}:${m.id}`);
+    expect(ids).toContain('unit:PHANTOM_UNIT');
+    expect(ids).toContain('building:phantom_building');
+    expect(ids).toContain('tech:phantom_tech');
+    expect(missing).toHaveLength(3);
+  });
+
+  it('loadGameState throws SaveDataMismatchError when IDs are missing from data tables', () => {
+    buildSmallScenario();
+    const data = serializeGameState();
+    data.state.factions[0].techs.push('phantom_tech' as never);
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    expect(() => loadGameState(round)).toThrow(SaveDataMismatchError);
   });
 
   it('loads a v2 save without targetCityId and survives an updateAIStrategy call', () => {

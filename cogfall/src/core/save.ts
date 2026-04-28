@@ -10,6 +10,9 @@
 import { G } from './state';
 import { log } from './log';
 import { getGameRngState, initGameRng, setGameRngState } from './rng';
+import { UNIT_TYPES } from '../data/units';
+import { BUILDING_TYPES } from '../data/buildings';
+import { TECHS } from '../data/techs';
 import type {
   AIMemory,
   BuildingId,
@@ -37,7 +40,15 @@ import type {
 // (Phase 2g). v2 saves load with cultural counter empty, threshold/required
 // at engine defaults, and `culturalHegemonyEnabled = true`. Tile.claim is
 // optional, so v2 tiles simply have no claim until the next endTurn pass.
-export const SAVE_VERSION = 3;
+//
+// v3 → v4: added optional `modHash` + `modName` to SerializedGameState
+// (Phase 2i). v3 saves load as if no mod was active. v4 also adds
+// validateSaveAgainstData() — runs on every load to catch IDs that no
+// longer exist in current data tables (e.g., a mod removed a building
+// type the save references). Pre-2i this would silently crash later in
+// yield aggregation; now it throws a descriptive SaveDataMismatchError up
+// front.
+export const SAVE_VERSION = 4;
 export const MANUAL_SLOTS = 3;
 export const AUTOSAVE_KEY = 'cogfall:autosave';
 const slotKey = (n: number): string => `cogfall:save:${n}`;
@@ -87,6 +98,9 @@ interface SerializedGameState {
   culturalHegemonyRequired?: number;
   culturalHegemonyCounter?: Partial<Record<number, number>>;
   culturalHegemonyEnabled?: boolean;
+  /** v4+ (Phase 2i): hash + name of the mod active at save time, if any. */
+  modHash?: string;
+  modName?: string;
 }
 
 export interface SaveData {
@@ -157,14 +171,69 @@ export class SaveVersionMismatchError extends Error {
   }
 }
 
+/**
+ * Thrown when a save references unit / building / tech IDs that don't exist
+ * in the currently-loaded data tables. Most commonly hit when a mod has
+ * been applied that removes or renames an ID the save was written against.
+ *
+ * Surfaced up front in loadGameState so the failure mode is descriptive
+ * instead of a later crash inside yield aggregation or AI scoring.
+ */
+export class SaveDataMismatchError extends Error {
+  constructor(public missing: { kind: 'unit' | 'building' | 'tech'; id: string }[]) {
+    const summary = missing
+      .slice(0, 5)
+      .map((m) => `${m.kind}:${m.id}`)
+      .join(', ');
+    const more = missing.length > 5 ? `, +${missing.length - 5} more` : '';
+    super(`Save references ${missing.length} unknown ID(s): ${summary}${more}`);
+    this.name = 'SaveDataMismatchError';
+  }
+}
+
+/**
+ * Walks a SerializedGameState and reports any unit / building / tech IDs
+ * that aren't present in the current data tables. Returns an empty array
+ * if everything resolves. Cheap — single linear pass over units, cities
+ * (their building sets), and faction techs.
+ */
+export function validateSaveAgainstData(
+  s: SerializedGameState
+): { kind: 'unit' | 'building' | 'tech'; id: string }[] {
+  const missing: { kind: 'unit' | 'building' | 'tech'; id: string }[] = [];
+  for (const u of s.units) {
+    if (!(u.typeId in UNIT_TYPES)) missing.push({ kind: 'unit', id: u.typeId });
+  }
+  for (const c of s.cities) {
+    for (const b of c.buildings) {
+      if (!(b in BUILDING_TYPES)) missing.push({ kind: 'building', id: b });
+    }
+  }
+  for (const f of s.factions) {
+    for (const t of f.techs) {
+      if (!(t in TECHS)) missing.push({ kind: 'tech', id: t });
+    }
+  }
+  return missing;
+}
+
 const DEFAULT_CULTURAL_HEGEMONY_THRESHOLD = 0.4;
 const DEFAULT_CULTURAL_HEGEMONY_REQUIRED = 5;
 
 export function loadGameState(data: SaveData): void {
-  if (data.version !== 1 && data.version !== 2 && data.version !== SAVE_VERSION) {
+  if (
+    data.version !== 1 &&
+    data.version !== 2 &&
+    data.version !== 3 &&
+    data.version !== SAVE_VERSION
+  ) {
     throw new SaveVersionMismatchError(data.version, SAVE_VERSION);
   }
   const s = data.state;
+  const missing = validateSaveAgainstData(s);
+  if (missing.length > 0) {
+    throw new SaveDataMismatchError(missing);
+  }
 
   G.map = s.map
     ? ({
