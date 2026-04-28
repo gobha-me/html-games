@@ -84,6 +84,21 @@ export const DOM_IDS = {
   // Phase 2j: telemetry
   TELEMETRY_ENABLED: 'telemetry-enabled',
   TELEMETRY_DOWNLOAD_BTN: 'telemetry-download',
+
+  // Phase 2k: replay viewer
+  REPLAY_ENABLED: 'replay-enabled',
+  REPLAY_DOWNLOAD_BTN: 'replay-download',
+  REPLAY_OPEN_BTN: 'replay-open',
+  REPLAY_MODAL: 'replay-modal',
+  REPLAY_FILE: 'replay-file',
+  REPLAY_STATUS: 'replay-status',
+  REPLAY_SLIDER: 'replay-slider',
+  REPLAY_STEP_PREV: 'replay-step-prev',
+  REPLAY_STEP_NEXT: 'replay-step-next',
+  REPLAY_PLAY: 'replay-play',
+  REPLAY_TURN_LABEL: 'replay-turn-label',
+  REPLAY_EVENTS: 'replay-events',
+  REPLAY_CLOSE: 'replay-close',
 } as const;
 
 export type DomId = (typeof DOM_IDS)[keyof typeof DOM_IDS];

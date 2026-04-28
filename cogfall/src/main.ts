@@ -25,6 +25,7 @@ import './ui/diploModal';
 import './ui/setupModal';
 import './ui/saveModal';
 import './ui/minimap';
+import './ui/replayModal';
 
 import { DOM_IDS } from './core/dom';
 import { setRequestRedraw } from './systems/turn';
