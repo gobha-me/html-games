@@ -88,6 +88,19 @@ export const UNIT_TYPES = {
     glyph: '⚒',
     desc: 'Builds tile improvements.',
   },
+  SABOTEUR: {
+    name: 'Saboteur',
+    hp: 12,
+    atk: 1,
+    def: 1,
+    mp: 4,
+    sight: 2,
+    cost: 50,
+    requires: 'espionage',
+    abilities: ['steal_tech'],
+    glyph: 'ƒ',
+    desc: 'Slips past borders. Steals tech from rival cities (one-shot).',
+  },
   STEAMSHIP: {
     name: 'Steamship',
     hp: 22,
@@ -134,4 +147,9 @@ export type UnitDef = (typeof UNIT_TYPES)[UnitTypeId];
 export function isNaval(typeId: UnitTypeId): boolean {
   const tpl = UNIT_TYPES[typeId];
   return 'domain' in tpl && tpl.domain === 'sea';
+}
+
+export function isSpy(typeId: UnitTypeId): boolean {
+  const tpl = UNIT_TYPES[typeId];
+  return 'abilities' in tpl && (tpl.abilities as readonly string[]).includes('steal_tech');
 }

@@ -45,6 +45,14 @@ export const TECHS = {
     branch: 'science',
     flavor: 'The unseen currents reveal themselves.',
   },
+  espionage: {
+    name: 'Espionage',
+    cost: 120,
+    prereqs: ['rediscovery'],
+    branch: 'science',
+    unlocks: ['SABOTEUR'],
+    flavor: 'Coded letters in lacquered cases; whispers in foundry shadows.',
+  },
   steamcraft: {
     name: 'Steamcraft',
     cost: 130,
