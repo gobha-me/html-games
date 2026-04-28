@@ -9,7 +9,7 @@ import { DOM_IDS } from '../core/dom';
 import { G, getCityAt, getTile } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
-import { UNIT_TYPES, isNaval } from '../data/units';
+import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
 import type { Tile, Visibility } from '../core/types';
 import { renderSVGOverlay } from './overlay';
 
@@ -209,6 +209,7 @@ function drawUnit(u: {
   const fac = G.factions[u.factionIdx];
   const tpl = UNIT_TYPES[u.typeId];
   const naval = isNaval(u.typeId);
+  const spy = isSpy(u.typeId);
   const { x, y } = hexToPixel(u.q, u.r);
   const cityHere = getCityAt(u.q, u.r);
   const offY = cityHere ? HEX_SIZE * 0.35 : 0;
@@ -236,6 +237,16 @@ function drawUnit(u: {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(tpl.glyph, x, y - offY);
+  if (spy) {
+    ctx.save();
+    ctx.strokeStyle = '#a060e0';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.arc(x, y - offY, HEX_SIZE * 0.52, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   if (u.hp < u.maxHp) {
     const w = HEX_SIZE * 0.7;
     ctx.fillStyle = '#222';
