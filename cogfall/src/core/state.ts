@@ -26,6 +26,15 @@
 //
 //  4. No z-sorting in render — units always paint on top of cities. Stable
 //     visual order is fine; defer dynamic z to a polish pass.
+//
+//  5. Rivers (Phase 2c) are visual + bookkeeping only — Tile.riverEdges is a
+//     6-bit bitmask over HEX_DIRS, drawn as pale-blue strokes in
+//     render/canvas.ts. NO movement cost, NO defense bonus, NO yield change
+//     this phase. A "river crossing penalty" or "river adjacency food
+//     bonus" is a candidate for Phase 2f (better AI / balance) or 2h
+//     (polish), not a 2c smuggle. Don't "helpfully" wire river logic into
+//     movement.ts, combat.ts, or city yields mid-2c — replay parity and
+//     scope discipline both depend on this staying inert.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';

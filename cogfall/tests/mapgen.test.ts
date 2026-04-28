@@ -3,6 +3,7 @@ import { generateMap, findFactionStarts, isCoast } from '../src/systems/mapgen';
 import { createSeededRng } from '../src/core/rng';
 import { G } from '../src/core/state';
 import { TERRAIN_TYPES } from '../src/data/terrain';
+import { HEX_DIRS } from '../src/core/hex';
 
 describe('mapgen', () => {
   describe('generateMap', () => {
@@ -132,6 +133,54 @@ describe('mapgen', () => {
       }
       expect(coastCount).toBeGreaterThan(0);
       expect(waterCoast).toBe(0);
+    });
+  });
+
+  describe('rivers (2c-2)', () => {
+    it('places at least one river segment on a medium map', () => {
+      const m = generateMap('medium', createSeededRng(42));
+      let withRiver = 0;
+      for (const t of m.tiles.values()) {
+        if (t.riverEdges) withRiver++;
+      }
+      expect(withRiver).toBeGreaterThan(0);
+    });
+
+    it('produces deterministic rivers for a given seed', () => {
+      const a = generateMap('medium', createSeededRng(7));
+      const b = generateMap('medium', createSeededRng(7));
+      for (const ta of a.tiles.values()) {
+        const tb = b.tiles.get(`${ta.q},${ta.r}`)!;
+        expect(tb.riverEdges ?? 0).toBe(ta.riverEdges ?? 0);
+      }
+    });
+
+    it('never sets a river edge that points into a mountain', () => {
+      const m = generateMap('medium', createSeededRng(42));
+      for (const tile of m.tiles.values()) {
+        if (!tile.riverEdges) continue;
+        for (let d = 0; d < 6; d++) {
+          if (!(tile.riverEdges & (1 << d))) continue;
+          const dir = HEX_DIRS[d];
+          const neighbor = m.tiles.get(`${tile.q + dir.q},${tile.r + dir.r}`);
+          if (neighbor) expect(neighbor.terrain).not.toBe('MOUNTAINS');
+        }
+      }
+    });
+
+    it('river edges are mutual — both tiles agree on the shared edge', () => {
+      const m = generateMap('large', createSeededRng(99));
+      for (const tile of m.tiles.values()) {
+        if (!tile.riverEdges) continue;
+        for (let d = 0; d < 6; d++) {
+          if (!(tile.riverEdges & (1 << d))) continue;
+          const dir = HEX_DIRS[d];
+          const neighbor = m.tiles.get(`${tile.q + dir.q},${tile.r + dir.r}`);
+          if (!neighbor) continue;
+          const oppBit = 1 << ((d + 3) % 6);
+          expect((neighbor.riverEdges ?? 0) & oppBit).not.toBe(0);
+        }
+      }
     });
   });
 });

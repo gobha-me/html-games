@@ -85,6 +85,20 @@ function drawHex(tile: Tile, vis: Visibility): void {
   ctx.strokeStyle = tt.edge;
   ctx.lineWidth = 1;
   ctx.stroke();
+  if (tile.riverEdges) {
+    ctx.strokeStyle = vis === 'seen' ? 'rgba(127,184,214,0.5)' : '#7fb8d6';
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 6; i++) {
+      if (tile.riverEdges & (1 << i)) {
+        const c1 = hexCorner(x, y, i);
+        const c2 = hexCorner(x, y, (i + 1) % 6);
+        ctx.beginPath();
+        ctx.moveTo(c1.x, c1.y);
+        ctx.lineTo(c2.x, c2.y);
+        ctx.stroke();
+      }
+    }
+  }
   if (tt.glyph) {
     ctx.fillStyle = vis === 'seen' ? 'rgba(244,228,188,0.35)' : 'rgba(244,228,188,0.55)';
     ctx.font = `${HEX_SIZE * 0.85}px serif`;

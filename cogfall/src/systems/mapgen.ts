@@ -17,7 +17,7 @@
 // Phase 2c adds the water pass; it consumes only the existing noise
 // field (no new rng draws), so save-load rng cursor parity is preserved.
 
-import { hexDistance, hexKey, hexNeighbors } from '../core/hex';
+import { HEX_DIRS, hexDistance, hexKey, hexNeighbors } from '../core/hex';
 import { defaultRng, shuffle, type Rng } from '../core/rng';
 import { G } from '../core/state';
 import type { GameMap, Tile, TerrainId } from '../core/types';
@@ -27,6 +27,9 @@ import { MAP_SIZES, type MapSizeId } from '../data/factions';
 const RUIN_FRACTION = 0.025;
 const AETHER_FRACTION = 0.018;
 const WATER_PERCENTILE = 0.18;
+const RIVER_DIVISOR = 80;
+const RIVER_HEADWATER_QUANTILE = 0.2;
+const RIVER_MAX_STEPS = 200;
 const MIN_FACTION_SPACING_FLOOR = 6;
 const MIN_FACTION_SPACING_RATIO = 1.2;
 const MAX_PLACEMENT_ATTEMPTS = 3000;
@@ -128,6 +131,53 @@ export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
     const offCol = tile.q + Math.floor(tile.r / 2);
     if (offCol <= 0 || offCol >= w - 1 || tile.r <= 0 || tile.r >= h - 1) {
       tile.terrain = (rng() < 0.5 ? 'MOUNTAINS' : 'WASTES') as TerrainId;
+    }
+  }
+
+  // River tracing. Pick headwater seeds from the highest-elevation
+  // non-mountain non-water tiles, walk strictly downhill setting
+  // riverEdges bits on both tiles of each crossed edge. Refuses to
+  // step into a mountain (can't carve a river through stone) and
+  // terminates on water (river reaches the sea), the map edge, or
+  // any local minimum (no strictly-lower neighbor).
+  //
+  // No movement-cost or defense-bonus impact this commit — see
+  // decision-log entry 5 in core/state.ts. Rivers are visual +
+  // bookkeeping in 2c.
+  const numRivers = Math.floor(tiles.size / RIVER_DIVISOR);
+  const elevSorted = [...tiles.values()].sort(
+    (a, b) =>
+      fields.get(hexKey(b.q, b.r))!.elevation - fields.get(hexKey(a.q, a.r))!.elevation,
+  );
+  const seedPool = elevSorted
+    .slice(0, Math.floor(elevSorted.length * RIVER_HEADWATER_QUANTILE))
+    .filter((t) => t.terrain !== 'MOUNTAINS' && t.terrain !== 'WATER');
+
+  for (let n = 0; n < numRivers && seedPool.length > 0; n++) {
+    let cur = seedPool[Math.floor(rng() * seedPool.length)];
+    let safety = 0;
+    while (safety++ < RIVER_MAX_STEPS) {
+      if (cur.terrain === 'WATER') break;
+      const curElev = fields.get(hexKey(cur.q, cur.r))!.elevation;
+      let bestNeighbor: Tile | null = null;
+      let bestElev = curElev;
+      let bestDir = -1;
+      for (let d = 0; d < 6; d++) {
+        const dir = HEX_DIRS[d];
+        const nt = tiles.get(hexKey(cur.q + dir.q, cur.r + dir.r));
+        if (!nt) continue;
+        if (nt.terrain === 'MOUNTAINS') continue;
+        const ne = fields.get(hexKey(nt.q, nt.r))!.elevation;
+        if (ne < bestElev) {
+          bestElev = ne;
+          bestNeighbor = nt;
+          bestDir = d;
+        }
+      }
+      if (!bestNeighbor) break;
+      cur.riverEdges = (cur.riverEdges ?? 0) | (1 << bestDir);
+      bestNeighbor.riverEdges = (bestNeighbor.riverEdges ?? 0) | (1 << ((bestDir + 3) % 6));
+      cur = bestNeighbor;
     }
   }
 

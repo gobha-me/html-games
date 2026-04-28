@@ -48,6 +48,9 @@ export interface Tile {
   cityId: number | null;
   unitId: number | null;
   visibility: Partial<Record<number, Visibility>>;
+  /** 6-bit bitmask of which HEX_DIRS edges have a river segment. Optional —
+   * absent on tiles without rivers and on saves written before Phase 2c. */
+  riverEdges?: number;
 }
 
 export interface GameMap {
