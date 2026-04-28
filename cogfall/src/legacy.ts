@@ -11,36 +11,29 @@ import { TECHS, TECH_BRANCHES } from './data/techs';
 import { FACTIONS, MAP_SIZES, CITY_NAMES } from './data/factions';
 import { PERSONALITIES, AI_THINKING_LINES } from './data/personalities';
 
+// Phase 1 step 3: core utilities (hex math, state, types, rng, dom IDs).
+import {
+  HEX_SIZE,
+  SQRT3,
+  HEX_DIRS,
+  hexToPixel,
+  pixelToHex,
+  roundHex,
+  hexNeighbors,
+  hexDistance,
+  hexKey,
+} from './core/hex';
+import { G } from './core/state';
+
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
-// ============================================================================
-// HEX MATH (pointy-top, axial coordinates)
-// ============================================================================
-const HEX_SIZE=30,SQRT3=Math.sqrt(3);
-function hexToPixel(q,r){return{x:HEX_SIZE*SQRT3*(q+r/2),y:HEX_SIZE*1.5*r}}
-function pixelToHex(x,y){const q=(SQRT3/3*x-y/3)/HEX_SIZE,r=(2/3*y)/HEX_SIZE;return roundHex(q,r)}
-function roundHex(q,r){const s=-q-r;let rq=Math.round(q),rr=Math.round(r),rs=Math.round(s);const dq=Math.abs(rq-q),dr=Math.abs(rr-r),ds=Math.abs(rs-s);if(dq>dr&&dq>ds)rq=-rr-rs;else if(dr>ds)rr=-rq-rs;return{q:rq,r:rr}}
-const HEX_DIRS=[{q:1,r:0},{q:1,r:-1},{q:0,r:-1},{q:-1,r:0},{q:-1,r:1},{q:0,r:1}];
-function hexNeighbors(q,r){return HEX_DIRS.map(d=>({q:q+d.q,r:r+d.r}))}
-function hexDistance(a,b){return(Math.abs(a.q-b.q)+Math.abs(a.q+a.r-b.q-b.r)+Math.abs(a.r-b.r))/2}
-function hexKey(q,r){return q+','+r}
+// (HEX MATH section moved to src/core/hex.ts — see imports above.)
 
 // (DATA section moved to src/data/*.ts — see imports at top of file.)
 
-// ============================================================================
-// GAME STATE
-// ============================================================================
-const G={
-  map:null,factions:[],units:[],cities:[],turn:1,
-  currentFactionIdx:0,playerFactionIdx:0,
-  difficulty:'medium',goldHegemonyThreshold:5000,goldHegemonyRequired:3,
-  selected:null,moveTargets:[],attackTargets:[],
-  events:[],goldHegemonyCounter:{},
-  cameraX:0,cameraY:0,zoom:1,
-  isDragging:false,dragStart:null,
-  nextUnitId:1,nextCityId:1,
-  gameOver:false,aiMemory:{}
-};
+// (GAME STATE singleton moved to src/core/state.ts — see import above.)
+// canvas/ctx/svg refs and resizeCanvas remain here until render/canvas.ts
+// is created in step 7.
 const canvas=document.getElementById('map-canvas');
 const ctx=canvas.getContext('2d');
 const svg=document.getElementById('overlay-svg');
