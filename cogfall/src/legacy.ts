@@ -30,6 +30,23 @@ import { log, renderLog } from './core/log';
 // Phase 1 step 4: systems peeled out into src/systems/*.ts.
 import { recomputeVisibility, setVisibleAround } from './systems/visibility';
 import { generateMap, findFactionStarts } from './systems/mapgen';
+import {
+  createUnit,
+  killUnit,
+  computeMoveTargets,
+  computeAttackTargets,
+  moveUnit,
+  handleRuinDiscovery,
+} from './systems/movement';
+import {
+  combat,
+  getDifficultyAtkBonus,
+  autoDeclare,
+  captureCity,
+  eliminateFaction,
+} from './systems/combat';
+import { createCity, cityYields, processCity, pickCityName } from './systems/city';
+import { getAvailableTechs, processResearch } from './systems/research';
 
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
@@ -56,312 +73,16 @@ function createFaction(template,isAI,idx){
   if(template.id==='coin')f.resources.gold+=50;
   return f;
 }
-function createUnit(typeId,factionIdx,q,r){
-  const tpl=UNIT_TYPES[typeId];
-  const u={id:G.nextUnitId++,typeId,factionIdx,q,r,hp:tpl.hp,maxHp:tpl.hp,mp:tpl.mp,maxMp:tpl.mp,fortified:false};
-  G.units.push(u);
-  const tile=getTile(q,r);
-  if(tile)tile.unitId=u.id;
-  return u;
-}
-function createCity(factionIdx,q,r,name){
-  const c={id:G.nextCityId++,factionIdx,q,r,name,population:1,foodStored:0,foodNeeded:10,productionStored:0,buildings:new Set(),buildQueue:null,isCapital:false,hp:50,maxHp:50};
-  G.cities.push(c);
-  const tile=getTile(q,r);
-  if(tile){tile.cityId=c.id;tile.owner=factionIdx}
-  for(const n of hexNeighbors(q,r)){const t=getTile(n.q,n.r);if(t&&t.owner==null)t.owner=factionIdx}
-  return c;
-}
+// (createUnit / createCity moved to src/systems/movement.ts and src/systems/city.ts.)
 // (getTile / getUnitAt / getCityAt moved to src/core/state.ts.)
 
 // (VISIBILITY moved to src/systems/visibility.ts.)
-// ============================================================================
-// MOVEMENT / COMBAT
-// ============================================================================
-function computeMoveTargets(unit){
-  const start={q:unit.q,r:unit.r};
-  const visited=new Map();
-  visited.set(hexKey(start.q,start.r),{cost:0});
-  const frontier=[{q:start.q,r:start.r,cost:0}];
-  while(frontier.length){
-    frontier.sort((a,b)=>a.cost-b.cost);
-    const cur=frontier.shift();
-    for(const n of hexNeighbors(cur.q,cur.r)){
-      const t=getTile(n.q,n.r);
-      if(!t)continue;
-      const tt=TERRAIN_TYPES[t.terrain];
-      if(!tt.walkable)continue;
-      const newCost=cur.cost+tt.moveCost;
-      if(newCost>unit.mp)continue;
-      const occupant=getUnitAt(n.q,n.r);
-      if(occupant&&occupant.factionIdx!==unit.factionIdx)continue;
-      if(occupant&&occupant.factionIdx===unit.factionIdx){
-        const c=getCityAt(n.q,n.r);
-        if(!(c&&c.factionIdx===unit.factionIdx))continue;
-      }
-      const key=hexKey(n.q,n.r);
-      if(!visited.has(key)||visited.get(key).cost>newCost){
-        visited.set(key,{cost:newCost});
-        frontier.push({q:n.q,r:n.r,cost:newCost});
-      }
-    }
-  }
-  visited.delete(hexKey(start.q,start.r));
-  const result=[];
-  for(const[k,v]of visited.entries()){const[q,r]=k.split(',').map(Number);result.push({q,r,cost:v.cost})}
-  return result;
-}
-function computeAttackTargets(unit){
-  if(UNIT_TYPES[unit.typeId].atk===0)return[];
-  const result=[];
-  for(const n of hexNeighbors(unit.q,unit.r)){
-    const t=getTile(n.q,n.r);
-    if(!t)continue;
-    const enemy=getUnitAt(n.q,n.r);
-    const enemyCity=getCityAt(n.q,n.r);
-    if(enemy&&enemy.factionIdx!==unit.factionIdx)result.push({q:n.q,r:n.r,target:'unit'});
-    else if(enemyCity&&enemyCity.factionIdx!==unit.factionIdx)result.push({q:n.q,r:n.r,target:'city'});
-  }
-  return result;
-}
-function moveUnit(unit,q,r){
-  const targets=computeMoveTargets(unit);
-  const target=targets.find(t=>t.q===q&&t.r===r);
-  if(!target)return false;
-  const oldTile=getTile(unit.q,unit.r);
-  const newTile=getTile(q,r);
-  if(oldTile&&oldTile.unitId===unit.id)oldTile.unitId=null;
-  unit.q=q;unit.r=r;
-  if(newTile)newTile.unitId=unit.id;
-  unit.mp-=target.cost;
-  if(unit.mp<0)unit.mp=0;
-  unit.fortified=false;
-  recomputeVisibility();
-  if(newTile&&TERRAIN_TYPES[newTile.terrain].isRuin&&!newTile.improvement){
-    handleRuinDiscovery(unit,newTile);
-  }
-  return true;
-}
-function handleRuinDiscovery(unit,tile){
-  tile.improvement='looted';
-  const f=G.factions[unit.factionIdx];
-  const roll=Math.random();
-  if(roll<0.35){const g=30+Math.floor(Math.random()*50);f.resources.gold+=g;log(`${f.name} sifted ${g} gold from Old World ruins.`,'good',unit.factionIdx===G.playerFactionIdx)}
-  else if(roll<0.65){const s=30+Math.floor(Math.random()*40);f.science+=s;log(`${f.name} recovered ancient blueprints (${s} science).`,'tech',unit.factionIdx===G.playerFactionIdx)}
-  else if(roll<0.85){const a=5+Math.floor(Math.random()*10);f.resources.aether+=a;log(`${f.name} pried ${a} aether crystals from a sealed vault.`,'tech',unit.factionIdx===G.playerFactionIdx)}
-  else log(`${f.name} found only dust and broken cogs in the ruin.`,'flavor',unit.factionIdx===G.playerFactionIdx);
-}
+// (MOVEMENT / COMBAT moved to src/systems/movement.ts and src/systems/combat.ts.)
 
-function combat(attacker,defenderQR){
-  const defender=getUnitAt(defenderQR.q,defenderQR.r);
-  const defCity=getCityAt(defenderQR.q,defenderQR.r);
-  // Auto-declare war if not already
-  if(defender){autoDeclare(attacker.factionIdx,defender.factionIdx)}
-  else if(defCity){autoDeclare(attacker.factionIdx,defCity.factionIdx)}
-  
-  if(defender){
-    const aTpl=UNIT_TYPES[attacker.typeId],dTpl=UNIT_TYPES[defender.typeId];
-    const defTile=getTile(defender.q,defender.r);
-    const terrainDef=TERRAIN_TYPES[defTile.terrain].defBonus;
-    const fortifyBonus=defender.fortified?0.3:0;
-    let cityDef=0,factionDefBonus=0;
-    const cityHere=getCityAt(defender.q,defender.r);
-    if(cityHere){
-      cityDef=0.25;
-      if(cityHere.buildings.has('walls'))cityDef+=0.5;
-      if(cityHere.buildings.has('citadel'))cityDef+=1.0;
-      if(G.factions[defender.factionIdx].id==='verdant')factionDefBonus+=0.25;
-    }
-    const aFac=G.factions[attacker.factionIdx],dFac=G.factions[defender.factionIdx];
-    const ironBonus=aFac.id==='iron'?0.2:0;
-    const aiBonus=getDifficultyAtkBonus(attacker.factionIdx);
-    const atkPow=aTpl.atk*(1+ironBonus+aiBonus)*(attacker.hp/attacker.maxHp);
-    const defPow=dTpl.def*(1+terrainDef+fortifyBonus+cityDef+factionDefBonus)*(defender.hp/defender.maxHp);
-    const ratio=atkPow/Math.max(0.5,defPow);
-    const atkDmg=Math.max(2,Math.round(8*ratio+Math.random()*4));
-    const defDmg=Math.max(1,Math.round(8/ratio+Math.random()*3));
-    defender.hp-=atkDmg;
-    attacker.hp-=defDmg;
-    attacker.mp=0;
-    log(`${aFac.name}'s ${aTpl.name} attacks ${dFac.name}'s ${dTpl.name}: ${atkDmg} dealt, ${defDmg} taken.`,'combat',attacker.factionIdx===G.playerFactionIdx||defender.factionIdx===G.playerFactionIdx);
-    if(defender.hp<=0)killUnit(defender);
-    if(attacker.hp<=0){killUnit(attacker);return}
-    if(G.aiMemory[defender.factionIdx])G.aiMemory[defender.factionIdx].grudges[attacker.factionIdx]=(G.aiMemory[defender.factionIdx].grudges[attacker.factionIdx]||0)+30;
-  }else if(defCity){
-    const aTpl=UNIT_TYPES[attacker.typeId];
-    let cityDef=25;
-    if(defCity.buildings.has('walls'))cityDef+=25;
-    if(defCity.buildings.has('citadel'))cityDef+=50;
-    if(G.factions[defCity.factionIdx].id==='verdant')cityDef+=15;
-    const aiBonus=getDifficultyAtkBonus(attacker.factionIdx);
-    const atkPow=aTpl.atk*(attacker.hp/attacker.maxHp)*(1+aiBonus);
-    const dmg=Math.max(2,Math.round(atkPow*60/cityDef));
-    defCity.hp-=dmg;
-    attacker.hp-=3;
-    attacker.mp=0;
-    log(`${G.factions[attacker.factionIdx].name} assaults ${defCity.name}: ${dmg} damage.`,'combat',true);
-    if(defCity.hp<=0){captureCity(defCity,attacker.factionIdx);moveUnit(attacker,defCity.q,defCity.r)}
-    if(attacker.hp<=0)killUnit(attacker);
-    if(G.aiMemory[defCity.factionIdx])G.aiMemory[defCity.factionIdx].grudges[attacker.factionIdx]=(G.aiMemory[defCity.factionIdx].grudges[attacker.factionIdx]||0)+50;
-  }
-}
 
-function getDifficultyAtkBonus(factionIdx){
-  if(factionIdx===G.playerFactionIdx)return 0;
-  if(G.difficulty==='easy')return -0.15;
-  if(G.difficulty==='hard')return 0.15;
-  return 0;
-}
+// (RESEARCH moved to src/systems/research.ts. processResearch now returns
+// {ascensionTriggered}; the endTurn call site handles the victory trigger.)
 
-function autoDeclare(a,b){
-  const fa=G.factions[a],fb=G.factions[b];
-  if(fa.diplo[b]!=='war'){fa.diplo[b]='war';fb.diplo[a]='war';log(`${fa.name} and ${fb.name} are at war!`,'warning',a===G.playerFactionIdx||b===G.playerFactionIdx)}
-}
-
-function killUnit(unit){
-  G.units=G.units.filter(u=>u.id!==unit.id);
-  const t=getTile(unit.q,unit.r);
-  if(t&&t.unitId===unit.id)t.unitId=null;
-}
-
-function captureCity(city,newFactionIdx){
-  const oldFac=G.factions[city.factionIdx],newFac=G.factions[newFactionIdx];
-  log(`${city.name} falls to ${newFac.name}!`,'warning',true);
-  city.factionIdx=newFactionIdx;
-  city.hp=Math.max(20,Math.floor(city.maxHp/2));
-  city.population=Math.max(1,city.population-1);
-  city.buildQueue=null;
-  // Clear half buildings (sack)
-  const blds=[...city.buildings];shuffle(blds);for(let i=0;i<Math.floor(blds.length/3);i++)city.buildings.delete(blds[i]);
-  const loot=50+city.population*30;newFac.resources.gold+=loot;
-  for(const t of G.map.tiles.values())if(t.cityId===city.id)t.owner=newFactionIdx;
-  for(const n of hexNeighbors(city.q,city.r)){const t=getTile(n.q,n.r);if(t&&t.owner===oldFac.idx)t.owner=newFactionIdx}
-  if(city.isCapital){
-    const remaining=G.cities.filter(c=>c.factionIdx===oldFac.idx);
-    if(remaining.length===0)eliminateFaction(oldFac.idx);
-    else{remaining[0].isCapital=true}
-  }
-}
-
-function eliminateFaction(factionIdx){
-  const f=G.factions[factionIdx];
-  if(!f.alive)return;
-  f.alive=false;
-  log(`${f.name} has been wiped from the map!`,'warning',true);
-  G.units=G.units.filter(u=>u.factionIdx!==factionIdx);
-  for(const t of G.map.tiles.values()){
-    if(t.unitId!=null){const u=G.units.find(uu=>uu.id===t.unitId);if(!u)t.unitId=null}
-  }
-}
-
-// ============================================================================
-// CITY PRODUCTION
-// ============================================================================
-function cityYields(city){
-  const fac=G.factions[city.factionIdx];
-  let food=2,prod=1,gold=1,sci=0,aether=0;
-  const candidates=hexNeighbors(city.q,city.r).map(n=>getTile(n.q,n.r))
-    .filter(t=>t&&t.owner===city.factionIdx&&!t.cityId&&TERRAIN_TYPES[t.terrain].walkable)
-    .map(t=>{const tt=TERRAIN_TYPES[t.terrain];let f=tt.food,p=tt.prod,g=tt.gold;if(t.improvement==='mine')p+=2;if(t.improvement==='farm')f+=2;if(t.improvement==='road')g+=1;return{f,p,g,score:f*1.2+p*1.0+g*0.7,terrain:t.terrain}})
-    .sort((a,b)=>b.score-a.score);
-  const numWorked=Math.min(city.population,candidates.length);
-  for(let i=0;i<numWorked;i++){food+=candidates[i].f;prod+=candidates[i].p;gold+=candidates[i].g;
-    // Aether vents worked yield aether
-    if(candidates[i].terrain==='AETHER')aether+=2;
-  }
-  for(const b of city.buildings){
-    const bt=BUILDING_TYPES[b];
-    if(!bt||!bt.yields)continue;
-    food+=bt.yields.food||0;prod+=bt.yields.prod||0;gold+=bt.yields.gold||0;sci+=bt.yields.science||0;aether+=bt.yields.aether||0;
-  }
-  if(fac.id==='aetheric')aether+=1;
-  food-=city.population;
-  // Difficulty bonus for AI
-  if(fac.idx!==G.playerFactionIdx){
-    if(G.difficulty==='hard'){gold=Math.round(gold*1.1);prod=Math.round(prod*1.1);sci=Math.round(sci*1.15)}
-    else if(G.difficulty==='easy'){gold=Math.round(gold*0.9);prod=Math.round(prod*0.9);sci=Math.round(sci*0.85)}
-  }
-  return{food,prod,gold,sci,aether};
-}
-
-function processCity(city){
-  const y=cityYields(city);
-  const fac=G.factions[city.factionIdx];
-  fac.resources.gold+=y.gold;
-  fac.resources.aether+=y.aether;
-  fac.science+=y.sci;
-  city.foodStored+=y.food;
-  if(city.foodStored<0)city.foodStored=0;
-  city.productionStored+=y.prod;
-  if(city.foodStored>=city.foodNeeded){
-    city.foodStored-=city.foodNeeded;city.population++;
-    city.foodNeeded=10+city.population*6;
-    city.maxHp=50+city.population*10;
-    city.hp=Math.min(city.maxHp,city.hp+10);
-    log(`${city.name} grows to size ${city.population}.`,'good',city.factionIdx===G.playerFactionIdx);
-  }
-  if(city.hp<city.maxHp)city.hp=Math.min(city.maxHp,city.hp+4);
-  for(const u of G.units.filter(u=>u.factionIdx===city.factionIdx&&u.q===city.q&&u.r===city.r))u.hp=Math.min(u.maxHp,u.hp+3);
-  if(city.buildQueue){
-    const item=city.buildQueue;
-    let cost=0;
-    if(item.kind==='unit')cost=UNIT_TYPES[item.id].cost;
-    else if(item.kind==='building')cost=BUILDING_TYPES[item.id].cost;
-    if(city.productionStored>=cost){
-      city.productionStored-=cost;
-      if(item.kind==='unit'){
-        let spawnQ=city.q,spawnR=city.r;
-        const occupant=getUnitAt(city.q,city.r);
-        if(occupant){
-          if(occupant.factionIdx!==city.factionIdx)return;
-          const spot=hexNeighbors(city.q,city.r).find(n=>{const t=getTile(n.q,n.r);return t&&TERRAIN_TYPES[t.terrain].walkable&&!getUnitAt(n.q,n.r)});
-          if(spot){spawnQ=spot.q;spawnR=spot.r}
-          else{city.productionStored+=cost;return}
-        }
-        createUnit(item.id,city.factionIdx,spawnQ,spawnR);
-        log(`${city.name} musters a ${UNIT_TYPES[item.id].name}.`,'good',city.factionIdx===G.playerFactionIdx);
-      }else if(item.kind==='building'){
-        city.buildings.add(item.id);
-        log(`${city.name} completes ${BUILDING_TYPES[item.id].name}.`,'good',city.factionIdx===G.playerFactionIdx);
-      }
-      city.buildQueue=null;
-    }
-  }
-}
-
-// ============================================================================
-// RESEARCH
-// ============================================================================
-function getAvailableTechs(faction){
-  return Object.entries(TECHS).filter(([id,tech])=>{if(faction.techs.has(id))return false;return tech.prereqs.every(p=>faction.techs.has(p))}).map(([id,tech])=>({id,...tech}));
-}
-function processResearch(faction){
-  if(!faction.currentResearch){faction.science=0;return}
-  const tech=TECHS[faction.currentResearch];
-  faction.researchProgress=(faction.researchProgress||0)+faction.science;
-  if(faction.researchProgress>=tech.cost){
-    faction.techs.add(faction.currentResearch);
-    log(`${faction.name} has rediscovered ${tech.name}!`,'tech',true);
-    faction.researchProgress=0;
-    const completed=faction.currentResearch;
-    faction.currentResearch=null;
-    if(completed==='grand_apparatus'){triggerVictory(faction.idx,'ascension')}
-  }
-  faction.science=0;
-}
-
-// ============================================================================
-// CITY NAMES
-// ============================================================================
-const usedNames=new Set();
-function pickCityName(){
-  const avail=CITY_NAMES.filter(n=>!usedNames.has(n));
-  let name;
-  if(avail.length)name=avail[Math.floor(Math.random()*avail.length)];
-  else name='Outpost '+(G.cities.length+1);
-  usedNames.add(name);
-  return name;
-}
 
 // (log / renderLog moved to src/core/log.ts.)
 // ============================================================================
@@ -688,7 +409,8 @@ function endTurn(){
   if(G.gameOver)return;
   const cur=G.factions[G.currentFactionIdx];
   for(const c of G.cities.filter(c=>c.factionIdx===cur.idx))processCity(c);
-  processResearch(cur);
+  const _research=processResearch(cur);
+  if(_research.ascensionTriggered){triggerVictory(cur.idx,'ascension');return}
   if(cur.resources.gold>=G.goldHegemonyThreshold){
     G.goldHegemonyCounter[cur.idx]=(G.goldHegemonyCounter[cur.idx]||0)+1;
     if(G.goldHegemonyCounter[cur.idx]>=G.goldHegemonyRequired){triggerVictory(cur.idx,'hegemony');return}
