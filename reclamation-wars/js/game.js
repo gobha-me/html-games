@@ -252,7 +252,7 @@ class Game {
     }
 
     resolveCombat(attacker, defender) {
-        const result = this.unitManager.resolveCombat(attacker, defender);
+        const result = this.unitManager.resolveCombat(attacker, defender, this);
 
         this.logMessage(
             `${attacker.icon} ${attacker.name} attacks ${defender.icon} ${defender.name} for ${result.damage} damage!`,

@@ -384,7 +384,7 @@ class AIController {
     }
 
     executeAttack(attacker, defender) {
-        const result = this.game.unitManager.resolveCombat(attacker, defender);
+        const result = this.game.unitManager.resolveCombat(attacker, defender, this.game);
 
         this.game.logMessage(
             `${attacker.name} attacks ${defender.name} for ${result.damage} damage!`,

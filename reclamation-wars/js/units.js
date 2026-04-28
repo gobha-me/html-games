@@ -60,10 +60,9 @@ class Unit {
 
     getDefenseBonus(terrain, faction) {
         let bonus = terrain.defense;
-        bonus += faction.getDefenseBonus(this.hex.key());
+        bonus += faction.getDefenseBonus(terrain.name);
         return bonus;
     }
-}
 
 class UnitManager {
     constructor(gameMap) {
@@ -129,10 +128,9 @@ class UnitManager {
     }
 
     // Combat resolution
-    resolveCombat(attacker, defender) {
-        const attackerFaction = game.factions.find(f => f.id === attacker.owner);
-        const defenderFaction = game.factions.find(f => f.id === defender.owner);
-
+    resolveCombat(attacker, defender, gameRef) {
+        const attackerFaction = gameRef.factions.find(f => f.id === attacker.owner);
+        const defenderFaction = gameRef.factions.find(f => f.id === defender.owner);
         const terrain = this.map.getTerrain(defender.hex);
         const attackPower = attacker.attack + attacker.getAttackBonus(attackerFaction);
         const defensePower = defender.getDefenseBonus(terrain, defenderFaction) + defender.defense;
@@ -173,7 +171,6 @@ class UnitManager {
             return u.canMoveTo(hex, this.map);
         });
     }
-
     // Get targets a unit can attack
     getAttackTargets(unit) {
         if (unit.hasAttacked || unit.attack === 0) return [];
