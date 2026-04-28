@@ -197,6 +197,18 @@ export function setupGame(): void {
   }
 
   recomputeVisibility();
+
+  for (const u of G.units.filter((u) => u.factionIdx === G.playerFactionIdx)) {
+    u.mp = UNIT_TYPES[u.typeId].mp;
+  }
+
+  // Phase 2k: turn-1 baseline snapshot. The endTurn hook records every
+  // subsequent game-turn boundary, but turn 1 needs an explicit capture
+  // so the replay viewer can scrub all the way back to the opening state.
+  // Done before resizeCanvas / render below so a transient Pixi-not-ready
+  // throw can't swallow the baseline.
+  recordReplaySnapshot();
+
   const myCap = G.cities.find((c) => c.factionIdx === G.playerFactionIdx);
   if (myCap) centerOnHex(myCap.q, myCap.r);
 
@@ -207,15 +219,6 @@ export function setupGame(): void {
     `Your goal: dominate, ascend, or amass ${G.goldHegemonyThreshold} gold for ${G.goldHegemonyRequired} turns.`,
     'flavor'
   );
-
-  for (const u of G.units.filter((u) => u.factionIdx === G.playerFactionIdx)) {
-    u.mp = UNIT_TYPES[u.typeId].mp;
-  }
-
-  // Phase 2k: turn-1 baseline snapshot. The endTurn hook records every
-  // subsequent game-turn boundary, but turn 1 needs an explicit capture
-  // so the replay viewer can scrub all the way back to the opening state.
-  recordReplaySnapshot();
 
   updateUI();
   render();

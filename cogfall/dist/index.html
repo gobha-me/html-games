@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Cogfall — A Steampunk 4X</title>
-  <script type="module" crossorigin src="./assets/index-DukYqChi.js"></script>
+  <script type="module" crossorigin src="./assets/index-BTDd3qDI.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-_8A8tO9g.css">
 </head>
 <body>
@@ -63,6 +63,7 @@
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="show-minimap" checked> <span>Show minimap (bottom-right)</span></label></div>
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sound-on" checked> <span>🔊 Sound effects</span></label></div>
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="telemetry-enabled" checked> <span>📊 Record telemetry (download from Records)</span></label></div>
+<div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="replay-enabled" checked> <span>🎬 Record replay (scrub past turns from Records)</span></label></div>
 <div class="setup-section" style="margin-top:14px"><label>World seed</label><div style="display:flex;gap:8px;align-items:stretch"><input type="number" id="setup-seed" min="0" max="4294967295" step="1" style="flex:1" title="Same seed produces the same world. Type a number or click the die."><button class="btn small" id="seed-regen" type="button" title="Generate a new random seed">🎲</button></div></div>
 <div style="text-align:right;margin-top:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="continue-btn" style="display:none">Continue Last Game</button><button class="btn primary" id="start-game">Begin the Awakening</button></div>
 </div></div>
@@ -85,12 +86,22 @@
 <h2>The Records</h2>
 <p style="color:var(--parchment-d);margin-bottom:14px;font-style:italic">Three slots and the autoscribe. Time gnaws at all things — keep your ledgers.</p>
 <div id="save-content"></div>
-<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px"><button class="btn small" id="telemetry-download" type="button" title="Download a JSON log of this game's AI turns, combats, and build picks">📊 Download telemetry</button><button class="btn" onclick="closeModal('save-modal')">Close</button></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" id="telemetry-download" type="button" title="Download a JSON log of this game's AI turns, combats, and build picks">📊 Download telemetry</button><button class="btn small" id="replay-download" type="button" title="Download this game's per-turn snapshots as a replay JSON">🎬 Download replay</button><button class="btn small" id="replay-open" type="button" title="Open the replay viewer to scrub past turns">🎬 Open replay viewer</button></div><button class="btn" onclick="closeModal('save-modal')">Close</button></div>
 </div></div>
 <div id="game-over-modal" class="modal">
 <div class="modal-content" style="width:520px">
 <div id="game-over-content"></div>
 <div style="text-align:right;margin-top:16px"><button class="btn primary" onclick="location.reload()">Begin Anew</button></div>
+</div></div>
+<div id="replay-modal" class="modal">
+<div class="modal-content" style="width:680px">
+<h2>The Loom of Past Turns</h2>
+<p style="color:var(--parchment-d);margin-bottom:14px;font-style:italic">Scrub through the captured turns of this Awakening, or load a replay shared by another Steward.</p>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px"><input type="file" id="replay-file" accept=".json" style="flex:1" title="Load a cogfall-replay-*.json exported from this or another game"><div id="replay-status" style="font-size:11px;color:var(--parchment-d);min-width:220px;text-align:right">No replay loaded.</div></div>
+<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px"><button class="btn small" id="replay-step-prev" type="button" title="Previous turn">|◀</button><button class="btn small" id="replay-play" type="button" title="Auto-advance">▶</button><button class="btn small" id="replay-step-next" type="button" title="Next turn">▶|</button><input type="range" id="replay-slider" min="0" max="0" value="0" style="flex:1"><span id="replay-turn-label" style="min-width:120px;text-align:right;color:var(--parchment-d)">Turn —</span></div>
+<div style="font-size:12px;color:var(--parchment);font-style:italic;margin-bottom:4px">What happened on this turn:</div>
+<div id="replay-events" style="max-height:220px;overflow-y:auto;background:var(--bg-3);border:1px solid var(--brass-d);padding:8px;font-size:12px;line-height:1.6"><i style="color:var(--parchment-d)">Load or record a replay to see events.</i></div>
+<div style="text-align:right;margin-top:16px"><button class="btn" id="replay-close" type="button">Close</button></div>
 </div></div>
 </body>
 </html>
