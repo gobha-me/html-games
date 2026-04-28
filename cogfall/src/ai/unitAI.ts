@@ -9,11 +9,12 @@ import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { getGameRng } from '../core/rng';
 import type { Faction, Unit } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
-import { UNIT_TYPES } from '../data/units';
+import { UNIT_TYPES, isNaval } from '../data/units';
 import { PERSONALITIES } from '../data/personalities';
 import { combat } from '../systems/combat';
 import { computeAttackTargets, computeMoveTargets, killUnit, moveUnit } from '../systems/movement';
 import { createCity, pickCityName } from '../systems/city';
+import { isCoast } from '../systems/mapgen';
 import { recomputeVisibility } from '../systems/visibility';
 
 const PIONEER_MAX_SCAN_RANGE = 14;
@@ -38,6 +39,10 @@ export function aiUnitTurn(faction: Faction, unit: Unit): void {
   }
   if (unit.typeId === 'SCOUT') {
     aiScoutAction(faction, unit);
+    return;
+  }
+  if (isNaval(unit.typeId)) {
+    aiNavalAction(faction, unit);
     return;
   }
   aiMilitaryAction(faction, unit);
@@ -252,6 +257,96 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
       return;
     }
   }
+  unit.mp = 0;
+}
+
+export function aiNavalAction(faction: Faction, unit: Unit): void {
+  if (!G.map) return;
+  const p = PERSONALITIES[faction.personality];
+  const atkTargets = computeAttackTargets(unit);
+
+  if (atkTargets.length) {
+    let best: (typeof atkTargets)[number] | null = null;
+    let bestScore = -Infinity;
+    for (const t of atkTargets) {
+      let score = 20;
+      const enemy = getUnitAt(t.q, t.r);
+      const enemyCity = getCityAt(t.q, t.r);
+      const targetFac = (enemy || enemyCity)!.factionIdx;
+      if (faction.diplo[targetFac] !== 'war' && p.agg < HIGH_AGG_THRESHOLD) {
+        score -= NON_WAR_ATTACK_PENALTY_TIMID;
+      } else if (faction.diplo[targetFac] !== 'war') {
+        score -= NON_WAR_ATTACK_PENALTY_AGGRO;
+      }
+      if (enemy) {
+        const eTpl = UNIT_TYPES[enemy.typeId];
+        const myTpl = UNIT_TYPES[unit.typeId];
+        const myPow = myTpl.atk * (unit.hp / unit.maxHp);
+        const enPow = eTpl.def * (enemy.hp / enemy.maxHp);
+        score += (myPow - enPow) * 5;
+        if (enemy.hp / enemy.maxHp < 0.4) score += 30;
+      }
+      if (enemyCity) {
+        score += 60;
+        if (enemyCity.hp / enemyCity.maxHp < 0.4) score += 60;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = t;
+      }
+    }
+    if (best && bestScore > 0) {
+      combat(unit, best);
+      return;
+    }
+  }
+
+  // Hunt enemy coastal cities — naval can't reach inland cities, so we
+  // bias toward cities adjacent to water.
+  const warEnemies = G.factions
+    .filter((f) => f.alive && faction.diplo[f.idx] === 'war')
+    .map((f) => f.idx);
+  if (warEnemies.length) {
+    let best: { q: number; r: number } | null = null;
+    let bestScore = -Infinity;
+    for (const c of G.cities) {
+      if (!warEnemies.includes(c.factionIdx)) continue;
+      const t = getTile(c.q, c.r);
+      if (!t || !isCoast(t, G.map)) continue;
+      const d = hexDistance({ q: unit.q, r: unit.r }, c);
+      let score = -d * 1.5 + (c.maxHp - c.hp) * 0.5 - c.population * 3;
+      if (c.isCapital) score += 30;
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+    if (best) {
+      aiMoveToward(unit, best.q, best.r);
+      return;
+    }
+  }
+
+  // Patrol home — pick a coast tile near my nearest coastal city.
+  const myCoastalCities = G.cities.filter((c) => {
+    if (c.factionIdx !== faction.idx) return false;
+    const ct = getTile(c.q, c.r);
+    return !!(ct && G.map && isCoast(ct, G.map));
+  });
+  if (myCoastalCities.length) {
+    let nearest = myCoastalCities[0];
+    let ndist = hexDistance({ q: unit.q, r: unit.r }, nearest);
+    for (const c of myCoastalCities) {
+      const d = hexDistance({ q: unit.q, r: unit.r }, c);
+      if (d < ndist) {
+        ndist = d;
+        nearest = c;
+      }
+    }
+    aiMoveToward(unit, nearest.q, nearest.r);
+    return;
+  }
+
   unit.mp = 0;
 }
 

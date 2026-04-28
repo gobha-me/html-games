@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { computeMoveTargets, createUnit } from '../src/systems/movement';
 import { createCity, processCity } from '../src/systems/city';
 import { aiPickBuild } from '../src/ai/cityAI';
+import { aiNavalAction } from '../src/ai/unitAI';
+import { initGameRng } from '../src/core/rng';
 import { G } from '../src/core/state';
 import { hexKey } from '../src/core/hex';
 import { createSeededRng } from '../src/core/rng';
@@ -109,14 +111,17 @@ describe('naval movement', () => {
   });
 });
 
-function makeFaction(idx: number): Faction {
+function makeFaction(
+  idx: number,
+  personality: Faction['personality'] = 'industrial'
+): Faction {
   return {
     idx: idx as FactionIdx,
     id: 'cogwright',
     name: `F${idx}`,
     color: '#fff',
     glyph: 'X',
-    personality: 'industrial',
+    personality,
     desc: '',
     isAI: idx > 0,
     alive: true,
@@ -190,5 +195,72 @@ describe('naval production', () => {
         expect(['STEAMSHIP', 'IRONCLAD', 'AETHER_FRIGATE']).not.toContain(pick.id);
       }
     }
+  });
+});
+
+describe('aiNavalAction', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = buildStripMap();
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFaction(0, 'militaristic'), makeFaction(1, 'militaristic')];
+    G.factions[0].diplo = { 1: 'war' };
+    G.factions[1].diplo = { 0: 'war' };
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 1;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.aiMemory = {};
+    G.events = [];
+    initGameRng(123);
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('attacks an adjacent enemy ship in melee range', () => {
+    const f0 = asFactionIdx(0);
+    const f1 = asFactionIdx(1);
+    const ship = createUnit('IRONCLAD', f0, 2, 0);
+    const enemy = createUnit('STEAMSHIP', f1, 1, 0);
+    const enemyHpBefore = enemy.hp;
+    aiNavalAction(G.factions[0], ship);
+    // After attack, mp should be consumed and at least one combatant should
+    // have taken damage.
+    expect(enemy.hp < enemyHpBefore || ship.hp < ship.maxHp).toBe(true);
+  });
+
+  it('moves toward an enemy coastal city when at war', () => {
+    const f0 = asFactionIdx(0);
+    const f1 = asFactionIdx(1);
+    // Enemy city at the coast (1,1) — surrounded by water on (0,1), (1,0).
+    const enemyCity = createCity(f1, 1, 1, 'Enemy');
+    enemyCity.population = 1;
+    // Put the city tile in visibility for the attacking faction so it isn't
+    // hidden — naval AI doesn't gate on visibility, but other systems may.
+    const enemyTile = G.map!.tiles.get(hexKey(1, 1))!;
+    enemyTile.cityId = enemyCity.id;
+    // Ship far across the lake on a water tile.
+    const ship = createUnit('STEAMSHIP', f0, 4, 2);
+    const startQ = ship.q;
+    const startR = ship.r;
+    aiNavalAction(G.factions[0], ship);
+    // Ship should have moved closer (or attacked if adjacent — for this map
+    // it isn't adjacent). q,r should have changed.
+    expect(ship.q !== startQ || ship.r !== startR).toBe(true);
+  });
+
+  it('terminates with mp=0 when no targets and no friendly coastal cities', () => {
+    const f0 = asFactionIdx(0);
+    // Strip the war so no enemies attract — and no own city anywhere.
+    G.factions[0].diplo = {};
+    const ship = createUnit('STEAMSHIP', f0, 2, 0);
+    aiNavalAction(G.factions[0], ship);
+    expect(ship.mp).toBe(0);
   });
 });
