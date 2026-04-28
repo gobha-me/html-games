@@ -14,6 +14,7 @@ import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
 import { killUnit, moveUnit } from './movement';
 import { playSfx } from './audio';
+import { recordTelemetry } from './telemetry';
 
 const FORTIFY_DEF_BONUS = 0.3;
 const CITY_DEF_BONUS_BASE = 0.25;
@@ -85,6 +86,14 @@ export function combat(attacker: Unit, defenderQR: AttackTarget, rng: Rng = defa
     defender.hp -= atkDmg;
     attacker.hp -= defDmg;
     attacker.mp = 0;
+    recordTelemetry({
+      kind: 'combat',
+      turn: G.turn,
+      attacker: attacker.factionIdx,
+      defender: defender.factionIdx,
+      dmg: atkDmg,
+      vsCity: false,
+    });
     log(
       `${aFac.name}'s ${aTpl.name} attacks ${dFac.name}'s ${dTpl.name}: ${atkDmg} dealt, ${defDmg} taken.`,
       'combat',
@@ -113,6 +122,14 @@ export function combat(attacker: Unit, defenderQR: AttackTarget, rng: Rng = defa
     defCity.hp -= dmg;
     attacker.hp -= CITY_ASSAULT_RECOIL;
     attacker.mp = 0;
+    recordTelemetry({
+      kind: 'combat',
+      turn: G.turn,
+      attacker: attacker.factionIdx,
+      defender: defCity.factionIdx,
+      dmg,
+      vsCity: true,
+    });
     log(
       `${G.factions[attacker.factionIdx].name} assaults ${defCity.name}: ${dmg} damage.`,
       'combat',

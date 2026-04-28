@@ -13,9 +13,11 @@ import {
   setTelemetryEnabled,
 } from '../src/systems/telemetry';
 import { runAITurn } from '../src/systems/turn';
+import { combat } from '../src/systems/combat';
 import { hexKey } from '../src/core/hex';
 import { FACTIONS } from '../src/data/factions';
-import type { Faction, FactionIdx } from '../src/core/types';
+import { UNIT_TYPES } from '../src/data/units';
+import type { City, Faction, FactionIdx, Unit } from '../src/core/types';
 
 function makeFaction(idx: number, isAI: boolean): Faction {
   const tpl = FACTIONS[idx];
@@ -36,6 +38,28 @@ function makeFaction(idx: number, isAI: boolean): Faction {
     currentResearch: null,
     score: 0,
     diplo: {},
+  };
+}
+
+function makeUnit(
+  id: number,
+  factionIdx: number,
+  q: number,
+  r: number,
+  typeId: keyof typeof UNIT_TYPES = 'COGMAN'
+): Unit {
+  const t = UNIT_TYPES[typeId];
+  return {
+    id,
+    typeId,
+    factionIdx: factionIdx as FactionIdx,
+    q,
+    r,
+    hp: t.hp,
+    maxHp: t.hp,
+    mp: t.mp,
+    maxMp: t.mp,
+    fortified: false,
   };
 }
 
@@ -140,6 +164,85 @@ describe('telemetry module', () => {
     expect(localStorage.getItem('cogfall:telemetry:enabled')).toBe('0');
     setTelemetryEnabled(true);
     expect(localStorage.getItem('cogfall:telemetry:enabled')).toBe('1');
+  });
+});
+
+describe('telemetry trigger sites: combat', () => {
+  beforeEach(() => {
+    resetWorld();
+  });
+
+  it('unit-vs-unit combat records one combat event with vsCity=false', () => {
+    buildPlainsMap();
+    const attacker = makeUnit(1, 0, 0, 0);
+    const defender = makeUnit(2, 1, 1, 0);
+    G.units = [attacker, defender];
+    G.map!.tiles.get(hexKey(0, 0))!.unitId = 1;
+    G.map!.tiles.get(hexKey(1, 0))!.unitId = 2;
+
+    combat(attacker, { q: 1, r: 0, target: 'unit' });
+
+    const events = getTelemetryLog().filter((e) => e.kind === 'combat');
+    expect(events.length).toBe(1);
+    expect(events[0]).toMatchObject({
+      kind: 'combat',
+      turn: 5,
+      attacker: 0,
+      defender: 1,
+      vsCity: false,
+    });
+    expect((events[0] as { dmg: number }).dmg).toBeGreaterThan(0);
+  });
+
+  it('unit-vs-city combat records one combat event with vsCity=true', () => {
+    buildPlainsMap();
+    const attacker = makeUnit(1, 0, 0, 0);
+    const city: City = {
+      id: 9,
+      factionIdx: 1 as FactionIdx,
+      q: 1,
+      r: 0,
+      name: 'Cogspire',
+      population: 1,
+      foodStored: 0,
+      foodNeeded: 10,
+      productionStored: 0,
+      buildings: new Set(),
+      buildQueue: null,
+      isCapital: true,
+      hp: 100,
+      maxHp: 100,
+    };
+    G.units = [attacker];
+    G.cities = [city];
+    G.map!.tiles.get(hexKey(0, 0))!.unitId = 1;
+    G.map!.tiles.get(hexKey(1, 0))!.cityId = 9;
+
+    combat(attacker, { q: 1, r: 0, target: 'city' });
+
+    const events = getTelemetryLog().filter((e) => e.kind === 'combat');
+    expect(events.length).toBe(1);
+    expect(events[0]).toMatchObject({
+      kind: 'combat',
+      turn: 5,
+      attacker: 0,
+      defender: 1,
+      vsCity: true,
+    });
+    expect((events[0] as { dmg: number }).dmg).toBeGreaterThan(0);
+  });
+
+  it('disabled telemetry suppresses combat events', () => {
+    setTelemetryEnabled(false);
+    buildPlainsMap();
+    const attacker = makeUnit(1, 0, 0, 0);
+    const defender = makeUnit(2, 1, 1, 0);
+    G.units = [attacker, defender];
+    G.map!.tiles.get(hexKey(0, 0))!.unitId = 1;
+    G.map!.tiles.get(hexKey(1, 0))!.unitId = 2;
+
+    combat(attacker, { q: 1, r: 0, target: 'unit' });
+    expect(getTelemetryLog()).toEqual([]);
   });
 });
 
