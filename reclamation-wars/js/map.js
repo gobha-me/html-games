@@ -142,7 +142,8 @@ class GameMap {
         const result = [];
         for (const [key, settlement] of this.settlements) {
             if (settlement.owner === owner) {
-                result.push({ key: Hex.fromKey(key), ...settlement });
+                const hex = Hex.fromKey(key);
+                result.push({ hex, ...settlement });
             }
         }
         return result;

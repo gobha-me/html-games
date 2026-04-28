@@ -11,7 +11,7 @@ class ResourceManager {
         const yields = { scrap: 0, energy: 0, data: 0, food: 0 };
 
         for (const settlement of settlements) {
-            const hexYield = this.map.getYield(settlement, faction.id);
+            const hexYield = this.map.getYield(settlement.hex, faction.id);
             for (const [type, amount] of Object.entries(hexYield)) {
                 yields[type] = (yields[type] || 0) + amount;
             }
@@ -27,7 +27,7 @@ class ResourceManager {
         if (faction.id === 'dust_runners') {
             // Bonus from ruins
             for (const settlement of settlements) {
-                if (this.map.isRuins(settlement)) {
+                if (this.map.isRuins(settlement.hex)) {
                     yields.scrap += 2;
                     yields.data += 1;
                 }
@@ -114,7 +114,7 @@ class ResourceManager {
         const income = { scrap: 0, energy: 0, data: 0, food: 0 };
 
         for (const settlement of settlements) {
-            const yield_ = this.map.getYield(settlement, faction.id);
+            const yield_ = this.map.getYield(settlement.hex, faction.id);
             for (const [type, amount] of Object.entries(yield_)) {
                 income[type] = (income[type] || 0) + amount;
             }

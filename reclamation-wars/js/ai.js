@@ -109,7 +109,7 @@ class AIController {
     }
 
     produceForSettlement(settlement) {
-        const hex = settlement;
+        const hex = settlement.hex;
         const available = this.faction.getAvailableProduction();
         if (available.length === 0) return;
 
@@ -226,7 +226,7 @@ class AIController {
         const mySettlements = this.game.gameMap.getSettlementsByOwner(this.faction.id);
 
         for (const settlement of mySettlements) {
-            const nearbyEnemies = this.game.unitManager.getUnitsInRange(settlement, 3).filter(u => u.owner !== this.faction.id);
+            const nearbyEnemies = this.game.unitManager.getUnitsInRange(settlement.hex, 3).filter(u => u.owner !== this.faction.id);
             if (nearbyEnemies.length > 0) {
                 threats.push({ settlement, enemies: nearbyEnemies });
             }
@@ -447,7 +447,7 @@ class AIController {
 
                 // Near existing settlement
                 for (const settlement of mySettlements) {
-                    if (hex.distance(settlement) <= 3) return true;
+                    if (hex.distance(settlement.hex) <= 3) return true;
                 }
                 return false;
             });
