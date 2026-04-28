@@ -17,6 +17,12 @@ import { computeAttackTargets, computeMoveTargets, killUnit, moveUnit } from '..
 import { createCity, pickCityName } from '../systems/city';
 import { isCoast } from '../systems/mapgen';
 import { recomputeVisibility } from '../systems/visibility';
+import {
+  RALLY_JOIN_BONUS,
+  RALLY_MIN_SIZE,
+  SUICIDE_RUSH_FACTOR,
+  computeRallyMap,
+} from './strategy';
 
 const PIONEER_MAX_SCAN_RANGE = 14;
 const PIONEER_MIN_DIST_FROM_OTHER_CITY = 4;
@@ -218,6 +224,15 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
     (phase === 'contest' || phase === 'ascend' || p.agg > HIGH_AGG_THRESHOLD)
   ) {
     const targetCityId = G.aiMemory[faction.idx]?.targetCityId ?? null;
+    // Tactical rally bonus (Phase 2f-3): coordinated rush only when the
+    // group is big enough AND strong enough vs the city's estimated
+    // defense — single units don't suicide-rush.
+    const rallyMap = computeRallyMap(faction);
+    const rally = rallyMap.length ? rallyMap[0] : null;
+    const rallyReady =
+      rally != null &&
+      rally.groupSize >= RALLY_MIN_SIZE &&
+      rally.groupPower >= rally.cityDef * SUICIDE_RUSH_FACTOR;
     let best: { q: number; r: number } | null = null;
     let bestScore = -Infinity;
     for (const c of G.cities) {
@@ -233,6 +248,7 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
       let score = -d * 1.5 + (c.maxHp - c.hp) * 0.5 - c.population * 4;
       if (c.isCapital) score += 30;
       if (targetCityId != null && c.id === targetCityId) score += TARGET_CITY_ASSAULT_BIAS;
+      if (rallyReady && rally && c.id === rally.cityId) score += RALLY_JOIN_BONUS;
       if (score > bestScore) {
         bestScore = score;
         best = c;

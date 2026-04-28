@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { aiPickTech } from '../src/ai/techAI';
 import { initAIMemory } from '../src/ai/memory';
-import { pickTargetCity, pickTargetEnemy, updateAIStrategy } from '../src/ai/strategy';
+import {
+  RALLY_RADIUS,
+  computeRallyMap,
+  pickTargetCity,
+  pickTargetEnemy,
+  updateAIStrategy,
+} from '../src/ai/strategy';
 import { hexKey } from '../src/core/hex';
 import { createSeededRng, initGameRng } from '../src/core/rng';
 import { G } from '../src/core/state';
@@ -235,6 +241,108 @@ describe('persistent conquest goals', () => {
     if (e1 != null) {
       expect(pickTargetCity(G.factions[0], e1)).toBe(pickTargetCity(G.factions[0], e1));
     }
+  });
+});
+
+describe('tactical rally map (2f-3)', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = buildPlainsMap(16);
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFullFaction(0, 'militaristic'), makeFullFaction(1, 'scientific')];
+    G.factions[0].diplo[1] = 'war';
+    G.factions[1].diplo[0] = 'war';
+    G.aiMemory = {};
+    initAIMemory(asFactionIdx(0));
+    initAIMemory(asFactionIdx(1));
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 30;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.events = [];
+    initGameRng(11);
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('returns empty when targetCityId is null', () => {
+    expect(computeRallyMap(G.factions[0])).toEqual([]);
+  });
+
+  it('groupSize counts only friendlies within RALLY_RADIUS', () => {
+    const enemy = createCity(asFactionIdx(1), 8, 8, 'Throne');
+    G.aiMemory[0]!.targetCityId = enemy.id;
+    // 3 cogmen near the city.
+    createUnit('COGMAN', asFactionIdx(0), 7, 8);
+    createUnit('COGMAN', asFactionIdx(0), 9, 8);
+    createUnit('COGMAN', asFactionIdx(0), 8, 9);
+    // 1 cogman far away (outside RALLY_RADIUS).
+    createUnit('COGMAN', asFactionIdx(0), 0, 0);
+    const rally = computeRallyMap(G.factions[0])[0];
+    expect(rally.groupSize).toBe(3);
+    // Sanity: that far unit is beyond radius.
+    expect(RALLY_RADIUS).toBeLessThan(8);
+  });
+
+  it('rallyReady fires when groupPower exceeds suicide-rush threshold', () => {
+    G.aiMemory[0]!.strategicPhase = 'contest';
+    const home = createCity(asFactionIdx(0), 0, 0, 'Home');
+    expect(home).toBeDefined();
+    const target = createCity(asFactionIdx(1), 8, 0, 'Throne');
+    target.population = 0;
+    G.aiMemory[0]!.targetCityId = target.id;
+    const t = G.map!.tiles.get(hexKey(target.q, target.r))!;
+    t.visibility[0] = 'visible';
+    // Three cogmen near the target — strong group.
+    createUnit('COGMAN', asFactionIdx(0), 7, 0);
+    createUnit('COGMAN', asFactionIdx(0), 6, 1);
+    const lead = createUnit('COGMAN', asFactionIdx(0), 5, 2);
+    // No alternative target exists, so even without rally bonus the lead
+    // unit would head toward Throne. Smoke check: rally map agrees.
+    const rally = computeRallyMap(G.factions[0])[0];
+    expect(rally.groupSize).toBeGreaterThanOrEqual(3);
+    expect(rally.groupPower).toBeGreaterThan(rally.cityDef * 0.8);
+    aiMilitaryAction(G.factions[0], lead);
+    expect(lead.q).toBeGreaterThan(5);
+  });
+
+  it('rally NOT ready when groupSize below RALLY_MIN_SIZE', () => {
+    // Unit-level "rallyReady" gate: without ≥3 friendlies in radius the
+    // RALLY_JOIN_BONUS must not apply, regardless of how strong the lone
+    // unit happens to be. We verify the rally state itself rather than
+    // unit movement, since the targetCityId bias from 2f-2 also nudges
+    // movement and would mask this gate.
+    const home = createCity(asFactionIdx(0), 0, 0, 'Home');
+    expect(home).toBeDefined();
+    const target = createCity(asFactionIdx(1), 8, 0, 'Throne');
+    G.aiMemory[0]!.targetCityId = target.id;
+    createUnit('COGMAN', asFactionIdx(0), 7, 0);
+    const rally = computeRallyMap(G.factions[0])[0];
+    expect(rally.groupSize).toBeLessThan(3);
+    expect(rally.groupSize * 1).toBe(1); // exactly one in radius
+  });
+
+  it('rally bucketing is deterministic across G.units permutations', () => {
+    const target = createCity(asFactionIdx(1), 8, 0, 'Throne');
+    G.aiMemory[0]!.targetCityId = target.id;
+    createUnit('COGMAN', asFactionIdx(0), 7, 0);
+    createUnit('COGMAN', asFactionIdx(0), 9, 0);
+    createUnit('COGMAN', asFactionIdx(0), 8, 1);
+    const a = computeRallyMap(G.factions[0])[0];
+    // Reverse the array to simulate a future code path that re-orders
+    // G.units. computeRallyMap sorts by id internally so the result must
+    // be byte-identical.
+    G.units.reverse();
+    const b = computeRallyMap(G.factions[0])[0];
+    expect(b.groupSize).toBe(a.groupSize);
+    expect(b.groupPower).toBe(a.groupPower);
+    expect(b.cityDef).toBe(a.cityDef);
   });
 });
 

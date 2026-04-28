@@ -163,3 +163,78 @@ export function aiFactionMilitaryStrength(factionIdx: FactionIdx): number {
   }
   return s;
 }
+
+// --- Tactical rally map ----------------------------------------------------
+// Per-turn tactical layer (Phase 2f-3). For each strategic anchor on
+// AIMemory.targetCityId we compute the friendly group power within
+// RALLY_RADIUS hexes plus an estimate of the target's defense. aiMilitaryAction
+// reads this to decide whether a coordinated rush is sensible (groupPower
+// vs. cityDef) or whether the unit should fall back to its solo behavior.
+
+export const RALLY_RADIUS = 4;
+export const RALLY_MIN_SIZE = 3;
+export const SUICIDE_RUSH_FACTOR = 0.8;
+export const RALLY_JOIN_BONUS = 60;
+
+export interface RallyPoint {
+  cityId: number;
+  q: number;
+  r: number;
+  groupPower: number;
+  groupSize: number;
+  cityDef: number;
+}
+
+function estimateCityDef(cityId: number): number {
+  const city = G.cities.find((c) => c.id === cityId);
+  if (!city) return 0;
+  let garrison = 0;
+  for (const u of G.units) {
+    if (u.factionIdx !== city.factionIdx) continue;
+    if (u.q !== city.q || u.r !== city.r) continue;
+    const t = UNIT_TYPES[u.typeId];
+    garrison += (t.atk + t.def) * (u.hp / u.maxHp);
+  }
+  let bonus = 1;
+  if (city.buildings.has('walls')) bonus += 0.5;
+  if (city.buildings.has('citadel')) bonus += 1.0;
+  // Base resilience proxy: empty city is still a wall + population buffer.
+  const baseResilience = 4 + city.population * 2;
+  return (garrison + baseResilience) * bonus;
+}
+
+export function computeRallyMap(faction: Faction): RallyPoint[] {
+  const mem = G.aiMemory[faction.idx];
+  if (!mem || mem.targetCityId == null) return [];
+  const target = G.cities.find((c) => c.id === mem.targetCityId);
+  if (!target) return [];
+
+  // Sort source units by id for explicit determinism (currently incidental
+  // because nextUnitId is monotonic, but a future code path that re-orders
+  // G.units must not silently change rally bucketing).
+  const myUnits = G.units
+    .filter((u) => u.factionIdx === faction.idx && UNIT_TYPES[u.typeId].atk > 0)
+    .slice()
+    .sort((a, b) => a.id - b.id);
+
+  let groupSize = 0;
+  let groupPower = 0;
+  for (const u of myUnits) {
+    const d = hexDistance({ q: u.q, r: u.r }, target);
+    if (d > RALLY_RADIUS) continue;
+    groupSize++;
+    const t = UNIT_TYPES[u.typeId];
+    groupPower += (t.atk + t.def) * (u.hp / u.maxHp);
+  }
+
+  return [
+    {
+      cityId: target.id,
+      q: target.q,
+      r: target.r,
+      groupPower,
+      groupSize,
+      cityDef: estimateCityDef(target.id),
+    },
+  ];
+}
