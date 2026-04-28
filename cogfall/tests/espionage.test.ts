@@ -4,12 +4,14 @@ import type { TechId } from '../src/data/techs';
 import { UNIT_TYPES, isNaval, isSpy } from '../src/data/units';
 import type { UnitTypeId } from '../src/data/units';
 import { aiPickBuild } from '../src/ai/cityAI';
+import { aiSaboteurAction } from '../src/ai/unitAI';
 import { createCity } from '../src/systems/city';
 import { stealTech, stealableTechs } from '../src/systems/espionage';
 import { createUnit } from '../src/systems/movement';
 import { createSeededRng, initGameRng } from '../src/core/rng';
 import { G } from '../src/core/state';
-import type { Faction, FactionIdx, GameMap } from '../src/core/types';
+import { hexKey } from '../src/core/hex';
+import type { Faction, FactionIdx, GameMap, Tile, TerrainId } from '../src/core/types';
 import { asFactionIdx } from '../src/core/types';
 
 describe('espionage tech', () => {
@@ -53,6 +55,30 @@ describe('SABOTEUR unit', () => {
     expect(isNaval('SABOTEUR')).toBe(false);
   });
 });
+
+function makeTile(q: number, r: number, terrain: TerrainId): Tile {
+  return {
+    q,
+    r,
+    terrain,
+    resource: null,
+    improvement: null,
+    owner: null,
+    cityId: null,
+    unitId: null,
+    visibility: {},
+  };
+}
+
+function buildPlainsMap(size = 7): GameMap {
+  const tiles = new Map<`${number},${number}`, Tile>();
+  for (let r = 0; r < size; r++) {
+    for (let q = 0; q < size; q++) {
+      tiles.set(hexKey(q, r), makeTile(q, r, 'PLAINS'));
+    }
+  }
+  return { w: size, h: size, tiles };
+}
 
 function makeFaction(idx: number, personality: Faction['personality'] = 'militaristic'): Faction {
   return {
@@ -301,5 +327,110 @@ describe('stealTech', () => {
     const a = setup();
     const b = setup();
     expect(a).toBe(b);
+  });
+});
+
+describe('aiSaboteurAction', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = buildPlainsMap();
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFaction(0, 'militaristic'), makeFaction(1, 'scientific')];
+    G.factions[0].diplo = { 1: 'war' };
+    G.factions[1].diplo = { 0: 'war' };
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 10;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.aiMemory = {};
+    G.events = [];
+    initGameRng(99);
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('steals from a war-enemy city it is adjacent to', () => {
+    const thief = G.factions[0];
+    const victim = G.factions[1];
+    victim.techs.add('rediscovery');
+    victim.techs.add('aetherics');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 2, 2);
+    createCity(asFactionIdx(1), 3, 2, 'Adjacent');
+    aiSaboteurAction(thief, sab);
+    expect(G.units.find((u) => u.id === sab.id)).toBeUndefined();
+    expect(thief.techs.size).toBeGreaterThan(0);
+  });
+
+  it('does not steal from a non-war neighbor (war is required)', () => {
+    G.factions[0].diplo = {};
+    G.factions[1].diplo = {};
+    const thief = G.factions[0];
+    const victim = G.factions[1];
+    victim.techs.add('rediscovery');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 2, 2);
+    createCity(asFactionIdx(1), 3, 2, 'Peace');
+    aiSaboteurAction(thief, sab);
+    expect(G.units.find((u) => u.id === sab.id)).toBeDefined();
+    expect(thief.techs.size).toBe(0);
+  });
+
+  it('does not steal from a war-enemy city with empty pool', () => {
+    const thief = G.factions[0];
+    const victim = G.factions[1];
+    thief.techs.add('rediscovery');
+    thief.techs.add('aetherics');
+    victim.techs.add('rediscovery');
+    victim.techs.add('aetherics');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 2, 2);
+    createCity(asFactionIdx(1), 3, 2, 'Drained');
+    createCity(asFactionIdx(0), 0, 2, 'Home');
+    aiSaboteurAction(thief, sab);
+    expect(G.units.find((u) => u.id === sab.id)).toBeDefined();
+    expect(thief.techs.size).toBe(2);
+  });
+
+  it('walks home rather than toward neutral cities when no war declared', () => {
+    G.factions[0].diplo = {};
+    G.factions[1].diplo = {};
+    const thief = G.factions[0];
+    const victim = G.factions[1];
+    victim.techs.add('rediscovery');
+    const sab = createUnit('SABOTEUR', asFactionIdx(0), 3, 3);
+    createCity(asFactionIdx(1), 5, 3, 'Neutral');
+    createCity(asFactionIdx(0), 1, 3, 'Home');
+    aiSaboteurAction(thief, sab);
+    expect(sab.q).toBeLessThanOrEqual(3);
+  });
+
+  it('replay parity: same seed + same setup → same outcome', () => {
+    const setup = () => {
+      G.map = buildPlainsMap();
+      G.units = [];
+      G.cities = [];
+      G.factions = [makeFaction(0, 'militaristic'), makeFaction(1, 'scientific')];
+      G.factions[0].diplo = { 1: 'war' };
+      G.factions[1].diplo = { 0: 'war' };
+      G.factions[1].techs.add('rediscovery');
+      G.factions[1].techs.add('aetherics');
+      G.factions[1].techs.add('cartography');
+      G.factions[1].techs.add('metallurgy');
+      G.nextUnitId = 1;
+      G.nextCityId = 1;
+      G.events = [];
+      initGameRng(7777);
+      const sab = createUnit('SABOTEUR', asFactionIdx(0), 2, 2);
+      createCity(asFactionIdx(1), 3, 2, 'Same');
+      aiSaboteurAction(G.factions[0], sab);
+      return [...G.factions[0].techs].sort();
+    };
+    const a = setup();
+    const b = setup();
+    expect(a).toEqual(b);
   });
 });

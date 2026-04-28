@@ -9,9 +9,10 @@ import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { getGameRng } from '../core/rng';
 import type { Faction, Unit } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
-import { UNIT_TYPES, isNaval } from '../data/units';
+import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
 import { PERSONALITIES } from '../data/personalities';
 import { combat } from '../systems/combat';
+import { stealTech, stealableTechs } from '../systems/espionage';
 import { computeAttackTargets, computeMoveTargets, killUnit, moveUnit } from '../systems/movement';
 import { createCity, pickCityName } from '../systems/city';
 import { isCoast } from '../systems/mapgen';
@@ -39,6 +40,10 @@ export function aiUnitTurn(faction: Faction, unit: Unit): void {
   }
   if (unit.typeId === 'SCOUT') {
     aiScoutAction(faction, unit);
+    return;
+  }
+  if (isSpy(unit.typeId)) {
+    aiSaboteurAction(faction, unit);
     return;
   }
   if (isNaval(unit.typeId)) {
@@ -337,6 +342,64 @@ export function aiNavalAction(faction: Faction, unit: Unit): void {
     let nearest = myCoastalCities[0];
     let ndist = hexDistance({ q: unit.q, r: unit.r }, nearest);
     for (const c of myCoastalCities) {
+      const d = hexDistance({ q: unit.q, r: unit.r }, c);
+      if (d < ndist) {
+        ndist = d;
+        nearest = c;
+      }
+    }
+    aiMoveToward(unit, nearest.q, nearest.r);
+    return;
+  }
+
+  unit.mp = 0;
+}
+
+export function aiSaboteurAction(faction: Faction, unit: Unit): void {
+  if (!G.map) return;
+  const warEnemies = new Set(
+    G.factions.filter((f) => f.alive && faction.diplo[f.idx] === 'war').map((f) => f.idx)
+  );
+
+  // Adjacent to a war-enemy city with a non-empty steal pool → steal now.
+  for (const n of hexNeighbors(unit.q, unit.r)) {
+    const c = getCityAt(n.q, n.r);
+    if (!c) continue;
+    if (!warEnemies.has(c.factionIdx)) continue;
+    const pool = stealableTechs(faction.idx, c.factionIdx);
+    if (pool.length === 0) continue;
+    stealTech(unit, c);
+    return;
+  }
+
+  // Move toward the nearest war-enemy city that still has stealable tech.
+  // Prefer-with-pool prevents wandering at empty-pool capitals once we've
+  // drained them.
+  if (warEnemies.size) {
+    let best: { q: number; r: number } | null = null;
+    let bestDist = Infinity;
+    for (const c of G.cities) {
+      if (!warEnemies.has(c.factionIdx)) continue;
+      const pool = stealableTechs(faction.idx, c.factionIdx);
+      if (pool.length === 0) continue;
+      const d = hexDistance({ q: unit.q, r: unit.r }, c);
+      if (d < bestDist) {
+        bestDist = d;
+        best = c;
+      }
+    }
+    if (best) {
+      aiMoveToward(unit, best.q, best.r);
+      return;
+    }
+  }
+
+  // No reachable steal target — patrol home toward nearest own city.
+  const myCities = G.cities.filter((c) => c.factionIdx === faction.idx);
+  if (myCities.length) {
+    let nearest = myCities[0];
+    let ndist = hexDistance({ q: unit.q, r: unit.r }, nearest);
+    for (const c of myCities) {
       const d = hexDistance({ q: unit.q, r: unit.r }, c);
       if (d < ndist) {
         ndist = d;
