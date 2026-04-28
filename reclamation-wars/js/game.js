@@ -44,14 +44,14 @@ class Game {
             }
         }
 
-        // Place starting settlements and units
-        this._placeStartingPositions();
-
         // Initialize managers
         this.unitManager = new UnitManager(this.gameMap);
         this.buildingManager = new BuildingManager(this.gameMap);
         this.resourceManager = new ResourceManager(this.gameMap, this.factions);
         this.researchSystem = new ResearchSystem(this.factions);
+
+        // Place starting settlements and units
+        this._placeStartingPositions();
 
         // Create AI controllers
         for (const faction of this.factions) {
