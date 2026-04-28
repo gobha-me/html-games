@@ -2,7 +2,7 @@
 // Pure-module describe blocks land in 2k-1; trigger-site invariants
 // (endTurn snapshot hook) are appended in 2k-2.
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { G } from '../src/core/state';
 import {
   ReplayValidationError,
@@ -22,6 +22,7 @@ import {
 } from '../src/systems/telemetry';
 import { generateMap } from '../src/systems/mapgen';
 import { createSeededRng } from '../src/core/rng';
+import { endTurn } from '../src/systems/turn';
 import { FACTIONS } from '../src/data/factions';
 import type { Faction, FactionIdx } from '../src/core/types';
 
@@ -277,5 +278,49 @@ describe('replay applyReplayTurn', () => {
     expect(dump.telemetry).toEqual([
       { kind: 'aiTurn', turn: 1, faction: 0, durationMs: 5 },
     ]);
+  });
+});
+
+describe('replay trigger site: endTurn', () => {
+  beforeEach(() => {
+    resetForReplay();
+    // Short-circuit cultural-hegemony in the empty fixture so the
+    // counter logic doesn't gate on city culture share.
+    G.culturalHegemonyEnabled = false;
+  });
+
+  it('records a snapshot when the AI rotation wraps back to faction 0', () => {
+    G.currentFactionIdx = 1 as FactionIdx;
+    expect(getReplayLog().length).toBe(0);
+
+    vi.useFakeTimers();
+    try {
+      endTurn();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(G.currentFactionIdx).toBe(0);
+    expect(getReplayLog().length).toBe(1);
+    expect(getReplayLog()[0].turn).toBe(G.turn);
+  });
+
+  it('does not record when rotation lands on a non-zero faction', () => {
+    // 3 factions; rotating from 1 to 2 stays mid-cycle (no G.turn++).
+    G.factions.push({
+      ...makeFaction(2, true),
+      idx: 2 as FactionIdx,
+    });
+    G.currentFactionIdx = 1 as FactionIdx;
+
+    vi.useFakeTimers();
+    try {
+      endTurn();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(G.currentFactionIdx).toBe(2);
+    expect(getReplayLog().length).toBe(0);
   });
 });

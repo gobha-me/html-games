@@ -12,6 +12,7 @@ import { log } from './log';
 import { getGameRngState, initGameRng, setGameRngState } from './rng';
 import { getActiveMod } from './mod';
 import { clearTelemetryLog } from '../systems/telemetry';
+import { clearReplayLog } from '../systems/replay';
 import { UNIT_TYPES } from '../data/units';
 import { BUILDING_TYPES } from '../data/buildings';
 import { TECHS } from '../data/techs';
@@ -330,8 +331,10 @@ export function loadGameState(data: SaveData): void {
   G.isDragging = false;
   G.dragStart = null as DragStart | null;
 
-  // Telemetry log scopes to the current timeline; loading switches timelines.
+  // Telemetry + replay logs scope to the current timeline; loading
+  // switches timelines so both get wiped.
   clearTelemetryLog();
+  clearReplayLog();
 }
 
 // --- Slot management -------------------------------------------------------

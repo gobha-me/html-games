@@ -16,6 +16,7 @@ import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
 import { playSfx } from './audio';
 import { recordTelemetry } from './telemetry';
+import { recordReplaySnapshot } from './replay';
 import { DOM_IDS } from '../core/dom';
 import { saveAuto } from '../core/save';
 
@@ -108,6 +109,13 @@ export function endTurn(): void {
     u.mp = UNIT_TYPES[u.typeId].mp;
   }
   recomputeVisibility();
+
+  // Phase 2k: snapshot at the start of each new game-turn. Triggers when
+  // the rotation just wrapped back to faction 0 — once per G.turn. Sits
+  // after recomputeVisibility so the snapshot's per-faction visibility
+  // reflects the new turn's view, before any victory short-circuit so
+  // the final turn is still captured for replay.
+  if (G.currentFactionIdx === 0) recordReplaySnapshot();
 
   const aliveOpps = G.factions.filter((f) => f.alive && f.idx !== G.playerFactionIdx);
   if (aliveOpps.length === 0 && G.factions[G.playerFactionIdx].alive) {

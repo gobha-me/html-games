@@ -22,6 +22,7 @@ import {
 import { createUnit } from './movement';
 import { recomputeVisibility } from './visibility';
 import { clearTelemetryLog } from './telemetry';
+import { clearReplayLog, recordReplaySnapshot } from './replay';
 import { DOM_IDS } from '../core/dom';
 import { centerOnHex, resizeCanvas } from '../render/pixi';
 import { closeModal } from '../ui/modals';
@@ -92,6 +93,7 @@ export function setupGame(): void {
   // Reset module-scope state from any previous game.
   resetCityNames();
   clearTelemetryLog();
+  clearReplayLog();
   G.factions = [];
   G.units = [];
   G.cities = [];
@@ -209,6 +211,12 @@ export function setupGame(): void {
   for (const u of G.units.filter((u) => u.factionIdx === G.playerFactionIdx)) {
     u.mp = UNIT_TYPES[u.typeId].mp;
   }
+
+  // Phase 2k: turn-1 baseline snapshot. The endTurn hook records every
+  // subsequent game-turn boundary, but turn 1 needs an explicit capture
+  // so the replay viewer can scrub all the way back to the opening state.
+  recordReplaySnapshot();
+
   updateUI();
   render();
 }
