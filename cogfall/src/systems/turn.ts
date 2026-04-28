@@ -15,6 +15,7 @@ import { computeCulturalClaim, processCulturalHegemony } from './culture';
 import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
 import { playSfx } from './audio';
+import { recordTelemetry } from './telemetry';
 import { DOM_IDS } from '../core/dom';
 import { saveAuto } from '../core/save';
 
@@ -137,7 +138,15 @@ export function runAITurn(faction: Faction): void {
   showAIThinking(`${faction.name} ${line}`);
   setTimeout(
     () => {
+      const t0 = performance.now();
       aiPlayTurn(faction);
+      const t1 = performance.now();
+      recordTelemetry({
+        kind: 'aiTurn',
+        turn: G.turn,
+        faction: faction.idx,
+        durationMs: t1 - t0,
+      });
       hideAIThinking();
       requestRedraw();
       setTimeout(endTurn, AI_TURN_END_DELAY_MS);
