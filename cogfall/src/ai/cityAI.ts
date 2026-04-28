@@ -6,7 +6,7 @@ import { defaultRng, type Rng } from '../core/rng';
 import { G, getTile } from '../core/state';
 import type { BuildQueue, City, Faction, UnitTypeId } from '../core/types';
 import { BUILDING_TYPES } from '../data/buildings';
-import { UNIT_TYPES, isNaval } from '../data/units';
+import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
 import { PERSONALITIES } from '../data/personalities';
 import { isCoast } from '../systems/mapgen';
 
@@ -83,6 +83,16 @@ export function aiPickBuild(
       if (myNaval < myCityCount) score += 20;
       score -= UNIT_TYPES[bestNaval].cost * 0.1;
       options.push({ kind: 'unit', id: bestNaval, score });
+    }
+  }
+
+  if (faction.techs.has('espionage')) {
+    const ownedSaboteurs = myUnits.filter((u) => isSpy(u.typeId)).length;
+    if (ownedSaboteurs < 1) {
+      let score = 22 + p.agg * 35;
+      if (atWar) score += 25;
+      score -= UNIT_TYPES.SABOTEUR.cost * 0.1;
+      options.push({ kind: 'unit', id: 'SABOTEUR', score });
     }
   }
 

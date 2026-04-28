@@ -6,7 +6,7 @@ import { DOM_IDS } from '../core/dom';
 import { G, getTile } from '../core/state';
 import type { BuildingId, City, UnitTypeId } from '../core/types';
 import { BUILDING_TYPES } from '../data/buildings';
-import { UNIT_TYPES, isNaval } from '../data/units';
+import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
 import { TECHS } from '../data/techs';
 import { cityYields } from '../systems/city';
 import { isCoast } from '../systems/mapgen';
@@ -49,10 +49,11 @@ export function renderCityDetailsRight(city: City): void {
       city.buildQueue.kind === 'unit' &&
       city.buildQueue.id === (uid as UnitTypeId);
     const navalTag = isNaval(uid as UnitTypeId) ? ' · Naval' : '';
+    const spyTag = isSpy(uid as UnitTypeId) ? ' · Spy' : '';
     html += `<div class="build-item ${isCur ? 'current' : ''}" onclick="setCityBuild(${city.id},'unit','${uid}')">`;
     html += `<div class="name">${tpl.glyph} ${tpl.name}</div>`;
     html += `<div class="desc">${tpl.desc}</div>`;
-    html += `<div class="meta">Cost: ${tpl.cost} prod · HP ${tpl.hp} Atk ${tpl.atk} Def ${tpl.def} MP ${tpl.mp}${navalTag}</div>`;
+    html += `<div class="meta">Cost: ${tpl.cost} prod · HP ${tpl.hp} Atk ${tpl.atk} Def ${tpl.def} MP ${tpl.mp}${navalTag}${spyTag}</div>`;
     html += `</div>`;
   }
 
