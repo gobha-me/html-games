@@ -79,6 +79,10 @@ import {
   setRequestRedraw,
 } from './systems/turn';
 
+// Phase 1 step 7: rendering in src/render/.
+import { canvas, ctx, render, resizeCanvas, centerOnHex } from './render/canvas';
+import { svg } from './render/overlay';
+
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
 // (HEX MATH section moved to src/core/hex.ts — see imports above.)
@@ -86,210 +90,12 @@ import {
 // (DATA section moved to src/data/*.ts — see imports at top of file.)
 
 // (GAME STATE singleton moved to src/core/state.ts — see import above.)
-// canvas/ctx/svg refs and resizeCanvas remain here until render/canvas.ts
-// is created in step 7.
-const canvas=document.getElementById('map-canvas');
-const ctx=canvas.getContext('2d');
-const svg=document.getElementById('overlay-svg');
-function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;svg.setAttribute('width',window.innerWidth);svg.setAttribute('height',window.innerHeight);if(G.map)render()}
-window.addEventListener('resize',resizeCanvas);
+// (canvas/ctx/svg refs + resizeCanvas + render moved to src/render/.)
 
 // (MAP GENERATION moved to src/systems/mapgen.ts.)
 
 // RENDERING
 // ============================================================================
-function hexCorner(cx,cy,i){const angle=Math.PI/180*(60*i-30);return{x:cx+HEX_SIZE*Math.cos(angle),y:cy+HEX_SIZE*Math.sin(angle)}}
-
-function render(){
-  ctx.save();
-  ctx.fillStyle='#0a0805';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.translate(G.cameraX,G.cameraY);
-  ctx.scale(G.zoom,G.zoom);
-  const playerIdx=G.playerFactionIdx;
-  for(const tile of G.map.tiles.values()){
-    const vis=tile.visibility[playerIdx];
-    if(!vis||vis==='unseen')continue;
-    drawHex(tile,vis);
-  }
-  drawOwnership();
-  for(const c of G.cities){
-    const t=getTile(c.q,c.r);
-    if(!t||!t.visibility[playerIdx]||t.visibility[playerIdx]==='unseen')continue;
-    drawCity(c);
-  }
-  for(const u of G.units){
-    const t=getTile(u.q,u.r);
-    if(!t||t.visibility[playerIdx]!=='visible')continue;
-    drawUnit(u);
-  }
-  drawSelection();
-  ctx.restore();
-  renderSVGOverlay();
-}
-
-function drawHex(tile,vis){
-  const{x,y}=hexToPixel(tile.q,tile.r);
-  const tt=TERRAIN_TYPES[tile.terrain];
-  ctx.beginPath();
-  for(let i=0;i<6;i++){const c=hexCorner(x,y,i);if(i===0)ctx.moveTo(c.x,c.y);else ctx.lineTo(c.x,c.y)}
-  ctx.closePath();
-  ctx.fillStyle=tt.color;
-  ctx.fill();
-  if(vis==='seen'){ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fill()}
-  ctx.strokeStyle=tt.edge;
-  ctx.lineWidth=1;
-  ctx.stroke();
-  if(tt.glyph){
-    ctx.fillStyle=vis==='seen'?'rgba(244,228,188,0.35)':'rgba(244,228,188,0.55)';
-    ctx.font=`${HEX_SIZE*0.85}px serif`;
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(tt.glyph,x,y);
-  }
-  if(tile.improvement&&tile.improvement!=='looted'){
-    ctx.fillStyle=vis==='seen'?'rgba(212,160,23,0.4)':'#d4a017';
-    ctx.font=`${HEX_SIZE*0.5}px serif`;
-    let g='·';
-    if(tile.improvement==='farm')g='✿';
-    if(tile.improvement==='mine')g='⛏';
-    if(tile.improvement==='road')g='═';
-    ctx.fillText(g,x+HEX_SIZE*0.4,y+HEX_SIZE*0.4);
-  }
-  if(tile.improvement==='looted'){
-    ctx.fillStyle='rgba(0,0,0,0.4)';
-    ctx.font=`${HEX_SIZE*0.5}px serif`;
-    ctx.fillText('×',x+HEX_SIZE*0.4,y+HEX_SIZE*0.4);
-  }
-}
-
-function drawOwnership(){
-  const playerIdx=G.playerFactionIdx;
-  const dirs=[{q:1,r:-1},{q:1,r:0},{q:0,r:1},{q:-1,r:1},{q:-1,r:0},{q:0,r:-1}];
-  for(const tile of G.map.tiles.values()){
-    if(!tile.visibility[playerIdx]||tile.visibility[playerIdx]==='unseen')continue;
-    if(tile.owner==null)continue;
-    const fac=G.factions[tile.owner];
-    const{x,y}=hexToPixel(tile.q,tile.r);
-    for(let i=0;i<6;i++){
-      const d=dirs[i];
-      const nt=getTile(tile.q+d.q,tile.r+d.r);
-      if(!nt||nt.owner!==tile.owner){
-        const c1=hexCorner(x,y,i);
-        const c2=hexCorner(x,y,(i+1)%6);
-        ctx.strokeStyle=fac.color;
-        ctx.lineWidth=2;
-        ctx.beginPath();
-        ctx.moveTo(c1.x,c1.y);
-        ctx.lineTo(c2.x,c2.y);
-        ctx.stroke();
-      }
-    }
-  }
-}
-
-function drawCity(c){
-  const fac=G.factions[c.factionIdx];
-  const{x,y}=hexToPixel(c.q,c.r);
-  ctx.beginPath();
-  ctx.arc(x,y,HEX_SIZE*0.65,0,Math.PI*2);
-  ctx.fillStyle='#1a1108';
-  ctx.fill();
-  ctx.strokeStyle=fac.color;
-  ctx.lineWidth=3;
-  ctx.stroke();
-  ctx.fillStyle=fac.color;
-  ctx.font=`bold ${HEX_SIZE*0.7}px serif`;
-  ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(fac.glyph,x,y);
-  if(c.isCapital){
-    ctx.fillStyle='#f4e4bc';
-    ctx.font=`${HEX_SIZE*0.4}px serif`;
-    ctx.fillText('★',x,y-HEX_SIZE*0.45);
-  }
-  ctx.fillStyle='#f4e4bc';
-  ctx.font=`bold 11px Georgia`;
-  ctx.fillText(c.name+' ('+c.population+')',x,y+HEX_SIZE*0.85);
-  if(c.hp<c.maxHp){
-    const w=HEX_SIZE*0.9;
-    ctx.fillStyle='#222';
-    ctx.fillRect(x-w/2,y-HEX_SIZE*0.85,w,4);
-    ctx.fillStyle=c.hp>c.maxHp*0.5?'#6fdb6f':c.hp>c.maxHp*0.25?'#ddd66f':'#d44a3a';
-    ctx.fillRect(x-w/2,y-HEX_SIZE*0.85,w*(c.hp/c.maxHp),4);
-  }
-}
-
-function drawUnit(u){
-  const fac=G.factions[u.factionIdx];
-  const tpl=UNIT_TYPES[u.typeId];
-  const{x,y}=hexToPixel(u.q,u.r);
-  const cityHere=getCityAt(u.q,u.r);
-  const offY=cityHere?HEX_SIZE*0.35:0;
-  ctx.beginPath();
-  ctx.arc(x,y-offY,HEX_SIZE*0.42,0,Math.PI*2);
-  ctx.fillStyle='#0a0805';
-  ctx.fill();
-  ctx.strokeStyle=fac.color;
-  ctx.lineWidth=2.5;
-  ctx.stroke();
-  ctx.fillStyle=fac.color;
-  ctx.font=`bold ${HEX_SIZE*0.55}px serif`;
-  ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(tpl.glyph,x,y-offY);
-  if(u.hp<u.maxHp){
-    const w=HEX_SIZE*0.7;
-    ctx.fillStyle='#222';
-    ctx.fillRect(x-w/2,y-offY+HEX_SIZE*0.5,w,3);
-    ctx.fillStyle=u.hp>u.maxHp*0.5?'#6fdb6f':u.hp>u.maxHp*0.25?'#ddd66f':'#d44a3a';
-    ctx.fillRect(x-w/2,y-offY+HEX_SIZE*0.5,w*(u.hp/u.maxHp),3);
-  }
-  if(u.factionIdx===G.playerFactionIdx&&u.mp>0){
-    ctx.fillStyle='#4ecdc4';
-    ctx.beginPath();
-    ctx.arc(x+HEX_SIZE*0.35,y-offY-HEX_SIZE*0.3,3.5,0,Math.PI*2);
-    ctx.fill();
-  }
-  if(u.fortified){
-    ctx.fillStyle='#d4a017';
-    ctx.font=`${HEX_SIZE*0.3}px serif`;
-    ctx.fillText('◫',x-HEX_SIZE*0.35,y-offY-HEX_SIZE*0.3);
-  }
-}
-
-function drawSelection(){
-  if(!G.selected)return;
-  let q,r;
-  if(G.selected.type==='unit'){q=G.selected.ref.q;r=G.selected.ref.r}
-  else if(G.selected.type==='tile'||G.selected.type==='city'){q=G.selected.ref.q;r=G.selected.ref.r}
-  else return;
-  const{x,y}=hexToPixel(q,r);
-  ctx.beginPath();
-  for(let i=0;i<6;i++){const c=hexCorner(x,y,i);if(i===0)ctx.moveTo(c.x,c.y);else ctx.lineTo(c.x,c.y)}
-  ctx.closePath();
-  ctx.strokeStyle='#f4e4bc';
-  ctx.lineWidth=3;
-  ctx.shadowColor='#f4e4bc';
-  ctx.shadowBlur=8;
-  ctx.stroke();
-  ctx.shadowBlur=0;
-}
-
-function renderSVGOverlay(){
-  let html='';
-  for(const t of G.moveTargets){
-    const{x,y}=hexToPixel(t.q,t.r);
-    const px=x*G.zoom+G.cameraX,py=y*G.zoom+G.cameraY;
-    const r=HEX_SIZE*0.3*G.zoom;
-    html+=`<circle cx="${px}" cy="${py}" r="${r}" fill="rgba(78,205,196,0.5)" stroke="#4ecdc4" stroke-width="2"/>`;
-  }
-  for(const t of G.attackTargets){
-    const{x,y}=hexToPixel(t.q,t.r);
-    const px=x*G.zoom+G.cameraX,py=y*G.zoom+G.cameraY;
-    const r=HEX_SIZE*0.45*G.zoom;
-    html+=`<circle cx="${px}" cy="${py}" r="${r}" fill="rgba(212,74,58,0.4)" stroke="#d44a3a" stroke-width="3"/>`;
-    html+=`<text x="${px}" y="${py+6}" text-anchor="middle" font-size="${18*G.zoom}" fill="#f4e4bc" font-family="serif">⚔</text>`;
-  }
-  svg.innerHTML=html;
-}
 
 // ============================================================================
 // INPUT
@@ -419,11 +225,6 @@ function selectNextUnit(){
   render();updateUI();
 }
 
-function centerOnHex(q,r){
-  const{x,y}=hexToPixel(q,r);
-  G.cameraX=window.innerWidth/2-x*G.zoom;
-  G.cameraY=window.innerHeight/2-y*G.zoom;
-}
 
 // ============================================================================
 // UI UPDATES
