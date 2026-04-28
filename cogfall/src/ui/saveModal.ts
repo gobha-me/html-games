@@ -10,7 +10,9 @@ import {
   deleteSlot,
   listSlots,
   loadGameState,
+  ModMismatchError,
   readSlot,
+  SaveDataMismatchError,
   SaveVersionMismatchError,
   serializeGameState,
   writeSlot,
@@ -69,7 +71,8 @@ function formatSaveMeta(data: SaveData): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-  return `${data.factionName} · Turn ${data.turn} · ${data.mapSize.w}×${data.mapSize.h} · ${dateStr}`;
+  const modTag = data.state.modName ? ` · mod: ${data.state.modName}` : '';
+  return `${data.factionName} · Turn ${data.turn} · ${data.mapSize.w}×${data.mapSize.h} · ${dateStr}${modTag}`;
 }
 
 // --- Window-bound handlers ------------------------------------------------
@@ -104,6 +107,10 @@ function loadFromSlot(key: string): void {
       window.alert(
         `This save was made with version ${err.got}; current is ${err.want}. Cannot load.`
       );
+    } else if (err instanceof ModMismatchError) {
+      window.alert(err.message);
+    } else if (err instanceof SaveDataMismatchError) {
+      window.alert(`Cannot load: ${err.message}.`);
     } else {
       window.alert(
         `Failed to load: ${err instanceof Error ? err.message : 'unknown error'}.`

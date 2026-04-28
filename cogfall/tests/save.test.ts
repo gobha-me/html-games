@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   AUTOSAVE_KEY,
   loadGameState,
+  ModMismatchError,
   readSlot,
   SAVE_VERSION,
   SaveDataMismatchError,
@@ -11,6 +12,7 @@ import {
   validateSaveAgainstData,
   writeSlot,
 } from '../src/core/save';
+import { applyMod, clearMod } from '../src/core/mod';
 import { updateAIStrategy } from '../src/ai/strategy';
 import { G } from '../src/core/state';
 import { generateMap } from '../src/systems/mapgen';
@@ -242,6 +244,38 @@ describe('save / load', () => {
     data.state.factions[0].techs.push('phantom_tech' as never);
     const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
     expect(() => loadGameState(round)).toThrow(SaveDataMismatchError);
+  });
+
+  it('round-trips a save under the same mod (modHash matches → load succeeds)', () => {
+    applyMod({ name: 'integration-test', version: '1.0', units: { COGMAN: { atk: 50 } } });
+    buildSmallScenario();
+    const data = serializeGameState();
+    expect(data.state.modHash).toBeDefined();
+    expect(data.state.modName).toBe('integration-test');
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    expect(() => loadGameState(round)).not.toThrow();
+    clearMod();
+  });
+
+  it('throws ModMismatchError when save has a modHash but no mod is active', () => {
+    applyMod({ name: 'integration-test', version: '1.0' });
+    buildSmallScenario();
+    const data = serializeGameState();
+    clearMod();
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    expect(() => loadGameState(round)).toThrow(ModMismatchError);
+  });
+
+  it('throws ModMismatchError when active mod hash differs from save', () => {
+    applyMod({ name: 'mod-a', version: '1.0' });
+    buildSmallScenario();
+    const data = serializeGameState();
+    // Reset to no-game state so we can swap mods, then re-stage G.
+    clearGameState();
+    applyMod({ name: 'mod-b', version: '1.0' });
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    expect(() => loadGameState(round)).toThrow(ModMismatchError);
+    clearMod();
   });
 
   it('loads a v2 save without targetCityId and survives an updateAIStrategy call', () => {

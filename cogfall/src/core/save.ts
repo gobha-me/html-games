@@ -10,6 +10,7 @@
 import { G } from './state';
 import { log } from './log';
 import { getGameRngState, initGameRng, setGameRngState } from './rng';
+import { getActiveMod } from './mod';
 import { UNIT_TYPES } from '../data/units';
 import { BUILDING_TYPES } from '../data/buildings';
 import { TECHS } from '../data/techs';
@@ -117,6 +118,7 @@ export interface SaveData {
 // --- Serialize / deserialize ----------------------------------------------
 
 export function serializeGameState(): SaveData {
+  const mod = getActiveMod();
   const state: SerializedGameState = {
     map: G.map
       ? {
@@ -149,6 +151,8 @@ export function serializeGameState(): SaveData {
     culturalHegemonyRequired: G.culturalHegemonyRequired,
     culturalHegemonyCounter: { ...G.culturalHegemonyCounter },
     culturalHegemonyEnabled: G.culturalHegemonyEnabled,
+    modHash: mod?.hash,
+    modName: mod?.name,
   };
 
   const player = G.factions[G.playerFactionIdx];
@@ -168,6 +172,19 @@ export class SaveVersionMismatchError extends Error {
   constructor(public got: number, public want: number) {
     super(`Save version ${got} is incompatible (current: ${want})`);
     this.name = 'SaveVersionMismatchError';
+  }
+}
+
+/**
+ * Thrown when a save was written under a different mod than the one
+ * currently active. The save is intact, but the data tables don't match —
+ * load the matching mod (or clear the mod) before retrying.
+ */
+export class ModMismatchError extends Error {
+  constructor(public saveHash: string | undefined, public saveName: string | undefined) {
+    const detail = saveName ? ` (made with mod "${saveName}")` : '';
+    super(`Save was made with a different mod${detail} — load that mod first.`);
+    this.name = 'ModMismatchError';
   }
 }
 
@@ -230,6 +247,11 @@ export function loadGameState(data: SaveData): void {
     throw new SaveVersionMismatchError(data.version, SAVE_VERSION);
   }
   const s = data.state;
+  const activeHash = getActiveMod()?.hash;
+  const saveHash = s.modHash;
+  if (saveHash !== activeHash) {
+    throw new ModMismatchError(saveHash, s.modName);
+  }
   const missing = validateSaveAgainstData(s);
   if (missing.length > 0) {
     throw new SaveDataMismatchError(missing);

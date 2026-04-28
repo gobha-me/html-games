@@ -3,7 +3,8 @@
 // systems/setup.ts; this module is just the form/picker UI.
 
 import { DOM_IDS } from '../core/dom';
-import { applyMod, clearMod } from '../core/mod';
+import { applyMod, clearMod, getActiveMod } from '../core/mod';
+import { AUTOSAVE_KEY, readSlot } from '../core/save';
 import { FACTIONS } from '../data/factions';
 import { isMinimapVisible, setMinimapVisible } from './minimap';
 import { isAudioMuted, setAudioMuted } from '../systems/audio';
@@ -86,6 +87,40 @@ if (soundCheckbox) {
   });
 }
 
+/**
+ * Reflects autosave-vs-active-mod state on the Continue button. Called at
+ * page init and again after every mod load/clear so the button stays in
+ * sync with which mod (if any) the user has active.
+ *
+ *   no autosave        ⇒ hidden
+ *   autosave matches   ⇒ visible + enabled
+ *   autosave mismatch  ⇒ visible + disabled, with a tooltip pointing at
+ *                        the mod the user needs to load
+ */
+export function refreshContinueButton(): void {
+  const btn = document.getElementById(DOM_IDS.CONTINUE_BTN) as HTMLButtonElement | null;
+  if (!btn) return;
+  const auto = readSlot(AUTOSAVE_KEY);
+  if (!auto) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = 'inline-block';
+  const saveHash = auto.state.modHash;
+  const activeHash = getActiveMod()?.hash;
+  if (saveHash === activeHash) {
+    btn.disabled = false;
+    btn.style.opacity = '';
+    btn.title = '';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.55';
+    btn.title = saveHash
+      ? `Autosave was made with mod "${auto.state.modName ?? '?'}". Load that mod first.`
+      : 'Autosave was made without a mod — clear the mod to continue.';
+  }
+}
+
 // Phase 2i-4: mod loader. File input → JSON.parse → applyMod. On success
 // the status line shows "Mod: name vX loaded" and the faction picker
 // re-renders (mods may add/remove factions). On error the status line
@@ -113,6 +148,7 @@ if (modFileInput) {
         setModStatus(`Mod: ${mod.name} v${mod.version} loaded`, false);
         setupSelectedFaction = 0;
         renderFactionList();
+        refreshContinueButton();
       })
       .catch((e: unknown) => {
         setModStatus(e instanceof Error ? e.message : String(e), true);
@@ -127,5 +163,6 @@ if (modClearBtn) {
     setModStatus('', false);
     setupSelectedFaction = 0;
     renderFactionList();
+    refreshContinueButton();
   });
 }

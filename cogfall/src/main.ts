@@ -37,9 +37,13 @@ import { updateUI } from './ui/topbar';
 // render/pixi can't import minimap.ts directly without an awkward layering
 // flip, so it runs whatever hook main.ts hands it.
 setMinimapHook(renderMinimap);
-import { populateSeedInput, renderFactionList } from './ui/setupModal';
+import {
+  populateSeedInput,
+  refreshContinueButton,
+  renderFactionList,
+} from './ui/setupModal';
 import { setupGame } from './systems/setup';
-import { AUTOSAVE_KEY, hasAutosave, loadGameState, readSlot } from './core/save';
+import { AUTOSAVE_KEY, loadGameState, readSlot } from './core/save';
 import { closeModal } from './ui/modals';
 import { log } from './core/log';
 
@@ -53,10 +57,13 @@ setRequestRedraw(() => {
 // Wire the "Begin the Awakening" button.
 document.getElementById(DOM_IDS.START_GAME)?.addEventListener('click', setupGame);
 
-// Wire the "Continue Last Game" button — visible only when an autosave exists.
+// Wire the "Continue Last Game" button. Visibility/disabled state is owned
+// by setupModal.refreshContinueButton — called here at startup, and again
+// after every mod load/clear so the button stays in sync with which mod
+// (if any) is active.
 const continueBtn = document.getElementById(DOM_IDS.CONTINUE_BTN);
 if (continueBtn) {
-  if (hasAutosave()) continueBtn.style.display = 'inline-block';
+  refreshContinueButton();
   continueBtn.addEventListener('click', () => {
     const data = readSlot(AUTOSAVE_KEY);
     if (!data) return;
