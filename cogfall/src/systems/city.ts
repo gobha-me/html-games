@@ -28,6 +28,7 @@ const MINE_PROD_BONUS = 2;
 const ROAD_GOLD_BONUS = 1;
 const AETHER_VENT_AETHER_YIELD = 2;
 const AETHERIC_AETHER_BONUS = 1;
+const VERDANT_CAPITAL_CULTURE_BONUS = 1;
 const FOOD_NEEDED_BASE = 10;
 const FOOD_NEEDED_PER_POP = 6;
 const HP_PER_POP = 10;
@@ -141,6 +142,7 @@ export function cityYields(city: City): CityYields {
   }
 
   if (fac.id === 'aetheric') aether += AETHERIC_AETHER_BONUS;
+  if (fac.id === 'verdant' && city.isCapital) culture += VERDANT_CAPITAL_CULTURE_BONUS;
   food -= city.population;
 
   if (fac.idx !== G.playerFactionIdx) {

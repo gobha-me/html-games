@@ -71,6 +71,22 @@ export const BUILDING_TYPES = {
     glyph: '◯',
     desc: '+100% defense',
   },
+  printing_press: {
+    name: 'Printing Press',
+    cost: 70,
+    yields: { culture: 2 },
+    requires: 'lithography',
+    glyph: '✎',
+    desc: '+2 culture',
+  },
+  opera_house: {
+    name: 'Opera House',
+    cost: 130,
+    yields: { culture: 4, gold: 1 },
+    requires: 'salons',
+    glyph: '✺',
+    desc: '+4 culture, +1 gold',
+  },
 } as const;
 
 export type BuildingId = keyof typeof BUILDING_TYPES;

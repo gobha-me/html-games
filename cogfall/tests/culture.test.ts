@@ -16,6 +16,9 @@ import { generateMap } from '../src/systems/mapgen';
 import { createSeededRng } from '../src/core/rng';
 import { FACTIONS } from '../src/data/factions';
 import { PERSONALITIES } from '../src/data/personalities';
+import { TECHS, TECH_BRANCHES } from '../src/data/techs';
+import { BUILDING_TYPES } from '../src/data/buildings';
+import { getAvailableTechs } from '../src/systems/research';
 import type { Faction, FactionIdx } from '../src/core/types';
 
 function makeFaction(idx: number, isAI: boolean): Faction {
@@ -129,6 +132,96 @@ describe('Phase 2g-1: culture types and save migration', () => {
     expect(G.culturalHegemonyThreshold).toBe(0.42);
     expect(G.culturalHegemonyRequired).toBe(7);
     expect(G.culturalHegemonyEnabled).toBe(false);
+  });
+
+  it('printing_press building yields +2 culture; opera_house yields +4 culture +1 gold', () => {
+    buildSmallScenario();
+    const tile = [...G.map!.tiles.values()].find((t) => t.q === 0 && t.r === 0);
+    expect(tile).toBeDefined();
+    const c = createCity(0 as FactionIdx, tile!.q, tile!.r, 'Test City');
+
+    const baseCulture = cityYields(c).culture;
+    const baseGold = cityYields(c).gold;
+
+    c.buildings.add('printing_press');
+    const afterPress = cityYields(c);
+    expect(afterPress.culture - baseCulture).toBe(2);
+
+    c.buildings.add('opera_house');
+    const afterBoth = cityYields(c);
+    expect(afterBoth.culture - baseCulture).toBe(2 + 4);
+    expect(afterBoth.gold - baseGold).toBe(1);
+
+    // BUILDING_TYPES sanity — yields are correctly declared.
+    expect(BUILDING_TYPES.printing_press.requires).toBe('lithography');
+    expect(BUILDING_TYPES.opera_house.requires).toBe('salons');
+  });
+
+  it('salons tech is gated behind lithography (prereq chain)', () => {
+    buildSmallScenario();
+    // Without rediscovery: lithography is not available because its prereq
+    // is missing.
+    const f = G.factions[0];
+    f.techs = new Set();
+    let avail = getAvailableTechs(f).map((t) => t.id);
+    expect(avail).not.toContain('lithography');
+    expect(avail).not.toContain('salons');
+
+    // With rediscovery: lithography is available, salons is not.
+    f.techs.add('rediscovery');
+    avail = getAvailableTechs(f).map((t) => t.id);
+    expect(avail).toContain('lithography');
+    expect(avail).not.toContain('salons');
+
+    // Once lithography is researched: salons is available.
+    f.techs.add('lithography');
+    avail = getAvailableTechs(f).map((t) => t.id);
+    expect(avail).toContain('salons');
+
+    // Both new techs live on the new culture branch.
+    expect(TECHS.lithography.branch).toBe('culture');
+    expect(TECHS.salons.branch).toBe('culture');
+    expect('culture' in TECH_BRANCHES).toBe(true);
+  });
+
+  it('verdant faction gets +1 culture in capitals only', () => {
+    buildSmallScenario();
+    // Override the (cogwright) faction to verdant so cityYields finds the
+    // matching id check at city.ts.
+    const v = FACTIONS.find((f) => f.id === 'verdant')!;
+    G.factions[0] = {
+      ...G.factions[0],
+      id: v.id,
+      name: v.name,
+      color: v.color,
+      glyph: v.glyph,
+      personality: v.personality,
+      desc: v.desc,
+    };
+
+    const tile = [...G.map!.tiles.values()].find((t) => t.q === 0 && t.r === 0);
+    const cap = createCity(0 as FactionIdx, tile!.q, tile!.r, 'Verdant Cap');
+    cap.isCapital = true;
+
+    // Find another walkable tile far enough to host a non-capital city
+    // without overlapping the first one's neighborhood.
+    const otherTile = [...G.map!.tiles.values()].find(
+      (t) => t.q === 5 && t.r === 5 && t.owner == null
+    );
+    if (!otherTile) {
+      // Fallback: pick any walkable tile not already owned.
+      // (Test is still meaningful — we just need a non-capital city.)
+    }
+    const second = createCity(
+      0 as FactionIdx,
+      otherTile?.q ?? 4,
+      otherTile?.r ?? -2,
+      'Verdant Outpost'
+    );
+    second.isCapital = false;
+
+    expect(cityYields(cap).culture).toBe(1);
+    expect(cityYields(second).culture).toBe(0);
   });
 
   it('migrates a v2 save (no cultural fields) to v3 defaults', () => {

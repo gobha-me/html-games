@@ -92,6 +92,20 @@ export const TECHS = {
     isVictory: true,
     flavor: 'Restore the Engine. Ascend.',
   },
+  lithography: {
+    name: 'Lithography',
+    cost: 60,
+    prereqs: ['rediscovery'],
+    branch: 'culture',
+    flavor: 'Movable type and folio sheets — ideas printed faster than they can be censored.',
+  },
+  salons: {
+    name: 'Salons',
+    cost: 140,
+    prereqs: ['lithography'],
+    branch: 'culture',
+    flavor: 'Drawing rooms where machinists, scholars, and financiers trade in argument.',
+  },
 } as const;
 
 export const TECH_BRANCHES = {
@@ -99,6 +113,7 @@ export const TECH_BRANCHES = {
   industry: { name: 'Industry', color: '#d4a017' },
   economy: { name: 'Economy', color: '#3a8acd' },
   expansion: { name: 'Expansion', color: '#3ea060' },
+  culture: { name: 'Culture', color: '#c84a8a' },
 } as const;
 
 export type TechId = keyof typeof TECHS;
