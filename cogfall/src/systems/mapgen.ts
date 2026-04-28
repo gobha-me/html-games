@@ -22,6 +22,7 @@ import { defaultRng, shuffle, type Rng } from '../core/rng';
 import { G } from '../core/state';
 import type { GameMap, Tile, TerrainId } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
+import { RESOURCES, type ResourceDef } from '../data/resources';
 import { MAP_SIZES, type MapSizeId } from '../data/factions';
 
 const RUIN_FRACTION = 0.025;
@@ -30,6 +31,7 @@ const WATER_PERCENTILE = 0.18;
 const RIVER_DIVISOR = 80;
 const RIVER_HEADWATER_QUANTILE = 0.2;
 const RIVER_MAX_STEPS = 200;
+const RESOURCE_DENSITY = 0.08;
 const MIN_FACTION_SPACING_FLOOR = 6;
 const MIN_FACTION_SPACING_RATIO = 1.2;
 const MAX_PLACEMENT_ATTEMPTS = 3000;
@@ -193,6 +195,23 @@ export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
   }
   for (let i = ruinCount; i < ruinCount + aetherCount && i < candidates.length; i++) {
     candidates[i].terrain = 'AETHER';
+  }
+
+  // Resource placement. Each resource type samples a fraction of its
+  // eligible (allowed-terrain, currently unresourced) tiles. Iteration
+  // order over RESOURCES is the data-table insertion order — stable,
+  // so seeds reproduce. Resources spawn after ruin/aether stamping
+  // because RUINS/AETHER aren't allowed terrains for any resource and
+  // we don't want a candidate's terrain flipping out from under us.
+  for (const [id, def] of Object.entries(RESOURCES) as [string, ResourceDef][]) {
+    const eligible = [...tiles.values()].filter(
+      (t) => def.allowedTerrains.includes(t.terrain) && !t.resource
+    );
+    shuffle(eligible, rng);
+    const count = Math.floor(eligible.length * RESOURCE_DENSITY);
+    for (let i = 0; i < count; i++) {
+      eligible[i].resource = id;
+    }
   }
 
   return { w, h, tiles: tiles as GameMap['tiles'] };

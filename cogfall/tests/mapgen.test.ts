@@ -3,6 +3,7 @@ import { generateMap, findFactionStarts, isCoast } from '../src/systems/mapgen';
 import { createSeededRng } from '../src/core/rng';
 import { G } from '../src/core/state';
 import { TERRAIN_TYPES } from '../src/data/terrain';
+import { RESOURCES } from '../src/data/resources';
 import { HEX_DIRS } from '../src/core/hex';
 
 describe('mapgen', () => {
@@ -179,6 +180,49 @@ describe('mapgen', () => {
           if (!neighbor) continue;
           const oppBit = 1 << ((d + 3) % 6);
           expect((neighbor.riverEdges ?? 0) & oppBit).not.toBe(0);
+        }
+      }
+    });
+  });
+
+  describe('resources (2c-3)', () => {
+    it('places resources only on each resource\'s allowed terrain', () => {
+      const m = generateMap('large', createSeededRng(42));
+      let total = 0;
+      for (const t of m.tiles.values()) {
+        if (!t.resource) continue;
+        total++;
+        const def = (RESOURCES as Record<string, { allowedTerrains: readonly string[] }>)[
+          t.resource
+        ];
+        expect(def).toBeDefined();
+        expect(def.allowedTerrains).toContain(t.terrain);
+      }
+      expect(total).toBeGreaterThan(0);
+    });
+
+    it('produces deterministic resource placement for a given seed', () => {
+      const a = generateMap('medium', createSeededRng(7));
+      const b = generateMap('medium', createSeededRng(7));
+      for (const ta of a.tiles.values()) {
+        const tb = b.tiles.get(`${ta.q},${ta.r}`)!;
+        expect(tb.resource).toBe(ta.resource);
+      }
+    });
+
+    it('resource counts grow with map size', () => {
+      const small = generateMap('small', createSeededRng(42));
+      const large = generateMap('large', createSeededRng(42));
+      const smallRes = [...small.tiles.values()].filter((t) => t.resource).length;
+      const largeRes = [...large.tiles.values()].filter((t) => t.resource).length;
+      expect(largeRes).toBeGreaterThan(smallRes);
+    });
+
+    it('does not place resources on RUINS or AETHER', () => {
+      const m = generateMap('large', createSeededRng(42));
+      for (const t of m.tiles.values()) {
+        if (t.terrain === 'RUINS' || t.terrain === 'AETHER') {
+          expect(t.resource).toBeNull();
         }
       }
     });

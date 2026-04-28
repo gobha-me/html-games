@@ -4,6 +4,7 @@ import { pixelToHex } from '../core/hex';
 import { DOM_IDS } from '../core/dom';
 import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
+import { getResource } from '../data/resources';
 import { UNIT_TYPES } from '../data/units';
 
 const TOOLTIP_OFFSET = 18;
@@ -35,6 +36,14 @@ export function handleHover(e: MouseEvent): void {
   html += `<div class="stat">Food: <strong>${tt.food}</strong> · Prod: <strong>${tt.prod}</strong> · Gold: <strong>${tt.gold}</strong></div>`;
   if (tt.defBonus > 0) {
     html += `<div class="stat">Defense: +${Math.round(tt.defBonus * 100)}%</div>`;
+  }
+  const res = getResource(tile.resource);
+  if (res) {
+    const parts: string[] = [];
+    if (res.food) parts.push(`+${res.food}F`);
+    if (res.prod) parts.push(`+${res.prod}P`);
+    if (res.gold) parts.push(`+${res.gold}G`);
+    html += `<div class="stat">Resource: <strong>${res.glyph} ${res.name}</strong> (${parts.join(' ')})</div>`;
   }
   if (tile.improvement && tile.improvement !== 'looted') {
     html += `<div class="stat">Improvement: <strong>${tile.improvement}</strong></div>`;

@@ -8,6 +8,7 @@ import { HEX_DIRS, HEX_SIZE, hexToPixel } from '../core/hex';
 import { DOM_IDS } from '../core/dom';
 import { G, getCityAt, getTile } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
+import { getResource } from '../data/resources';
 import { UNIT_TYPES } from '../data/units';
 import type { Tile, Visibility } from '../core/types';
 import { renderSVGOverlay } from './overlay';
@@ -114,6 +115,12 @@ function drawHex(tile: Tile, vis: Visibility): void {
     if (tile.improvement === 'mine') g = '⛏';
     if (tile.improvement === 'road') g = '═';
     ctx.fillText(g, x + HEX_SIZE * 0.4, y + HEX_SIZE * 0.4);
+  }
+  const res = getResource(tile.resource);
+  if (res) {
+    ctx.fillStyle = vis === 'seen' ? 'rgba(232,196,90,0.45)' : '#e8c45a';
+    ctx.font = `${HEX_SIZE * 0.5}px serif`;
+    ctx.fillText(res.glyph, x - HEX_SIZE * 0.4, y + HEX_SIZE * 0.4);
   }
   if (tile.improvement === 'looted') {
     ctx.fillStyle = 'rgba(0,0,0,0.4)';

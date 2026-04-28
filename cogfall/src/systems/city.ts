@@ -13,6 +13,7 @@ import type { City, FactionIdx } from '../core/types';
 import { BUILDING_TYPES } from '../data/buildings';
 import { CITY_NAMES } from '../data/factions';
 import { TERRAIN_TYPES } from '../data/terrain';
+import { getResource } from '../data/resources';
 import { UNIT_TYPES } from '../data/units';
 import { createUnit } from './movement';
 
@@ -94,6 +95,12 @@ export function cityYields(city: City): CityYields {
       if (t.improvement === 'mine') p += MINE_PROD_BONUS;
       if (t.improvement === 'farm') f += FARM_FOOD_BONUS;
       if (t.improvement === 'road') g += ROAD_GOLD_BONUS;
+      const res = getResource(t.resource);
+      if (res) {
+        f += res.food ?? 0;
+        p += res.prod ?? 0;
+        g += res.gold ?? 0;
+      }
       return {
         f,
         p,
