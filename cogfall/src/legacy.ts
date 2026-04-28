@@ -3,7 +3,16 @@
 // section out of this file into a typed module under src/, until this file
 // can be deleted in the final wiring commit.
 
-'use strict';
+// Phase 1 step 2: data tables peeled out into src/data/*.ts.
+import { TERRAIN_TYPES } from './data/terrain';
+import { UNIT_TYPES } from './data/units';
+import { BUILDING_TYPES } from './data/buildings';
+import { TECHS, TECH_BRANCHES } from './data/techs';
+import { FACTIONS, MAP_SIZES, CITY_NAMES } from './data/factions';
+import { PERSONALITIES, AI_THINKING_LINES } from './data/personalities';
+
+// 'use strict' is implicit in ES modules; the prototype's directive is dropped.
+
 // ============================================================================
 // HEX MATH (pointy-top, axial coordinates)
 // ============================================================================
@@ -16,75 +25,7 @@ function hexNeighbors(q,r){return HEX_DIRS.map(d=>({q:q+d.q,r:r+d.r}))}
 function hexDistance(a,b){return(Math.abs(a.q-b.q)+Math.abs(a.q+a.r-b.q-b.r)+Math.abs(a.r-b.r))/2}
 function hexKey(q,r){return q+','+r}
 
-// ============================================================================
-// DATA
-// ============================================================================
-const TERRAIN_TYPES={
-  PLAINS:{name:'Plains',color:'#94833f',edge:'#6e612a',food:2,prod:1,gold:1,moveCost:1,defBonus:0,walkable:true,glyph:''},
-  FOREST:{name:'Old Forest',color:'#3d5e2a',edge:'#243a18',food:1,prod:2,gold:0,moveCost:2,defBonus:0.25,walkable:true,glyph:'♣'},
-  HILLS:{name:'Hills',color:'#7a6a3e',edge:'#574a26',food:1,prod:2,gold:1,moveCost:2,defBonus:0.5,walkable:true,glyph:'⌃'},
-  MOUNTAINS:{name:'Mountains',color:'#4a4a4a',edge:'#262626',food:0,prod:0,gold:0,moveCost:99,defBonus:0,walkable:false,glyph:'⛰'},
-  WASTES:{name:'Cinder Wastes',color:'#5a3a2a',edge:'#341e10',food:0,prod:1,gold:0,moveCost:1,defBonus:0,walkable:true,glyph:'~'},
-  RUINS:{name:'Old World Ruins',color:'#8a7a4a',edge:'#5a4a2a',food:1,prod:1,gold:2,moveCost:1,defBonus:0.25,walkable:true,glyph:'⌂',isRuin:true},
-  AETHER:{name:'Aether Vent',color:'#3a7a7e',edge:'#1a5a5e',food:0,prod:0,gold:0,moveCost:1,defBonus:0,walkable:true,glyph:'✦',isAether:true}
-};
-const UNIT_TYPES={
-  PIONEER:{name:'Pioneer',hp:20,atk:0,def:1,mp:2,sight:2,cost:60,abilities:['found'],glyph:'⌂',desc:'Founds new cities.'},
-  SCOUT:{name:'Scout',hp:15,atk:2,def:1,mp:4,sight:3,cost:25,glyph:'◇',desc:'Fast, far-seeing.'},
-  COGMAN:{name:'Cogman Warband',hp:25,atk:4,def:4,mp:2,sight:2,cost:30,glyph:'⚔',desc:'Basic line infantry.'},
-  MUSKETEER:{name:'Musketeer Company',hp:30,atk:7,def:4,mp:2,sight:2,cost:60,requires:'gunpowder',glyph:'✜',desc:'Powder and shot.'},
-  STEAMTANK:{name:'Steam Tank',hp:50,atk:10,def:8,mp:3,sight:2,cost:110,requires:'steam_armor',glyph:'⛟',desc:'Mechanical juggernaut.'},
-  AETHERMECH:{name:'Aether Mech',hp:70,atk:14,def:10,mp:3,sight:3,cost:170,requires:'aether_war',glyph:'✦',desc:'The Old Weapons return.'},
-  WORKER:{name:'Engineer',hp:15,atk:0,def:1,mp:2,sight:1,cost:40,abilities:['improve'],glyph:'⚒',desc:'Builds tile improvements.'}
-};
-const BUILDING_TYPES={
-  workshop:{name:'Workshop',cost:40,yields:{prod:2},glyph:'⚒',desc:'+2 production'},
-  granary:{name:'Granary',cost:35,yields:{food:2},glyph:'⊟',desc:'+2 food (faster growth)'},
-  walls:{name:'Cog Walls',cost:50,defBonus:0.5,glyph:'◫',desc:'+50% defense'},
-  foundry:{name:'Foundry',cost:70,yields:{prod:2,gold:1},requires:'metallurgy',glyph:'⚘',desc:'+2 prod, +1 gold'},
-  bank:{name:'Trade House',cost:80,yields:{gold:4},requires:'currency',glyph:'⊕',desc:'+4 gold'},
-  library:{name:'Library',cost:60,yields:{science:3},requires:'rediscovery',glyph:'⊞',desc:'+3 science'},
-  spire:{name:'Aether Spire',cost:100,yields:{science:2,aether:2},requires:'aetherics',glyph:'✦',desc:'+2 science, +2 aether'},
-  academy:{name:'Academy',cost:130,yields:{science:5},requires:'aetherics',glyph:'⌘',desc:'+5 science'},
-  citadel:{name:'Citadel',cost:140,defBonus:1.0,requires:'steam_armor',glyph:'◯',desc:'+100% defense'}
-};
-const TECHS={
-  rediscovery:{name:'Rediscovery',cost:30,prereqs:[],branch:'science',flavor:'The first sparks of memory return.'},
-  metallurgy:{name:'Metallurgy',cost:50,prereqs:[],branch:'industry',flavor:'Iron remembers its old shape.'},
-  currency:{name:'Currency',cost:50,prereqs:[],branch:'economy',flavor:'Coin survives all empires.'},
-  cartography:{name:'Cartography',cost:70,prereqs:['rediscovery'],branch:'expansion',flavor:'The world unfolds before us.'},
-  gunpowder:{name:'Gunpowder',cost:100,prereqs:['metallurgy'],branch:'industry',unlocks:['MUSKETEER'],flavor:'Black powder, white smoke, red snow.'},
-  aetherics:{name:'Aetherics',cost:100,prereqs:['rediscovery'],branch:'science',flavor:'The unseen currents reveal themselves.'},
-  steamcraft:{name:'Steamcraft',cost:130,prereqs:['metallurgy'],branch:'industry',flavor:'Pressure and pistons, the heartbeat of the new age.'},
-  banking:{name:'Banking',cost:100,prereqs:['currency'],branch:'economy',flavor:'Wealth multiplies in shadow.'},
-  steam_armor:{name:'Steam Armor',cost:180,prereqs:['steamcraft','gunpowder'],branch:'industry',unlocks:['STEAMTANK'],flavor:'Iron men with iron hearts.'},
-  aether_war:{name:'Aether Combat',cost:220,prereqs:['aetherics','steamcraft'],branch:'science',unlocks:['AETHERMECH'],flavor:'The Old Weapons return.'},
-  grand_apparatus:{name:'The Grand Apparatus',cost:360,prereqs:['aether_war','steam_armor'],branch:'science',isVictory:true,flavor:'Restore the Engine. Ascend.'}
-};
-const TECH_BRANCHES={science:{name:'Science',color:'#a060e0'},industry:{name:'Industry',color:'#d4a017'},economy:{name:'Economy',color:'#3a8acd'},expansion:{name:'Expansion',color:'#3ea060'}};
-const FACTIONS=[
-  {id:'cogwright',name:'The Cogwright Guild',color:'#d4a017',personality:'industrial',startTechs:['metallurgy'],desc:'Master smiths who never forgot the old craft.',traits:'Starts with Metallurgy',glyph:'⚒'},
-  {id:'aetheric',name:'The Aetheric Order',color:'#a060e0',personality:'scientific',startTechs:['rediscovery'],desc:'Mystics who study the unseen currents.',traits:'Starts with Rediscovery, +1 aether/turn',glyph:'✦'},
-  {id:'iron',name:'The Iron Legion',color:'#c41e3a',personality:'militaristic',startTechs:[],startBonus:'extra_warrior',desc:'They remember war when all else is forgotten.',traits:'Bonus warband, +20% unit attack',glyph:'⚔'},
-  {id:'verdant',name:'The Verdant Pact',color:'#3ea060',personality:'defensive',startTechs:[],startBonus:'extra_pioneer',desc:'They tend the wild gears beneath the moss.',traits:'Extra pioneer, +25% city defense',glyph:'♣'},
-  {id:'coin',name:'The Coalition of Coin',color:'#3a8acd',personality:'economic',startTechs:['currency'],desc:'Coin survives all empires.',traits:'Starts with Currency, +50 starting gold',glyph:'⊕'}
-];
-const PERSONALITIES={
-  industrial:{mil:0.5,sci:0.55,econ:0.7,expand:0.55,agg:0.3,defenseFocus:0.55,prefBranch:'industry'},
-  scientific:{mil:0.3,sci:0.9,econ:0.4,expand:0.4,agg:0.2,defenseFocus:0.7,prefBranch:'science'},
-  militaristic:{mil:0.95,sci:0.3,econ:0.4,expand:0.7,agg:0.85,defenseFocus:0.4,prefBranch:'industry'},
-  defensive:{mil:0.55,sci:0.55,econ:0.5,expand:0.5,agg:0.15,defenseFocus:0.95,prefBranch:'expansion'},
-  economic:{mil:0.4,sci:0.4,econ:0.95,expand:0.7,agg:0.4,defenseFocus:0.5,prefBranch:'economy'}
-};
-const AI_THINKING_LINES={
-  industrial:['gauges its forges...','consults its blueprints...','oils its gears...'],
-  scientific:['traces aether currents...','whispers to old machines...','reads forbidden tomes...'],
-  militaristic:['mobilizes its forces...','sharpens its bayonets...','plots its march...'],
-  defensive:['tends its walls...','walks the perimeter...','reads the weather...'],
-  economic:['counts its coin...','studies the markets...','cuts new contracts...']
-};
-const MAP_SIZES={small:{w:20,h:14},medium:{w:30,h:20},large:{w:42,h:28}};
-const CITY_NAMES=['Brassholm','Cogspire','Ironvein','Aetherwell','Greymarch','Pistonfall','Old Anvil','Glasswick','Steamhaven','Coalreach','Thornforge','Mistgrove','Thunderworks','Soothsay','Vaulthold','Embertide','Loomshade','Brokenwheel','Lantern Vale','Cinderpost','Gildreach','Hollowforge','Quartz Hold'];
+// (DATA section moved to src/data/*.ts — see imports at top of file.)
 
 // ============================================================================
 // GAME STATE
