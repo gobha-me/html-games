@@ -27,6 +27,7 @@ const NON_WAR_ATTACK_PENALTY_AGGRO = 50;
 const NON_WAR_ATTACK_PENALTY_TIMID = 200;
 const HIGH_AGG_THRESHOLD = 0.7;
 const ASSAULT_VISIBLE_REQUIRED = true;
+const TARGET_CITY_ASSAULT_BIAS = 40;
 
 export function aiUnitTurn(faction: Faction, unit: Unit): void {
   if (unit.mp <= 0) return;
@@ -216,6 +217,7 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
     warEnemies.length &&
     (phase === 'contest' || phase === 'ascend' || p.agg > HIGH_AGG_THRESHOLD)
   ) {
+    const targetCityId = G.aiMemory[faction.idx]?.targetCityId ?? null;
     let best: { q: number; r: number } | null = null;
     let bestScore = -Infinity;
     for (const c of G.cities) {
@@ -230,6 +232,7 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
       const d = hexDistance({ q: unit.q, r: unit.r }, c);
       let score = -d * 1.5 + (c.maxHp - c.hp) * 0.5 - c.population * 4;
       if (c.isCapital) score += 30;
+      if (targetCityId != null && c.id === targetCityId) score += TARGET_CITY_ASSAULT_BIAS;
       if (score > bestScore) {
         bestScore = score;
         best = c;

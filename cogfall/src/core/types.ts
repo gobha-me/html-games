@@ -115,6 +115,12 @@ export interface AIMemory {
   grudges: Partial<Record<number, number>>;
   strategicPhase: StrategicPhase;
   targetEnemy: FactionIdx | null;
+  // Persistent strategic anchor: city id of the current conquest objective.
+  // Picked by pickTargetCity in strategy.ts when targetEnemy refreshes;
+  // refreshed only when the target dies/is captured. aiMilitaryAction reads
+  // this and adds an assault bias toward it. Optional for save back-compat —
+  // v2 saves load with undefined and treat it as null at read sites.
+  targetCityId?: number | null;
   lastDeclareWarTurn: number;
 }
 

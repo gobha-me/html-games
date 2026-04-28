@@ -11,6 +11,7 @@ export function initAIMemory(factionIdx: FactionIdx): AIMemory {
     grudges: {},
     strategicPhase: 'expand',
     targetEnemy: null,
+    targetCityId: null,
     lastDeclareWarTurn: 0,
   };
   G.aiMemory[factionIdx] = mem;

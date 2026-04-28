@@ -1,9 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { aiPickTech } from '../src/ai/techAI';
-import { createSeededRng } from '../src/core/rng';
-import type { Faction, FactionIdx } from '../src/core/types';
+import { initAIMemory } from '../src/ai/memory';
+import { pickTargetCity, pickTargetEnemy, updateAIStrategy } from '../src/ai/strategy';
+import { hexKey } from '../src/core/hex';
+import { createSeededRng, initGameRng } from '../src/core/rng';
+import { G } from '../src/core/state';
+import { asFactionIdx } from '../src/core/types';
+import type { Faction, FactionIdx, GameMap, TerrainId, Tile } from '../src/core/types';
 import { PERSONALITIES, type PersonalityId } from '../src/data/personalities';
 import { TECHS } from '../src/data/techs';
+import { createCity } from '../src/systems/city';
+import { createUnit } from '../src/systems/movement';
+import { aiMilitaryAction } from '../src/ai/unitAI';
 
 function makeFaction(personality: Faction['personality']): Faction {
   return {
@@ -66,6 +74,167 @@ describe('aiPickTech', () => {
       if (TECHS[pick].branch === 'industry') industryCount++;
     }
     expect(industryCount).toBeGreaterThan(trials * 0.5);
+  });
+});
+
+function makeTile(q: number, r: number, terrain: TerrainId = 'PLAINS'): Tile {
+  return {
+    q,
+    r,
+    terrain,
+    resource: null,
+    improvement: null,
+    owner: null,
+    cityId: null,
+    unitId: null,
+    visibility: {},
+  };
+}
+
+function buildPlainsMap(size = 9): GameMap {
+  const tiles = new Map<`${number},${number}`, Tile>();
+  for (let r = 0; r < size; r++) {
+    for (let q = 0; q < size; q++) {
+      tiles.set(hexKey(q, r), makeTile(q, r));
+    }
+  }
+  return { w: size, h: size, tiles };
+}
+
+function makeFullFaction(idx: number, personality: Faction['personality'] = 'militaristic'): Faction {
+  return {
+    idx: idx as FactionIdx,
+    id: 'cogwright',
+    name: `F${idx}`,
+    color: '#fff',
+    glyph: 'X',
+    personality,
+    desc: '',
+    isAI: idx > 0,
+    alive: true,
+    resources: { gold: 0, aether: 0 },
+    science: 0,
+    researchProgress: 0,
+    techs: new Set(),
+    currentResearch: null,
+    score: 0,
+    diplo: {},
+  };
+}
+
+describe('persistent conquest goals', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = buildPlainsMap();
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFullFaction(0, 'militaristic'), makeFullFaction(1, 'scientific')];
+    G.factions[0].diplo[1] = 'war';
+    G.factions[1].diplo[0] = 'war';
+    G.aiMemory = {};
+    initAIMemory(asFactionIdx(0));
+    initAIMemory(asFactionIdx(1));
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 30;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.events = [];
+    initGameRng(7);
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('pickTargetEnemy returns null with no grudges', () => {
+    expect(pickTargetEnemy(G.factions[0])).toBeNull();
+  });
+
+  it('pickTargetEnemy picks the highest-grudge alive faction', () => {
+    G.factions.push(makeFullFaction(2, 'industrial'));
+    initAIMemory(asFactionIdx(2));
+    G.aiMemory[0]!.grudges[1] = 50;
+    G.aiMemory[0]!.grudges[2] = 120;
+    expect(pickTargetEnemy(G.factions[0])).toBe(2);
+  });
+
+  it('pickTargetCity prefers capital on equal-distance tiebreak', () => {
+    createCity(asFactionIdx(0), 0, 4, 'Home');
+    const c1 = createCity(asFactionIdx(1), 4, 0, 'Plain');
+    const c2 = createCity(asFactionIdx(1), 0, 0, 'Throne');
+    c2.isCapital = true;
+    // Both enemy cities are 4 hexes from Home (axial distance).
+    expect(pickTargetCity(G.factions[0], asFactionIdx(1))).toBe(c2.id);
+    expect(c1.id).not.toBe(c2.id);
+  });
+
+  it('updateAIStrategy refreshes targetCityId only when missing/captured', () => {
+    createCity(asFactionIdx(0), 0, 4, 'Home');
+    const c1 = createCity(asFactionIdx(1), 4, 0, 'Throne');
+    c1.isCapital = true;
+    G.aiMemory[0]!.grudges[1] = 30;
+    updateAIStrategy(G.factions[0]);
+    expect(G.aiMemory[0]!.targetCityId).toBe(c1.id);
+
+    // Add a wounded but non-capital enemy city. Sticky target should hold.
+    const c2 = createCity(asFactionIdx(1), 0, 0, 'Outpost');
+    c2.hp = 5;
+    updateAIStrategy(G.factions[0]);
+    expect(G.aiMemory[0]!.targetCityId).toBe(c1.id);
+
+    // Capture the throne (flip ownership). Anchor must move.
+    c1.factionIdx = asFactionIdx(0);
+    updateAIStrategy(G.factions[0]);
+    expect(G.aiMemory[0]!.targetCityId).toBe(c2.id);
+  });
+
+  it('aiMilitaryAction picks rightward city when targetCityId points right', () => {
+    G.aiMemory[0]!.strategicPhase = 'contest';
+    createCity(asFactionIdx(0), 4, 8, 'Home');
+    const cA = createCity(asFactionIdx(1), 0, 4, 'A');
+    const cB = createCity(asFactionIdx(1), 8, 4, 'B');
+    for (const c of [cA, cB]) {
+      const t = G.map!.tiles.get(hexKey(c.q, c.r))!;
+      t.visibility[0] = 'visible';
+    }
+    const cog = createUnit('COGMAN', asFactionIdx(0), 4, 4);
+    G.aiMemory[0]!.targetCityId = cB.id;
+    aiMilitaryAction(G.factions[0], cog);
+    expect(cog.q).toBeGreaterThan(4);
+  });
+
+  it('aiMilitaryAction picks leftward city when targetCityId points left', () => {
+    G.aiMemory[0]!.strategicPhase = 'contest';
+    createCity(asFactionIdx(0), 4, 8, 'Home');
+    const cA = createCity(asFactionIdx(1), 0, 4, 'A');
+    const cB = createCity(asFactionIdx(1), 8, 4, 'B');
+    for (const c of [cA, cB]) {
+      const t = G.map!.tiles.get(hexKey(c.q, c.r))!;
+      t.visibility[0] = 'visible';
+    }
+    const cog = createUnit('COGMAN', asFactionIdx(0), 4, 4);
+    G.aiMemory[0]!.targetCityId = cA.id;
+    aiMilitaryAction(G.factions[0], cog);
+    expect(cog.q).toBeLessThan(4);
+  });
+
+  it('replay parity: pickTargetEnemy + pickTargetCity are pure on identical state', () => {
+    G.factions.push(makeFullFaction(2, 'industrial'));
+    initAIMemory(asFactionIdx(2));
+    G.aiMemory[0]!.grudges[1] = 60;
+    G.aiMemory[0]!.grudges[2] = 60;
+    createCity(asFactionIdx(0), 0, 0, 'Home');
+    createCity(asFactionIdx(1), 3, 0, 'F1A');
+    createCity(asFactionIdx(2), 4, 0, 'F2A');
+    const e1 = pickTargetEnemy(G.factions[0]);
+    const e2 = pickTargetEnemy(G.factions[0]);
+    expect(e1).toBe(e2);
+    if (e1 != null) {
+      expect(pickTargetCity(G.factions[0], e1)).toBe(pickTargetCity(G.factions[0], e1));
+    }
   });
 });
 

@@ -9,6 +9,7 @@ import {
   serializeGameState,
   writeSlot,
 } from '../src/core/save';
+import { updateAIStrategy } from '../src/ai/strategy';
 import { G } from '../src/core/state';
 import { generateMap } from '../src/systems/mapgen';
 import { createSeededRng } from '../src/core/rng';
@@ -174,5 +175,28 @@ describe('save / load', () => {
     expect(got).not.toBeNull();
     expect(got!.turn).toBe(data.turn);
     expect(got!.factionName).toBe(data.factionName);
+  });
+
+  it('loads a v2 save without targetCityId and survives an updateAIStrategy call', () => {
+    // Backwards-compat smoke test: 2f-2 added optional targetCityId to
+    // AIMemory. A pre-2f-2 save will have aiMemory entries with no such
+    // field. Loading must succeed and updateAIStrategy must not throw.
+    buildSmallScenario();
+    G.aiMemory[1] = {
+      grudges: { 0: 25 },
+      strategicPhase: 'contest',
+      targetEnemy: null,
+      lastDeclareWarTurn: 0,
+    };
+    const data = serializeGameState();
+    // Strip the optional field to simulate a pre-2f-2 save shape.
+    for (const idx of Object.keys(data.state.aiMemory)) {
+      const m = data.state.aiMemory[Number(idx)];
+      if (m) delete (m as { targetCityId?: number | null }).targetCityId;
+    }
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    loadGameState(round);
+    // updateAIStrategy must run without crash on the legacy memory shape.
+    expect(() => updateAIStrategy(G.factions[1])).not.toThrow();
   });
 });

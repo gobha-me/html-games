@@ -3,6 +3,7 @@
 // phase ('expand' | 'fortify' | 'contest' | 'ascend') comes from
 // updateAIStrategy() and biases everything downstream.
 
+import { hexDistance } from '../core/hex';
 import { G } from '../core/state';
 import type { Faction, FactionIdx } from '../core/types';
 import { UNIT_TYPES } from '../data/units';
@@ -74,6 +75,79 @@ export function updateAIStrategy(faction: Faction): void {
   } else {
     mem.strategicPhase = 'contest';
   }
+
+  // Persistent conquest target: refresh only when missing, dead, or captured.
+  // The strategic anchor is intentionally sticky — re-picking every turn would
+  // make the AI thrash. aiMilitaryAction reads mem.targetCityId for assault
+  // bias; aiDiplomacy reads mem.targetEnemy for war-trigger consistency later.
+  const enemy = mem.targetEnemy != null ? G.factions[mem.targetEnemy] : null;
+  if (!enemy || !enemy.alive) {
+    mem.targetEnemy = pickTargetEnemy(faction);
+    mem.targetCityId = null;
+  }
+  if (mem.targetEnemy != null) {
+    const city = mem.targetCityId != null ? G.cities.find((c) => c.id === mem.targetCityId) : null;
+    if (!city || city.factionIdx !== mem.targetEnemy) {
+      mem.targetCityId = pickTargetCity(faction, mem.targetEnemy);
+    }
+  } else {
+    mem.targetCityId = null;
+  }
+}
+
+// Highest-grudge alive enemy; tiebreak by lowest military strength so the AI
+// kicks the man already on the ground. Returns null when no grudges exist —
+// that's the early-game state, where aiDiplomacy hasn't accumulated any
+// resentment yet.
+export function pickTargetEnemy(faction: Faction): FactionIdx | null {
+  const mem = G.aiMemory[faction.idx];
+  if (!mem) return null;
+  let best: FactionIdx | null = null;
+  let bestGrudge = 0;
+  let bestStr = Infinity;
+  for (const f of G.factions) {
+    if (!f.alive) continue;
+    if (f.idx === faction.idx) continue;
+    const g = mem.grudges[f.idx] ?? 0;
+    if (g <= 0) continue;
+    const str = aiFactionMilitaryStrength(f.idx);
+    if (g > bestGrudge || (g === bestGrudge && str < bestStr)) {
+      best = f.idx;
+      bestGrudge = g;
+      bestStr = str;
+    }
+  }
+  return best;
+}
+
+// Nearest city of `enemyIdx` to any of our cities. Tiebreak: prefer capitals,
+// then prefer wounded cities (lower hp/maxHp). Returns null when the enemy has
+// no cities or we have none — the strategic anchor falls back to `null` and
+// aiMilitaryAction reverts to its existing distance-based scoring.
+export function pickTargetCity(faction: Faction, enemyIdx: FactionIdx): number | null {
+  const myCities = G.cities.filter((c) => c.factionIdx === faction.idx);
+  const enemyCities = G.cities.filter((c) => c.factionIdx === enemyIdx);
+  if (myCities.length === 0 || enemyCities.length === 0) return null;
+  let best = enemyCities[0];
+  let bestDist = Infinity;
+  for (const ec of enemyCities) {
+    let nearest = Infinity;
+    for (const mc of myCities) {
+      const d = hexDistance(mc, ec);
+      if (d < nearest) nearest = d;
+    }
+    if (
+      nearest < bestDist ||
+      (nearest === bestDist && ec.isCapital && !best.isCapital) ||
+      (nearest === bestDist &&
+        ec.isCapital === best.isCapital &&
+        ec.hp / ec.maxHp < best.hp / best.maxHp)
+    ) {
+      best = ec;
+      bestDist = nearest;
+    }
+  }
+  return best.id;
 }
 
 export function aiFactionMilitaryStrength(factionIdx: FactionIdx): number {
