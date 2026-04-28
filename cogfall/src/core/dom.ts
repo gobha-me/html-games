@@ -73,6 +73,7 @@ export const DOM_IDS = {
   SEED_REGEN: 'seed-regen',
   CULTURAL_VICTORY: 'cultural-victory',
   SHOW_MINIMAP: 'show-minimap',
+  SOUND_ON: 'sound-on',
   START_GAME: 'start-game',
 } as const;
 

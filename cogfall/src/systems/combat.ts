@@ -13,6 +13,7 @@ import type { AttackTarget, City, FactionIdx, Unit } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
 import { killUnit, moveUnit } from './movement';
+import { playSfx } from './audio';
 
 const FORTIFY_DEF_BONUS = 0.3;
 const CITY_DEF_BONUS_BASE = 0.25;
@@ -40,6 +41,14 @@ export function combat(attacker: Unit, defenderQR: AttackTarget, rng: Rng = defa
 
   if (defender) autoDeclare(attacker.factionIdx, defender.factionIdx);
   else if (defCity) autoDeclare(attacker.factionIdx, defCity.factionIdx);
+
+  // Player-audible combat. Fires once per resolution regardless of which
+  // side the player is on; AI-vs-AI scuffles in the fog stay silent.
+  const playerInvolved =
+    attacker.factionIdx === G.playerFactionIdx ||
+    defender?.factionIdx === G.playerFactionIdx ||
+    defCity?.factionIdx === G.playerFactionIdx;
+  if (playerInvolved) playSfx('combatHit');
 
   if (defender) {
     const aTpl = UNIT_TYPES[attacker.typeId];

@@ -5,6 +5,7 @@
 import { DOM_IDS } from '../core/dom';
 import { FACTIONS } from '../data/factions';
 import { isMinimapVisible, setMinimapVisible } from './minimap';
+import { isAudioMuted, setAudioMuted } from '../systems/audio';
 
 let setupSelectedFaction = 0;
 
@@ -71,5 +72,15 @@ if (minimapCheckbox) {
   minimapCheckbox.checked = isMinimapVisible();
   minimapCheckbox.addEventListener('change', () => {
     setMinimapVisible(minimapCheckbox.checked);
+  });
+}
+
+// Phase 2h-3: same live-toggle pattern for the sound checkbox. Checkbox is
+// "Sound on", so checked ↔ unmuted.
+const soundCheckbox = document.getElementById(DOM_IDS.SOUND_ON) as HTMLInputElement | null;
+if (soundCheckbox) {
+  soundCheckbox.checked = !isAudioMuted();
+  soundCheckbox.addEventListener('change', () => {
+    setAudioMuted(!soundCheckbox.checked);
   });
 }

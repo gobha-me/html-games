@@ -14,6 +14,7 @@ import { processCity } from './city';
 import { computeCulturalClaim, processCulturalHegemony } from './culture';
 import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
+import { playSfx } from './audio';
 import { DOM_IDS } from '../core/dom';
 import { saveAuto } from '../core/save';
 
@@ -54,6 +55,10 @@ function hideAIThinking(): void {
 export function endTurn(): void {
   if (G.gameOver) return;
   const cur = G.factions[G.currentFactionIdx];
+
+  // SFX only when the player ends their own turn — the AI's many endTurns
+  // would chatter through the rest of the round.
+  if (!cur.isAI && cur.idx === G.playerFactionIdx) playSfx('endTurn');
 
   for (const c of G.cities.filter((c) => c.factionIdx === cur.idx)) processCity(c);
 
@@ -182,6 +187,7 @@ export function triggerVictory(factionIdx: FactionIdx, type: VictoryType): void 
   G.gameOver = true;
   const fac = G.factions[factionIdx];
   const isPlayer = factionIdx === G.playerFactionIdx;
+  if (isPlayer) playSfx('victory');
   const m = VICTORY_MESSAGES[type];
   const flavor = m.flavorTemplate.replace('{name}', fac.name);
   const banner = isPlayer

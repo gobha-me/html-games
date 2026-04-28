@@ -16,6 +16,7 @@ import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
 import { UNIT_TYPES, isNaval } from '../data/units';
 import { createUnit } from './movement';
+import { playSfx } from './audio';
 
 const BASE_CITY_FOOD = 2;
 const BASE_CITY_PROD = 1;
@@ -236,6 +237,7 @@ export function processCity(city: City): void {
           'good',
           city.factionIdx === G.playerFactionIdx
         );
+        if (city.factionIdx === G.playerFactionIdx) playSfx('buildComplete');
       } else if (item.kind === 'building') {
         city.buildings.add(item.id);
         log(
@@ -243,6 +245,7 @@ export function processCity(city: City): void {
           'good',
           city.factionIdx === G.playerFactionIdx
         );
+        if (city.factionIdx === G.playerFactionIdx) playSfx('buildComplete');
       }
       city.buildQueue = null;
     }
