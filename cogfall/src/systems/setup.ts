@@ -96,7 +96,10 @@ export function setupGame(): void {
   G.events = [];
   G.goldHegemonyCounter = {};
   G.culturalHegemonyCounter = {};
-  G.culturalHegemonyEnabled = true;
+  // Setup-modal toggle for the cultural-hegemony win condition. Default
+  // on if the checkbox is missing (defensive — the input ships in 2g-6).
+  const culturalEl = document.getElementById(DOM_IDS.CULTURAL_VICTORY) as HTMLInputElement | null;
+  G.culturalHegemonyEnabled = culturalEl ? culturalEl.checked : true;
   G.aiMemory = {};
   G.gameOver = false;
   G.turn = 1;

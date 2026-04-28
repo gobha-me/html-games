@@ -114,6 +114,9 @@ body {
 .resource-pill.science .icon {
   color: #c97aef;
 }
+.resource-pill.culture .icon {
+  color: #e07ab8;
+}
 .resource-pill .delta {
   color: #99ee99;
   font-size: 11px;

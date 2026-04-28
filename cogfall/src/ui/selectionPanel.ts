@@ -99,7 +99,7 @@ export function renderCityPanel(city: City): void {
   let html = `<div class="unit-card"><div class="name" style="color:${fac.color}">${fac.glyph} ${city.name}${city.isCapital ? ' ★' : ''}</div>`;
   html += `<div class="stat-row"><span>Pop ${city.population}</span><span>HP ${city.hp}/${city.maxHp}</span></div>`;
   html += `<div class="stat-row"><span>Food ${city.foodStored}/${city.foodNeeded} (${y.food >= 0 ? '+' : ''}${y.food})</span></div>`;
-  html += `<div class="stat-row"><span>Prod (${y.prod})</span><span>Gold (+${y.gold})</span><span>Sci (+${y.sci})</span></div>`;
+  html += `<div class="stat-row"><span>Prod (${y.prod})</span><span>Gold (+${y.gold})</span><span>Sci (+${y.sci})</span><span>Culture (+${y.culture})</span></div>`;
   html += `</div>`;
   const sc = document.getElementById(DOM_IDS.SELECTION_CONTENT);
   if (sc) sc.innerHTML = html;

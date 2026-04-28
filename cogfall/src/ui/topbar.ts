@@ -5,6 +5,7 @@
 import { DOM_IDS } from '../core/dom';
 import { G } from '../core/state';
 import { cityYields } from '../systems/city';
+import { getCulturalShare } from '../systems/culture';
 import { updateSelectionPanel } from './selectionPanel';
 
 export function updateUI(): void {
@@ -37,11 +38,13 @@ export function updateUI(): void {
   let goldD = 0;
   let aetherD = 0;
   let sciD = 0;
+  let cultureD = 0;
   for (const c of G.cities.filter((c) => c.factionIdx === G.playerFactionIdx)) {
     const y = cityYields(c);
     goldD += y.gold;
     aetherD += y.aether;
     sciD += y.sci;
+    cultureD += y.culture;
   }
   const goldDel = document.getElementById(DOM_IDS.R_GOLD_D);
   if (goldDel) {
@@ -52,6 +55,13 @@ export function updateUI(): void {
   if (aetherDel) aetherDel.textContent = (aetherD >= 0 ? '+' : '') + aetherD;
   const sciDel = document.getElementById(DOM_IDS.R_SCI_D);
   if (sciDel) sciDel.textContent = '+' + sciD;
+  const cultureDel = document.getElementById(DOM_IDS.R_CULTURE_D);
+  if (cultureDel) cultureDel.textContent = '+' + cultureD;
+  const cultureShare = document.getElementById(DOM_IDS.R_CULTURE_SHARE);
+  if (cultureShare) {
+    const share = getCulturalShare(G.playerFactionIdx);
+    cultureShare.textContent = `${Math.round(share * 100)}%`;
+  }
 
   updateSelectionPanel();
 

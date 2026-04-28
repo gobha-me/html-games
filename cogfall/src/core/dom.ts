@@ -29,6 +29,8 @@ export const DOM_IDS = {
   R_AETHER: 'r-aether',
   R_AETHER_D: 'r-aether-d',
   R_SCI_D: 'r-sci-d',
+  R_CULTURE_D: 'r-culture-d',
+  R_CULTURE_SHARE: 'r-culture-share',
 
   // Bottom-bar
   STATUS_TEXT: 'status-text',
@@ -68,6 +70,7 @@ export const DOM_IDS = {
   RESOURCE_DENSITY: 'resource-density',
   SETUP_SEED: 'setup-seed',
   SEED_REGEN: 'seed-regen',
+  CULTURAL_VICTORY: 'cultural-victory',
   START_GAME: 'start-game',
 } as const;
 
