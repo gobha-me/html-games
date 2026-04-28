@@ -11,6 +11,7 @@ import { AI_THINKING_LINES } from '../data/personalities';
 import { UNIT_TYPES } from '../data/units';
 import { aiPlayTurn } from '../ai/strategy';
 import { processCity } from './city';
+import { computeCulturalClaim } from './culture';
 import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
 import { DOM_IDS } from '../core/dom';
@@ -71,6 +72,12 @@ export function endTurn(): void {
   } else {
     G.goldHegemonyCounter[cur.idx] = 0;
   }
+
+  // Cultural pressure recompute (Phase 2g). Pure + deterministic; runs
+  // after the gold-hegemony check so a gold win short-circuits the
+  // cheaper code path. The 2g-4 cultural-hegemony check will land here.
+  computeCulturalClaim();
+
   cur.score = computeFactionScore(cur);
 
   G.currentFactionIdx = ((G.currentFactionIdx + 1) % G.factions.length) as FactionIdx;

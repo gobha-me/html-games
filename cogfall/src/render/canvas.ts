@@ -52,6 +52,7 @@ export function render(): void {
     drawHex(tile, vis);
   }
   drawOwnership();
+  drawCulturalClaim();
   for (const c of G.cities) {
     const t = getTile(c.q, c.r);
     if (!t || !t.visibility[playerIdx] || t.visibility[playerIdx] === 'unseen') continue;
@@ -152,6 +153,39 @@ function drawOwnership(): void {
       }
     }
   }
+}
+
+// Cultural claim borders (Phase 2g). Dashed faction-color stroke on
+// edges where the soft `claim` differs from the neighbor's claim. Runs
+// after drawOwnership so the harder ownership edges paint first; the
+// dashed claim line sits one rendering pass underneath cities/units.
+function drawCulturalClaim(): void {
+  if (!G.map) return;
+  const playerIdx = G.playerFactionIdx;
+  ctx.save();
+  ctx.setLineDash([5, 4]);
+  ctx.lineWidth = 1.5;
+  for (const tile of G.map.tiles.values()) {
+    if (!tile.visibility[playerIdx] || tile.visibility[playerIdx] === 'unseen') continue;
+    if (tile.claim == null) continue;
+    const fac = G.factions[tile.claim];
+    if (!fac) continue;
+    const { x, y } = hexToPixel(tile.q, tile.r);
+    for (let i = 0; i < 6; i++) {
+      const d = HEX_DIRS[i];
+      const nt = getTile(tile.q + d.q, tile.r + d.r);
+      if (!nt || nt.claim !== tile.claim) {
+        const c1 = hexCorner(x, y, i);
+        const c2 = hexCorner(x, y, (i + 1) % 6);
+        ctx.strokeStyle = fac.color;
+        ctx.beginPath();
+        ctx.moveTo(c1.x, c1.y);
+        ctx.lineTo(c2.x, c2.y);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
 }
 
 function drawCity(c: {

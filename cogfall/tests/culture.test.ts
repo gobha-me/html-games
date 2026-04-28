@@ -12,14 +12,66 @@ import {
   type SaveData,
 } from '../src/core/save';
 import { cityYields, createCity } from '../src/systems/city';
+import { computeCulturalClaim, CLAIM_RADIUS } from '../src/systems/culture';
 import { generateMap } from '../src/systems/mapgen';
+import { hexDistance, hexKey } from '../src/core/hex';
 import { createSeededRng } from '../src/core/rng';
 import { FACTIONS } from '../src/data/factions';
 import { PERSONALITIES } from '../src/data/personalities';
 import { TECHS, TECH_BRANCHES } from '../src/data/techs';
 import { BUILDING_TYPES } from '../src/data/buildings';
+import { TERRAIN_TYPES } from '../src/data/terrain';
 import { getAvailableTechs } from '../src/systems/research';
-import type { Faction, FactionIdx } from '../src/core/types';
+import type { Faction, FactionIdx, Tile } from '../src/core/types';
+
+function TERRAIN_TYPES_walkable(t: Tile): boolean {
+  return TERRAIN_TYPES[t.terrain].walkable;
+}
+
+// Build a small synthetic all-PLAINS map. Avoids the seed-roulette of
+// generateMap when a test needs deterministic geometry — every tile is
+// walkable, no water/mountains, no resources.
+function buildSyntheticPlainsMap(half: number = 8): void {
+  G.map = {
+    w: half * 2 + 1,
+    h: half * 2 + 1,
+    tiles: new Map(),
+  };
+  for (let q = -half; q <= half; q++) {
+    for (let r = -half; r <= half; r++) {
+      G.map.tiles.set(hexKey(q, r), {
+        q,
+        r,
+        terrain: 'PLAINS',
+        resource: null,
+        improvement: null,
+        owner: null,
+        cityId: null,
+        unitId: null,
+        visibility: {},
+      });
+    }
+  }
+}
+
+// Pick a walkable tile that has at least CLAIM_RADIUS-many walkable
+// neighbors at distance ≤ CLAIM_RADIUS — gives the claim system an
+// honest neighborhood to project into. Map seeds vary, so iterate
+// until we find one.
+function pickInteriorWalkable(map: NonNullable<typeof G.map>): Tile {
+  for (const t of map.tiles.values()) {
+    if (!TERRAIN_TYPES_walkable(t)) continue;
+    let neighbors = 0;
+    for (const other of map.tiles.values()) {
+      if (other === t) continue;
+      if (!TERRAIN_TYPES_walkable(other)) continue;
+      const d = hexDistance({ q: t.q, r: t.r }, { q: other.q, r: other.r });
+      if (d > 0 && d <= CLAIM_RADIUS) neighbors++;
+      if (neighbors >= 6) return t;
+    }
+  }
+  throw new Error('no interior walkable tile found');
+}
 
 function makeFaction(idx: number, isAI: boolean): Faction {
   const tpl = FACTIONS[idx];
@@ -222,6 +274,138 @@ describe('Phase 2g-1: culture types and save migration', () => {
 
     expect(cityYields(cap).culture).toBe(1);
     expect(cityYields(second).culture).toBe(0);
+  });
+
+  it('cultural pressure claims neutral tiles within CLAIM_RADIUS of a culturing city', () => {
+    buildSmallScenario();
+    // Find an interior walkable tile to plant the city, so radius-3
+    // neighborhood contains plenty of unowned land.
+    const center = pickInteriorWalkable(G.map!);
+    expect(center).toBeDefined();
+    const c = createCity(0 as FactionIdx, center!.q, center!.r, 'Press City');
+    c.buildings.add('printing_press'); // +2 culture
+
+    computeCulturalClaim();
+
+    // Some neutral walkable tile within radius 3 should be claimed by
+    // faction 0. Tiles immediately adjacent are owner-set by createCity,
+    // so look at distance 2-3.
+    const claimed = [...G.map!.tiles.values()].filter(
+      (t) => t.claim === (0 as FactionIdx)
+    );
+    expect(claimed.length).toBeGreaterThan(0);
+    for (const t of claimed) {
+      // Soft claim never overlaps ownership.
+      expect(t.owner).toBeNull();
+      expect(hexDistance({ q: c.q, r: c.r }, { q: t.q, r: t.r })).toBeLessThanOrEqual(
+        CLAIM_RADIUS
+      );
+    }
+  });
+
+  it('two cities of equal culture from different factions leave shared midpoint unclaimed', () => {
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false), makeFaction(1, true)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+
+    // Cities 6 apart along the q axis. createCity claims the city tile
+    // and the 6 immediate neighbors for the faction; (3, 0) sits two
+    // hexes outside both ownership rings → genuine neutral.
+    const cA = createCity(0 as FactionIdx, 0, 0, 'A');
+    const cB = createCity(1 as FactionIdx, 6, 0, 'B');
+    cA.buildings.add('printing_press');
+    cB.buildings.add('printing_press');
+
+    computeCulturalClaim();
+
+    const mid = G.map!.tiles.get(hexKey(3, 0));
+    expect(mid).toBeDefined();
+    expect(mid!.owner).toBeNull();
+    // Equal pressure from both factions → no claim.
+    expect(mid!.claim).toBeUndefined();
+
+    // And tiles unambiguously closer to one city should be claimed by
+    // it. Distance from (1, 0): 1 to A, 5 to B → A wins.
+    const nearA = G.map!.tiles.get(hexKey(2, 0));
+    expect(nearA).toBeDefined();
+    if (nearA && nearA.owner == null) {
+      expect(nearA.claim).toBe(0 as FactionIdx);
+    }
+  });
+
+  it('cultural pressure dies off past CLAIM_RADIUS', () => {
+    buildSmallScenario();
+    const center = pickInteriorWalkable(G.map!);
+    const c = createCity(0 as FactionIdx, center!.q, center!.r, 'Far City');
+    c.buildings.add('printing_press');
+
+    computeCulturalClaim();
+
+    // Any tile farther than CLAIM_RADIUS hexes must be unclaimed.
+    for (const t of G.map!.tiles.values()) {
+      if (hexDistance({ q: c.q, r: c.r }, { q: t.q, r: t.r }) > CLAIM_RADIUS) {
+        expect(t.claim).toBeUndefined();
+      }
+    }
+  });
+
+  it('soft-claim never mutates tile.owner', () => {
+    buildSmallScenario();
+    const center = pickInteriorWalkable(G.map!);
+    const c = createCity(0 as FactionIdx, center!.q, center!.r, 'Soft City');
+    c.buildings.add('opera_house'); // strong pressure
+    // Snapshot every tile's owner before the compute.
+    const ownerBefore = new Map<string, FactionIdx | null>();
+    for (const t of G.map!.tiles.values()) {
+      ownerBefore.set(hexKey(t.q, t.r), t.owner);
+    }
+
+    computeCulturalClaim();
+
+    for (const t of G.map!.tiles.values()) {
+      expect(t.owner).toBe(ownerBefore.get(hexKey(t.q, t.r)));
+    }
+  });
+
+  it('owned tiles never receive a claim, even under high pressure', () => {
+    buildSmallScenario();
+    const center = pickInteriorWalkable(G.map!);
+    const c = createCity(0 as FactionIdx, center!.q, center!.r, 'Solid City');
+    c.buildings.add('opera_house');
+
+    computeCulturalClaim();
+
+    for (const t of G.map!.tiles.values()) {
+      if (t.owner != null) {
+        expect(t.claim).toBeUndefined();
+      }
+    }
+  });
+
+  it('claim disappears when the projecting city is removed', () => {
+    buildSmallScenario();
+    const center = pickInteriorWalkable(G.map!);
+    const c = createCity(0 as FactionIdx, center!.q, center!.r, 'Doomed');
+    c.buildings.add('opera_house');
+
+    computeCulturalClaim();
+    const claimedBefore = [...G.map!.tiles.values()].filter((t) => t.claim != null).length;
+    expect(claimedBefore).toBeGreaterThan(0);
+
+    // Remove the city. The claim recompute should clear all of its
+    // pressure and leave previously-claimed neutral tiles unclaimed.
+    G.cities = G.cities.filter((cc) => cc.id !== c.id);
+    computeCulturalClaim();
+
+    const claimedAfter = [...G.map!.tiles.values()].filter((t) => t.claim != null).length;
+    expect(claimedAfter).toBe(0);
   });
 
   it('migrates a v2 save (no cultural fields) to v3 defaults', () => {
