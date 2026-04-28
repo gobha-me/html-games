@@ -68,6 +68,17 @@ import {
 } from './ai/unitAI';
 import { aiDiplomacy, aiTelegraph } from './ai/diploAI';
 
+// Phase 1 step 6: turn loop + victory triggers in src/systems/turn.ts.
+import {
+  endTurn,
+  runAITurn,
+  computeFactionScore,
+  triggerVictory,
+  triggerDefeat,
+  scorecard,
+  setRequestRedraw,
+} from './systems/turn';
+
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
 // (HEX MATH section moved to src/core/hex.ts — see imports above.)
@@ -85,89 +96,6 @@ window.addEventListener('resize',resizeCanvas);
 
 // (MAP GENERATION moved to src/systems/mapgen.ts.)
 
-// ============================================================================
-// TURN MANAGEMENT / VICTORY
-// ============================================================================
-function endTurn(){
-  if(G.gameOver)return;
-  const cur=G.factions[G.currentFactionIdx];
-  for(const c of G.cities.filter(c=>c.factionIdx===cur.idx))processCity(c);
-  const _research=processResearch(cur);
-  if(_research.ascensionTriggered){triggerVictory(cur.idx,'ascension');return}
-  if(cur.resources.gold>=G.goldHegemonyThreshold){
-    G.goldHegemonyCounter[cur.idx]=(G.goldHegemonyCounter[cur.idx]||0)+1;
-    if(G.goldHegemonyCounter[cur.idx]>=G.goldHegemonyRequired){triggerVictory(cur.idx,'hegemony');return}
-  }else G.goldHegemonyCounter[cur.idx]=0;
-  cur.score=computeFactionScore(cur);
-  G.currentFactionIdx=(G.currentFactionIdx+1)%G.factions.length;
-  let safety=10;
-  while(!G.factions[G.currentFactionIdx].alive&&safety-->0)G.currentFactionIdx=(G.currentFactionIdx+1)%G.factions.length;
-  if(G.currentFactionIdx===0)G.turn++;
-  const next=G.factions[G.currentFactionIdx];
-  for(const u of G.units.filter(u=>u.factionIdx===next.idx))u.mp=UNIT_TYPES[u.typeId].mp;
-  recomputeVisibility();
-  const aliveOpps=G.factions.filter(f=>f.alive&&f.idx!==G.playerFactionIdx);
-  if(aliveOpps.length===0&&G.factions[G.playerFactionIdx].alive){triggerVictory(G.playerFactionIdx,'domination');return}
-  if(!G.factions[G.playerFactionIdx].alive){triggerDefeat();return}
-  G.selected=null;G.moveTargets=[];G.attackTargets=[];
-  if(next.isAI)runAITurn(next);
-  else{updateUI();render()}
-}
-
-function runAITurn(faction){
-  const lines=AI_THINKING_LINES[faction.personality];
-  const line=lines[Math.floor(Math.random()*lines.length)];
-  showAIThinking(`${faction.name} ${line}`);
-  setTimeout(()=>{
-    aiPlayTurn(faction);
-    hideAIThinking();
-    updateUI();render();
-    setTimeout(endTurn,300);
-  },450+Math.random()*300);
-}
-function showAIThinking(text){document.getElementById('ai-thinking-text').textContent=text;document.getElementById('ai-thinking').style.display='flex'}
-function hideAIThinking(){document.getElementById('ai-thinking').style.display='none'}
-
-function computeFactionScore(faction){
-  let s=0;
-  s+=G.cities.filter(c=>c.factionIdx===faction.idx).reduce((acc,c)=>acc+10+c.population*4,0);
-  s+=G.units.filter(u=>u.factionIdx===faction.idx).length*3;
-  s+=faction.techs.size*8;
-  s+=faction.resources.gold*0.05;
-  s+=faction.resources.aether*0.5;
-  return Math.round(s);
-}
-
-function triggerVictory(factionIdx,type){
-  G.gameOver=true;
-  const fac=G.factions[factionIdx];
-  const isPlayer=factionIdx===G.playerFactionIdx;
-  const messages={
-    domination:{title:'Domination',flavor:`${fac.name} has crushed all rivals beneath the weight of their banners.`},
-    ascension:{title:'Ascension',flavor:`${fac.name} has restored the Grand Apparatus. The Old World awakens — under their hand.`},
-    hegemony:{title:'Economic Hegemony',flavor:`${fac.name} has bought the world. The other banners bend, or starve.`}
-  };
-  const m=messages[type];
-  const banner=isPlayer?`<div class="victory-banner win"><h2 style="color:#99ee99">VICTORY: ${m.title}</h2><p style="margin-top:10px;font-style:italic">${m.flavor}</p></div>`:`<div class="victory-banner lose"><h2 style="color:var(--danger)">DEFEAT</h2><p style="margin-top:10px">${fac.name} has achieved ${m.title}.</p><p style="margin-top:6px;font-style:italic">${m.flavor}</p></div>`;
-  document.getElementById('game-over-content').innerHTML=banner+scorecard();
-  document.getElementById('game-over-modal').classList.add('show');
-}
-function triggerDefeat(){
-  G.gameOver=true;
-  const banner=`<div class="victory-banner lose"><h2 style="color:var(--danger)">DEFEAT</h2><p style="margin-top:10px">Your last city has fallen. Your banner is dust.</p></div>`;
-  document.getElementById('game-over-content').innerHTML=banner+scorecard();
-  document.getElementById('game-over-modal').classList.add('show');
-}
-function scorecard(){
-  const sorted=G.factions.slice().sort((a,b)=>computeFactionScore(b)-computeFactionScore(a));
-  let html='<h3 style="color:var(--brass);margin-bottom:8px">Final Tally</h3>';
-  for(const f of sorted){
-    const status=f.alive?'':' <span style="color:var(--danger)">(eliminated)</span>';
-    html+=`<div class="row"><span><span style="color:${f.color}">${f.glyph}</span> ${f.name}${status}</span><span>${computeFactionScore(f)}</span></div>`;
-  }
-  return html;
-}
-// ============================================================================
 // RENDERING
 // ============================================================================
 function hexCorner(cx,cy,i){const angle=Math.PI/180*(60*i-30);return{x:cx+HEX_SIZE*Math.cos(angle),y:cy+HEX_SIZE*Math.sin(angle)}}
@@ -889,6 +817,14 @@ function startGame(){
   for(const u of G.units.filter(u=>u.factionIdx===0))u.mp=UNIT_TYPES[u.typeId].mp;
   updateUI();render();
 }
+
+// Phase 1 step 6 wiring: turn.ts publishes a redraw hook; fill it in here
+// while updateUI/render still live in legacy.ts. Step 10 will move this
+// wiring into main.ts.
+setRequestRedraw(() => {
+  updateUI();
+  render();
+});
 
 renderFactionList();
 resizeCanvas();
