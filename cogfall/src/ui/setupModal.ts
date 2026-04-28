@@ -9,6 +9,7 @@ import { FACTIONS } from '../data/factions';
 import { isMinimapVisible, setMinimapVisible } from './minimap';
 import { isAudioMuted, setAudioMuted } from '../systems/audio';
 import { isTelemetryEnabled, setTelemetryEnabled } from '../systems/telemetry';
+import { isReplayEnabled, setReplayEnabled } from '../systems/replay';
 
 let setupSelectedFaction = 0;
 
@@ -97,6 +98,18 @@ if (telemetryCheckbox) {
   telemetryCheckbox.checked = isTelemetryEnabled();
   telemetryCheckbox.addEventListener('change', () => {
     setTelemetryEnabled(telemetryCheckbox.checked);
+  });
+}
+
+// Phase 2k-4: replay checkbox. Same default-on / live-toggle shape as
+// telemetry — flipping it before Begin captures the new state.
+const replayCheckbox = document.getElementById(
+  DOM_IDS.REPLAY_ENABLED
+) as HTMLInputElement | null;
+if (replayCheckbox) {
+  replayCheckbox.checked = isReplayEnabled();
+  replayCheckbox.addEventListener('change', () => {
+    setReplayEnabled(replayCheckbox.checked);
   });
 }
 

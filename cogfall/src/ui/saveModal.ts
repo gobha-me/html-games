@@ -24,6 +24,8 @@ import { closeModal } from './modals';
 import { updateUI } from './topbar';
 import { render } from '../render/pixi';
 import { dumpTelemetry, getTelemetryLog } from '../systems/telemetry';
+import { dumpReplay, getReplayLog } from '../systems/replay';
+import { openReplayModal } from './replayModal';
 
 export function renderSaveModal(): void {
   const slots = listSlots();
@@ -32,6 +34,7 @@ export function renderSaveModal(): void {
   const content = document.getElementById(DOM_IDS.SAVE_CONTENT);
   if (content) content.innerHTML = html;
   refreshTelemetryButton();
+  refreshReplayDownloadButton();
 }
 
 function renderSlotRow(slot: Slot, inGame: boolean): string {
@@ -178,5 +181,45 @@ if (telemetryBtn) {
     a.download = `cogfall-telemetry-seed${data.seed}-turn${data.turn}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  });
+}
+
+// Phase 2k-4: replay download + viewer-open buttons. Download mirrors
+// the telemetry pattern (greys when log empty); viewer-open closes this
+// modal first so the replay overlay isn't stacked on top of the records
+// list.
+const replayDownloadBtn = document.getElementById(
+  DOM_IDS.REPLAY_DOWNLOAD_BTN
+) as HTMLButtonElement | null;
+
+export function refreshReplayDownloadButton(): void {
+  if (!replayDownloadBtn) return;
+  const empty = getReplayLog().length === 0;
+  replayDownloadBtn.disabled = empty;
+  replayDownloadBtn.style.opacity = empty ? '0.55' : '';
+  replayDownloadBtn.title = empty
+    ? 'No replay snapshots yet — start a game and play a few turns.'
+    : "Download this game's per-turn snapshots as a replay JSON";
+}
+
+if (replayDownloadBtn) {
+  replayDownloadBtn.addEventListener('click', () => {
+    const data = dumpReplay();
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const lastTurn = data.turns[data.turns.length - 1]?.turn ?? G.turn;
+    a.download = `cogfall-replay-seed${data.seed}-turn${lastTurn}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+const replayOpenBtn = document.getElementById(DOM_IDS.REPLAY_OPEN_BTN);
+if (replayOpenBtn) {
+  replayOpenBtn.addEventListener('click', () => {
+    closeModal(DOM_IDS.SAVE_MODAL);
+    openReplayModal();
   });
 }
