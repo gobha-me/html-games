@@ -50,6 +50,7 @@ export const TECHS = {
     cost: 130,
     prereqs: ['metallurgy'],
     branch: 'industry',
+    unlocks: ['IRONCLAD'],
     flavor: 'Pressure and pistons, the heartbeat of the new age.',
   },
   banking: {
@@ -72,7 +73,7 @@ export const TECHS = {
     cost: 220,
     prereqs: ['aetherics', 'steamcraft'],
     branch: 'science',
-    unlocks: ['AETHERMECH'],
+    unlocks: ['AETHERMECH', 'AETHER_FRIGATE'],
     flavor: 'The Old Weapons return.',
   },
   grand_apparatus: {

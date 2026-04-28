@@ -1,6 +1,9 @@
 // Unit types. `requires` references a TechId (from data/techs.ts); kept as a
 // string literal here to avoid a circular module reference. The id-to-id
 // linkage is enforced by the systems that consume it.
+//
+// `domain: 'sea'` marks naval units. Land units omit the field. Movement,
+// production gating, and AI dispatch all branch on isNaval(). See plan 2d.
 
 export const UNIT_TYPES = {
   PIONEER: {
@@ -85,7 +88,50 @@ export const UNIT_TYPES = {
     glyph: '⚒',
     desc: 'Builds tile improvements.',
   },
+  STEAMSHIP: {
+    name: 'Steamship',
+    hp: 22,
+    atk: 3,
+    def: 3,
+    mp: 3,
+    sight: 3,
+    cost: 35,
+    domain: 'sea',
+    glyph: '⛵',
+    desc: 'Coastal scout under steam.',
+  },
+  IRONCLAD: {
+    name: 'Ironclad',
+    hp: 45,
+    atk: 8,
+    def: 7,
+    mp: 3,
+    sight: 2,
+    cost: 95,
+    requires: 'steamcraft',
+    domain: 'sea',
+    glyph: '⛴',
+    desc: 'Armored line ship.',
+  },
+  AETHER_FRIGATE: {
+    name: 'Aether Frigate',
+    hp: 35,
+    atk: 11,
+    def: 5,
+    mp: 4,
+    sight: 3,
+    cost: 140,
+    requires: 'aether_war',
+    domain: 'sea',
+    glyph: '⚓',
+    desc: 'Aether-driven raider — fast, brittle, deadly.',
+  },
 } as const;
 
 export type UnitTypeId = keyof typeof UNIT_TYPES;
 export type UnitDef = (typeof UNIT_TYPES)[UnitTypeId];
+
+export function isNaval(typeId: UnitTypeId): boolean {
+  const tpl = UNIT_TYPES[typeId];
+  return 'domain' in tpl && tpl.domain === 'sea';
+}
