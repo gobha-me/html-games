@@ -11,7 +11,7 @@ import { AI_THINKING_LINES } from '../data/personalities';
 import { UNIT_TYPES } from '../data/units';
 import { aiPlayTurn } from '../ai/strategy';
 import { processCity } from './city';
-import { computeCulturalClaim } from './culture';
+import { computeCulturalClaim, processCulturalHegemony } from './culture';
 import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
 import { DOM_IDS } from '../core/dom';
@@ -75,8 +75,18 @@ export function endTurn(): void {
 
   // Cultural pressure recompute (Phase 2g). Pure + deterministic; runs
   // after the gold-hegemony check so a gold win short-circuits the
-  // cheaper code path. The 2g-4 cultural-hegemony check will land here.
+  // cheaper code path.
   computeCulturalClaim();
+
+  // Cultural hegemony victory (Phase 2g-4). Mirrors gold-hegemony's
+  // counter pattern: hold ≥ threshold share of all claimed tiles for
+  // `required` consecutive end-turns. processCulturalHegemony lives in
+  // systems/culture.ts so the share + counter logic is unit-testable
+  // without scaffolding the full endTurn DOM/AI/visibility surface.
+  if (processCulturalHegemony(cur).victory) {
+    triggerVictory(cur.idx, 'cultural');
+    return;
+  }
 
   cur.score = computeFactionScore(cur);
 
@@ -160,6 +170,11 @@ const VICTORY_MESSAGES: Record<VictoryType, { title: string; flavorTemplate: str
   hegemony: {
     title: 'Economic Hegemony',
     flavorTemplate: '{name} has bought the world. The other banners bend, or starve.',
+  },
+  cultural: {
+    title: 'Cultural Hegemony',
+    flavorTemplate:
+      '{name} has set the loom of every conversation. The world hums their song without thinking.',
   },
 };
 

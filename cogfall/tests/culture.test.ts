@@ -12,7 +12,13 @@ import {
   type SaveData,
 } from '../src/core/save';
 import { cityYields, createCity } from '../src/systems/city';
-import { computeCulturalClaim, CLAIM_RADIUS } from '../src/systems/culture';
+import {
+  computeCulturalClaim,
+  CLAIM_RADIUS,
+  getCulturalShare,
+  processCulturalHegemony,
+  tallyClaimedTiles,
+} from '../src/systems/culture';
 import { generateMap } from '../src/systems/mapgen';
 import { hexDistance, hexKey } from '../src/core/hex';
 import { createSeededRng } from '../src/core/rng';
@@ -406,6 +412,98 @@ describe('Phase 2g-1: culture types and save migration', () => {
 
     const claimedAfter = [...G.map!.tiles.values()].filter((t) => t.claim != null).length;
     expect(claimedAfter).toBe(0);
+  });
+
+  it('cultural hegemony counter increments when share crosses threshold', () => {
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false), makeFaction(1, true)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+    G.culturalHegemonyEnabled = true;
+    G.culturalHegemonyThreshold = 0.4;
+    G.culturalHegemonyRequired = 5;
+    G.culturalHegemonyCounter = {};
+
+    // Faction 0 dominates: city with strong culture; faction 1 has none.
+    const cA = createCity(0 as FactionIdx, 0, 0, 'A');
+    cA.buildings.add('opera_house');
+    createCity(1 as FactionIdx, 12, 0, 'B'); // far away, no culture buildings
+
+    computeCulturalClaim();
+    const share0 = getCulturalShare(0 as FactionIdx);
+    expect(share0).toBeGreaterThanOrEqual(G.culturalHegemonyThreshold);
+
+    const result = processCulturalHegemony(G.factions[0]);
+    expect(result.victory).toBe(false);
+    expect(G.culturalHegemonyCounter[0]).toBe(1);
+
+    // Run again — counter ticks up.
+    processCulturalHegemony(G.factions[0]);
+    expect(G.culturalHegemonyCounter[0]).toBe(2);
+  });
+
+  it('cultural hegemony counter resets when share drops below threshold', () => {
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false), makeFaction(1, true)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+    G.culturalHegemonyEnabled = true;
+    G.culturalHegemonyThreshold = 0.4;
+    G.culturalHegemonyRequired = 5;
+    G.culturalHegemonyCounter = { 0: 3 }; // mid-streak
+
+    // No claims at all: share = 0, counter resets.
+    const tally = tallyClaimedTiles();
+    expect(tally.total).toBe(0);
+
+    const result = processCulturalHegemony(G.factions[0]);
+    expect(result.victory).toBe(false);
+    expect(G.culturalHegemonyCounter[0]).toBe(0);
+  });
+
+  it('cultural hegemony reports victory when counter hits required threshold', () => {
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false), makeFaction(1, true)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+    G.culturalHegemonyEnabled = true;
+    G.culturalHegemonyThreshold = 0.4;
+    G.culturalHegemonyRequired = 3;
+    G.culturalHegemonyCounter = { 0: 2 }; // one shy of required
+
+    const cA = createCity(0 as FactionIdx, 0, 0, 'A');
+    cA.buildings.add('opera_house');
+    createCity(1 as FactionIdx, 12, 0, 'B');
+
+    computeCulturalClaim();
+    const result = processCulturalHegemony(G.factions[0]);
+    expect(result.victory).toBe(true);
+    expect(G.culturalHegemonyCounter[0]).toBe(3);
+
+    // Disabled flag short-circuits the check entirely (counter resets).
+    G.culturalHegemonyEnabled = false;
+    G.culturalHegemonyCounter[0] = 2;
+    const r2 = processCulturalHegemony(G.factions[0]);
+    expect(r2.victory).toBe(false);
+    expect(G.culturalHegemonyCounter[0]).toBe(0);
   });
 
   it('migrates a v2 save (no cultural fields) to v3 defaults', () => {

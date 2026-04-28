@@ -16,7 +16,7 @@ import { hexDistance, hexKey } from '../core/hex';
 import { G } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { cityYields } from './city';
-import type { FactionIdx } from '../core/types';
+import type { Faction, FactionIdx } from '../core/types';
 
 export const CLAIM_RADIUS = 3;
 
@@ -112,4 +112,42 @@ export function tallyClaimedTiles(): { perFaction: number[]; total: number } {
     total++;
   }
   return { perFaction, total };
+}
+
+/**
+ * Faction's share of all claimed tiles in [0, 1]. Returns 0 if no tiles
+ * are claimed at all (avoids NaN from 0/0). Used by the 2g-4 victory
+ * check and exported for the 2g-6 HUD readout.
+ */
+export function getCulturalShare(factionIdx: FactionIdx): number {
+  const { perFaction, total } = tallyClaimedTiles();
+  return total > 0 ? perFaction[factionIdx] / total : 0;
+}
+
+/**
+ * Per-faction cultural-hegemony counter step. Mirrors the inline gold-
+ * hegemony block in turn.ts: hold ≥ threshold share for `required`
+ * consecutive end-turns to win. Mutates G.culturalHegemonyCounter and
+ * returns { victory: true } when the counter crosses the threshold —
+ * caller is expected to fire triggerVictory(idx, 'cultural'). When
+ * G.culturalHegemonyEnabled is false the counter resets to 0 and no
+ * victory is reported, which matches the user toggling cultural
+ * victory off mid-game without losing replay parity (the field is
+ * persisted in saves).
+ */
+export function processCulturalHegemony(cur: Faction): { victory: boolean } {
+  if (!G.culturalHegemonyEnabled) {
+    G.culturalHegemonyCounter[cur.idx] = 0;
+    return { victory: false };
+  }
+  const share = getCulturalShare(cur.idx);
+  if (share >= G.culturalHegemonyThreshold && share > 0) {
+    G.culturalHegemonyCounter[cur.idx] = (G.culturalHegemonyCounter[cur.idx] || 0) + 1;
+    if ((G.culturalHegemonyCounter[cur.idx] || 0) >= G.culturalHegemonyRequired) {
+      return { victory: true };
+    }
+  } else {
+    G.culturalHegemonyCounter[cur.idx] = 0;
+  }
+  return { victory: false };
 }

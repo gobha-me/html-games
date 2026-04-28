@@ -24,7 +24,7 @@ export interface LogEntry {
   turn: number;
 }
 
-export type VictoryType = 'domination' | 'ascension' | 'hegemony';
+export type VictoryType = 'domination' | 'ascension' | 'hegemony' | 'cultural';
 
 export type DiploStatus = 'unmet' | 'peace' | 'war';
 
