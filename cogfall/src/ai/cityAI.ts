@@ -3,11 +3,12 @@
 // scorer (with a 15% chance of picking the second-best for variety).
 
 import { defaultRng, type Rng } from '../core/rng';
-import { G } from '../core/state';
+import { G, getTile } from '../core/state';
 import type { BuildQueue, City, Faction, UnitTypeId } from '../core/types';
 import { BUILDING_TYPES } from '../data/buildings';
-import { UNIT_TYPES } from '../data/units';
+import { UNIT_TYPES, isNaval } from '../data/units';
 import { PERSONALITIES } from '../data/personalities';
+import { isCoast } from '../systems/mapgen';
 
 const SECOND_BEST_VARIATION_CHANCE = 0.15;
 const PIONEER_LATE_PENALTY_TURN = 30;
@@ -63,6 +64,26 @@ export function aiPickBuild(
     if (phase === 'contest') score += 25;
     score -= UNIT_TYPES[bestMil].cost * 0.1;
     options.push({ kind: 'unit', id: bestMil, score });
+  }
+
+  const cityTile = getTile(city.q, city.r);
+  const coastal = !!(cityTile && G.map && isCoast(cityTile, G.map));
+  if (coastal) {
+    const navalTypes: UnitTypeId[] = (
+      ['AETHER_FRIGATE', 'IRONCLAD', 'STEAMSHIP'] as const
+    ).filter((t) => {
+      const tpl = UNIT_TYPES[t];
+      return !('requires' in tpl) || !tpl.requires || faction.techs.has(tpl.requires);
+    });
+    const bestNaval = navalTypes[0];
+    if (bestNaval) {
+      let score = 28 + p.mil * 40;
+      if (atWar) score += 40;
+      const myNaval = myUnits.filter((u) => isNaval(u.typeId)).length;
+      if (myNaval < myCityCount) score += 20;
+      score -= UNIT_TYPES[bestNaval].cost * 0.1;
+      options.push({ kind: 'unit', id: bestNaval, score });
+    }
   }
 
   if (phase === 'expand' && myPioneers < 1 && myCityCount < 5) {

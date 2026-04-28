@@ -14,7 +14,7 @@ import { BUILDING_TYPES } from '../data/buildings';
 import { CITY_NAMES } from '../data/factions';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
-import { UNIT_TYPES } from '../data/units';
+import { UNIT_TYPES, isNaval } from '../data/units';
 import { createUnit } from './movement';
 
 const BASE_CITY_FOOD = 2;
@@ -194,20 +194,34 @@ export function processCity(city: City): void {
       if (item.kind === 'unit') {
         let spawnQ = city.q;
         let spawnR = city.r;
-        const occupant = getUnitAt(city.q, city.r);
-        if (occupant) {
-          if (occupant.factionIdx !== city.factionIdx) return;
+        if (isNaval(item.id)) {
+          // Naval units spawn on a free WATER neighbor (cities sit on land).
           const spot = hexNeighbors(city.q, city.r).find((n) => {
             const t = getTile(n.q, n.r);
-            return t && TERRAIN_TYPES[t.terrain].walkable && !getUnitAt(n.q, n.r);
+            return t && t.terrain === 'WATER' && !getUnitAt(n.q, n.r);
           });
-          if (spot) {
-            spawnQ = spot.q;
-            spawnR = spot.r;
-          } else {
-            // Defer: refund production so the unit can spawn next turn.
+          if (!spot) {
             city.productionStored += cost;
             return;
+          }
+          spawnQ = spot.q;
+          spawnR = spot.r;
+        } else {
+          const occupant = getUnitAt(city.q, city.r);
+          if (occupant) {
+            if (occupant.factionIdx !== city.factionIdx) return;
+            const spot = hexNeighbors(city.q, city.r).find((n) => {
+              const t = getTile(n.q, n.r);
+              return t && TERRAIN_TYPES[t.terrain].walkable && !getUnitAt(n.q, n.r);
+            });
+            if (spot) {
+              spawnQ = spot.q;
+              spawnR = spot.r;
+            } else {
+              // Defer: refund production so the unit can spawn next turn.
+              city.productionStored += cost;
+              return;
+            }
           }
         }
         createUnit(item.id, city.factionIdx, spawnQ, spawnR);

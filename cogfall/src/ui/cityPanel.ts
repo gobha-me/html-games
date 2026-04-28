@@ -3,12 +3,13 @@
 // onclick from each list item.
 
 import { DOM_IDS } from '../core/dom';
-import { G } from '../core/state';
+import { G, getTile } from '../core/state';
 import type { BuildingId, City, UnitTypeId } from '../core/types';
 import { BUILDING_TYPES } from '../data/buildings';
-import { UNIT_TYPES } from '../data/units';
+import { UNIT_TYPES, isNaval } from '../data/units';
 import { TECHS } from '../data/techs';
 import { cityYields } from '../systems/city';
+import { isCoast } from '../systems/mapgen';
 import { updateUI } from './topbar';
 
 export function renderCityDetailsRight(city: City): void {
@@ -36,17 +37,22 @@ export function renderCityDetailsRight(city: City): void {
     html += `<div style="margin-bottom:10px;padding:8px;background:rgba(78,205,196,0.1);border:1px solid var(--aether);border-radius:4px">Building <strong>${name}</strong>: ${city.productionStored}/${cost} <span style="color:var(--parchment-d)">(${turns} turns)</span></div>`;
   }
 
+  const cityTile = getTile(city.q, city.r);
+  const coastal = !!(cityTile && G.map && isCoast(cityTile, G.map));
+
   html += `<h4>Units</h4><div class="build-list">`;
   for (const [uid, tpl] of Object.entries(UNIT_TYPES)) {
     if ('requires' in tpl && tpl.requires && !fac.techs.has(tpl.requires)) continue;
+    if (isNaval(uid as UnitTypeId) && !coastal) continue;
     const isCur =
       city.buildQueue &&
       city.buildQueue.kind === 'unit' &&
       city.buildQueue.id === (uid as UnitTypeId);
+    const navalTag = isNaval(uid as UnitTypeId) ? ' · Naval' : '';
     html += `<div class="build-item ${isCur ? 'current' : ''}" onclick="setCityBuild(${city.id},'unit','${uid}')">`;
     html += `<div class="name">${tpl.glyph} ${tpl.name}</div>`;
     html += `<div class="desc">${tpl.desc}</div>`;
-    html += `<div class="meta">Cost: ${tpl.cost} prod · HP ${tpl.hp} Atk ${tpl.atk} Def ${tpl.def} MP ${tpl.mp}</div>`;
+    html += `<div class="meta">Cost: ${tpl.cost} prod · HP ${tpl.hp} Atk ${tpl.atk} Def ${tpl.def} MP ${tpl.mp}${navalTag}</div>`;
     html += `</div>`;
   }
 
@@ -85,6 +91,10 @@ function setCityBuild(cityId: number, kind: 'unit' | 'building', id: string): vo
   if (kind === 'unit') {
     const tpl = UNIT_TYPES[id as UnitTypeId];
     if ('requires' in tpl && tpl.requires && !player.techs.has(tpl.requires)) return;
+    if (isNaval(id as UnitTypeId)) {
+      const t = getTile(c.q, c.r);
+      if (!t || !G.map || !isCoast(t, G.map)) return;
+    }
     c.buildQueue = { kind: 'unit', id: id as UnitTypeId };
   } else {
     const tpl = BUILDING_TYPES[id as BuildingId];
