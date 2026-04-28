@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reclamation Wars</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Setup Screen -->
+        <div id="setup-screen" class="screen active">
+            <div class="setup-panel">
+                <h1 class="game-title">⚙️ RECLAMATION WARS ⚙️</h1>
+                <p class="subtitle">The Collapse took everything. Now we rebuild — or fall again.</p>
+                
+                <div class="setup-section">
+                    <h2>Map Configuration</h2>
+                    <div class="form-group">
+                        <label for="map-size">Map Size:</label>
+                        <select id="map-size">
+                            <option value="small">Small (8×6) — Quick skirmish</option>
+                            <option value="medium" selected>Medium (12×8) — Standard game</option>
+                            <option value="large">Large (16×10) — Epic campaign</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setup-section">
+                    <h2>Factions</h2>
+                    <div class="form-group">
+                        <label for="faction-count">Number of Factions:</label>
+                        <select id="faction-count">
+                            <option value="2">2 — Duel</option>
+                            <option value="3" selected>3 — Three-way struggle</option>
+                            <option value="4">4 — Power play</option>
+                            <option value="5">5 — Chaos</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setup-section">
+                    <h2>Your Faction</h2>
+                    <div id="faction-select" class="faction-grid"></div>
+                </div>
+
+                <button id="start-btn" class="btn-primary" disabled>Select a faction to begin</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div id="top-bar">
+                <div id="turn-info">
+                    <span id="turn-display">Turn 1</span>
+                    <span id="phase-display">Planning Phase</span>
+                </div>
+                <div id="resources-bar"></div>
+                <div id="win-conditions"></div>
+                <button id="end-turn-btn" class="btn-action">End Turn</button>
+            </div>
+
+            <div id="main-area">
+                <div id="map-container">
+                    <svg id="hex-map"></svg>
+                </div>
+
+                <div id="side-panel">
+                    <div id="panel-tabs">
+                        <button class="tab-btn active" data-tab="info">Info</button>
+                        <button class="tab-btn" data-tab="research">Research</button>
+                        <button class="tab-btn" data-tab="production">Production</button>
+                        <button class="tab-btn" data-tab="diplomacy">Diplomacy</button>
+                    </div>
+                    <div id="panel-content">
+                        <div id="tab-info" class="tab-content active"></div>
+                        <div id="tab-research" class="tab-content"></div>
+                        <div id="tab-production" class="tab-content"></div>
+                        <div id="tab-diplomacy" class="tab-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="bottom-bar">
+                <div id="action-bar"></div>
+                <div id="message-log"></div>
+            </div>
+        </div>
+
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="screen">
+            <div class="victory-panel">
+                <h1 id="victory-title">Victory!</h1>
+                <p id="victory-message"></p>
+                <div id="victory-stats"></div>
+                <button id="play-again-btn" class="btn-primary">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/constants.js"></script>
+    <script src="js/hex.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/factions.js"></script>
+    <script src="js/resources.js"></script>
+    <script src="js/research.js"></script>
+    <script src="js/units.js"></script>
+    <script src="js/buildings.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/setup.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
