@@ -51,6 +51,11 @@ export interface Tile {
   /** 6-bit bitmask of which HEX_DIRS edges have a river segment. Optional —
    * absent on tiles without rivers and on saves written before Phase 2c. */
   riverEdges?: number;
+  /** Soft cultural claim — the faction whose accumulated cultural pressure
+   * dominates this tile, even if `owner` is null. Never overwrites `owner`
+   * (Phase 2g, decision-log item 7). Optional — absent on neutral/unclaimed
+   * tiles and on saves written before Phase 2g (v2). */
+  claim?: FactionIdx;
 }
 
 export interface GameMap {
@@ -167,6 +172,16 @@ export interface GameState {
   goldHegemonyThreshold: number;
   goldHegemonyRequired: number;
   goldHegemonyCounter: Partial<Record<number, number>>;
+  /** Phase 2g — cultural hegemony victory. Threshold is a *proportion* of
+   * all claimed tiles ([0, 1]); required is the consecutive-turn count to
+   * trigger. Counter ticks up while the faction holds ≥ threshold and
+   * resets to 0 when it slips. Enabled flag is wired through the setup
+   * modal (2g-6); when false, victory check no-ops but the claim system
+   * still runs (cosmetic borders remain). */
+  culturalHegemonyThreshold: number;
+  culturalHegemonyRequired: number;
+  culturalHegemonyCounter: Partial<Record<number, number>>;
+  culturalHegemonyEnabled: boolean;
   selected: Selection | null;
   moveTargets: MoveTarget[];
   attackTargets: AttackTarget[];

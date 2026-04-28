@@ -42,6 +42,14 @@
 //     the player clicks "Steal Tech", consumed on the follow-up click,
 //     never persisted. No new shape on Faction or City; outcomes write
 //     directly to Faction.techs.
+//
+//  7. Culture (Phase 2g) — `tile.claim` is a *soft* parallel field next
+//     to `tile.owner`. The claim system reads cityYields().culture and
+//     writes claim; it MUST NOT mutate `tile.owner`. cityYields filters
+//     worked tiles by `tile.owner === city.factionIdx`, so a hard transfer
+//     would silently shift food/prod/gold and break replay parity. Claim
+//     is recomputed in endTurn after processCity and before the victory
+//     check — order matters for byte-equal save reproduction.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
@@ -59,6 +67,10 @@ export const G: GameState = {
   goldHegemonyThreshold: 5000,
   goldHegemonyRequired: 3,
   goldHegemonyCounter: {},
+  culturalHegemonyThreshold: 0.4,
+  culturalHegemonyRequired: 5,
+  culturalHegemonyCounter: {},
+  culturalHegemonyEnabled: true,
   selected: null,
   moveTargets: [],
   attackTargets: [],

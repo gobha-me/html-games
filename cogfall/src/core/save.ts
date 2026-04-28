@@ -32,7 +32,12 @@ import type {
 // fresh, not reproducible. A console warning + an in-game log entry
 // surface the migration so the player understands why a "replay this
 // game from the same point" wouldn't be byte-identical.
-export const SAVE_VERSION = 2;
+//
+// v2 → v3: added cultural-hegemony state on GameState and `claim` on Tile
+// (Phase 2g). v2 saves load with cultural counter empty, threshold/required
+// at engine defaults, and `culturalHegemonyEnabled = true`. Tile.claim is
+// optional, so v2 tiles simply have no claim until the next endTurn pass.
+export const SAVE_VERSION = 3;
 export const MANUAL_SLOTS = 3;
 export const AUTOSAVE_KEY = 'cogfall:autosave';
 const slotKey = (n: number): string => `cogfall:save:${n}`;
@@ -77,6 +82,11 @@ interface SerializedGameState {
   seed: number;
   /** v2+: mulberry32 cursor at save time, restored via setGameRngState. */
   rngState: number;
+  /** v3+ (Phase 2g): cultural hegemony tuning + per-faction counters. */
+  culturalHegemonyThreshold?: number;
+  culturalHegemonyRequired?: number;
+  culturalHegemonyCounter?: Partial<Record<number, number>>;
+  culturalHegemonyEnabled?: boolean;
 }
 
 export interface SaveData {
@@ -121,6 +131,10 @@ export function serializeGameState(): SaveData {
     aiMemory: { ...G.aiMemory },
     seed: G.seed,
     rngState: getGameRngState(),
+    culturalHegemonyThreshold: G.culturalHegemonyThreshold,
+    culturalHegemonyRequired: G.culturalHegemonyRequired,
+    culturalHegemonyCounter: { ...G.culturalHegemonyCounter },
+    culturalHegemonyEnabled: G.culturalHegemonyEnabled,
   };
 
   const player = G.factions[G.playerFactionIdx];
@@ -143,8 +157,11 @@ export class SaveVersionMismatchError extends Error {
   }
 }
 
+const DEFAULT_CULTURAL_HEGEMONY_THRESHOLD = 0.4;
+const DEFAULT_CULTURAL_HEGEMONY_REQUIRED = 5;
+
 export function loadGameState(data: SaveData): void {
-  if (data.version !== 1 && data.version !== SAVE_VERSION) {
+  if (data.version !== 1 && data.version !== 2 && data.version !== SAVE_VERSION) {
     throw new SaveVersionMismatchError(data.version, SAVE_VERSION);
   }
   const s = data.state;
@@ -166,6 +183,11 @@ export function loadGameState(data: SaveData): void {
   G.goldHegemonyThreshold = s.goldHegemonyThreshold;
   G.goldHegemonyRequired = s.goldHegemonyRequired;
   G.goldHegemonyCounter = { ...s.goldHegemonyCounter };
+  G.culturalHegemonyThreshold =
+    s.culturalHegemonyThreshold ?? DEFAULT_CULTURAL_HEGEMONY_THRESHOLD;
+  G.culturalHegemonyRequired = s.culturalHegemonyRequired ?? DEFAULT_CULTURAL_HEGEMONY_REQUIRED;
+  G.culturalHegemonyCounter = { ...(s.culturalHegemonyCounter ?? {}) };
+  G.culturalHegemonyEnabled = s.culturalHegemonyEnabled ?? true;
   G.events = s.events.map((e) => ({ ...e }));
   G.cameraX = s.cameraX;
   G.cameraY = s.cameraY;

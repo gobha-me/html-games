@@ -41,6 +41,7 @@ export interface CityYields {
   gold: number;
   sci: number;
   aether: number;
+  culture: number;
 }
 
 export function createCity(factionIdx: FactionIdx, q: number, r: number, name: string): City {
@@ -80,6 +81,7 @@ export function cityYields(city: City): CityYields {
   let gold = BASE_CITY_GOLD;
   let sci = 0;
   let aether = 0;
+  let culture = 0;
 
   const candidates = hexNeighbors(city.q, city.r)
     .map((n) => getTile(n.q, n.r))
@@ -128,12 +130,14 @@ export function cityYields(city: City): CityYields {
       gold: number;
       science: number;
       aether: number;
+      culture: number;
     }>;
     food += y.food || 0;
     prod += y.prod || 0;
     gold += y.gold || 0;
     sci += y.science || 0;
     aether += y.aether || 0;
+    culture += y.culture || 0;
   }
 
   if (fac.id === 'aetheric') aether += AETHERIC_AETHER_BONUS;
@@ -151,7 +155,7 @@ export function cityYields(city: City): CityYields {
     }
   }
 
-  return { food, prod, gold, sci, aether };
+  return { food, prod, gold, sci, aether, culture };
 }
 
 export function processCity(city: City): void {

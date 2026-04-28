@@ -95,6 +95,8 @@ export function setupGame(): void {
   G.cities = [];
   G.events = [];
   G.goldHegemonyCounter = {};
+  G.culturalHegemonyCounter = {};
+  G.culturalHegemonyEnabled = true;
   G.aiMemory = {};
   G.gameOver = false;
   G.turn = 1;

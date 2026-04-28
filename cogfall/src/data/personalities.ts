@@ -7,6 +7,12 @@
 // detection roll when defending against an enemy spy. High cunning ⇒ both
 // stealthier offense and sharper counter-intel. Don't read it from generic
 // (non-espionage) scoring paths — it should enter scoring deliberately.
+//
+// `culture` (Phase 2g) weights how strongly an AI invests in cultural
+// production — culture-branch tech and culture-yielding buildings — and
+// indirectly biases toward the cultural hegemony victory path. Like
+// cunning, it's a deliberate dim: aiPickTech / aiPickBuild read it only
+// for culture-tagged options, never as a generic multiplier.
 
 export const PERSONALITIES = {
   industrial: {
@@ -17,6 +23,7 @@ export const PERSONALITIES = {
     agg: 0.3,
     defenseFocus: 0.55,
     cunning: 0.4,
+    culture: 0.3,
     prefBranch: 'industry',
   },
   scientific: {
@@ -27,6 +34,7 @@ export const PERSONALITIES = {
     agg: 0.2,
     defenseFocus: 0.7,
     cunning: 0.65,
+    culture: 0.55,
     prefBranch: 'science',
   },
   militaristic: {
@@ -37,6 +45,7 @@ export const PERSONALITIES = {
     agg: 0.85,
     defenseFocus: 0.4,
     cunning: 0.3,
+    culture: 0.2,
     prefBranch: 'industry',
   },
   defensive: {
@@ -47,6 +56,7 @@ export const PERSONALITIES = {
     agg: 0.15,
     defenseFocus: 0.95,
     cunning: 0.55,
+    culture: 0.65,
     prefBranch: 'expansion',
   },
   economic: {
@@ -57,6 +67,7 @@ export const PERSONALITIES = {
     agg: 0.4,
     defenseFocus: 0.5,
     cunning: 0.7,
+    culture: 0.5,
     prefBranch: 'economy',
   },
 } as const;
