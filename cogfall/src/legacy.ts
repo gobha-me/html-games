@@ -84,12 +84,15 @@ import { canvas, ctx, render, resizeCanvas, centerOnHex } from './render/canvas'
 import { svg } from './render/overlay';
 
 // Phase 1 step 8: UI panels and modals in src/ui/.
-import { openModal, closeAllModals } from './ui/modals';
+import { openModal, closeModal, closeAllModals } from './ui/modals';
 import { handleHover } from './ui/tooltip';
 import { updateUI } from './ui/topbar';
 import { renderTechTree } from './ui/techModal';
 import { renderDiploScreen } from './ui/diploModal';
 import { renderFactionList, getSelectedFactionIdx } from './ui/setupModal';
+
+// Phase 1 step 9: input handlers in src/input/.
+import './input/handlers';
 
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
@@ -102,111 +105,6 @@ import { renderFactionList, getSelectedFactionIdx } from './ui/setupModal';
 
 // (MAP GENERATION moved to src/systems/mapgen.ts.)
 
-// RENDERING
-// ============================================================================
-
-// ============================================================================
-// INPUT
-// ============================================================================
-canvas.addEventListener('mousedown',(e)=>{
-  if(e.button===2){G.isDragging=true;G.dragStart={x:e.clientX-G.cameraX,y:e.clientY-G.cameraY};e.preventDefault()}
-});
-window.addEventListener('mouseup',()=>{G.isDragging=false});
-canvas.addEventListener('mousemove',(e)=>{
-  if(G.isDragging){G.cameraX=e.clientX-G.dragStart.x;G.cameraY=e.clientY-G.dragStart.y;render()}
-  else handleHover(e);
-});
-canvas.addEventListener('contextmenu',(e)=>e.preventDefault());
-canvas.addEventListener('wheel',(e)=>{
-  const oldZoom=G.zoom;
-  G.zoom*=(e.deltaY<0)?1.12:1/1.12;
-  G.zoom=Math.max(0.4,Math.min(2.5,G.zoom));
-  const k=G.zoom/oldZoom;
-  G.cameraX=e.clientX-(e.clientX-G.cameraX)*k;
-  G.cameraY=e.clientY-(e.clientY-G.cameraY)*k;
-  render();
-  e.preventDefault();
-});
-
-canvas.addEventListener('click',(e)=>{
-  if(G.gameOver)return;
-  if(G.factions[G.currentFactionIdx].isAI)return;
-  const wx=(e.clientX-G.cameraX)/G.zoom;
-  const wy=(e.clientY-G.cameraY)/G.zoom;
-  const{q,r}=pixelToHex(wx,wy);
-  const tile=getTile(q,r);
-  if(!tile)return;
-  if(!tile.visibility[G.playerFactionIdx]||tile.visibility[G.playerFactionIdx]==='unseen')return;
-  if(G.selected&&G.selected.type==='unit'&&G.selected.ref.factionIdx===G.playerFactionIdx){
-    const u=G.selected.ref;
-    if(G.attackTargets.some(t=>t.q===q&&t.r===r)){
-      combat(u,{q,r});
-      if(G.units.includes(u)){G.moveTargets=computeMoveTargets(u);G.attackTargets=computeAttackTargets(u)}
-      else{G.selected=null;G.moveTargets=[];G.attackTargets=[]}
-      render();updateUI();return;
-    }
-    if(G.moveTargets.some(t=>t.q===q&&t.r===r)){
-      moveUnit(u,q,r);
-      G.moveTargets=computeMoveTargets(u);
-      G.attackTargets=computeAttackTargets(u);
-      render();updateUI();return;
-    }
-  }
-  const unit=getUnitAt(q,r);
-  const city=getCityAt(q,r);
-  if(unit&&unit.factionIdx===G.playerFactionIdx){
-    G.selected={type:'unit',ref:unit};
-    G.moveTargets=computeMoveTargets(unit);
-    G.attackTargets=computeAttackTargets(unit);
-  }else if(city&&city.factionIdx===G.playerFactionIdx){
-    G.selected={type:'city',ref:city};
-    G.moveTargets=[];G.attackTargets=[];
-  }else{
-    G.selected={type:'tile',ref:tile};
-    G.moveTargets=[];G.attackTargets=[];
-  }
-  render();updateUI();
-});
-
-
-window.addEventListener('keydown',(e)=>{
-  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
-  if(G.gameOver)return;
-  if(e.key===' '||e.key==='Enter'){if(!G.factions[G.currentFactionIdx].isAI)endTurn();e.preventDefault()}
-  if(e.key==='n'||e.key==='N')selectNextUnit();
-  if(e.key==='f'||e.key==='F'){
-    if(G.selected&&G.selected.type==='unit'&&G.selected.ref.factionIdx===G.playerFactionIdx){G.selected.ref.fortified=true;G.selected.ref.mp=0;render();updateUI()}
-  }
-  if(e.key==='Escape'){closeAllModals();G.selected=null;G.moveTargets=[];G.attackTargets=[];render();updateUI()}
-});
-
-function selectNextUnit(){
-  const myUnits=G.units.filter(u=>u.factionIdx===G.playerFactionIdx&&u.mp>0&&!u.fortified);
-  if(!myUnits.length)return;
-  let idx=0;
-  if(G.selected&&G.selected.type==='unit'){
-    const cur=G.selected.ref;
-    const i=myUnits.findIndex(u=>u.id===cur.id);
-    if(i!==-1)idx=(i+1)%myUnits.length;
-  }
-  const u=myUnits[idx];
-  G.selected={type:'unit',ref:u};
-  G.moveTargets=computeMoveTargets(u);
-  G.attackTargets=computeAttackTargets(u);
-  centerOnHex(u.q,u.r);
-  render();updateUI();
-}
-
-
-// ============================================================================
-// UI UPDATES
-// ============================================================================
-
-
-document.getElementById('tech-btn').addEventListener('click',()=>{renderTechTree();openModal('tech-modal')});
-document.getElementById('diplo-btn').addEventListener('click',()=>{renderDiploScreen();openModal('diplo-modal')});
-document.getElementById('end-turn-btn').addEventListener('click',()=>{if(!G.factions[G.currentFactionIdx].isAI)endTurn()});
-document.getElementById('next-unit-btn').addEventListener('click',selectNextUnit);
 
 
 
