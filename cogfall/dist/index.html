@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Cogfall — A Steampunk 4X</title>
-  <script type="module" crossorigin src="./assets/index-CgOH5VXv.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-BdcVZv6d.css">
+  <script type="module" crossorigin src="./assets/index-RLep7s2r.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-_8A8tO9g.css">
 </head>
 <body>
 <body>
@@ -43,6 +43,7 @@
 <div id="event-log"></div>
 <div id="tooltip"></div>
 <div id="ai-thinking"><div class="spinner"></div><span id="ai-thinking-text">The factions stir...</span></div>
+<canvas id="minimap" width="160" height="120" title="Click to recenter the camera."></canvas>
 <div class="help-hint"><kbd>L-Click</kbd> select/move · <kbd>R-Click drag</kbd> pan · <kbd>Wheel</kbd> zoom · <kbd>Space</kbd> end turn · <kbd>N</kbd> next unit · <kbd>F</kbd> fortify</div>
 <div id="setup-modal" class="modal show">
 <div class="modal-content">
@@ -58,6 +59,8 @@
 <div class="setup-section"><label>Resource density</label><select id="resource-density"><option value="sparse">Sparse</option><option value="standard" selected>Standard</option><option value="lush">Lush</option></select></div>
 </div>
 <div class="setup-section" style="margin-top:10px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="cultural-victory" checked> <span>Cultural victory enabled (✺ 40% claimed tiles for 5 turns)</span></label></div>
+<div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="show-minimap" checked> <span>Show minimap (bottom-right)</span></label></div>
+<div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="sound-on" checked> <span>🔊 Sound effects</span></label></div>
 <div class="setup-section" style="margin-top:14px"><label>World seed</label><div style="display:flex;gap:8px;align-items:stretch"><input type="number" id="setup-seed" min="0" max="4294967295" step="1" style="flex:1" title="Same seed produces the same world. Type a number or click the die."><button class="btn small" id="seed-regen" type="button" title="Generate a new random seed">🎲</button></div></div>
 <div style="text-align:right;margin-top:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="continue-btn" style="display:none">Continue Last Game</button><button class="btn primary" id="start-game">Begin the Awakening</button></div>
 </div></div>

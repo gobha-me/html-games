@@ -14,6 +14,14 @@ import type { Tile, Visibility } from '../core/types';
 import { fogLerp } from '../systems/visibility';
 import { renderSVGOverlay } from './overlay';
 
+// Minimap is set late from main.ts (see setMinimapHook) so canvas.ts stays
+// independent of the ui/ layer at module-load time. If main.ts forgets to
+// register a hook (or the minimap is hidden), this stays a no-op.
+let minimapHook: () => void = () => {};
+export function setMinimapHook(fn: () => void): void {
+  minimapHook = fn;
+}
+
 const canvas = document.getElementById(DOM_IDS.MAP_CANVAS) as HTMLCanvasElement;
 if (!canvas) throw new Error(`#${DOM_IDS.MAP_CANVAS} not found`);
 const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
@@ -67,6 +75,7 @@ export function render(): void {
   drawSelection();
   ctx.restore();
   renderSVGOverlay();
+  minimapHook();
 }
 
 function drawHex(tile: Tile, vis: Visibility): void {

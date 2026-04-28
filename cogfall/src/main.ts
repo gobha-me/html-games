@@ -28,20 +28,26 @@ import './ui/minimap';
 
 import { DOM_IDS } from './core/dom';
 import { setRequestRedraw } from './systems/turn';
-import { resizeCanvas, render } from './render/canvas';
+import { resizeCanvas, render, setMinimapHook } from './render/canvas';
 import { renderMinimap } from './ui/minimap';
 import { updateUI } from './ui/topbar';
+
+// Wire render → minimap so every render() call (turn end, drag, zoom,
+// setupGame, save load, selection panel) also repaints the minimap.
+// canvas.ts can't import minimap.ts directly without an awkward layering
+// flip, so it runs whatever hook main.ts hands it.
+setMinimapHook(renderMinimap);
 import { populateSeedInput, renderFactionList } from './ui/setupModal';
 import { setupGame } from './systems/setup';
 import { AUTOSAVE_KEY, hasAutosave, loadGameState, readSlot } from './core/save';
 import { closeModal } from './ui/modals';
 import { log } from './core/log';
 
-// Wire the turn loop's redraw hook.
+// Wire the turn loop's redraw hook. render() now chains the minimap hook
+// itself, so we don't need to repeat that here.
 setRequestRedraw(() => {
   updateUI();
   render();
-  renderMinimap();
 });
 
 // Wire the "Begin the Awakening" button.
@@ -65,7 +71,6 @@ if (continueBtn) {
     log(`Records read. The Awakening resumes at turn ${data.turn}.`, 'flavor');
     updateUI();
     render();
-    renderMinimap();
   });
 }
 

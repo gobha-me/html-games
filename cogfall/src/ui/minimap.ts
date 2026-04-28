@@ -185,5 +185,4 @@ minimap?.addEventListener('click', (e) => {
   G.cameraX = mapCanvas.width / 2 - worldX * G.zoom;
   G.cameraY = mapCanvas.height / 2 - worldY * G.zoom;
   render();
-  renderMinimap();
 });
