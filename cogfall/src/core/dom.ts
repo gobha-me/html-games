@@ -75,6 +75,11 @@ export const DOM_IDS = {
   SHOW_MINIMAP: 'show-minimap',
   SOUND_ON: 'sound-on',
   START_GAME: 'start-game',
+
+  // Phase 2i: mod loader
+  MOD_FILE: 'mod-file',
+  MOD_CLEAR_BTN: 'mod-clear',
+  MOD_STATUS: 'mod-status',
 } as const;
 
 export type DomId = (typeof DOM_IDS)[keyof typeof DOM_IDS];

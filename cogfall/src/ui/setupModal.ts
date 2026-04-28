@@ -1,8 +1,9 @@
-// Setup modal — faction picker + world-seed input. The actual game start
-// (mapgen, faction creation, starting units, etc.) happens in
+// Setup modal — faction picker + world-seed input + mod loader. The actual
+// game start (mapgen, faction creation, starting units, etc.) happens in
 // systems/setup.ts; this module is just the form/picker UI.
 
 import { DOM_IDS } from '../core/dom';
+import { applyMod, clearMod } from '../core/mod';
 import { FACTIONS } from '../data/factions';
 import { isMinimapVisible, setMinimapVisible } from './minimap';
 import { isAudioMuted, setAudioMuted } from '../systems/audio';
@@ -82,5 +83,49 @@ if (soundCheckbox) {
   soundCheckbox.checked = !isAudioMuted();
   soundCheckbox.addEventListener('change', () => {
     setAudioMuted(!soundCheckbox.checked);
+  });
+}
+
+// Phase 2i-4: mod loader. File input → JSON.parse → applyMod. On success
+// the status line shows "Mod: name vX loaded" and the faction picker
+// re-renders (mods may add/remove factions). On error the status line
+// turns red with the validation message and the data tables stay clean
+// (applyMod is transactional).
+const modFileInput = document.getElementById(DOM_IDS.MOD_FILE) as HTMLInputElement | null;
+const modClearBtn = document.getElementById(DOM_IDS.MOD_CLEAR_BTN) as HTMLButtonElement | null;
+const modStatusEl = document.getElementById(DOM_IDS.MOD_STATUS);
+
+function setModStatus(text: string, isError: boolean): void {
+  if (!modStatusEl) return;
+  modStatusEl.textContent = text;
+  modStatusEl.style.color = isError ? '#c44a4a' : 'var(--parchment-d)';
+}
+
+if (modFileInput) {
+  modFileInput.addEventListener('change', () => {
+    const file = modFileInput.files?.[0];
+    if (!file) return;
+    file
+      .text()
+      .then((text) => {
+        const json: unknown = JSON.parse(text);
+        const mod = applyMod(json);
+        setModStatus(`Mod: ${mod.name} v${mod.version} loaded`, false);
+        setupSelectedFaction = 0;
+        renderFactionList();
+      })
+      .catch((e: unknown) => {
+        setModStatus(e instanceof Error ? e.message : String(e), true);
+      });
+  });
+}
+
+if (modClearBtn) {
+  modClearBtn.addEventListener('click', () => {
+    clearMod();
+    if (modFileInput) modFileInput.value = '';
+    setModStatus('', false);
+    setupSelectedFaction = 0;
+    renderFactionList();
   });
 }
