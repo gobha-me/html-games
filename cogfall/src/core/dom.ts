@@ -36,6 +36,7 @@ export const DOM_IDS = {
   END_TURN_BTN: 'end-turn-btn',
   TECH_BTN: 'tech-btn',
   DIPLO_BTN: 'diplo-btn',
+  RECORDS_BTN: 'records-btn',
 
   // Selection panel
   SELECTION_CONTENT: 'selection-content',
@@ -46,6 +47,7 @@ export const DOM_IDS = {
   SETUP_MODAL: 'setup-modal',
   TECH_MODAL: 'tech-modal',
   DIPLO_MODAL: 'diplo-modal',
+  SAVE_MODAL: 'save-modal',
   GAME_OVER_MODAL: 'game-over-modal',
 
   // Modal contents
@@ -53,7 +55,9 @@ export const DOM_IDS = {
   TECH_TREE_CONTAINER: 'tech-tree-container',
   RESEARCH_STATUS: 'research-status',
   DIPLO_CONTENT: 'diplo-content',
+  SAVE_CONTENT: 'save-content',
   GAME_OVER_CONTENT: 'game-over-content',
+  CONTINUE_BTN: 'continue-btn',
 
   // Setup form fields
   MAP_SIZE: 'map-size',

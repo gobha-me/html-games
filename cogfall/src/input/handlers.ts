@@ -14,6 +14,7 @@ import { canvas, centerOnHex, render } from '../render/canvas';
 import { closeAllModals, openModal } from '../ui/modals';
 import { renderTechTree } from '../ui/techModal';
 import { renderDiploScreen } from '../ui/diploModal';
+import { renderSaveModal } from '../ui/saveModal';
 import { handleHover } from '../ui/tooltip';
 import { updateUI } from '../ui/topbar';
 
@@ -186,6 +187,10 @@ document.getElementById(DOM_IDS.TECH_BTN)?.addEventListener('click', () => {
 document.getElementById(DOM_IDS.DIPLO_BTN)?.addEventListener('click', () => {
   renderDiploScreen();
   openModal(DOM_IDS.DIPLO_MODAL);
+});
+document.getElementById(DOM_IDS.RECORDS_BTN)?.addEventListener('click', () => {
+  renderSaveModal();
+  openModal(DOM_IDS.SAVE_MODAL);
 });
 document.getElementById(DOM_IDS.END_TURN_BTN)?.addEventListener('click', () => {
   if (!G.factions[G.currentFactionIdx].isAI) endTurn();

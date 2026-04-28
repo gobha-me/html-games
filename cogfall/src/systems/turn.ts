@@ -14,6 +14,7 @@ import { processCity } from './city';
 import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
 import { DOM_IDS } from '../core/dom';
+import { saveAuto } from '../core/save';
 
 const AI_THINK_BASE_MS = 450;
 const AI_THINK_JITTER_MS = 300;
@@ -98,6 +99,12 @@ export function endTurn(): void {
   G.selected = null;
   G.moveTargets = [];
   G.attackTargets = [];
+
+  // Autosave at the moment the player regains control — covers the common
+  // "browser tab closed mid-AI-turn" case and gives the player a clean
+  // state to roll back to.
+  if (!next.isAI) saveAuto();
+
   if (next.isAI) runAITurn(next);
   else requestRedraw();
 }

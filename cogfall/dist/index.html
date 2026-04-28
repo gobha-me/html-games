@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Cogfall — A Steampunk 4X</title>
-  <script type="module" crossorigin src="./assets/index-BSuB3UXw.js"></script>
+  <script type="module" crossorigin src="./assets/index-C8NMy8kn.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-CSaAgG_a.css">
 </head>
 <body>
@@ -22,6 +22,7 @@
 </div>
 <button class="btn small" id="tech-btn">Knowledge</button>
 <button class="btn small" id="diplo-btn">Banners</button>
+<button class="btn small" id="records-btn">Records</button>
 </div>
 <div id="bottom-bar">
 <div id="status-text" style="font-style:italic;color:var(--parchment-d)">Awaiting your orders, Steward...</div>
@@ -53,7 +54,7 @@
 <div class="setup-section"><label>Difficulty</label><select id="difficulty"><option value="easy">Apprentice (AI handicapped)</option><option value="medium" selected>Journeyman (fair)</option><option value="hard">Master (AI bonuses)</option></select></div>
 <div class="setup-section"><label>Hegemony threshold</label><select id="game-speed"><option value="quick">3000 gold (quick)</option><option value="standard" selected>5000 gold (standard)</option><option value="long">8000 gold (epic)</option></select></div>
 </div>
-<div style="text-align:right;margin-top:16px"><button class="btn primary" id="start-game">Begin the Awakening</button></div>
+<div style="text-align:right;margin-top:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="continue-btn" style="display:none">Continue Last Game</button><button class="btn primary" id="start-game">Begin the Awakening</button></div>
 </div></div>
 <div id="tech-modal" class="modal">
 <div class="modal-content" style="width:920px">
@@ -68,6 +69,13 @@
 <p style="color:var(--parchment-d);margin-bottom:14px;font-style:italic">Watch them. They watch you.</p>
 <div id="diplo-content"></div>
 <div style="text-align:right;margin-top:16px"><button class="btn" onclick="closeModal('diplo-modal')">Close</button></div>
+</div></div>
+<div id="save-modal" class="modal">
+<div class="modal-content" style="width:560px">
+<h2>The Records</h2>
+<p style="color:var(--parchment-d);margin-bottom:14px;font-style:italic">Three slots and the autoscribe. Time gnaws at all things — keep your ledgers.</p>
+<div id="save-content"></div>
+<div style="text-align:right;margin-top:16px"><button class="btn" onclick="closeModal('save-modal')">Close</button></div>
 </div></div>
 <div id="game-over-modal" class="modal">
 <div class="modal-content" style="width:520px">
