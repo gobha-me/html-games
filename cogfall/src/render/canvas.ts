@@ -9,7 +9,7 @@ import { DOM_IDS } from '../core/dom';
 import { G, getCityAt, getTile } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
-import { UNIT_TYPES } from '../data/units';
+import { UNIT_TYPES, isNaval } from '../data/units';
 import type { Tile, Visibility } from '../core/types';
 import { renderSVGOverlay } from './overlay';
 
@@ -208,12 +208,25 @@ function drawUnit(u: {
 }): void {
   const fac = G.factions[u.factionIdx];
   const tpl = UNIT_TYPES[u.typeId];
+  const naval = isNaval(u.typeId);
   const { x, y } = hexToPixel(u.q, u.r);
   const cityHere = getCityAt(u.q, u.r);
   const offY = cityHere ? HEX_SIZE * 0.35 : 0;
+  if (naval) {
+    ctx.strokeStyle = 'rgba(127,184,214,0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x - HEX_SIZE * 0.55, y - offY + HEX_SIZE * 0.4);
+    ctx.lineTo(x + HEX_SIZE * 0.55, y - offY + HEX_SIZE * 0.4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - HEX_SIZE * 0.4, y - offY + HEX_SIZE * 0.55);
+    ctx.lineTo(x + HEX_SIZE * 0.4, y - offY + HEX_SIZE * 0.55);
+    ctx.stroke();
+  }
   ctx.beginPath();
   ctx.arc(x, y - offY, HEX_SIZE * 0.42, 0, Math.PI * 2);
-  ctx.fillStyle = '#0a0805';
+  ctx.fillStyle = naval ? '#0a1830' : '#0a0805';
   ctx.fill();
   ctx.strokeStyle = fac.color;
   ctx.lineWidth = 2.5;

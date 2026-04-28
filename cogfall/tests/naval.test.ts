@@ -34,7 +34,7 @@ function makeTile(q: number, r: number, terrain: TerrainId): Tile {
 // Coordinates use offset → axial as in mapgen. We build with raw axial q/r
 // since computeMoveTargets only cares about hexNeighbors(q,r).
 function buildStripMap(): GameMap {
-  const tiles = new Map<string, Tile>();
+  const tiles = new Map<`${number},${number}`, Tile>();
   for (let r = 0; r < 5; r++) {
     for (let q = 0; q < 5; q++) {
       const isWaterRing = q === 0 || q === 4 || r === 0 || r === 4;
