@@ -164,6 +164,25 @@ export function aiFactionMilitaryStrength(factionIdx: FactionIdx): number {
   return s;
 }
 
+// --- Aggression drift (Phase 2f-6) -----------------------------------------
+// effectiveAgg returns the personality's base agg plus a slow grudge-driven
+// bump so sustained provocation can push a peaceful faction toward war
+// while a single incident does not flip them. SUBSTITUTE this for raw
+// p.agg reads in war/peace scoring and unit-level threshold checks; do NOT
+// add it on top of an existing grudge term, since aiDiplomacy's war score
+// already weights grudge directly (grudge * 0.5) — adding effectiveAgg to
+// the same formula would double-count and blow the existing tuning.
+
+const DRIFT_PER_GRUDGE = 0.0015;
+
+export function effectiveAgg(faction: Faction, otherIdx: FactionIdx): number {
+  const base = PERSONALITIES[faction.personality].agg;
+  const mem = G.aiMemory[faction.idx];
+  const grudge = mem?.grudges[otherIdx] ?? 0;
+  const v = base + grudge * DRIFT_PER_GRUDGE;
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
 // --- Tactical rally map ----------------------------------------------------
 // Per-turn tactical layer (Phase 2f-3). For each strategic anchor on
 // AIMemory.targetCityId we compute the friendly group power within

@@ -17,8 +17,8 @@ import { G, getCityAt } from '../core/state';
 import { getGameRng } from '../core/rng';
 import type { Faction } from '../core/types';
 import { UNIT_TYPES } from '../data/units';
-import { PERSONALITIES, AI_THINKING_LINES } from '../data/personalities';
-import { aiFactionMilitaryStrength } from './strategy';
+import { AI_THINKING_LINES } from '../data/personalities';
+import { aiFactionMilitaryStrength, effectiveAgg } from './strategy';
 
 const WAR_DECLARATION_COOLDOWN_TURNS = 8;
 const WAR_DECLARATION_COOLDOWN_PENALTY = 50;
@@ -35,7 +35,6 @@ const TELEGRAPH_MIN_ATK = 4;
 export function aiDiplomacy(faction: Faction): void {
   const mem = G.aiMemory[faction.idx];
   if (!mem || !G.map) return;
-  const p = PERSONALITIES[faction.personality];
   const myStr = aiFactionMilitaryStrength(faction.idx);
 
   for (const other of G.factions) {
@@ -61,8 +60,9 @@ export function aiDiplomacy(faction: Faction): void {
     const grudge = mem.grudges[other.idx] || 0;
     const otherStr = aiFactionMilitaryStrength(other.idx);
     const ratio = myStr / Math.max(1, otherStr);
+    const agg = effectiveAgg(faction, other.idx);
     if (cur === 'peace') {
-      let warScore = grudge * 0.5 + p.agg * 30 + (ratio - 1) * 50;
+      let warScore = grudge * 0.5 + agg * 30 + (ratio - 1) * 50;
       if (G.turn - mem.lastDeclareWarTurn < WAR_DECLARATION_COOLDOWN_TURNS) {
         warScore -= WAR_DECLARATION_COOLDOWN_PENALTY;
       }
@@ -73,7 +73,7 @@ export function aiDiplomacy(faction: Faction): void {
         log(`${faction.name} declares war on ${other.name}!`, 'warning', true);
       }
     } else if (cur === 'war') {
-      const peaceScore = (1 - ratio) * 40 + (1 - p.agg) * 20 - grudge * 0.3;
+      const peaceScore = (1 - ratio) * 40 + (1 - agg) * 20 - grudge * 0.3;
       if (peaceScore > PEACE_THRESHOLD && getGameRng()() < PEACE_TRIGGER_CHANCE) {
         faction.diplo[other.idx] = 'peace';
         other.diplo[faction.idx] = 'peace';

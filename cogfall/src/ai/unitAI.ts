@@ -27,6 +27,7 @@ import {
   RALLY_MIN_SIZE,
   SUICIDE_RUSH_FACTOR,
   computeRallyMap,
+  effectiveAgg,
 } from './strategy';
 
 const PIONEER_MAX_SCAN_RANGE = 14;
@@ -193,7 +194,10 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
       const enemy = getUnitAt(t.q, t.r);
       const enemyCity = getCityAt(t.q, t.r);
       const targetFac = (enemy || enemyCity)!.factionIdx;
-      if (faction.diplo[targetFac] !== 'war' && p.agg < HIGH_AGG_THRESHOLD) {
+      if (
+        faction.diplo[targetFac] !== 'war' &&
+        effectiveAgg(faction, targetFac) < HIGH_AGG_THRESHOLD
+      ) {
         score -= NON_WAR_ATTACK_PENALTY_TIMID;
       } else if (faction.diplo[targetFac] !== 'war') {
         score -= NON_WAR_ATTACK_PENALTY_AGGRO;
@@ -228,6 +232,10 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
     warEnemies.length &&
     (phase === 'contest' || phase === 'ascend' || p.agg > HIGH_AGG_THRESHOLD)
   ) {
+    // Note: this gate uses p.agg (faction-wide trait), not effectiveAgg —
+    // the city-hunt phase gate is a personality-level "does this faction
+    // pursue offensive war at all" question. Per-target drift applies at
+    // attack-scoring time (above) and at war-trigger time (aiDiplomacy).
     const targetCityId = G.aiMemory[faction.idx]?.targetCityId ?? null;
     // Tactical rally bonus (Phase 2f-3): coordinated rush only when the
     // group is big enough AND strong enough vs the city's estimated
@@ -291,7 +299,6 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
 
 export function aiNavalAction(faction: Faction, unit: Unit): void {
   if (!G.map) return;
-  const p = PERSONALITIES[faction.personality];
   const atkTargets = computeAttackTargets(unit);
 
   if (atkTargets.length) {
@@ -302,7 +309,10 @@ export function aiNavalAction(faction: Faction, unit: Unit): void {
       const enemy = getUnitAt(t.q, t.r);
       const enemyCity = getCityAt(t.q, t.r);
       const targetFac = (enemy || enemyCity)!.factionIdx;
-      if (faction.diplo[targetFac] !== 'war' && p.agg < HIGH_AGG_THRESHOLD) {
+      if (
+        faction.diplo[targetFac] !== 'war' &&
+        effectiveAgg(faction, targetFac) < HIGH_AGG_THRESHOLD
+      ) {
         score -= NON_WAR_ATTACK_PENALTY_TIMID;
       } else if (faction.diplo[targetFac] !== 'war') {
         score -= NON_WAR_ATTACK_PENALTY_AGGRO;

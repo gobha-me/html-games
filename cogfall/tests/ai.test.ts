@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { aiPickTech } from '../src/ai/techAI';
 import { initAIMemory } from '../src/ai/memory';
+import { aiDiplomacy } from '../src/ai/diploAI';
 import {
   RALLY_RADIUS,
   computeRallyMap,
+  effectiveAgg,
   pickTargetCity,
   pickTargetEnemy,
   updateAIStrategy,
@@ -343,6 +345,68 @@ describe('tactical rally map (2f-3)', () => {
     expect(b.groupSize).toBe(a.groupSize);
     expect(b.groupPower).toBe(a.groupPower);
     expect(b.cityDef).toBe(a.cityDef);
+  });
+});
+
+describe('effectiveAgg drift (2f-6)', () => {
+  let prevMap: GameMap | null;
+
+  beforeEach(() => {
+    prevMap = G.map;
+    G.map = buildPlainsMap();
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFullFaction(0, 'defensive'), makeFullFaction(1, 'scientific')];
+    G.aiMemory = {};
+    initAIMemory(asFactionIdx(0));
+    initAIMemory(asFactionIdx(1));
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 30;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.events = [];
+  });
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('returns base agg when grudge is 0', () => {
+    // defensive personality has agg = 0.15.
+    expect(effectiveAgg(G.factions[0], asFactionIdx(1))).toBeCloseTo(0.15);
+  });
+
+  it('clamps at 1.0 with extreme grudge', () => {
+    G.aiMemory[0]!.grudges[1] = 100000;
+    expect(effectiveAgg(G.factions[0], asFactionIdx(1))).toBe(1);
+  });
+
+  it('scales linearly within range', () => {
+    // 0.15 base + 200 * 0.0015 = 0.15 + 0.30 = 0.45
+    G.aiMemory[0]!.grudges[1] = 200;
+    expect(effectiveAgg(G.factions[0], asFactionIdx(1))).toBeCloseTo(0.45);
+  });
+
+  it('sustained grudge eventually flips a peaceful faction toward war', () => {
+    // Defensive faction (agg=0.15) with massive grudge — equiv agg ≈ 1.0.
+    // aiDiplomacy war score = grudge*0.5 + agg*30 + (ratio-1)*50.
+    // With grudge=900: 450 + 30 + 0 = 480 — well over WAR_THRESHOLD=60.
+    // The 25% trigger chance lands within 20 calls on a seeded rng.
+    G.factions[0].diplo[1] = 'peace';
+    G.factions[1].diplo[0] = 'peace';
+    G.aiMemory[0]!.grudges[1] = 900;
+    initGameRng(42);
+    let declared = false;
+    for (let i = 0; i < 20; i++) {
+      aiDiplomacy(G.factions[0]);
+      const status: string = G.factions[0].diplo[1] ?? 'unmet';
+      if (status === 'war') {
+        declared = true;
+        break;
+      }
+    }
+    expect(declared).toBe(true);
   });
 });
 
