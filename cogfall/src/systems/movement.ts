@@ -8,6 +8,7 @@ import { hexKey, hexNeighbors } from '../core/hex';
 import type { TileKey } from '../core/hex';
 import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { log } from '../core/log';
+import { getGameRng } from '../core/rng';
 import type { AttackTarget, FactionIdx, MoveTarget, Tile, Unit, UnitTypeId } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
@@ -129,18 +130,19 @@ export function moveUnit(unit: Unit, q: number, r: number): boolean {
 export function handleRuinDiscovery(unit: Unit, tile: Tile): void {
   tile.improvement = 'looted';
   const f = G.factions[unit.factionIdx];
-  const roll = Math.random();
+  const rng = getGameRng();
+  const roll = rng();
   const visibleToPlayer = unit.factionIdx === G.playerFactionIdx;
   if (roll < RUIN_GOLD_THRESHOLD) {
-    const g = 30 + Math.floor(Math.random() * 50);
+    const g = 30 + Math.floor(rng() * 50);
     f.resources.gold += g;
     log(`${f.name} sifted ${g} gold from Old World ruins.`, 'good', visibleToPlayer);
   } else if (roll < RUIN_SCIENCE_THRESHOLD) {
-    const s = 30 + Math.floor(Math.random() * 40);
+    const s = 30 + Math.floor(rng() * 40);
     f.science += s;
     log(`${f.name} recovered ancient blueprints (${s} science).`, 'tech', visibleToPlayer);
   } else if (roll < RUIN_AETHER_THRESHOLD) {
-    const a = 5 + Math.floor(Math.random() * 10);
+    const a = 5 + Math.floor(rng() * 10);
     f.resources.aether += a;
     log(`${f.name} pried ${a} aether crystals from a sealed vault.`, 'tech', visibleToPlayer);
   } else {

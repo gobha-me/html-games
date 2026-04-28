@@ -6,6 +6,7 @@
 import { hexDistance, hexNeighbors } from '../core/hex';
 import { log } from '../core/log';
 import { G, getCityAt, getTile, getUnitAt } from '../core/state';
+import { getGameRng } from '../core/rng';
 import type { Faction, Unit } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
@@ -85,7 +86,7 @@ export function aiPioneerAction(faction: Faction, unit: Unit): void {
   if (!best) {
     const targets = computeMoveTargets(unit);
     if (targets.length) {
-      const t = targets[Math.floor(Math.random() * targets.length)];
+      const t = targets[Math.floor(getGameRng()() * targets.length)];
       moveUnit(unit, t.q, t.r);
     } else unit.mp = 0;
     return;

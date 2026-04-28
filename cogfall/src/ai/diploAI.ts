@@ -7,12 +7,14 @@
 //   - Decay grudges by 1 per turn.
 //
 // aiTelegraph() emits a flavor-text warning to the player when the AI is
-// massing military units near them. Both call Math.random() for thresholds;
-// kept that way for Phase 1 (preserves prototype behavior).
+// massing military units near them. Phase 2b: war/peace triggers, telegraph
+// trigger, and telegraph line pick all draw from the seeded game rng so a
+// recorded action stream replays identically.
 
 import { hexDistance } from '../core/hex';
 import { log } from '../core/log';
 import { G, getCityAt } from '../core/state';
+import { getGameRng } from '../core/rng';
 import type { Faction } from '../core/types';
 import { UNIT_TYPES } from '../data/units';
 import { PERSONALITIES, AI_THINKING_LINES } from '../data/personalities';
@@ -64,7 +66,7 @@ export function aiDiplomacy(faction: Faction): void {
       if (G.turn - mem.lastDeclareWarTurn < WAR_DECLARATION_COOLDOWN_TURNS) {
         warScore -= WAR_DECLARATION_COOLDOWN_PENALTY;
       }
-      if (warScore > WAR_THRESHOLD && Math.random() < WAR_TRIGGER_CHANCE) {
+      if (warScore > WAR_THRESHOLD && getGameRng()() < WAR_TRIGGER_CHANCE) {
         faction.diplo[other.idx] = 'war';
         other.diplo[faction.idx] = 'war';
         mem.lastDeclareWarTurn = G.turn;
@@ -72,7 +74,7 @@ export function aiDiplomacy(faction: Faction): void {
       }
     } else if (cur === 'war') {
       const peaceScore = (1 - ratio) * 40 + (1 - p.agg) * 20 - grudge * 0.3;
-      if (peaceScore > PEACE_THRESHOLD && Math.random() < PEACE_TRIGGER_CHANCE) {
+      if (peaceScore > PEACE_THRESHOLD && getGameRng()() < PEACE_TRIGGER_CHANCE) {
         faction.diplo[other.idx] = 'peace';
         other.diplo[faction.idx] = 'peace';
         mem.grudges[other.idx] = Math.max(
@@ -113,9 +115,10 @@ export function aiTelegraph(faction: Faction): void {
       }
     }
   }
-  if (nearbyCount >= TELEGRAPH_REQUIRED_NEARBY && Math.random() < TELEGRAPH_CHANCE) {
+  const rng = getGameRng();
+  if (nearbyCount >= TELEGRAPH_REQUIRED_NEARBY && rng() < TELEGRAPH_CHANCE) {
     const lines = AI_THINKING_LINES[faction.personality];
-    const line = lines[Math.floor(Math.random() * lines.length)];
+    const line = lines[Math.floor(rng() * lines.length)];
     log(
       `${faction.name} ${line.replace('...', '')} — ${nearbyCount} hostile companies near your borders.`,
       'warning',
