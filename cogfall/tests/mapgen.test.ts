@@ -304,4 +304,49 @@ describe('mapgen', () => {
       }
     });
   });
+
+  describe('mapgen options (2c-5)', () => {
+    it('waterLevel="none" produces no water tiles', () => {
+      const m = generateMap('medium', createSeededRng(42), { waterLevel: 'none' });
+      for (const t of m.tiles.values()) {
+        expect(t.terrain).not.toBe('WATER');
+      }
+    });
+
+    it('waterLevel="continents" produces more water than "coasts"', () => {
+      const coasts = generateMap('medium', createSeededRng(42), { waterLevel: 'coasts' });
+      const continents = generateMap('medium', createSeededRng(42), {
+        waterLevel: 'continents',
+      });
+      const coastsWater = [...coasts.tiles.values()].filter((t) => t.terrain === 'WATER').length;
+      const continentsWater = [...continents.tiles.values()].filter(
+        (t) => t.terrain === 'WATER',
+      ).length;
+      expect(continentsWater).toBeGreaterThan(coastsWater);
+    });
+
+    it('resourceDensity="lush" places more resources than "sparse"', () => {
+      const sparse = generateMap('medium', createSeededRng(42), {
+        resourceDensity: 'sparse',
+      });
+      const lush = generateMap('medium', createSeededRng(42), { resourceDensity: 'lush' });
+      const sparseRes = [...sparse.tiles.values()].filter((t) => t.resource).length;
+      const lushRes = [...lush.tiles.values()].filter((t) => t.resource).length;
+      expect(lushRes).toBeGreaterThan(sparseRes);
+    });
+
+    it('defaults reproduce the no-opts output (byte-equivalent)', () => {
+      const noOpts = generateMap('medium', createSeededRng(7));
+      const defaultOpts = generateMap('medium', createSeededRng(7), {
+        waterLevel: 'coasts',
+        resourceDensity: 'standard',
+      });
+      for (const ta of noOpts.tiles.values()) {
+        const tb = defaultOpts.tiles.get(`${ta.q},${ta.r}`)!;
+        expect(tb.terrain).toBe(ta.terrain);
+        expect(tb.resource).toBe(ta.resource);
+        expect(tb.riverEdges ?? 0).toBe(ta.riverEdges ?? 0);
+      }
+    });
+  });
 });

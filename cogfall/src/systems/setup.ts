@@ -13,7 +13,12 @@ import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
 import { initAIMemory } from '../ai/memory';
 import { createCity, pickCityName, resetCityNames } from './city';
-import { generateMap, findFactionStarts } from './mapgen';
+import {
+  generateMap,
+  findFactionStarts,
+  type WaterLevel,
+  type ResourceDensity,
+} from './mapgen';
 import { createUnit } from './movement';
 import { recomputeVisibility } from './visibility';
 import { DOM_IDS } from '../core/dom';
@@ -62,8 +67,14 @@ export function setupGame(): void {
   const opponentCountEl = document.getElementById(DOM_IDS.OPPONENT_COUNT) as HTMLInputElement;
   const difficultyEl = document.getElementById(DOM_IDS.DIFFICULTY) as HTMLSelectElement;
   const speedEl = document.getElementById(DOM_IDS.GAME_SPEED) as HTMLSelectElement;
+  const waterEl = document.getElementById(DOM_IDS.WATER_LEVEL) as HTMLSelectElement | null;
+  const densityEl = document.getElementById(
+    DOM_IDS.RESOURCE_DENSITY,
+  ) as HTMLSelectElement | null;
 
   const mapSize = mapSizeEl.value as MapSizeId;
+  const waterLevel = (waterEl?.value ?? 'coasts') as WaterLevel;
+  const resourceDensity = (densityEl?.value ?? 'standard') as ResourceDensity;
   const opponentCount = Math.max(
     1,
     Math.min(MAX_OPPONENTS, parseInt(opponentCountEl.value, 10) || 3)
@@ -98,7 +109,7 @@ export function setupGame(): void {
   G.seed = getSetupSeed();
   initGameRng(G.seed);
 
-  G.map = generateMap(mapSize, getGameRng());
+  G.map = generateMap(mapSize, getGameRng(), { waterLevel, resourceDensity });
 
   // Build factions: player + N AI.
   const selFactionIdx = getSelectedFactionIdx();

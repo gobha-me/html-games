@@ -27,11 +27,9 @@ import { MAP_SIZES, type MapSizeId } from '../data/factions';
 
 const RUIN_FRACTION = 0.025;
 const AETHER_FRACTION = 0.018;
-const WATER_PERCENTILE = 0.18;
 const RIVER_DIVISOR = 80;
 const RIVER_HEADWATER_QUANTILE = 0.2;
 const RIVER_MAX_STEPS = 200;
-const RESOURCE_DENSITY = 0.08;
 const MIN_FACTION_SPACING_FLOOR = 6;
 const MIN_FACTION_SPACING_RATIO = 1.2;
 const MIN_GOOD_NEIGHBORS = 3;
@@ -40,7 +38,34 @@ const START_COAST_BONUS = 4;
 const START_WALLED_PENALTY = 8;
 const START_WALLED_NEIGHBOR_THRESHOLD = 4;
 
-export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
+export type WaterLevel = 'none' | 'lakes' | 'coasts' | 'continents';
+export type ResourceDensity = 'sparse' | 'standard' | 'lush';
+
+const WATER_PERCENTILES: Record<WaterLevel, number> = {
+  none: 0,
+  lakes: 0.08,
+  coasts: 0.18,
+  continents: 0.3,
+};
+
+const RESOURCE_DENSITIES: Record<ResourceDensity, number> = {
+  sparse: 0.04,
+  standard: 0.08,
+  lush: 0.14,
+};
+
+export interface MapGenOptions {
+  waterLevel?: WaterLevel;
+  resourceDensity?: ResourceDensity;
+}
+
+export function generateMap(
+  size: MapSizeId,
+  rng: Rng = defaultRng,
+  opts: MapGenOptions = {},
+): GameMap {
+  const waterPercentile = WATER_PERCENTILES[opts.waterLevel ?? 'coasts'];
+  const resourceDensity = RESOURCE_DENSITIES[opts.resourceDensity ?? 'standard'];
   const dim = MAP_SIZES[size];
   const tiles: Map<string, Tile> = new Map();
   const w = dim.w;
@@ -116,7 +141,7 @@ export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
   // count seen on the playable interior is somewhat lower than the raw
   // percentile suggests — that's intentional and avoids leaky-edge maps.
   const sortedElev = [...fields.values()].map((f) => f.elevation).sort((a, b) => a - b);
-  const waterIdx = Math.floor(sortedElev.length * WATER_PERCENTILE);
+  const waterIdx = Math.floor(sortedElev.length * waterPercentile);
   const waterThreshold = sortedElev[waterIdx];
 
   for (const tile of tiles.values()) {
@@ -211,7 +236,7 @@ export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
       (t) => def.allowedTerrains.includes(t.terrain) && !t.resource
     );
     shuffle(eligible, rng);
-    const count = Math.floor(eligible.length * RESOURCE_DENSITY);
+    const count = Math.floor(eligible.length * resourceDensity);
     for (let i = 0; i < count; i++) {
       eligible[i].resource = id;
     }
