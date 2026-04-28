@@ -63,6 +63,7 @@ class Unit {
         bonus += faction.getDefenseBonus(terrain.name);
         return bonus;
     }
+}
 
 class UnitManager {
     constructor(gameMap) {

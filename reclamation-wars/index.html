@@ -8,8 +8,45 @@
 </head>
 <body>
     <div id="game-container">
+        <!-- Game Card / Landing -->
+        <div id="game-card" class="screen active">
+            <div class="card-container">
+                <div class="card-art">
+                    <div class="card-art-inner">
+                        <div class="hex-bg hex-1">⚙️</div>
+                        <div class="hex-bg hex-2">🏚️</div>
+                        <div class="hex-bg hex-3">⚔️</div>
+                        <div class="hex-bg hex-4">🔬</div>
+                        <div class="hex-bg hex-5">🏗️</div>
+                        <div class="hex-bg hex-6">🌍</div>
+                    </div>
+                </div>
+                <div class="card-info">
+                    <h1 class="card-title">⚙️ RECLAMATION WARS ⚙️</h1>
+                    <p class="card-subtitle">A Post-Collapse 4X Hex Strategy Game</p>
+                    <p class="card-desc">The Collapse shattered civilization. Now five factions race to rediscover lost technology, rebuild settlements, and shape the future of a broken world.</p>
+                    <div class="card-features">
+                        <div class="feature"><span class="feature-icon">🗺️</span><span>Hex-based tactical map</span></div>
+                        <div class="feature"><span class="feature-icon">🔬</span><span>18-tech research tree</span></div>
+                        <div class="feature"><span class="feature-icon">⚔️</span><span>5 unique factions</span></div>
+                        <div class="feature"><span class="feature-icon">🏆</span><span>3 victory paths</span></div>
+                        <div class="feature"><span class="feature-icon">🤖</span><span>Smart AI opponents</span></div>
+                        <div class="feature"><span class="feature-icon">📊</span><span>Configurable map size</span></div>
+                    </div>
+                    <div class="card-factions">
+                        <span class="faction-dot" style="background:#cc4444" title="Ironclad Syndicate"></span>
+                        <span class="faction-dot" style="background:#00ccff" title="Neon Collective"></span>
+                        <span class="faction-dot" style="background:#44cc44" title="Greenwardens"></span>
+                        <span class="faction-dot" style="background:#ccaa44" title="Dust Runners"></span>
+                        <span class="faction-dot" style="background:#cc66cc" title="Arcane Engineers"></span>
+                    </div>
+                    <button id="play-btn" class="btn-primary btn-large">▶ Play Now</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Setup Screen -->
-        <div id="setup-screen" class="screen active">
+        <div id="setup-screen" class="screen">
             <div class="setup-panel">
                 <h1 class="game-title">⚙️ RECLAMATION WARS ⚙️</h1>
                 <p class="subtitle">The Collapse took everything. Now we rebuild — or fall again.</p>

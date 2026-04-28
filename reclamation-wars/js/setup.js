@@ -7,7 +7,18 @@ class SetupScreen {
     }
 
     _setupEventListeners() {
+        // Game card "Play Now" button
+        const playBtn = document.getElementById('play-btn');
+        if (playBtn) {
+            playBtn.addEventListener('click', () => this._showSetup());
+        }
+
         document.getElementById('start-btn').addEventListener('click', () => this._startGame());
+    }
+
+    _showSetup() {
+        document.getElementById('game-card').classList.remove('active');
+        document.getElementById('setup-screen').classList.add('active');
     }
 
     _renderFactionCards() {

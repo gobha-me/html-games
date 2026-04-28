@@ -420,6 +420,7 @@ class GameUI {
     }
 
     updateSidePanel(tab) {
+        if (!this.game.playerFaction) return;
         switch (tab) {
             case 'info': this._updateInfoPanel(); break;
             case 'research': this._updateResearchPanel(); break;
