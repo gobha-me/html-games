@@ -27,6 +27,10 @@ import { G, getTile, getUnitAt, getCityAt } from './core/state';
 import { shuffle } from './core/rng';
 import { log, renderLog } from './core/log';
 
+// Phase 1 step 4: systems peeled out into src/systems/*.ts.
+import { recomputeVisibility, setVisibleAround } from './systems/visibility';
+import { generateMap, findFactionStarts } from './systems/mapgen';
+
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
 // (HEX MATH section moved to src/core/hex.ts — see imports above.)
@@ -42,66 +46,7 @@ const svg=document.getElementById('overlay-svg');
 function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;svg.setAttribute('width',window.innerWidth);svg.setAttribute('height',window.innerHeight);if(G.map)render()}
 window.addEventListener('resize',resizeCanvas);
 
-// ============================================================================
-// MAP GENERATION
-// ============================================================================
-function generateMap(size){
-  const dim=MAP_SIZES[size],tiles=new Map(),w=dim.w,h=dim.h;
-  for(let row=0;row<h;row++){
-    for(let col=0;col<w;col++){
-      const q=col-Math.floor(row/2),r=row;
-      tiles.set(hexKey(q,r),{q,r,terrain:'PLAINS',resource:null,improvement:null,owner:null,cityId:null,unitId:null,visibility:{}});
-    }
-  }
-  const seed=Math.random()*1000;
-  function hash2(x,y){let h=x*374761393+y*668265263;h=(h^(h>>13))*1274126177;return((h^(h>>16))>>>0)/4294967295}
-  function fakeNoise(x,y){const ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;const a=hash2(ix,iy),b=hash2(ix+1,iy),c=hash2(ix,iy+1),d=hash2(ix+1,iy+1);const u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return a*(1-u)*(1-v)+b*u*(1-v)+c*(1-u)*v+d*u*v}
-  function noise(x,y){let n=0,amp=1,freq=0.15,sum=0;for(let o=0;o<4;o++){n+=amp*fakeNoise(x*freq+seed,y*freq+seed*1.3);sum+=amp;amp*=0.5;freq*=2}return n/sum}
-  for(const tile of tiles.values()){
-    const px=tile.q+tile.r*0.5,py=tile.r;
-    const elevation=noise(px,py),moisture=noise(px+99,py+99);
-    if(elevation>0.78)tile.terrain='MOUNTAINS';
-    else if(elevation>0.66)tile.terrain='HILLS';
-    else if(elevation<0.32&&moisture<0.4)tile.terrain='WASTES';
-    else if(moisture>0.62)tile.terrain='FOREST';
-    else tile.terrain='PLAINS';
-  }
-  // Border ring
-  for(const tile of tiles.values()){
-    const offCol=tile.q+Math.floor(tile.r/2);
-    if(offCol<=0||offCol>=w-1||tile.r<=0||tile.r>=h-1){
-      tile.terrain=Math.random()<0.5?'MOUNTAINS':'WASTES';
-    }
-  }
-  const candidates=[...tiles.values()].filter(t=>t.terrain==='PLAINS'||t.terrain==='HILLS'||t.terrain==='WASTES');
-  shuffle(candidates);
-  const ruinCount=Math.floor(tiles.size*0.025),aetherCount=Math.floor(tiles.size*0.018);
-  for(let i=0;i<ruinCount&&i<candidates.length;i++)candidates[i].terrain='RUINS';
-  for(let i=ruinCount;i<ruinCount+aetherCount&&i<candidates.length;i++)candidates[i].terrain='AETHER';
-  return{w,h,tiles};
-}
-// (shuffle moved to src/core/rng.ts.)
-
-function findFactionStarts(numFactions){
-  const walkable=[...G.map.tiles.values()].filter(t=>TERRAIN_TYPES[t.terrain].walkable&&!TERRAIN_TYPES[t.terrain].isAether&&!TERRAIN_TYPES[t.terrain].isRuin);
-  const starts=[];
-  let attempts=0;
-  const minDist=Math.max(6,Math.floor(Math.sqrt(G.map.tiles.size/numFactions)*1.2));
-  while(starts.length<numFactions&&attempts<3000){
-    const candidate=walkable[Math.floor(Math.random()*walkable.length)];
-    const ok=starts.every(s=>hexDistance(s,candidate)>=minDist);
-    if(ok){
-      const goodNeighbors=hexNeighbors(candidate.q,candidate.r).filter(n=>{const t=G.map.tiles.get(hexKey(n.q,n.r));return t&&TERRAIN_TYPES[t.terrain].walkable}).length;
-      if(goodNeighbors>=3)starts.push(candidate);
-    }
-    attempts++;
-  }
-  // Fallback if not enough
-  while(starts.length<numFactions){
-    starts.push(walkable[Math.floor(Math.random()*walkable.length)]);
-  }
-  return starts;
-}
+// (MAP GENERATION moved to src/systems/mapgen.ts.)
 
 // ============================================================================
 // FACTIONS / UNITS / CITIES
@@ -129,23 +74,7 @@ function createCity(factionIdx,q,r,name){
 }
 // (getTile / getUnitAt / getCityAt moved to src/core/state.ts.)
 
-// ============================================================================
-// VISIBILITY
-// ============================================================================
-function recomputeVisibility(){
-  for(const tile of G.map.tiles.values()){
-    for(const f of G.factions){
-      if(tile.visibility[f.idx]==='visible')tile.visibility[f.idx]='seen';
-    }
-  }
-  for(const c of G.cities)setVisibleAround(c.factionIdx,c.q,c.r,2);
-  for(const u of G.units){const sight=UNIT_TYPES[u.typeId].sight;setVisibleAround(u.factionIdx,u.q,u.r,sight)}
-}
-function setVisibleAround(factionIdx,q,r,sight){
-  for(const tile of G.map.tiles.values()){
-    if(hexDistance({q,r},tile)<=sight)tile.visibility[factionIdx]='visible';
-  }
-}
+// (VISIBILITY moved to src/systems/visibility.ts.)
 // ============================================================================
 // MOVEMENT / COMBAT
 // ============================================================================
