@@ -12,7 +12,7 @@ import { BUILDING_TYPES } from '../src/data/buildings';
 import { TECHS } from '../src/data/techs';
 import { TERRAIN_TYPES } from '../src/data/terrain';
 import { PERSONALITIES, AI_THINKING_LINES } from '../src/data/personalities';
-import { MAP_SIZES } from '../src/data/factions';
+import { CITY_NAMES, FACTIONS, MAP_SIZES } from '../src/data/factions';
 
 function baseMod(): Record<string, unknown> {
   return { name: 'test-mod', version: '1.0' };
@@ -160,5 +160,112 @@ describe('mod / applyMod (object tables)', () => {
     const a = { name: 'm', version: '1', units: { COGMAN: { atk: 9 } } };
     const b = { name: 'm', version: '1', units: { COGMAN: { atk: 10 } } };
     expect(modHash(a)).not.toBe(modHash(b));
+  });
+});
+
+describe('mod / applyMod (array tables)', () => {
+  beforeEach(() => {
+    clearMod();
+    G.map = null;
+  });
+
+  afterEach(() => {
+    clearMod();
+  });
+
+  it('replaces FACTIONS in place, preserving the array reference', () => {
+    const arrayRefBefore = FACTIONS;
+    const lengthBefore = FACTIONS.length;
+
+    applyMod({
+      ...baseMod(),
+      factions: [
+        {
+          id: 'rust',
+          name: 'The Rust Coven',
+          color: '#aa3030',
+          personality: 'militaristic',
+          startTechs: [],
+          desc: 'Iron eats iron.',
+          traits: 'Bonus warband',
+          glyph: '☢',
+        },
+        {
+          id: 'glass',
+          name: 'Glass Conclave',
+          color: '#7090d0',
+          personality: 'scientific',
+          startTechs: ['rediscovery'],
+          desc: 'Scholars under crystal domes.',
+          traits: 'Starts with Rediscovery',
+          glyph: '◇',
+        },
+      ],
+    });
+
+    expect(FACTIONS).toBe(arrayRefBefore);
+    expect(FACTIONS.length).toBe(2);
+    expect(FACTIONS.length).not.toBe(lengthBefore);
+    expect(FACTIONS[0].id).toBe('rust');
+    expect(FACTIONS[1].id).toBe('glass');
+  });
+
+  it('replaces CITY_NAMES in place', () => {
+    const arrayRefBefore = CITY_NAMES;
+    applyMod({
+      ...baseMod(),
+      cityNames: ['Alpha', 'Beta'],
+    });
+    expect(CITY_NAMES).toBe(arrayRefBefore);
+    expect(CITY_NAMES.length).toBe(2);
+    expect(CITY_NAMES[0]).toBe('Alpha');
+  });
+
+  it('clearMod restores FACTIONS and CITY_NAMES to defaults', () => {
+    const factionsBefore = JSON.stringify(FACTIONS);
+    const cityNamesBefore = JSON.stringify(CITY_NAMES);
+
+    applyMod({
+      ...baseMod(),
+      factions: [
+        {
+          id: 'solo',
+          name: 'Solo',
+          color: '#fff',
+          personality: 'industrial',
+          startTechs: [],
+          desc: '',
+          traits: '',
+          glyph: 'X',
+        },
+      ],
+      cityNames: ['Lone'],
+    });
+    clearMod();
+
+    expect(JSON.stringify(FACTIONS)).toBe(factionsBefore);
+    expect(JSON.stringify(CITY_NAMES)).toBe(cityNamesBefore);
+  });
+
+  it('rejects an empty factions array', () => {
+    expect(() => applyMod({ ...baseMod(), factions: [] })).toThrow(/factions/);
+  });
+
+  it('rejects a faction missing the id field', () => {
+    expect(() =>
+      applyMod({
+        ...baseMod(),
+        factions: [{ name: 'oops', personality: 'industrial' } as Record<string, unknown>],
+      })
+    ).toThrow(/id/);
+  });
+
+  it('rejects a non-string entry in cityNames', () => {
+    expect(() =>
+      applyMod({
+        ...baseMod(),
+        cityNames: ['ok', 99 as unknown as string],
+      })
+    ).toThrow(/cityNames/);
   });
 });

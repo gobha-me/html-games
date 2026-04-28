@@ -28,7 +28,7 @@ import { BUILDING_TYPES } from '../data/buildings';
 import { TECHS, TECH_BRANCHES } from '../data/techs';
 import { RESOURCES } from '../data/resources';
 import { PERSONALITIES, AI_THINKING_LINES } from '../data/personalities';
-import { MAP_SIZES } from '../data/factions';
+import { CITY_NAMES, FACTIONS, MAP_SIZES } from '../data/factions';
 
 export interface ModDef {
   name: string;
@@ -42,6 +42,10 @@ export interface ModDef {
   personalities?: Record<string, Record<string, unknown> | null>;
   mapSizes?: Record<string, Record<string, unknown> | null>;
   aiThinkingLines?: Record<string, string[]>;
+  /** Full replace. Order matters — FactionIdx is positional. */
+  factions?: Record<string, unknown>[];
+  /** Full replace. Order is irrelevant; mapgen samples randomly. */
+  cityNames?: string[];
 }
 
 export class ModValidationError extends Error {
@@ -66,6 +70,8 @@ interface Snapshot {
   personalities: Record<string, Record<string, unknown>>;
   mapSizes: Record<string, Record<string, unknown>>;
   aiThinkingLines: Record<string, string[]>;
+  factions: Record<string, unknown>[];
+  cityNames: string[];
 }
 
 let snapshot: Snapshot | null = null;
@@ -95,6 +101,8 @@ function takeSnapshot(): Snapshot {
     personalities: structuredClone(PERSONALITIES) as Snapshot['personalities'],
     mapSizes: structuredClone(MAP_SIZES) as Snapshot['mapSizes'],
     aiThinkingLines: structuredClone(AI_THINKING_LINES) as unknown as Snapshot['aiThinkingLines'],
+    factions: structuredClone(FACTIONS) as unknown as Snapshot['factions'],
+    cityNames: structuredClone(CITY_NAMES) as unknown as Snapshot['cityNames'],
   };
 }
 
@@ -112,6 +120,13 @@ function restoreSnapshot(snap: Snapshot): void {
   for (const [k, v] of Object.entries(snap.aiThinkingLines)) {
     lines[k] = [...v];
   }
+  replaceArray(FACTIONS as unknown as unknown[], snap.factions);
+  replaceArray(CITY_NAMES as unknown as unknown[], snap.cityNames);
+}
+
+function replaceArray(target: unknown[], source: readonly unknown[]): void {
+  target.length = 0;
+  for (const item of source) target.push(structuredClone(item));
 }
 
 function mergeOrRemove(
@@ -180,6 +195,35 @@ function validateMod(mod: unknown): asserts mod is ModDef {
       }
     }
   }
+
+  const factions = (mod as Record<string, unknown>).factions;
+  if (factions !== undefined) {
+    if (!Array.isArray(factions) || factions.length === 0) {
+      throw new ModValidationError('$.factions', 'must be a non-empty array');
+    }
+    factions.forEach((f, i) => {
+      if (!isPlainObject(f)) {
+        throw new ModValidationError(`$.factions[${i}]`, 'must be an object');
+      }
+      if (typeof f.id !== 'string' || f.id.length === 0) {
+        throw new ModValidationError(`$.factions[${i}].id`, 'must be a non-empty string');
+      }
+      if (typeof f.personality !== 'string') {
+        throw new ModValidationError(`$.factions[${i}].personality`, 'must be a string');
+      }
+    });
+  }
+
+  const cityNames = (mod as Record<string, unknown>).cityNames;
+  if (cityNames !== undefined) {
+    if (
+      !Array.isArray(cityNames) ||
+      cityNames.length === 0 ||
+      !cityNames.every((s): s is string => typeof s === 'string')
+    ) {
+      throw new ModValidationError('$.cityNames', 'must be a non-empty array of strings');
+    }
+  }
 }
 
 // FNV-1a 32-bit over a canonical JSON serialization (keys sorted). Stable
@@ -237,6 +281,13 @@ export function applyMod(mod: unknown): ModDef {
     for (const [id, lines] of Object.entries(mod.aiThinkingLines)) {
       target[id] = [...lines];
     }
+  }
+
+  if (mod.factions) {
+    replaceArray(FACTIONS as unknown as unknown[], mod.factions);
+  }
+  if (mod.cityNames) {
+    replaceArray(CITY_NAMES as unknown as unknown[], mod.cityNames);
   }
 
   for (const id of STARTER_UNIT_IDS) {
