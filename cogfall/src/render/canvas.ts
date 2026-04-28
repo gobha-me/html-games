@@ -11,6 +11,7 @@ import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
 import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
 import type { Tile, Visibility } from '../core/types';
+import { fogLerp } from '../systems/visibility';
 import { renderSVGOverlay } from './overlay';
 
 const canvas = document.getElementById(DOM_IDS.MAP_CANVAS) as HTMLCanvasElement;
@@ -81,7 +82,9 @@ function drawHex(tile: Tile, vis: Visibility): void {
   ctx.fillStyle = tt.color;
   ctx.fill();
   if (vis === 'seen') {
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    // Phase 2h-1: alpha lerps from 0.20 at the visible-fog boundary to 0.45
+    // in deep fog (matches the prior flat value at distance ≥ FOG_MAX_DISTANCE).
+    ctx.fillStyle = `rgba(0,0,0,${fogLerp(tile, 0.2, 0.45)})`;
     ctx.fill();
   }
   ctx.strokeStyle = tt.edge;
@@ -102,14 +105,18 @@ function drawHex(tile: Tile, vis: Visibility): void {
     }
   }
   if (tt.glyph) {
-    ctx.fillStyle = vis === 'seen' ? 'rgba(244,228,188,0.35)' : 'rgba(244,228,188,0.55)';
+    ctx.fillStyle =
+      vis === 'seen'
+        ? `rgba(244,228,188,${fogLerp(tile, 0.5, 0.35)})`
+        : 'rgba(244,228,188,0.55)';
     ctx.font = `${HEX_SIZE * 0.85}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(tt.glyph, x, y);
   }
   if (tile.improvement && tile.improvement !== 'looted') {
-    ctx.fillStyle = vis === 'seen' ? 'rgba(212,160,23,0.4)' : '#d4a017';
+    ctx.fillStyle =
+      vis === 'seen' ? `rgba(212,160,23,${fogLerp(tile, 0.55, 0.4)})` : '#d4a017';
     ctx.font = `${HEX_SIZE * 0.5}px serif`;
     let g = '·';
     if (tile.improvement === 'farm') g = '✿';
@@ -119,7 +126,8 @@ function drawHex(tile: Tile, vis: Visibility): void {
   }
   const res = getResource(tile.resource);
   if (res) {
-    ctx.fillStyle = vis === 'seen' ? 'rgba(232,196,90,0.45)' : '#e8c45a';
+    ctx.fillStyle =
+      vis === 'seen' ? `rgba(232,196,90,${fogLerp(tile, 0.6, 0.45)})` : '#e8c45a';
     ctx.font = `${HEX_SIZE * 0.5}px serif`;
     ctx.fillText(res.glyph, x - HEX_SIZE * 0.4, y + HEX_SIZE * 0.4);
   }
