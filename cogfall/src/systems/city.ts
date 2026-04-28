@@ -84,10 +84,7 @@ export function cityYields(city: City): CityYields {
     .map((n) => getTile(n.q, n.r))
     .filter(
       (t): t is NonNullable<typeof t> =>
-        !!t &&
-        t.owner === city.factionIdx &&
-        !t.cityId &&
-        TERRAIN_TYPES[t.terrain].walkable
+        !!t && t.owner === city.factionIdx && !t.cityId && TERRAIN_TYPES[t.terrain].walkable
     )
     .map((t) => {
       const tt = TERRAIN_TYPES[t.terrain];
@@ -101,8 +98,7 @@ export function cityYields(city: City): CityYields {
         f,
         p,
         g,
-        score:
-          f * TILE_YIELD_FOOD_WEIGHT + p * TILE_YIELD_PROD_WEIGHT + g * TILE_YIELD_GOLD_WEIGHT,
+        score: f * TILE_YIELD_FOOD_WEIGHT + p * TILE_YIELD_PROD_WEIGHT + g * TILE_YIELD_GOLD_WEIGHT,
         terrain: t.terrain,
       };
     })

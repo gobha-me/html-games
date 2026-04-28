@@ -57,6 +57,8 @@ export function handleHover(e: MouseEvent): void {
   }
   tip.innerHTML = html;
   tip.style.display = 'block';
-  tip.style.left = Math.min(window.innerWidth - TOOLTIP_MAX_WIDTH, e.clientX + TOOLTIP_OFFSET) + 'px';
-  tip.style.top = Math.min(window.innerHeight - TOOLTIP_MAX_HEIGHT, e.clientY + TOOLTIP_OFFSET) + 'px';
+  tip.style.left =
+    Math.min(window.innerWidth - TOOLTIP_MAX_WIDTH, e.clientX + TOOLTIP_OFFSET) + 'px';
+  tip.style.top =
+    Math.min(window.innerHeight - TOOLTIP_MAX_HEIGHT, e.clientY + TOOLTIP_OFFSET) + 'px';
 }

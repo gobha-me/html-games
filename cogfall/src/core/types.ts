@@ -16,14 +16,7 @@ import type { FactionId } from '../data/factions';
 export type FactionIdx = number & { readonly __brand: 'FactionIdx' };
 export const asFactionIdx = (n: number): FactionIdx => n as FactionIdx;
 
-export type LogEntryType =
-  | 'combat'
-  | 'tech'
-  | 'diplo'
-  | 'warning'
-  | 'good'
-  | 'flavor'
-  | '';
+export type LogEntryType = 'combat' | 'tech' | 'diplo' | 'warning' | 'good' | 'flavor' | '';
 
 export interface LogEntry {
   msg: string;
@@ -43,9 +36,7 @@ export type Visibility = 'visible' | 'seen' | 'unseen';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-export type BuildQueue =
-  | { kind: 'unit'; id: UnitTypeId }
-  | { kind: 'building'; id: BuildingId };
+export type BuildQueue = { kind: 'unit'; id: UnitTypeId } | { kind: 'building'; id: BuildingId };
 
 export interface Tile {
   q: number;

@@ -8,14 +8,7 @@ import { hexKey, hexNeighbors } from '../core/hex';
 import type { TileKey } from '../core/hex';
 import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { log } from '../core/log';
-import type {
-  AttackTarget,
-  FactionIdx,
-  MoveTarget,
-  Tile,
-  Unit,
-  UnitTypeId,
-} from '../core/types';
+import type { AttackTarget, FactionIdx, MoveTarget, Tile, Unit, UnitTypeId } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
 import { recomputeVisibility } from './visibility';
@@ -26,12 +19,7 @@ const RUIN_AETHER_THRESHOLD = 0.85;
 
 // Entity lifecycle ----------------------------------------------------------
 
-export function createUnit(
-  typeId: UnitTypeId,
-  factionIdx: FactionIdx,
-  q: number,
-  r: number
-): Unit {
+export function createUnit(typeId: UnitTypeId, factionIdx: FactionIdx, q: number, r: number): Unit {
   const tpl = UNIT_TYPES[typeId];
   const u: Unit = {
     id: G.nextUnitId++,
@@ -63,9 +51,7 @@ export function computeMoveTargets(unit: Unit): MoveTarget[] {
   const start = { q: unit.q, r: unit.r };
   const visited = new Map<TileKey, { cost: number }>();
   visited.set(hexKey(start.q, start.r), { cost: 0 });
-  const frontier: { q: number; r: number; cost: number }[] = [
-    { q: start.q, r: start.r, cost: 0 },
-  ];
+  const frontier: { q: number; r: number; cost: number }[] = [{ q: start.q, r: start.r, cost: 0 }];
 
   while (frontier.length) {
     frontier.sort((a, b) => a.cost - b.cost);

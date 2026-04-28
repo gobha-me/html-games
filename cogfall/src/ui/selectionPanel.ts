@@ -121,7 +121,9 @@ function playerFoundCity(): void {
   const tile = getTile(u.q, u.r);
   if (!tile) return;
   if (getCityAt(u.q, u.r)) return;
-  const tooClose = G.cities.some((c) => hexDistance({ q: c.q, r: c.r }, tile) < PIONEER_FOUND_MIN_DIST);
+  const tooClose = G.cities.some(
+    (c) => hexDistance({ q: c.q, r: c.r }, tile) < PIONEER_FOUND_MIN_DIST
+  );
   if (tooClose) return;
   const name = pickCityName();
   const c = createCity(u.factionIdx, u.q, u.r, name);

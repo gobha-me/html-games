@@ -50,9 +50,7 @@ export function hexNeighbors(q: number, r: number): AxialCoord[] {
 }
 
 export function hexDistance(a: AxialCoord, b: AxialCoord): number {
-  return (
-    (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2
-  );
+  return (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
 }
 
 export function hexKey(q: number, r: number): TileKey {

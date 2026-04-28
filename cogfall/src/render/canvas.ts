@@ -133,7 +133,16 @@ function drawOwnership(): void {
   }
 }
 
-function drawCity(c: { q: number; r: number; factionIdx: number; isCapital: boolean; name: string; population: number; hp: number; maxHp: number }): void {
+function drawCity(c: {
+  q: number;
+  r: number;
+  factionIdx: number;
+  isCapital: boolean;
+  name: string;
+  population: number;
+  hp: number;
+  maxHp: number;
+}): void {
   const fac = G.factions[c.factionIdx];
   const { x, y } = hexToPixel(c.q, c.r);
   ctx.beginPath();
@@ -160,12 +169,22 @@ function drawCity(c: { q: number; r: number; factionIdx: number; isCapital: bool
     const w = HEX_SIZE * 0.9;
     ctx.fillStyle = '#222';
     ctx.fillRect(x - w / 2, y - HEX_SIZE * 0.85, w, 4);
-    ctx.fillStyle = c.hp > c.maxHp * 0.5 ? '#6fdb6f' : c.hp > c.maxHp * 0.25 ? '#ddd66f' : '#d44a3a';
+    ctx.fillStyle =
+      c.hp > c.maxHp * 0.5 ? '#6fdb6f' : c.hp > c.maxHp * 0.25 ? '#ddd66f' : '#d44a3a';
     ctx.fillRect(x - w / 2, y - HEX_SIZE * 0.85, w * (c.hp / c.maxHp), 4);
   }
 }
 
-function drawUnit(u: { q: number; r: number; factionIdx: number; typeId: keyof typeof UNIT_TYPES; hp: number; maxHp: number; mp: number; fortified: boolean }): void {
+function drawUnit(u: {
+  q: number;
+  r: number;
+  factionIdx: number;
+  typeId: keyof typeof UNIT_TYPES;
+  hp: number;
+  maxHp: number;
+  mp: number;
+  fortified: boolean;
+}): void {
   const fac = G.factions[u.factionIdx];
   const tpl = UNIT_TYPES[u.typeId];
   const { x, y } = hexToPixel(u.q, u.r);
@@ -187,7 +206,8 @@ function drawUnit(u: { q: number; r: number; factionIdx: number; typeId: keyof t
     const w = HEX_SIZE * 0.7;
     ctx.fillStyle = '#222';
     ctx.fillRect(x - w / 2, y - offY + HEX_SIZE * 0.5, w, 3);
-    ctx.fillStyle = u.hp > u.maxHp * 0.5 ? '#6fdb6f' : u.hp > u.maxHp * 0.25 ? '#ddd66f' : '#d44a3a';
+    ctx.fillStyle =
+      u.hp > u.maxHp * 0.5 ? '#6fdb6f' : u.hp > u.maxHp * 0.25 ? '#ddd66f' : '#d44a3a';
     ctx.fillRect(x - w / 2, y - offY + HEX_SIZE * 0.5, w * (u.hp / u.maxHp), 3);
   }
   if (u.factionIdx === G.playerFactionIdx && u.mp > 0) {

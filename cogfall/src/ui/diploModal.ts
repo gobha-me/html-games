@@ -41,7 +41,8 @@ export function renderDiploScreen(): void {
       html += `<button class="btn small" onclick="offerPeace(${f.idx})">Offer Peace</button>`;
     html += `</div></div>`;
   }
-  if (!html) html = '<p style="color:var(--parchment-d);font-style:italic">No other banners stand.</p>';
+  if (!html)
+    html = '<p style="color:var(--parchment-d);font-style:italic">No other banners stand.</p>';
   const content = document.getElementById(DOM_IDS.DIPLO_CONTENT);
   if (content) content.innerHTML = html;
 }

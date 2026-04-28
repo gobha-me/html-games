@@ -26,12 +26,7 @@ export function recomputeVisibility(): void {
   }
 }
 
-export function setVisibleAround(
-  factionIdx: number,
-  q: number,
-  r: number,
-  sight: number
-): void {
+export function setVisibleAround(factionIdx: number, q: number, r: number, sight: number): void {
   if (!G.map) return;
   for (const tile of G.map.tiles.values()) {
     if (hexDistance({ q, r }, tile) <= sight) tile.visibility[factionIdx] = 'visible';

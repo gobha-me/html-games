@@ -40,7 +40,7 @@ describe('aiPickTech', () => {
     expect(a).not.toBeNull();
   });
 
-  it("biases scientific personalities toward science-branch picks at turn 0", () => {
+  it('biases scientific personalities toward science-branch picks at turn 0', () => {
     // The scientific personality has prefBranch='science' and a +60 score
     // boost for that branch; with the small ±0..8 jitter, the first pick
     // should fall in the science branch a strong majority of the time.
@@ -55,7 +55,7 @@ describe('aiPickTech', () => {
     expect(scienceCount).toBeGreaterThan(trials * 0.7);
   });
 
-  it("biases industrial personalities toward industry-branch picks", () => {
+  it('biases industrial personalities toward industry-branch picks', () => {
     let industryCount = 0;
     const trials = 50;
     for (let seed = 1; seed <= trials; seed++) {

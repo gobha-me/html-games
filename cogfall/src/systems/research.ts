@@ -12,7 +12,9 @@ export interface ResearchResult {
   ascensionTriggered: boolean;
 }
 
-export function getAvailableTechs(faction: Faction): Array<{ id: string } & (typeof TECHS)[keyof typeof TECHS]> {
+export function getAvailableTechs(
+  faction: Faction
+): Array<{ id: string } & (typeof TECHS)[keyof typeof TECHS]> {
   return Object.entries(TECHS)
     .filter(([id, tech]) => {
       if (faction.techs.has(id as keyof typeof TECHS)) return false;

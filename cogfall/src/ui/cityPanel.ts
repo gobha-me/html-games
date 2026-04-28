@@ -40,7 +40,9 @@ export function renderCityDetailsRight(city: City): void {
   for (const [uid, tpl] of Object.entries(UNIT_TYPES)) {
     if ('requires' in tpl && tpl.requires && !fac.techs.has(tpl.requires)) continue;
     const isCur =
-      city.buildQueue && city.buildQueue.kind === 'unit' && city.buildQueue.id === (uid as UnitTypeId);
+      city.buildQueue &&
+      city.buildQueue.kind === 'unit' &&
+      city.buildQueue.id === (uid as UnitTypeId);
     html += `<div class="build-item ${isCur ? 'current' : ''}" onclick="setCityBuild(${city.id},'unit','${uid}')">`;
     html += `<div class="name">${tpl.glyph} ${tpl.name}</div>`;
     html += `<div class="desc">${tpl.desc}</div>`;
@@ -67,7 +69,8 @@ export function renderCityDetailsRight(city: City): void {
 
   if (city.buildings.size > 0) {
     html += `</div><h4>Already Built</h4><div style="font-size:11px;color:var(--parchment-d)">`;
-    for (const b of city.buildings) html += `<div>${BUILDING_TYPES[b].glyph} ${BUILDING_TYPES[b].name}</div>`;
+    for (const b of city.buildings)
+      html += `<div>${BUILDING_TYPES[b].glyph} ${BUILDING_TYPES[b].name}</div>`;
     html += `</div>`;
   } else html += `</div>`;
 
@@ -91,4 +94,5 @@ function setCityBuild(cityId: number, kind: 'unit' | 'building', id: string): vo
   updateUI();
 }
 
-(window as Window & typeof globalThis & { setCityBuild: typeof setCityBuild }).setCityBuild = setCityBuild;
+(window as Window & typeof globalThis & { setCityBuild: typeof setCityBuild }).setCityBuild =
+  setCityBuild;

@@ -71,7 +71,11 @@ export function setupGame(): void {
   G.difficulty = difficultyEl.value as Difficulty;
   const speed = speedEl.value;
   G.goldHegemonyThreshold =
-    speed === 'quick' ? HEGEMONY_GOLD_QUICK : speed === 'long' ? HEGEMONY_GOLD_LONG : HEGEMONY_GOLD_STANDARD;
+    speed === 'quick'
+      ? HEGEMONY_GOLD_QUICK
+      : speed === 'long'
+        ? HEGEMONY_GOLD_LONG
+        : HEGEMONY_GOLD_STANDARD;
 
   // Reset module-scope state from any previous game.
   resetCityNames();
@@ -94,7 +98,9 @@ export function setupGame(): void {
   // Build factions: player + N AI.
   const selFactionIdx = getSelectedFactionIdx();
   const playerFaction = FACTIONS[selFactionIdx];
-  const aiCandidates = FACTIONS.filter((_, i) => i !== selFactionIdx).slice() as unknown as FactionDef[];
+  const aiCandidates = FACTIONS.filter(
+    (_, i) => i !== selFactionIdx
+  ).slice() as unknown as FactionDef[];
   shuffle(aiCandidates);
   G.factions.push(createFaction(playerFaction as unknown as FactionDef, false, 0));
   for (let i = 0; i < opponentCount; i++) {

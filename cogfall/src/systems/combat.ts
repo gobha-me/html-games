@@ -79,8 +79,7 @@ export function combat(attacker: Unit, defenderQR: AttackTarget, rng: Rng = defa
     log(
       `${aFac.name}'s ${aTpl.name} attacks ${dFac.name}'s ${dTpl.name}: ${atkDmg} dealt, ${defDmg} taken.`,
       'combat',
-      attacker.factionIdx === G.playerFactionIdx ||
-        defender.factionIdx === G.playerFactionIdx
+      attacker.factionIdx === G.playerFactionIdx || defender.factionIdx === G.playerFactionIdx
     );
     if (defender.hp <= 0) killUnit(defender);
     if (attacker.hp <= 0) {

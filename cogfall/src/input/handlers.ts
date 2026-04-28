@@ -8,11 +8,7 @@ import { pixelToHex } from '../core/hex';
 import { DOM_IDS } from '../core/dom';
 import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { combat } from '../systems/combat';
-import {
-  computeAttackTargets,
-  computeMoveTargets,
-  moveUnit,
-} from '../systems/movement';
+import { computeAttackTargets, computeMoveTargets, moveUnit } from '../systems/movement';
 import { endTurn } from '../systems/turn';
 import { canvas, centerOnHex, render } from '../render/canvas';
 import { closeAllModals, openModal } from '../ui/modals';
@@ -80,7 +76,11 @@ canvas.addEventListener('click', (e) => {
   if (!tile.visibility[G.playerFactionIdx] || tile.visibility[G.playerFactionIdx] === 'unseen') {
     return;
   }
-  if (G.selected && G.selected.type === 'unit' && G.selected.ref.factionIdx === G.playerFactionIdx) {
+  if (
+    G.selected &&
+    G.selected.type === 'unit' &&
+    G.selected.ref.factionIdx === G.playerFactionIdx
+  ) {
     const u = G.selected.ref;
     if (G.attackTargets.some((t) => t.q === q && t.r === r)) {
       combat(u, { q, r, target: 'unit' });

@@ -11,12 +11,7 @@ import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
 import { PERSONALITIES } from '../data/personalities';
 import { combat } from '../systems/combat';
-import {
-  computeAttackTargets,
-  computeMoveTargets,
-  killUnit,
-  moveUnit,
-} from '../systems/movement';
+import { computeAttackTargets, computeMoveTargets, killUnit, moveUnit } from '../systems/movement';
 import { createCity, pickCityName } from '../systems/city';
 import { recomputeVisibility } from '../systems/visibility';
 
@@ -206,7 +201,10 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
   const warEnemies = G.factions
     .filter((f) => f.alive && faction.diplo[f.idx] === 'war')
     .map((f) => f.idx);
-  if (warEnemies.length && (phase === 'contest' || phase === 'ascend' || p.agg > HIGH_AGG_THRESHOLD)) {
+  if (
+    warEnemies.length &&
+    (phase === 'contest' || phase === 'ascend' || p.agg > HIGH_AGG_THRESHOLD)
+  ) {
     let best: { q: number; r: number } | null = null;
     let bestScore = -Infinity;
     for (const c of G.cities) {

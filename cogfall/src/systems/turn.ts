@@ -106,12 +106,15 @@ export function runAITurn(faction: Faction): void {
   const lines = AI_THINKING_LINES[faction.personality];
   const line = lines[Math.floor(Math.random() * lines.length)];
   showAIThinking(`${faction.name} ${line}`);
-  setTimeout(() => {
-    aiPlayTurn(faction);
-    hideAIThinking();
-    requestRedraw();
-    setTimeout(endTurn, AI_TURN_END_DELAY_MS);
-  }, AI_THINK_BASE_MS + Math.random() * AI_THINK_JITTER_MS);
+  setTimeout(
+    () => {
+      aiPlayTurn(faction);
+      hideAIThinking();
+      requestRedraw();
+      setTimeout(endTurn, AI_TURN_END_DELAY_MS);
+    },
+    AI_THINK_BASE_MS + Math.random() * AI_THINK_JITTER_MS
+  );
 }
 
 // --- Scoring ---------------------------------------------------------------
@@ -133,8 +136,7 @@ export function computeFactionScore(faction: Faction): number {
 const VICTORY_MESSAGES: Record<VictoryType, { title: string; flavorTemplate: string }> = {
   domination: {
     title: 'Domination',
-    flavorTemplate:
-      '{name} has crushed all rivals beneath the weight of their banners.',
+    flavorTemplate: '{name} has crushed all rivals beneath the weight of their banners.',
   },
   ascension: {
     title: 'Ascension',
@@ -172,9 +174,7 @@ export function triggerDefeat(): void {
 export function scorecard(): string {
   // Prototype sorts on freshly-computed scores (not the cached f.score),
   // so eliminated factions still get a fair tally.
-  const sorted = G.factions
-    .slice()
-    .sort((a, b) => computeFactionScore(b) - computeFactionScore(a));
+  const sorted = G.factions.slice().sort((a, b) => computeFactionScore(b) - computeFactionScore(a));
   let html = '<h3 style="color:var(--brass);margin-bottom:8px">Final Tally</h3>';
   for (const f of sorted) {
     const status = f.alive ? '' : ' <span style="color:var(--danger)">(eliminated)</span>';

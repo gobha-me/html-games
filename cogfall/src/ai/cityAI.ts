@@ -12,16 +12,18 @@ import { PERSONALITIES } from '../data/personalities';
 const SECOND_BEST_VARIATION_CHANCE = 0.15;
 const PIONEER_LATE_PENALTY_TURN = 30;
 
-export function aiPickBuild(faction: Faction, city: City, rng: Rng = defaultRng): BuildQueue | null {
+export function aiPickBuild(
+  faction: Faction,
+  city: City,
+  rng: Rng = defaultRng
+): BuildQueue | null {
   const p = PERSONALITIES[faction.personality];
   const phase = G.aiMemory[faction.idx]?.strategicPhase;
   const myCityCount = G.cities.filter((c) => c.factionIdx === faction.idx).length;
   const myUnits = G.units.filter((u) => u.factionIdx === faction.idx);
   const myMilUnits = myUnits.filter((u) => UNIT_TYPES[u.typeId].atk > 0);
   const myPioneers = myUnits.filter((u) => u.typeId === 'PIONEER').length;
-  const atWar = G.factions.some(
-    (_, i) => i !== faction.idx && faction.diplo[i] === 'war'
-  );
+  const atWar = G.factions.some((_, i) => i !== faction.idx && faction.diplo[i] === 'war');
   const garrison = myUnits.find(
     (u) => u.q === city.q && u.r === city.r && UNIT_TYPES[u.typeId].atk > 0
   );
@@ -46,12 +48,12 @@ export function aiPickBuild(faction: Faction, city: City, rng: Rng = defaultRng)
     options.push({ kind: 'building', id: bid as keyof typeof BUILDING_TYPES, score });
   }
 
-  const milTypes: UnitTypeId[] = (['AETHERMECH', 'STEAMTANK', 'MUSKETEER', 'COGMAN'] as const).filter(
-    (t) => {
-      const tpl = UNIT_TYPES[t];
-      return !('requires' in tpl) || !tpl.requires || faction.techs.has(tpl.requires);
-    }
-  );
+  const milTypes: UnitTypeId[] = (
+    ['AETHERMECH', 'STEAMTANK', 'MUSKETEER', 'COGMAN'] as const
+  ).filter((t) => {
+    const tpl = UNIT_TYPES[t];
+    return !('requires' in tpl) || !tpl.requires || faction.techs.has(tpl.requires);
+  });
   const bestMil = milTypes[0];
   if (bestMil) {
     let score = 30 + p.mil * 60;
@@ -82,8 +84,7 @@ export function aiPickBuild(faction: Faction, city: City, rng: Rng = defaultRng)
 
   if (!options.length) return null;
   options.sort((a, b) => b.score - a.score);
-  const pick =
-    options.length > 1 && rng() < SECOND_BEST_VARIATION_CHANCE ? options[1] : options[0];
+  const pick = options.length > 1 && rng() < SECOND_BEST_VARIATION_CHANCE ? options[1] : options[0];
   // Strip score before returning.
   return { kind: pick.kind, id: pick.id } as BuildQueue;
 }

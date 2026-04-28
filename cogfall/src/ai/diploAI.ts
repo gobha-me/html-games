@@ -75,7 +75,10 @@ export function aiDiplomacy(faction: Faction): void {
       if (peaceScore > PEACE_THRESHOLD && Math.random() < PEACE_TRIGGER_CHANCE) {
         faction.diplo[other.idx] = 'peace';
         other.diplo[faction.idx] = 'peace';
-        mem.grudges[other.idx] = Math.max(0, (mem.grudges[other.idx] || 0) - PEACE_GRUDGE_FORGIVENESS);
+        mem.grudges[other.idx] = Math.max(
+          0,
+          (mem.grudges[other.idx] || 0) - PEACE_GRUDGE_FORGIVENESS
+        );
         log(`${faction.name} sues for peace with ${other.name}.`, 'diplo', true);
       }
     }

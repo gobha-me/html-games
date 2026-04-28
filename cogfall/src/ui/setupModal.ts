@@ -25,5 +25,6 @@ function setupSelectFaction(i: number): void {
   renderFactionList();
 }
 
-(window as Window & typeof globalThis & { setupSelectFaction: typeof setupSelectFaction }).setupSelectFaction =
-  setupSelectFaction;
+(
+  window as Window & typeof globalThis & { setupSelectFaction: typeof setupSelectFaction }
+).setupSelectFaction = setupSelectFaction;
