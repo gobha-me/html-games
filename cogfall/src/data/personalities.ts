@@ -1,6 +1,12 @@
 // AI personality weights. Each faction's personality maps to a row of these
 // scores, which drive the AI's tech/build/diplomacy decisions. AI_THINKING_LINES
 // supplies flavor text for the "thinking" spinner shown during AI turns.
+//
+// `cunning` (Phase 2f) governs espionage on both sides: it biases the AI's
+// choice between stealing tech vs. sabotaging a building, and weights the
+// detection roll when defending against an enemy spy. High cunning ⇒ both
+// stealthier offense and sharper counter-intel. Don't read it from generic
+// (non-espionage) scoring paths — it should enter scoring deliberately.
 
 export const PERSONALITIES = {
   industrial: {
@@ -10,6 +16,7 @@ export const PERSONALITIES = {
     expand: 0.55,
     agg: 0.3,
     defenseFocus: 0.55,
+    cunning: 0.4,
     prefBranch: 'industry',
   },
   scientific: {
@@ -19,6 +26,7 @@ export const PERSONALITIES = {
     expand: 0.4,
     agg: 0.2,
     defenseFocus: 0.7,
+    cunning: 0.65,
     prefBranch: 'science',
   },
   militaristic: {
@@ -28,6 +36,7 @@ export const PERSONALITIES = {
     expand: 0.7,
     agg: 0.85,
     defenseFocus: 0.4,
+    cunning: 0.3,
     prefBranch: 'industry',
   },
   defensive: {
@@ -37,6 +46,7 @@ export const PERSONALITIES = {
     expand: 0.5,
     agg: 0.15,
     defenseFocus: 0.95,
+    cunning: 0.55,
     prefBranch: 'expansion',
   },
   economic: {
@@ -46,6 +56,7 @@ export const PERSONALITIES = {
     expand: 0.7,
     agg: 0.4,
     defenseFocus: 0.5,
+    cunning: 0.7,
     prefBranch: 'economy',
   },
 } as const;

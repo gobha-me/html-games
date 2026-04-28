@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { aiPickTech } from '../src/ai/techAI';
 import { createSeededRng } from '../src/core/rng';
 import type { Faction, FactionIdx } from '../src/core/types';
+import { PERSONALITIES, type PersonalityId } from '../src/data/personalities';
 import { TECHS } from '../src/data/techs';
 
 function makeFaction(personality: Faction['personality']): Faction {
@@ -65,5 +66,33 @@ describe('aiPickTech', () => {
       if (TECHS[pick].branch === 'industry') industryCount++;
     }
     expect(industryCount).toBeGreaterThan(trials * 0.5);
+  });
+});
+
+describe('personality cunning dim', () => {
+  const ids = Object.keys(PERSONALITIES) as PersonalityId[];
+
+  it('is defined for every personality', () => {
+    for (const id of ids) {
+      expect(typeof PERSONALITIES[id].cunning).toBe('number');
+    }
+  });
+
+  it('is within [0, 1] for every personality', () => {
+    for (const id of ids) {
+      const c = PERSONALITIES[id].cunning;
+      expect(c).toBeGreaterThanOrEqual(0);
+      expect(c).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('does not bleed into aiPickTech: scientific picks are stable across 50 trials of seed 42', () => {
+    // Guards against accidental references to p.cunning in the tech scorer.
+    // Same seed + same personality must produce the same tech, every call.
+    const expected = aiPickTech(makeFaction('scientific'), createSeededRng(42));
+    for (let i = 0; i < 50; i++) {
+      const pick = aiPickTech(makeFaction('scientific'), createSeededRng(42));
+      expect(pick).toBe(expected);
+    }
   });
 });
