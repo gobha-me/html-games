@@ -14,6 +14,7 @@ import {
 } from '../src/systems/telemetry';
 import { runAITurn } from '../src/systems/turn';
 import { combat } from '../src/systems/combat';
+import { aiPlayTurn } from '../src/ai/strategy';
 import { hexKey } from '../src/core/hex';
 import { FACTIONS } from '../src/data/factions';
 import { UNIT_TYPES } from '../src/data/units';
@@ -243,6 +244,72 @@ describe('telemetry trigger sites: combat', () => {
 
     combat(attacker, { q: 1, r: 0, target: 'unit' });
     expect(getTelemetryLog()).toEqual([]);
+  });
+});
+
+describe('telemetry trigger sites: build', () => {
+  beforeEach(() => {
+    resetWorld();
+  });
+
+  it('aiPlayTurn records a build event when an AI city without a queue picks one', () => {
+    buildPlainsMap();
+    const city: City = {
+      id: 7,
+      factionIdx: 1 as FactionIdx,
+      q: 0,
+      r: 0,
+      name: 'Iron Reach',
+      population: 1,
+      foodStored: 0,
+      foodNeeded: 10,
+      productionStored: 0,
+      buildings: new Set(),
+      buildQueue: null,
+      isCapital: true,
+      hp: 100,
+      maxHp: 100,
+    };
+    G.cities = [city];
+    G.map!.tiles.get(hexKey(0, 0))!.cityId = 7;
+
+    aiPlayTurn(G.factions[1]);
+
+    const events = getTelemetryLog().filter((e) => e.kind === 'build');
+    expect(events.length).toBe(1);
+    expect(events[0]).toMatchObject({
+      kind: 'build',
+      turn: 5,
+      faction: 1,
+      cityId: 7,
+    });
+    expect((events[0] as { pick: string }).pick).toBeTruthy();
+  });
+
+  it('aiPlayTurn does not record a build event when the city already has a queue', () => {
+    buildPlainsMap();
+    const city: City = {
+      id: 7,
+      factionIdx: 1 as FactionIdx,
+      q: 0,
+      r: 0,
+      name: 'Iron Reach',
+      population: 1,
+      foodStored: 0,
+      foodNeeded: 10,
+      productionStored: 0,
+      buildings: new Set(),
+      buildQueue: { kind: 'unit', id: 'COGMAN' },
+      isCapital: true,
+      hp: 100,
+      maxHp: 100,
+    };
+    G.cities = [city];
+    G.map!.tiles.get(hexKey(0, 0))!.cityId = 7;
+
+    aiPlayTurn(G.factions[1]);
+
+    expect(getTelemetryLog().filter((e) => e.kind === 'build')).toEqual([]);
   });
 });
 

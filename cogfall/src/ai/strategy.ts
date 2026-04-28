@@ -12,6 +12,7 @@ import { aiPickTech } from './techAI';
 import { aiPickBuild } from './cityAI';
 import { aiUnitTurn } from './unitAI';
 import { aiDiplomacy, aiTelegraph } from './diploAI';
+import { recordTelemetry } from '../systems/telemetry';
 
 const EARLY_GAME_TURN = 25;
 const EARLY_EXPAND_CITIES = 2;
@@ -35,7 +36,16 @@ export function aiPlayTurn(faction: Faction): void {
   for (const city of G.cities.filter((c) => c.factionIdx === faction.idx)) {
     if (!city.buildQueue) {
       const c = aiPickBuild(faction, city);
-      if (c) city.buildQueue = c;
+      if (c) {
+        city.buildQueue = c;
+        recordTelemetry({
+          kind: 'build',
+          turn: G.turn,
+          faction: faction.idx,
+          cityId: city.id,
+          pick: c.id,
+        });
+      }
     }
   }
   const myUnits = G.units.filter((u) => u.factionIdx === faction.idx).slice();
