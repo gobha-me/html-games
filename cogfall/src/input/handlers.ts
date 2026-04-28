@@ -11,7 +11,7 @@ import { combat } from '../systems/combat';
 import { stealTech } from '../systems/espionage';
 import { computeAttackTargets, computeMoveTargets, moveUnit } from '../systems/movement';
 import { endTurn } from '../systems/turn';
-import { canvas, centerOnHex, render } from '../render/canvas';
+import { canvas, centerOnHex, render } from '../render/pixi';
 import { closeAllModals, openModal } from '../ui/modals';
 import { renderTechTree } from '../ui/techModal';
 import { renderDiploScreen } from '../ui/diploModal';

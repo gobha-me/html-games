@@ -20,7 +20,7 @@ import {
 import { log } from '../core/log';
 import { closeModal } from './modals';
 import { updateUI } from './topbar';
-import { render } from '../render/canvas';
+import { render } from '../render/pixi';
 
 export function renderSaveModal(): void {
   const slots = listSlots();

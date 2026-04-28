@@ -22,10 +22,10 @@ import {
 import { createUnit } from './movement';
 import { recomputeVisibility } from './visibility';
 import { DOM_IDS } from '../core/dom';
-import { centerOnHex, resizeCanvas } from '../render/canvas';
+import { centerOnHex, resizeCanvas } from '../render/pixi';
 import { closeModal } from '../ui/modals';
 import { updateUI } from '../ui/topbar';
-import { render } from '../render/canvas';
+import { render } from '../render/pixi';
 import { getSelectedFactionIdx, getSetupSeed } from '../ui/setupModal';
 
 const STARTING_GOLD = 50;

@@ -16,7 +16,7 @@ import { adjacentSabotageTargets } from '../systems/espionage';
 import { killUnit } from '../systems/movement';
 import { recomputeVisibility } from '../systems/visibility';
 import { renderCityDetailsRight } from './cityPanel';
-import { render } from '../render/canvas';
+import { render } from '../render/pixi';
 import { updateUI } from './topbar';
 
 const PIONEER_FOUND_MIN_DIST = 4;

@@ -8,9 +8,9 @@
 import './styles/main.css';
 
 // Side-effecting modules — importing them registers DOM listeners, etc.
-// render/canvas adds the window resize listener; input/handlers adds the
+// render/pixi adds the window resize listener; input/handlers adds the
 // canvas mouse + keyboard listeners and the static-button click handlers.
-import './render/canvas';
+import './render/pixi';
 import './render/overlay';
 import './input/handlers';
 
@@ -28,7 +28,7 @@ import './ui/minimap';
 
 import { DOM_IDS } from './core/dom';
 import { setRequestRedraw } from './systems/turn';
-import { resizeCanvas, render, setMinimapHook } from './render/canvas';
+import { initPixi, resizeCanvas, render, setMinimapHook } from './render/pixi';
 import { renderMinimap } from './ui/minimap';
 import { updateUI } from './ui/topbar';
 
@@ -74,7 +74,9 @@ if (continueBtn) {
   });
 }
 
-// Initial render: faction picker + world-seed default.
+// Initial render: faction picker + world-seed default. PixiJS init is async
+// (WebGL context); the setup modal is visible from CSS so users see the
+// faction picker immediately, and resizeCanvas() runs once the GPU is ready.
 renderFactionList();
 populateSeedInput();
-resizeCanvas();
+void initPixi().then(() => resizeCanvas());

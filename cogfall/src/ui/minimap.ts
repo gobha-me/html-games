@@ -11,7 +11,7 @@
 import { DOM_IDS } from '../core/dom';
 import { HEX_SIZE, hexToPixel, SQRT3 } from '../core/hex';
 import { G } from '../core/state';
-import { canvas as mapCanvas, render } from '../render/canvas';
+import { canvas as mapCanvas, render } from '../render/pixi';
 import { TERRAIN_TYPES } from '../data/terrain';
 
 const MINIMAP_TOGGLE_KEY = 'cogfall:ui:minimap';
