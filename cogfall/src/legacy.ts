@@ -83,6 +83,14 @@ import {
 import { canvas, ctx, render, resizeCanvas, centerOnHex } from './render/canvas';
 import { svg } from './render/overlay';
 
+// Phase 1 step 8: UI panels and modals in src/ui/.
+import { openModal, closeAllModals } from './ui/modals';
+import { handleHover } from './ui/tooltip';
+import { updateUI } from './ui/topbar';
+import { renderTechTree } from './ui/techModal';
+import { renderDiploScreen } from './ui/diploModal';
+import { renderFactionList, getSelectedFactionIdx } from './ui/setupModal';
+
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
 // (HEX MATH section moved to src/core/hex.ts — see imports above.)
@@ -160,42 +168,6 @@ canvas.addEventListener('click',(e)=>{
   render();updateUI();
 });
 
-function handleHover(e){
-  const wx=(e.clientX-G.cameraX)/G.zoom;
-  const wy=(e.clientY-G.cameraY)/G.zoom;
-  const{q,r}=pixelToHex(wx,wy);
-  const tile=getTile(q,r);
-  const tip=document.getElementById('tooltip');
-  if(!tile||!tile.visibility[G.playerFactionIdx]||tile.visibility[G.playerFactionIdx]==='unseen'){tip.style.display='none';return}
-  const tt=TERRAIN_TYPES[tile.terrain];
-  const unit=getUnitAt(q,r);
-  const city=getCityAt(q,r);
-  let html=`<h4>${tt.name}</h4>`;
-  if(tile.visibility[G.playerFactionIdx]!=='visible')html+=`<div class="stat" style="font-style:italic">(remembered)</div>`;
-  html+=`<div class="stat">Food: <strong>${tt.food}</strong> · Prod: <strong>${tt.prod}</strong> · Gold: <strong>${tt.gold}</strong></div>`;
-  if(tt.defBonus>0)html+=`<div class="stat">Defense: +${Math.round(tt.defBonus*100)}%</div>`;
-  if(tile.improvement&&tile.improvement!=='looted')html+=`<div class="stat">Improvement: <strong>${tile.improvement}</strong></div>`;
-  if(city){
-    const fac=G.factions[city.factionIdx];
-    html+=`<hr style="border-color:var(--brass-d);margin:6px 0">`;
-    html+=`<h4 style="color:${fac.color}">${city.name}</h4>`;
-    html+=`<div class="stat">${fac.name}${city.isCapital?' ★':''}</div>`;
-    html+=`<div class="stat">Pop: <strong>${city.population}</strong> · HP: <strong>${city.hp}/${city.maxHp}</strong></div>`;
-  }
-  if(unit){
-    const fac=G.factions[unit.factionIdx];
-    const tpl=UNIT_TYPES[unit.typeId];
-    html+=`<hr style="border-color:var(--brass-d);margin:6px 0">`;
-    html+=`<h4 style="color:${fac.color}">${tpl.name}</h4>`;
-    html+=`<div class="stat">${fac.name}</div>`;
-    html+=`<div class="stat">HP: <strong>${unit.hp}/${unit.maxHp}</strong> · Atk: <strong>${tpl.atk}</strong> · Def: <strong>${tpl.def}</strong></div>`;
-    html+=`<div class="stat">MP: <strong>${unit.mp}/${unit.maxMp}</strong></div>`;
-  }
-  tip.innerHTML=html;
-  tip.style.display='block';
-  tip.style.left=Math.min(window.innerWidth-280,e.clientX+18)+'px';
-  tip.style.top=Math.min(window.innerHeight-160,e.clientY+18)+'px';
-}
 
 window.addEventListener('keydown',(e)=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
@@ -229,316 +201,14 @@ function selectNextUnit(){
 // ============================================================================
 // UI UPDATES
 // ============================================================================
-function updateUI(){
-  const player=G.factions[G.playerFactionIdx];
-  document.getElementById('cur-faction-emblem').textContent=player.glyph;
-  document.getElementById('cur-faction-emblem').style.borderColor=player.color;
-  document.getElementById('cur-faction-emblem').style.color=player.color;
-  document.getElementById('cur-faction-name').textContent=player.name;
-  document.getElementById('cur-faction-name').style.color=player.color;
-  const cur=G.factions[G.currentFactionIdx];
-  document.getElementById('cur-turn').textContent=`Turn ${G.turn}${cur.idx===G.playerFactionIdx?' — your move':' — '+cur.name+' moves'}`;
-  document.getElementById('r-gold').textContent=Math.floor(player.resources.gold);
-  document.getElementById('r-aether').textContent=Math.floor(player.resources.aether);
-  // Calculate per-turn deltas
-  let goldD=0,aetherD=0,sciD=0;
-  for(const c of G.cities.filter(c=>c.factionIdx===G.playerFactionIdx)){
-    const y=cityYields(c);
-    goldD+=y.gold;aetherD+=y.aether;sciD+=y.sci;
-  }
-  document.getElementById('r-gold-d').textContent=(goldD>=0?'+':'')+goldD;
-  document.getElementById('r-gold-d').className='delta'+(goldD<0?' neg':'');
-  document.getElementById('r-aether-d').textContent=(aetherD>=0?'+':'')+aetherD;
-  document.getElementById('r-sci-d').textContent='+'+sciD;
-  // Selection panel
-  updateSelectionPanel();
-  // Status
-  const isPlayerTurn=cur.idx===G.playerFactionIdx;
-  const myUnitsWithMP=G.units.filter(u=>u.factionIdx===G.playerFactionIdx&&u.mp>0&&!u.fortified).length;
-  if(isPlayerTurn){
-    if(myUnitsWithMP>0)document.getElementById('status-text').textContent=`${myUnitsWithMP} unit${myUnitsWithMP>1?'s':''} await${myUnitsWithMP>1?'':'s'} orders.`;
-    else document.getElementById('status-text').textContent='All forces have moved.';
-    document.getElementById('end-turn-btn').disabled=false;
-  }else{
-    document.getElementById('status-text').textContent=`${cur.name} is plotting...`;
-    document.getElementById('end-turn-btn').disabled=true;
-  }
-}
 
-function updateSelectionPanel(){
-  const sel=G.selected;
-  const c=document.getElementById('selection-content');
-  if(!sel){c.innerHTML='<span style="color:var(--parchment-d);font-style:italic">Click a tile to inspect.</span>';document.getElementById('right-panel').style.display='none';return}
-  if(sel.type==='unit'){renderUnitPanel(sel.ref);renderUnitDetailsRight(sel.ref)}
-  else if(sel.type==='city'){renderCityPanel(sel.ref);renderCityDetailsRight(sel.ref)}
-  else if(sel.type==='tile'){renderTilePanel(sel.ref);document.getElementById('right-panel').style.display='none'}
-}
-
-function renderUnitPanel(unit){
-  const fac=G.factions[unit.factionIdx];
-  const tpl=UNIT_TYPES[unit.typeId];
-  let html=`<div class="unit-card"><div class="name" style="color:${fac.color}">${tpl.glyph} ${tpl.name}</div>`;
-  html+=`<div class="stat-row"><span>HP ${unit.hp}/${unit.maxHp}</span><span>Atk ${tpl.atk}</span><span>Def ${tpl.def}</span><span>MP ${unit.mp}/${unit.maxMp}</span></div>`;
-  html+=`<div class="hp-bar"><div style="width:${(unit.hp/unit.maxHp)*100}%"></div></div>`;
-  html+=`<div style="font-size:11px;color:var(--parchment-d);margin-top:4px;font-style:italic">${tpl.desc}</div>`;
-  html+=`</div>`;
-  if(unit.factionIdx===G.playerFactionIdx){
-    if(unit.typeId==='PIONEER'&&unit.mp>0){
-      const tile=getTile(unit.q,unit.r);
-      const tooClose=G.cities.some(c=>hexDistance({q:c.q,r:c.r},tile)<4);
-      const cityHere=getCityAt(unit.q,unit.r);
-      html+=`<button class="action-btn" ${tooClose||cityHere?'disabled':''} onclick="playerFoundCity()">⌂ Found city here${tooClose?' (too close)':''}</button>`;
-    }
-    if(unit.typeId==='WORKER'&&unit.mp>0){
-      const t=getTile(unit.q,unit.r);
-      const ok=t&&t.owner===unit.factionIdx&&!t.improvement&&!t.cityId&&['PLAINS','HILLS','FOREST'].includes(t.terrain);
-      let imp='farm';
-      if(t&&t.terrain==='HILLS')imp='mine';
-      else if(t&&t.terrain==='FOREST')imp='road';
-      html+=`<button class="action-btn" ${ok?'':'disabled'} onclick="playerImprove()">⚒ Build ${imp}</button>`;
-    }
-    if(UNIT_TYPES[unit.typeId].atk>0&&!unit.fortified){
-      html+=`<button class="action-btn" onclick="playerFortify()">◫ Fortify (+30% def)</button>`;
-    }
-  }
-  document.getElementById('selection-content').innerHTML=html;
-}
-
-function renderUnitDetailsRight(){document.getElementById('right-panel').style.display='none'}
-
-function renderCityPanel(city){
-  const fac=G.factions[city.factionIdx];
-  const y=cityYields(city);
-  let html=`<div class="unit-card"><div class="name" style="color:${fac.color}">${fac.glyph} ${city.name}${city.isCapital?' ★':''}</div>`;
-  html+=`<div class="stat-row"><span>Pop ${city.population}</span><span>HP ${city.hp}/${city.maxHp}</span></div>`;
-  html+=`<div class="stat-row"><span>Food ${city.foodStored}/${city.foodNeeded} (${y.food>=0?'+':''}${y.food})</span></div>`;
-  html+=`<div class="stat-row"><span>Prod (${y.prod})</span><span>Gold (+${y.gold})</span><span>Sci (+${y.sci})</span></div>`;
-  html+=`</div>`;
-  document.getElementById('selection-content').innerHTML=html;
-  if(city.factionIdx===G.playerFactionIdx)renderCityDetailsRight(city);
-  else document.getElementById('right-panel').style.display='none';
-}
-
-function renderCityDetailsRight(city){
-  const right=document.getElementById('right-panel');
-  right.style.display='block';
-  document.getElementById('right-title').textContent=city.name+' — Production';
-  const fac=G.factions[city.factionIdx];
-  let html='';
-  if(city.buildQueue){
-    const item=city.buildQueue;
-    let cost=0,name='';
-    if(item.kind==='unit'){cost=UNIT_TYPES[item.id].cost;name=UNIT_TYPES[item.id].name}
-    else{cost=BUILDING_TYPES[item.id].cost;name=BUILDING_TYPES[item.id].name}
-    const remaining=cost-city.productionStored;
-    html+=`<div style="margin-bottom:10px;padding:8px;background:rgba(78,205,196,0.1);border:1px solid var(--aether);border-radius:4px">Building <strong>${name}</strong>: ${city.productionStored}/${cost} <span style="color:var(--parchment-d)">(${Math.max(0,Math.ceil(remaining/Math.max(1,cityYields(city).prod)))} turns)</span></div>`;
-  }
-  html+=`<h4>Units</h4><div class="build-list">`;
-  for(const[uid,tpl]of Object.entries(UNIT_TYPES)){
-    if(tpl.requires&&!fac.techs.has(tpl.requires))continue;
-    const isCur=city.buildQueue&&city.buildQueue.kind==='unit'&&city.buildQueue.id===uid;
-    html+=`<div class="build-item ${isCur?'current':''}" onclick="setCityBuild(${city.id},'unit','${uid}')">`;
-    html+=`<div class="name">${tpl.glyph} ${tpl.name}</div>`;
-    html+=`<div class="desc">${tpl.desc}</div>`;
-    html+=`<div class="meta">Cost: ${tpl.cost} prod · HP ${tpl.hp} Atk ${tpl.atk} Def ${tpl.def} MP ${tpl.mp}</div>`;
-    html+=`</div>`;
-  }
-  html+=`</div><h4>Buildings</h4><div class="build-list">`;
-  for(const[bid,b]of Object.entries(BUILDING_TYPES)){
-    if(city.buildings.has(bid))continue;
-    const locked=b.requires&&!fac.techs.has(b.requires);
-    const isCur=city.buildQueue&&city.buildQueue.kind==='building'&&city.buildQueue.id===bid;
-    html+=`<div class="build-item ${isCur?'current':''} ${locked?'locked':''}" ${!locked?`onclick="setCityBuild(${city.id},'building','${bid}')"`:''}>`;
-    html+=`<div class="name">${b.glyph} ${b.name}</div>`;
-    html+=`<div class="desc">${b.desc}</div>`;
-    html+=`<div class="meta">Cost: ${b.cost} prod${locked?' · Requires '+TECHS[b.requires].name:''}</div>`;
-    html+=`</div>`;
-  }
-  if(city.buildings.size>0){
-    html+=`</div><h4>Already Built</h4><div style="font-size:11px;color:var(--parchment-d)">`;
-    for(const b of city.buildings)html+=`<div>${BUILDING_TYPES[b].glyph} ${BUILDING_TYPES[b].name}</div>`;
-    html+=`</div>`;
-  }else html+=`</div>`;
-  document.getElementById('right-content').innerHTML=html;
-}
-
-function renderTilePanel(tile){
-  const tt=TERRAIN_TYPES[tile.terrain];
-  let html=`<div class="unit-card"><div class="name">${tt.name}</div>`;
-  html+=`<div class="stat-row"><span>F ${tt.food}</span><span>P ${tt.prod}</span><span>G ${tt.gold}</span></div>`;
-  if(tt.defBonus>0)html+=`<div class="stat-row"><span>Defense bonus: +${Math.round(tt.defBonus*100)}%</span></div>`;
-  if(tile.owner!=null)html+=`<div class="stat-row"><span>Claimed by ${G.factions[tile.owner].name}</span></div>`;
-  html+=`</div>`;
-  document.getElementById('selection-content').innerHTML=html;
-}
-
-// Player action handlers
-window.playerFoundCity=()=>{
-  const u=G.selected.ref;
-  const tile=getTile(u.q,u.r);
-  if(getCityAt(u.q,u.r))return;
-  const tooClose=G.cities.some(c=>hexDistance({q:c.q,r:c.r},tile)<4);
-  if(tooClose)return;
-  const name=pickCityName();
-  const c=createCity(u.factionIdx,u.q,u.r,name);
-  if(G.cities.filter(cc=>cc.factionIdx===u.factionIdx).length===1)c.isCapital=true;
-  log(`You founded ${name}.`,'good');
-  killUnit(u);
-  G.selected={type:'city',ref:c};
-  G.moveTargets=[];G.attackTargets=[];
-  recomputeVisibility();
-  render();updateUI();
-};
-window.playerImprove=()=>{
-  const u=G.selected.ref;
-  const t=getTile(u.q,u.r);
-  if(!t||t.owner!==u.factionIdx||t.improvement||t.cityId)return;
-  if(t.terrain==='PLAINS')t.improvement='farm';
-  else if(t.terrain==='HILLS')t.improvement='mine';
-  else if(t.terrain==='FOREST')t.improvement='road';
-  else return;
-  log(`Engineer built ${t.improvement}.`,'good');
-  u.mp=0;
-  render();updateUI();
-};
-window.playerFortify=()=>{
-  const u=G.selected.ref;
-  u.fortified=true;u.mp=0;
-  render();updateUI();
-};
-window.setCityBuild=(cityId,kind,id)=>{
-  const c=G.cities.find(c=>c.id===cityId);
-  if(!c||c.factionIdx!==G.playerFactionIdx)return;
-  const player=G.factions[G.playerFactionIdx];
-  if(kind==='unit'&&UNIT_TYPES[id].requires&&!player.techs.has(UNIT_TYPES[id].requires))return;
-  if(kind==='building'&&BUILDING_TYPES[id].requires&&!player.techs.has(BUILDING_TYPES[id].requires))return;
-  c.buildQueue={kind,id};
-  updateUI();
-};
-
-// ============================================================================
-// MODALS
-// ============================================================================
-function openModal(id){document.getElementById(id).classList.add('show')}
-function closeModal(id){document.getElementById(id).classList.remove('show')}
-window.closeModal=closeModal;
-function closeAllModals(){document.querySelectorAll('.modal.show').forEach(m=>{if(m.id!=='setup-modal'&&m.id!=='game-over-modal')m.classList.remove('show')})}
 
 document.getElementById('tech-btn').addEventListener('click',()=>{renderTechTree();openModal('tech-modal')});
 document.getElementById('diplo-btn').addEventListener('click',()=>{renderDiploScreen();openModal('diplo-modal')});
 document.getElementById('end-turn-btn').addEventListener('click',()=>{if(!G.factions[G.currentFactionIdx].isAI)endTurn()});
 document.getElementById('next-unit-btn').addEventListener('click',selectNextUnit);
 
-function renderTechTree(){
-  const player=G.factions[G.playerFactionIdx];
-  let status='';
-  if(player.currentResearch){
-    const t=TECHS[player.currentResearch];
-    const sciPerTurn=G.cities.filter(c=>c.factionIdx===G.playerFactionIdx).reduce((s,c)=>s+cityYields(c).sci,0);
-    const remaining=t.cost-(player.researchProgress||0);
-    const turns=sciPerTurn>0?Math.ceil(remaining/sciPerTurn):'∞';
-    status=`Researching <strong>${t.name}</strong>: ${player.researchProgress||0}/${t.cost} (${turns} turn${turns!==1?'s':''} at +${sciPerTurn}/turn)`;
-  }else status='Choose what to rediscover.';
-  document.getElementById('research-status').innerHTML=status;
-  const branches=['science','industry','economy','expansion'];
-  let html='<div class="tech-tree-grid">';
-  for(const branch of branches){
-    html+=`<div class="tech-column"><h3 style="color:${TECH_BRANCHES[branch].color}">${TECH_BRANCHES[branch].name}</h3>`;
-    const techs=Object.entries(TECHS).filter(([,t])=>t.branch===branch);
-    techs.sort((a,b)=>a[1].cost-b[1].cost);
-    for(const[id,t]of techs){
-      const has=player.techs.has(id);
-      const can=t.prereqs.every(p=>player.techs.has(p));
-      const isCur=player.currentResearch===id;
-      let cls='tech-node ';
-      if(has)cls+='researched';
-      else if(isCur)cls+='researching';
-      else if(can)cls+='available';
-      else cls+='locked';
-      html+=`<div class="${cls}" ${can&&!has&&!isCur?`onclick="pickResearch('${id}')"`:''}>`;
-      html+=`<div class="tech-name">${t.name}${t.isVictory?' ✦':''}</div>`;
-      html+=`<div class="tech-cost">${t.cost} sci${has?' · researched':isCur?` · ${player.researchProgress||0}/${t.cost}`:''}</div>`;
-      if(t.unlocks)html+=`<div class="tech-unlock">Unlocks: ${t.unlocks.map(u=>UNIT_TYPES[u]?UNIT_TYPES[u].name:u).join(', ')}</div>`;
-      if(t.prereqs.length>0&&!can)html+=`<div class="tech-cost">Needs: ${t.prereqs.map(p=>TECHS[p].name).join(', ')}</div>`;
-      html+=`<div class="tech-flavor">${t.flavor}</div>`;
-      html+=`</div>`;
-    }
-    html+='</div>';
-  }
-  html+='</div>';
-  document.getElementById('tech-tree-container').innerHTML=html;
-}
-window.pickResearch=(id)=>{
-  const player=G.factions[G.playerFactionIdx];
-  if(player.currentResearch===id)return;
-  // If switching from a partial, we keep progress only if same prereq line - simplified: lose progress
-  if(player.currentResearch&&player.currentResearch!==id)player.researchProgress=0;
-  player.currentResearch=id;
-  renderTechTree();
-  updateUI();
-};
 
-function renderDiploScreen(){
-  const player=G.factions[G.playerFactionIdx];
-  let html='';
-  for(const f of G.factions){
-    if(f.idx===player.idx||!f.alive)continue;
-    const status=player.diplo[f.idx]||'unmet';
-    const grudge=G.aiMemory[f.idx]?G.aiMemory[f.idx].grudges[player.idx]||0:0;
-    const myStr=Math.round(aiFactionMilitaryStrength(player.idx));
-    const theirStr=Math.round(aiFactionMilitaryStrength(f.idx));
-    let mood='';
-    if(status==='unmet')mood='Not yet met.';
-    else if(grudge>50)mood=`<span style="color:var(--danger)">Holds a deep grudge.</span>`;
-    else if(grudge>20)mood=`<span style="color:var(--rust)">Wary, suspicious.</span>`;
-    else mood=`<span style="color:var(--parchment-d)">Calm — for now.</span>`;
-    html+=`<div class="diplo-row">`;
-    html+=`<div class="swatch" style="background:${f.color}33;border-color:${f.color}">${f.glyph}</div>`;
-    html+=`<div class="info"><div class="name" style="color:${f.color}">${f.name}</div>`;
-    html+=`<div class="status status-${status}">${status.toUpperCase()}</div>`;
-    html+=`<div style="font-size:11px;color:var(--parchment-d);margin-top:2px">${mood} · Power: ${theirStr} (yours: ${myStr})</div>`;
-    html+=`</div>`;
-    html+=`<div class="actions">`;
-    if(status==='peace')html+=`<button class="btn small danger" onclick="declareWar(${f.idx})">Declare War</button>`;
-    else if(status==='war')html+=`<button class="btn small" onclick="offerPeace(${f.idx})">Offer Peace</button>`;
-    html+=`</div></div>`;
-  }
-  if(!html)html='<p style="color:var(--parchment-d);font-style:italic">No other banners stand.</p>';
-  document.getElementById('diplo-content').innerHTML=html;
-}
-window.declareWar=(idx)=>{
-  const player=G.factions[G.playerFactionIdx];
-  player.diplo[idx]='war';G.factions[idx].diplo[player.idx]='war';
-  G.aiMemory[idx].grudges[player.idx]=(G.aiMemory[idx].grudges[player.idx]||0)+30;
-  log(`You declared war on ${G.factions[idx].name}!`,'warning');
-  renderDiploScreen();updateUI();
-};
-window.offerPeace=(idx)=>{
-  const player=G.factions[G.playerFactionIdx];
-  const other=G.factions[idx];
-  const grudge=G.aiMemory[idx].grudges[player.idx]||0;
-  const myStr=aiFactionMilitaryStrength(player.idx);
-  const theirStr=aiFactionMilitaryStrength(idx);
-  // Accept if losing or grudge low
-  const ratio=theirStr/Math.max(1,myStr);
-  let acceptScore=20-grudge*0.3+(ratio<0.7?40:0)+(ratio>1.3?-20:0);
-  if(PERSONALITIES[other.personality].agg>0.7)acceptScore-=20;
-  if(acceptScore>0||Math.random()<0.3){
-    player.diplo[idx]='peace';other.diplo[player.idx]='peace';
-    log(`${other.name} accepted your offer of peace.`,'diplo');
-  }else log(`${other.name} rejected your offer of peace. The war drags on.`,'warning');
-  renderDiploScreen();updateUI();
-};
-
-// ============================================================================
-// SETUP / INIT
-// ============================================================================
-let setupSelectedFaction=0;
-function renderFactionList(){
-  const el=document.getElementById('faction-list');
-  el.innerHTML=FACTIONS.map((f,i)=>`<div class="faction-card ${i===setupSelectedFaction?'selected':''}" onclick="setupSelectFaction(${i})"><div class="swatch" style="background:${f.color}33;border-color:${f.color}">${f.glyph}</div><div class="info"><div class="title" style="color:${f.color}">${f.name}</div><div class="desc">${f.desc}</div><div class="traits">${f.traits}</div></div></div>`).join('');
-}
-window.setupSelectFaction=(i)=>{setupSelectedFaction=i;renderFactionList()};
 
 document.getElementById('start-game').addEventListener('click',startGame);
 
@@ -552,8 +222,9 @@ function startGame(){
   G.map=generateMap(mapSize);
   
   // Build factions: player + N AI
-  const playerFaction=FACTIONS[setupSelectedFaction];
-  const aiCandidates=FACTIONS.filter((_,i)=>i!==setupSelectedFaction);
+  const _selFactionIdx=getSelectedFactionIdx();
+  const playerFaction=FACTIONS[_selFactionIdx];
+  const aiCandidates=FACTIONS.filter((_,i)=>i!==_selFactionIdx);
   shuffle(aiCandidates);
   G.factions=[];
   G.factions.push(createFaction(playerFaction,false,0));
