@@ -8,6 +8,8 @@
 // move/attack targets) is intentionally NOT persisted — those reset on load.
 
 import { G } from './state';
+import { log } from './log';
+import { getGameRngState, initGameRng, setGameRngState } from './rng';
 import type {
   AIMemory,
   BuildingId,
@@ -24,7 +26,13 @@ import type {
   Unit,
 } from './types';
 
-export const SAVE_VERSION = 1;
+// v1 → v2: added `seed` + `rngState` to SerializedGameState (Phase 2b).
+// v1 saves are loaded with an auto-assigned Date.now() seed and a fresh
+// rng cursor — they remain playable but their future RNG sequence is
+// fresh, not reproducible. A console warning + an in-game log entry
+// surface the migration so the player understands why a "replay this
+// game from the same point" wouldn't be byte-identical.
+export const SAVE_VERSION = 2;
 export const MANUAL_SLOTS = 3;
 export const AUTOSAVE_KEY = 'cogfall:autosave';
 const slotKey = (n: number): string => `cogfall:save:${n}`;
@@ -65,6 +73,10 @@ interface SerializedGameState {
   nextCityId: number;
   gameOver: boolean;
   aiMemory: Partial<Record<number, AIMemory>>;
+  /** v2+: seed used to init the game rng. Stamped for replay (Phase 2k). */
+  seed: number;
+  /** v2+: mulberry32 cursor at save time, restored via setGameRngState. */
+  rngState: number;
 }
 
 export interface SaveData {
@@ -107,6 +119,8 @@ export function serializeGameState(): SaveData {
     nextCityId: G.nextCityId,
     gameOver: G.gameOver,
     aiMemory: { ...G.aiMemory },
+    seed: G.seed,
+    rngState: getGameRngState(),
   };
 
   const player = G.factions[G.playerFactionIdx];
@@ -130,7 +144,7 @@ export class SaveVersionMismatchError extends Error {
 }
 
 export function loadGameState(data: SaveData): void {
-  if (data.version !== SAVE_VERSION) {
+  if (data.version !== 1 && data.version !== SAVE_VERSION) {
     throw new SaveVersionMismatchError(data.version, SAVE_VERSION);
   }
   const s = data.state;
@@ -160,6 +174,26 @@ export function loadGameState(data: SaveData): void {
   G.nextCityId = s.nextCityId;
   G.gameOver = s.gameOver;
   G.aiMemory = { ...s.aiMemory };
+
+  // RNG: v2 saves restore the exact mulberry32 cursor; v1 saves get a fresh
+  // Date.now() seed since the field didn't exist when they were written.
+  if (data.version === 1) {
+    const migratedSeed = Date.now() >>> 0;
+    G.seed = migratedSeed;
+    initGameRng(migratedSeed);
+    console.warn(
+      `[cogfall] Loaded v1 save (no rng cursor); auto-assigned seed ${migratedSeed}. ` +
+        `Future randomness diverges from the original session.`
+    );
+    log(
+      `Save migrated from v1 — assigned new seed ${migratedSeed} for the rest of this session.`,
+      'flavor'
+    );
+  } else {
+    G.seed = s.seed;
+    initGameRng(s.seed);
+    setGameRngState(s.rngState);
+  }
 
   // Reset transients — selection, pathing, drag state are not persisted.
   G.selected = null;

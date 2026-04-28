@@ -12,9 +12,13 @@
 //     flat-array switch is a perf win only and the prototype isn't
 //     perf-bound. Defer to a focused Phase 2c commit so we can A/B properly.
 //
-//  2. Math.random not yet replaced with rng.next() everywhere: Phase 1 only
-//     adds the seeded factory (core/rng.ts) for tests. Full replacement and
-//     setup-UI seed surfacing is Phase 2b.
+//  2. Math.random replaced with the seeded game rng for everything that
+//     mutates persisted state (combat, mapgen, ruin loot, AI unit picks,
+//     AI diplomacy). Phase 2b done. Cosmetic sites — AI thinking spinner
+//     line + jitter (turn.ts), city-name flavor (city.ts), player-initiated
+//     peace-accept roll (diploModal.ts) — intentionally stay on Math.random
+//     and are documented in core/rng.ts. Don't "helpfully" convert them or
+//     replay parity breaks via a side-channel.
 //
 //  3. computeMoveTargets uses frontier.sort() per step instead of a real
 //     priority queue — O(n² log n) but n is small (single unit's MP cone).
@@ -52,6 +56,7 @@ export const G: GameState = {
   nextCityId: 1,
   gameOver: false,
   aiMemory: {},
+  seed: 0,
 };
 
 // Lookup helpers — read-only views into state, used by every system.

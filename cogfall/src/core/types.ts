@@ -166,6 +166,8 @@ export interface GameState {
   nextCityId: number;
   gameOver: boolean;
   aiMemory: Partial<Record<number, AIMemory>>;
+  /** Seed used to initialise the game RNG. Stamped on each save for replay. */
+  seed: number;
 }
 
 // Helper for exhaustive switch checks.
