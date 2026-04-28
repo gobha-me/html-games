@@ -24,7 +24,8 @@
 //     visual order is fine; defer dynamic z to a polish pass.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { GameState, FactionIdx } from './types';
+import type { GameState, FactionIdx, Tile, Unit, City } from './types';
+import { hexKey } from './hex';
 
 export const G: GameState = {
   map: null,
@@ -52,3 +53,24 @@ export const G: GameState = {
   gameOver: false,
   aiMemory: {},
 };
+
+// Lookup helpers — read-only views into state, used by every system.
+// Accept the prototype's "undefined when nothing's there" convention for
+// getTile (Map.get); normalize to null for entity lookups so callers can
+// rely on `=== null` checks instead of mixed undefined/null.
+
+export function getTile(q: number, r: number): Tile | undefined {
+  return G.map?.tiles.get(hexKey(q, r));
+}
+
+export function getUnitAt(q: number, r: number): Unit | null {
+  const t = getTile(q, r);
+  if (!t || t.unitId == null) return null;
+  return G.units.find((u) => u.id === t.unitId) ?? null;
+}
+
+export function getCityAt(q: number, r: number): City | null {
+  const t = getTile(q, r);
+  if (!t || t.cityId == null) return null;
+  return G.cities.find((c) => c.id === t.cityId) ?? null;
+}

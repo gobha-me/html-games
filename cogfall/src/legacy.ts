@@ -23,7 +23,9 @@ import {
   hexDistance,
   hexKey,
 } from './core/hex';
-import { G } from './core/state';
+import { G, getTile, getUnitAt, getCityAt } from './core/state';
+import { shuffle } from './core/rng';
+import { log, renderLog } from './core/log';
 
 // 'use strict' is implicit in ES modules; the prototype's directive is dropped.
 
@@ -78,7 +80,7 @@ function generateMap(size){
   for(let i=ruinCount;i<ruinCount+aetherCount&&i<candidates.length;i++)candidates[i].terrain='AETHER';
   return{w,h,tiles};
 }
-function shuffle(arr){for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
+// (shuffle moved to src/core/rng.ts.)
 
 function findFactionStarts(numFactions){
   const walkable=[...G.map.tiles.values()].filter(t=>TERRAIN_TYPES[t.terrain].walkable&&!TERRAIN_TYPES[t.terrain].isAether&&!TERRAIN_TYPES[t.terrain].isRuin);
@@ -125,9 +127,7 @@ function createCity(factionIdx,q,r,name){
   for(const n of hexNeighbors(q,r)){const t=getTile(n.q,n.r);if(t&&t.owner==null)t.owner=factionIdx}
   return c;
 }
-function getTile(q,r){return G.map.tiles.get(hexKey(q,r))}
-function getUnitAt(q,r){const t=getTile(q,r);return t&&t.unitId!=null?G.units.find(u=>u.id===t.unitId):null}
-function getCityAt(q,r){const t=getTile(q,r);return t&&t.cityId!=null?G.cities.find(c=>c.id===t.cityId):null}
+// (getTile / getUnitAt / getCityAt moved to src/core/state.ts.)
 
 // ============================================================================
 // VISIBILITY
@@ -434,19 +434,7 @@ function pickCityName(){
   return name;
 }
 
-// ============================================================================
-// LOG
-// ============================================================================
-function log(msg,type='',visibleToPlayer=true){
-  if(!visibleToPlayer)return;
-  G.events.unshift({turn:G.turn,msg,type});
-  if(G.events.length>100)G.events.pop();
-  renderLog();
-}
-function renderLog(){
-  const el=document.getElementById('event-log');
-  el.innerHTML=G.events.slice(0,20).map(e=>`<div class="log-entry ${e.type}"><span class="turn-tag">T${e.turn}</span>${e.msg}</div>`).join('');
-}
+// (log / renderLog moved to src/core/log.ts.)
 // ============================================================================
 // AI
 // ============================================================================
