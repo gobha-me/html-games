@@ -1,16 +1,21 @@
 // Procedural map generation.
 //
-// The prototype's algorithm:
+// Pipeline:
 //   1. Lay out a w×h offset grid as axial coords.
 //   2. Generate a value-noise field (4 octaves, custom hash) seeded from
-//      Math.random(). Use it to assign mountains / hills / wastes / forest /
-//      plains based on elevation + moisture thresholds.
-//   3. Stamp a hard mountain/wastes border on the outermost ring.
-//   4. Sprinkle ruins (~2.5%) and aether vents (~1.8%) onto plains/hills/
+//      rng. Compute elevation + moisture per tile.
+//   3. (2c) Carve water on the lowest WATER_PERCENTILE of tiles by
+//      elevation, before the terrain assignment.
+//   4. Assign land terrain by elevation/moisture thresholds.
+//   5. Stamp a hard mountain/wastes border on the outermost ring (this
+//      overwrites any water that ended up on the edge — water lives only
+//      in the playable interior).
+//   6. Sprinkle ruins (~2.5%) and aether vents (~1.8%) onto plains/hills/
 //      wastes tiles, picked via a shuffled pool.
 //
-// Phase 1 preserves all magic numbers and the byte-equivalent code paths;
-// only difference is rng injection so tests can pin the output.
+// Phase 1 preserves the prototype's magic numbers and order of rng draws.
+// Phase 2c adds the water pass; it consumes only the existing noise
+// field (no new rng draws), so save-load rng cursor parity is preserved.
 
 import { hexDistance, hexKey, hexNeighbors } from '../core/hex';
 import { defaultRng, shuffle, type Rng } from '../core/rng';
@@ -21,6 +26,7 @@ import { MAP_SIZES, type MapSizeId } from '../data/factions';
 
 const RUIN_FRACTION = 0.025;
 const AETHER_FRACTION = 0.018;
+const WATER_PERCENTILE = 0.18;
 const MIN_FACTION_SPACING_FLOOR = 6;
 const MIN_FACTION_SPACING_RATIO = 1.2;
 const MAX_PLACEMENT_ATTEMPTS = 3000;
@@ -86,12 +92,31 @@ export function generateMap(size: MapSizeId, rng: Rng = defaultRng): GameMap {
     return n / sum;
   }
 
+  // Compute elevation + moisture per tile (deterministic, no rng draws).
+  const fields = new Map<string, { elevation: number; moisture: number }>();
   for (const tile of tiles.values()) {
     const px = tile.q + tile.r * 0.5;
     const py = tile.r;
-    const elevation = noise(px, py);
-    const moisture = noise(px + 99, py + 99);
-    if (elevation > 0.78) tile.terrain = 'MOUNTAINS';
+    fields.set(hexKey(tile.q, tile.r), {
+      elevation: noise(px, py),
+      moisture: noise(px + 99, py + 99),
+    });
+  }
+
+  // Water threshold: bottom WATER_PERCENTILE of tiles by elevation. Border
+  // ring will overwrite any edge tiles below the threshold, so the water
+  // count seen on the playable interior is somewhat lower than the raw
+  // percentile suggests — that's intentional and avoids leaky-edge maps.
+  const sortedElev = [...fields.values()].map((f) => f.elevation).sort((a, b) => a - b);
+  const waterIdx = Math.floor(sortedElev.length * WATER_PERCENTILE);
+  const waterThreshold = sortedElev[waterIdx];
+
+  for (const tile of tiles.values()) {
+    const f = fields.get(hexKey(tile.q, tile.r))!;
+    const elevation = f.elevation;
+    const moisture = f.moisture;
+    if (elevation < waterThreshold) tile.terrain = 'WATER';
+    else if (elevation > 0.78) tile.terrain = 'MOUNTAINS';
     else if (elevation > 0.66) tile.terrain = 'HILLS';
     else if (elevation < 0.32 && moisture < 0.4) tile.terrain = 'WASTES';
     else if (moisture > 0.62) tile.terrain = 'FOREST';
@@ -159,4 +184,16 @@ export function findFactionStarts(numFactions: number, rng: Rng = defaultRng): T
   }
 
   return starts;
+}
+
+// A land tile is a coast iff at least one neighbor is WATER. Used by
+// render and (2c-4) start scoring. Map is passed explicitly so callers
+// in tests don't need to set up G.map.
+export function isCoast(tile: Tile, map: GameMap): boolean {
+  if (tile.terrain === 'WATER') return false;
+  for (const n of hexNeighbors(tile.q, tile.r)) {
+    const nt = map.tiles.get(hexKey(n.q, n.r));
+    if (nt && nt.terrain === 'WATER') return true;
+  }
+  return false;
 }

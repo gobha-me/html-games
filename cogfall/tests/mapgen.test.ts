@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateMap, findFactionStarts } from '../src/systems/mapgen';
+import { generateMap, findFactionStarts, isCoast } from '../src/systems/mapgen';
 import { createSeededRng } from '../src/core/rng';
 import { G } from '../src/core/state';
 import { TERRAIN_TYPES } from '../src/data/terrain';
@@ -85,6 +85,53 @@ describe('mapgen', () => {
         expect(TERRAIN_TYPES[s.terrain].walkable).toBe(true);
       }
       G.map = null;
+    });
+  });
+
+  describe('water + coasts (2c-1)', () => {
+    it('places water on the lowest elevation band and never on the border', () => {
+      const m = generateMap('medium', createSeededRng(42));
+      let waterCount = 0;
+      for (const t of m.tiles.values()) {
+        if (t.terrain === 'WATER') waterCount++;
+        const offCol = t.q + Math.floor(t.r / 2);
+        const onEdge = offCol <= 0 || offCol >= m.w - 1 || t.r <= 0 || t.r >= m.h - 1;
+        if (onEdge) expect(t.terrain).not.toBe('WATER');
+      }
+      expect(waterCount).toBeGreaterThan(0);
+    });
+
+    it('produces deterministic water placement for a given seed', () => {
+      const a = generateMap('medium', createSeededRng(7));
+      const b = generateMap('medium', createSeededRng(7));
+      const aWater = [...a.tiles.values()]
+        .filter((t) => t.terrain === 'WATER')
+        .map((t) => `${t.q},${t.r}`);
+      const bWater = [...b.tiles.values()]
+        .filter((t) => t.terrain === 'WATER')
+        .map((t) => `${t.q},${t.r}`);
+      expect(aWater).toEqual(bWater);
+      expect(aWater.length).toBeGreaterThan(0);
+    });
+
+    it('water count grows with map size', () => {
+      const small = generateMap('small', createSeededRng(42));
+      const large = generateMap('large', createSeededRng(42));
+      const smallWater = [...small.tiles.values()].filter((t) => t.terrain === 'WATER').length;
+      const largeWater = [...large.tiles.values()].filter((t) => t.terrain === 'WATER').length;
+      expect(largeWater).toBeGreaterThan(smallWater);
+    });
+
+    it('isCoast detects land tiles adjacent to water and excludes water itself', () => {
+      const m = generateMap('medium', createSeededRng(42));
+      let coastCount = 0;
+      let waterCoast = 0;
+      for (const t of m.tiles.values()) {
+        if (isCoast(t, m)) coastCount++;
+        if (t.terrain === 'WATER' && isCoast(t, m)) waterCoast++;
+      }
+      expect(coastCount).toBeGreaterThan(0);
+      expect(waterCoast).toBe(0);
     });
   });
 });

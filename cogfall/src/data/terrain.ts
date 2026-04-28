@@ -89,6 +89,19 @@ export const TERRAIN_TYPES = {
     glyph: '✦',
     isAether: true,
   },
+  WATER: {
+    name: 'Aether Sea',
+    color: '#1e3a5e',
+    edge: '#0f1f33',
+    food: 0,
+    prod: 0,
+    gold: 0,
+    moveCost: 99,
+    defBonus: 0,
+    walkable: false,
+    glyph: '',
+    isWater: true,
+  },
 } as const;
 
 export type TerrainId = keyof typeof TERRAIN_TYPES;
