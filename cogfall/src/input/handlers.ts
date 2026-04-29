@@ -18,6 +18,7 @@ import { renderDiploScreen } from '../ui/diploModal';
 import { renderSaveModal } from '../ui/saveModal';
 import { handleHover } from '../ui/tooltip';
 import { updateUI } from '../ui/topbar';
+import { cycleMode, getMode, isOverlayEnabled, setMode } from '../systems/debugOverlay';
 
 const ZOOM_FACTOR = 1.12;
 const ZOOM_MIN = 0.4;
@@ -173,6 +174,15 @@ window.addEventListener('keydown', (e) => {
     G.sabotageTargets = [];
     render();
     updateUI();
+  }
+  // Phase 2L — backtick / tilde cycles the debug overlay mode. Gated
+  // by the setup-modal master flag so the key is intentionally unbound
+  // for normal play.
+  if (e.key === '`' || e.key === '~') {
+    if (!isOverlayEnabled()) return;
+    setMode(cycleMode(getMode()));
+    render();
+    e.preventDefault();
   }
 });
 

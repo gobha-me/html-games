@@ -125,6 +125,14 @@ describe('isOverlayEnabled / setOverlayEnabled', () => {
     setOverlayEnabled(false);
     expect(getMode()).toBe('off');
   });
+
+  it('enabling preserves any previously-set mode', () => {
+    setMode('elevation');
+    setOverlayEnabled(true);
+    // setMode('off') from a prior disable would clobber, but enable
+    // should leave the active mode untouched.
+    expect(getMode()).toBe('elevation');
+  });
 });
 
 describe('getElevationField', () => {

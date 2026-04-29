@@ -10,6 +10,7 @@ import { isMinimapVisible, setMinimapVisible } from './minimap';
 import { isAudioMuted, setAudioMuted } from '../systems/audio';
 import { isTelemetryEnabled, setTelemetryEnabled } from '../systems/telemetry';
 import { isReplayEnabled, setReplayEnabled } from '../systems/replay';
+import { isOverlayEnabled, setOverlayEnabled } from '../systems/debugOverlay';
 
 let setupSelectedFaction = 0;
 
@@ -110,6 +111,20 @@ if (replayCheckbox) {
   replayCheckbox.checked = isReplayEnabled();
   replayCheckbox.addEventListener('change', () => {
     setReplayEnabled(replayCheckbox.checked);
+  });
+}
+
+// Phase 2L: debug overlay master flag. Default-OFF (debug-only) so
+// the backtick hotkey is unbound for normal play. Live toggle —
+// disabling resets the active mode to off (idempotence handled
+// inside setOverlayEnabled).
+const debugOverlayCheckbox = document.getElementById(
+  DOM_IDS.DEBUG_OVERLAY_ENABLED
+) as HTMLInputElement | null;
+if (debugOverlayCheckbox) {
+  debugOverlayCheckbox.checked = isOverlayEnabled();
+  debugOverlayCheckbox.addEventListener('change', () => {
+    setOverlayEnabled(debugOverlayCheckbox.checked);
   });
 }
 

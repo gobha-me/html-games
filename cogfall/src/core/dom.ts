@@ -85,6 +85,9 @@ export const DOM_IDS = {
   TELEMETRY_ENABLED: 'telemetry-enabled',
   TELEMETRY_DOWNLOAD_BTN: 'telemetry-download',
 
+  // Phase 2L: debug overlay
+  DEBUG_OVERLAY_ENABLED: 'debug-overlay-enabled',
+
   // Phase 2k: replay viewer
   REPLAY_ENABLED: 'replay-enabled',
   REPLAY_DOWNLOAD_BTN: 'replay-download',
