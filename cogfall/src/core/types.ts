@@ -36,6 +36,16 @@ export type Visibility = 'visible' | 'seen' | 'unseen';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
+// Phase 2m — control mode for the game's seat / handoff model.
+//   'single'  — exactly one local human (today's behavior); no curtain.
+//   'hotseat' — multiple local humans share a keyboard; curtain modal
+//               between human turns.
+// Reserved future values: 'pbem' (export save at human turn end), 'plinth'
+// (remote multiplayer via the future Plinth network layer). The dispatch
+// seam in turn.ts switches on this; new modes plug in alongside hot-seat
+// without rewiring the seat list, save schema, or victory rule.
+export type ControlMode = 'single' | 'hotseat';
+
 export type BuildQueue = { kind: 'unit'; id: UnitTypeId } | { kind: 'building'; id: BuildingId };
 
 export interface Tile {
@@ -167,7 +177,24 @@ export interface GameState {
   cities: City[];
   turn: number;
   currentFactionIdx: FactionIdx;
+  /** Phase 2m — semantics extended: in 'single' this is the only human,
+   * in 'hotseat' it tracks the *currently-controlling* local human and is
+   * updated by the curtain modal on each handoff. ~30 read sites that say
+   * "render this faction's POV" / "is this my turn now?" continue working
+   * unchanged because they always meant "the human at the keyboard right now". */
   playerFactionIdx: FactionIdx;
+  /** Phase 2m — seat / handoff model. 'single' is byte-identical to pre-2m
+   * behavior. 'hotseat' enables the curtain modal between humans. Future
+   * 'pbem' / 'plinth' values plug into the same dispatch seam in turn.ts. */
+  controlMode: ControlMode;
+  /** Phase 2m — every faction index that is human-controlled. Mode-agnostic
+   * (hot-seat humans, future Plinth seats, future PBEM seats all share this
+   * list). Single-player = [playerFactionIdx]. Faction.isAI is derived and
+   * kept consistent: G.factions[i].isAI === !humanFactionIdxs.includes(i). */
+  humanFactionIdxs: FactionIdx[];
+  /** Phase 2m — runtime-only flag while the curtain modal is up. Suppresses
+   * canvas / keyboard input. Never serialized. */
+  passoverActive: boolean;
   difficulty: Difficulty;
   goldHegemonyThreshold: number;
   goldHegemonyRequired: number;

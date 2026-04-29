@@ -18,7 +18,7 @@ import { G } from '../src/core/state';
 import { generateMap } from '../src/systems/mapgen';
 import { createSeededRng } from '../src/core/rng';
 import { FACTIONS } from '../src/data/factions';
-import type { Faction, FactionIdx } from '../src/core/types';
+import type { ControlMode, Faction, FactionIdx } from '../src/core/types';
 
 // Local faction builder — avoids importing systems/setup.ts (which reaches
 // into render/pixi at module-load and throws on the missing #map-canvas
@@ -276,6 +276,46 @@ describe('save / load', () => {
     const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
     expect(() => loadGameState(round)).toThrow(ModMismatchError);
     clearMod();
+  });
+
+  it('round-trips controlMode and humanFactionIdxs for a hot-seat 2-human game', () => {
+    buildSmallScenario();
+    G.factions[1].isAI = false;
+    G.controlMode = 'hotseat';
+    G.humanFactionIdxs = [0 as FactionIdx, 1 as FactionIdx];
+
+    const data = serializeGameState();
+    expect(data.state.controlMode).toBe('hotseat');
+    expect(data.state.humanFactionIdxs).toEqual([0, 1]);
+
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    clearGameState();
+    G.controlMode = 'single';
+    G.humanFactionIdxs = [0 as FactionIdx];
+    loadGameState(round);
+
+    expect(G.controlMode).toBe('hotseat');
+    expect(G.humanFactionIdxs).toEqual([0, 1]);
+    expect(G.passoverActive).toBe(false);
+  });
+
+  it('pre-2m save (no controlMode/humanFactionIdxs) loads with single-mode defaults', () => {
+    buildSmallScenario();
+    const data = serializeGameState();
+    delete (data.state as { controlMode?: ControlMode }).controlMode;
+    delete (data.state as { humanFactionIdxs?: FactionIdx[] }).humanFactionIdxs;
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+
+    clearGameState();
+    G.controlMode = 'hotseat';
+    G.humanFactionIdxs = [0 as FactionIdx, 1 as FactionIdx];
+    G.passoverActive = true;
+
+    loadGameState(round);
+
+    expect(G.controlMode).toBe('single');
+    expect(G.humanFactionIdxs).toEqual([G.playerFactionIdx]);
+    expect(G.passoverActive).toBe(false);
   });
 
   it('loads a v2 save without targetCityId and survives an updateAIStrategy call', () => {

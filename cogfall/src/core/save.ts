@@ -20,6 +20,7 @@ import type {
   AIMemory,
   BuildingId,
   City,
+  ControlMode,
   Difficulty,
   DragStart,
   Faction,
@@ -109,6 +110,12 @@ export interface SerializedGameState {
    * pre-2L v4 saves load with mapSeed undefined and the overlay degrades
    * gracefully. SAVE_VERSION stays at 4. */
   mapSeed?: number;
+  /** v4+ (Phase 2m): seat / handoff model + the list of human-controlled
+   * faction indices. Additive optional fields — pre-2m v4 saves default
+   * controlMode='single' and humanFactionIdxs=[playerFactionIdx] at load.
+   * SAVE_VERSION stays at 4 (mirrors the 2L mapSeed precedent above). */
+  controlMode?: ControlMode;
+  humanFactionIdxs?: FactionIdx[];
 }
 
 export interface SaveData {
@@ -155,6 +162,8 @@ export function serializeGameState(): SaveData {
     seed: G.seed,
     rngState: getGameRngState(),
     mapSeed: G.mapSeed,
+    controlMode: G.controlMode,
+    humanFactionIdxs: [...G.humanFactionIdxs],
     culturalHegemonyThreshold: G.culturalHegemonyThreshold,
     culturalHegemonyRequired: G.culturalHegemonyRequired,
     culturalHegemonyCounter: { ...G.culturalHegemonyCounter },
@@ -286,6 +295,9 @@ export function applySerializedStateToG(s: SerializedGameState): void {
   G.gameOver = s.gameOver;
   G.aiMemory = { ...s.aiMemory };
   G.mapSeed = s.mapSeed;
+  G.controlMode = s.controlMode ?? 'single';
+  G.humanFactionIdxs = s.humanFactionIdxs ? [...s.humanFactionIdxs] : [s.playerFactionIdx];
+  G.passoverActive = false;
 }
 
 export function loadGameState(data: SaveData): void {
