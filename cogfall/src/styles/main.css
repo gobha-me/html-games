@@ -672,6 +672,74 @@ body {
   font-family: monospace;
   font-size: 10px;
 }
+/* Phase 2n-2 — AI action banner (post-AI-turn toast) */
+#ai-action-banner {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-12px);
+  background: rgba(20, 16, 10, 0.92);
+  border: 1px solid var(--brass-d);
+  border-radius: 6px;
+  padding: 10px 16px;
+  min-width: 320px;
+  max-width: 460px;
+  z-index: 9;
+  color: var(--parchment);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+#ai-action-banner.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+#ai-action-banner .ai-action-heading {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--brass-d);
+  padding-bottom: 4px;
+}
+#ai-action-banner .ai-action-heading .glyph {
+  font-size: 16px;
+  margin-right: 4px;
+}
+#ai-action-banner .ai-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+#ai-action-banner .ai-action-line {
+  color: var(--parchment-d);
+}
+#ai-action-banner .ai-action-line.combat {
+  color: #ff8866;
+}
+#ai-action-banner .ai-action-line.tech {
+  color: #66c8ff;
+}
+#ai-action-banner .ai-action-line.diplo {
+  color: #ffcc66;
+}
+#ai-action-banner .ai-action-line.warning {
+  color: var(--danger);
+}
+#ai-action-banner .ai-action-line.good {
+  color: #99ee99;
+}
+#ai-action-banner .ai-action-hint {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--parchment-d);
+  margin-top: 6px;
+  text-align: right;
+  opacity: 0.7;
+}
 /* Phase 2n-2 — Stewards' Codex (hotkey legend) modal table */
 .hotkey-table {
   width: 100%;

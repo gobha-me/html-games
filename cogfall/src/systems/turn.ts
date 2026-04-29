@@ -18,8 +18,10 @@ import { playSfx } from './audio';
 import { recordTelemetry } from './telemetry';
 import { recordReplaySnapshot } from './replay';
 import { DOM_IDS } from '../core/dom';
+import { totalLogCount } from '../core/log';
 import { saveAuto } from '../core/save';
 import { openPassover } from '../ui/passoverModal';
+import { showAiActionBanner } from '../ui/aiActionBanner';
 
 const AI_THINK_BASE_MS = 450;
 const AI_THINK_JITTER_MS = 300;
@@ -197,6 +199,10 @@ export function runAITurn(faction: Faction): void {
   setTimeout(
     () => {
       const t0 = performance.now();
+      // Phase 2n-2: snapshot the log counter so the AI action banner can
+      // recover the events emitted by *just this AI* — even if the 100-
+      // entry cap popped older ones during the turn.
+      const logBefore = totalLogCount();
       aiPlayTurn(faction);
       const t1 = performance.now();
       recordTelemetry({
@@ -205,6 +211,10 @@ export function runAITurn(faction: Faction): void {
         faction: faction.idx,
         durationMs: t1 - t0,
       });
+      const newCount = totalLogCount() - logBefore;
+      if (newCount > 0) {
+        showAiActionBanner(faction, G.events.slice(0, Math.min(newCount, G.events.length)));
+      }
       hideAIThinking();
       requestRedraw();
       setTimeout(endTurn, AI_TURN_END_DELAY_MS);

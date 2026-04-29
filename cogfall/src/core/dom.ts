@@ -108,6 +108,11 @@ export const DOM_IDS = {
   HOTKEY_MODAL: 'hotkey-modal',
   HOTKEY_CONTENT: 'hotkey-content',
 
+  // Phase 2n-2: AI action banner (post-AI-turn toast)
+  AI_ACTION_BANNER: 'ai-action-banner',
+  AI_ACTION_BANNER_HEADING: 'ai-action-banner-heading',
+  AI_ACTION_BANNER_LIST: 'ai-action-banner-list',
+
   // Phase 2k: replay viewer
   REPLAY_ENABLED: 'replay-enabled',
   REPLAY_DOWNLOAD_BTN: 'replay-download',

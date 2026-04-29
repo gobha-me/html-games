@@ -13,8 +13,19 @@ import type { LogEntryType } from './types';
 const MAX_LOG_ENTRIES = 100;
 const VISIBLE_LOG_ENTRIES = 20;
 
+// Phase 2n-2 — monotonic counter of player-visible log() calls since
+// startup. Survives the MAX_LOG_ENTRIES cap, so callers (turn.ts) can
+// snapshot before/after an AI turn and recover *how many* entries
+// were emitted even if the array overflowed and popped older ones.
+let totalLogs = 0;
+
+export function totalLogCount(): number {
+  return totalLogs;
+}
+
 export function log(msg: string, type: LogEntryType = '', visibleToPlayer = true): void {
   if (!visibleToPlayer) return;
+  totalLogs++;
   G.events.unshift({ turn: G.turn, msg, type });
   if (G.events.length > MAX_LOG_ENTRIES) G.events.pop();
   renderLog();
