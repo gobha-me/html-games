@@ -42,7 +42,7 @@ export const FACTIONS = [
     startTechs: [],
     startBonus: 'extra_pioneer',
     desc: 'They tend the wild gears beneath the moss.',
-    traits: 'Extra pioneer, +25% city defense, +1 culture in capitals',
+    traits: 'Extra pioneer, +15% city defense, +1 culture in capitals',
     glyph: '♣',
   },
   {

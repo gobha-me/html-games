@@ -21,7 +21,13 @@ const FORTIFY_DEF_BONUS = 0.3;
 const CITY_DEF_BONUS_BASE = 0.25;
 const WALLS_DEF_BONUS = 0.5;
 const CITADEL_DEF_BONUS = 1.0;
-const VERDANT_CITY_DEF_BONUS = 0.25;
+// Phase 2n-3: trimmed from 0.25 → 0.15. Verdant stacked three perks
+// (multiplier + flat +15 + capital culture) vs other factions' 1-2.
+// The multiplier is the worst offender because it compounds with walls
+// (×1.5) and citadel (×2.0) on the same axis. Keep the flat +15 — it
+// matters early when 25 base + 15 = 1.6× attacker effort and falls off
+// naturally as walls/citadel come online.
+const VERDANT_CITY_DEF_BONUS = 0.15;
 const IRON_ATK_BONUS = 0.2;
 
 const CITY_BASE_DEF = 25;
