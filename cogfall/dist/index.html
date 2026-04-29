@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Cogfall — A Steampunk 4X</title>
-  <script type="module" crossorigin src="./assets/index-Cmn7hWip.js"></script>
+  <script type="module" crossorigin src="./assets/index-BIkkMHSm.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-_8A8tO9g.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
 <div class="resource-pill gold" title="Gold treasury"><span class="icon">⚜</span> <span id="r-gold">0</span> <span class="delta" id="r-gold-d">+0</span></div>
 <div class="resource-pill aether" title="Aether crystals"><span class="icon">✦</span> <span id="r-aether">0</span> <span class="delta" id="r-aether-d">+0</span></div>
 <div class="resource-pill science" title="Science per turn"><span class="icon">⊞</span> <span id="r-sci-d">+0</span></div>
-<div class="resource-pill culture" title="Renown per turn / cultural share"><span class="icon">✺</span> <span id="r-culture-d">+0</span> <span class="delta" id="r-culture-share">0%</span></div>
+<div class="resource-pill culture" title="Renown per turn / cultural share of walkable land"><span class="icon">✺</span> <span id="r-culture-d">+0</span> <span class="delta" id="r-culture-share">0%</span></div>
 </div>
 <button class="btn small" id="tech-btn">Knowledge</button>
 <button class="btn small" id="diplo-btn">Banners</button>
@@ -53,7 +53,7 @@
 <div class="setup-section"><label>Choose your faction</label><div id="faction-list"></div></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 <div class="setup-section"><label>Map size</label><select id="map-size"><option value="small">Small (cozy duel)</option><option value="medium" selected>Medium (standard)</option><option value="large">Large (epic)</option></select></div>
-<div class="setup-section"><label>Opponents (1-4)</label><input type="number" id="opponent-count" min="1" max="4" value="3"></div>
+<div class="setup-section" id="opponent-count-section"><label>Opponents (1-4)</label><input type="number" id="opponent-count" min="1" max="4" value="3"></div>
 <div class="setup-section"><label>Difficulty</label><select id="difficulty"><option value="easy">Apprentice (AI handicapped)</option><option value="medium" selected>Journeyman (fair)</option><option value="hard">Master (AI bonuses)</option></select></div>
 <div class="setup-section"><label>Hegemony threshold</label><select id="game-speed"><option value="quick">3000 gold (quick)</option><option value="standard" selected>5000 gold (standard)</option><option value="long">8000 gold (epic)</option></select></div>
 <div class="setup-section"><label>Water</label><select id="water-level"><option value="none">None (all land)</option><option value="lakes">Lakes (scattered)</option><option value="coasts" selected>Coasts (standard)</option><option value="continents">Continents (heavy seas)</option></select></div>
@@ -65,6 +65,7 @@
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="telemetry-enabled" checked> <span>📊 Record telemetry (download from Records)</span></label></div>
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="replay-enabled" checked> <span>🎬 Record replay (scrub past turns from Records)</span></label></div>
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="debug-overlay-enabled"> <span>🔍 Debug overlay (~ key cycles modes)</span></label></div>
+<div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="hot-seat-enabled"> <span>👥 Hot-seat (all factions play; mark each card Human or AI)</span></label></div>
 <div class="setup-section" style="margin-top:14px"><label>World seed</label><div style="display:flex;gap:8px;align-items:stretch"><input type="number" id="setup-seed" min="0" max="4294967295" step="1" style="flex:1" title="Same seed produces the same world. Type a number or click the die."><button class="btn small" id="seed-regen" type="button" title="Generate a new random seed">🎲</button></div></div>
 <div style="text-align:right;margin-top:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="continue-btn" style="display:none">Continue Last Game</button><button class="btn primary" id="start-game">Begin the Awakening</button></div>
 </div></div>
@@ -93,6 +94,13 @@
 <div class="modal-content" style="width:520px">
 <div id="game-over-content"></div>
 <div style="text-align:right;margin-top:16px"><button class="btn primary" onclick="location.reload()">Begin Anew</button></div>
+</div></div>
+<div id="passover-modal" class="modal">
+<div class="modal-content" style="width:480px;text-align:center">
+<div id="passover-glyph" style="font-size:72px;line-height:1;margin:4px 0 8px;color:var(--brass)">⚙</div>
+<h2 id="passover-title" style="margin-bottom:6px">Pass to —</h2>
+<p id="passover-flavor" style="color:var(--parchment-d);margin:6px 0 18px;font-style:italic">Step away from the gears.</p>
+<button class="btn primary" id="passover-continue" type="button">Continue ⟹</button>
 </div></div>
 <div id="replay-modal" class="modal">
 <div class="modal-content" style="width:680px">

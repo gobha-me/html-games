@@ -68,7 +68,11 @@ export async function initPixi(): Promise<void> {
 export function resizeCanvas(): void {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  if (app) app.renderer.resize(window.innerWidth, window.innerHeight);
+  // Pixi's Application is created synchronously but `.init()` is async, so
+  // there's a window where `app` is non-null but `app.renderer` is still
+  // undefined. The Continue-Last-Game flow can hit this if the user clicks
+  // before initPixi resolves. Guard tightly — caller still drives layout.
+  if (app && app.renderer) app.renderer.resize(window.innerWidth, window.innerHeight);
   const svg = document.getElementById(DOM_IDS.OVERLAY_SVG);
   if (svg) {
     svg.setAttribute('width', String(window.innerWidth));
