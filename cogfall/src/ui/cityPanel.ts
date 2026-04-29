@@ -35,7 +35,29 @@ export function renderCityDetailsRight(city: City): void {
     }
     const remaining = cost - city.productionStored;
     const turns = Math.max(0, Math.ceil(remaining / Math.max(1, cityYields(city).prod)));
-    html += `<div style="margin-bottom:10px;padding:8px;background:rgba(78,205,196,0.1);border:1px solid var(--aether);border-radius:4px">Building <strong>${name}</strong>: ${city.productionStored}/${cost} <span style="color:var(--parchment-d)">(${turns} turns)</span></div>`;
+    html += `<div style="margin-bottom:6px;padding:8px;background:rgba(78,205,196,0.1);border:1px solid var(--aether);border-radius:4px">Building <strong>${name}</strong>: ${city.productionStored}/${cost} <span style="color:var(--parchment-d)">(${turns} turns)</span></div>`;
+
+    // Pending queue (positions 1..N) — reorder + remove controls.
+    if (city.buildQueue.length > 1) {
+      html += `<div style="margin-bottom:10px;padding:6px;background:rgba(0,0,0,0.15);border-radius:4px;font-size:12px"><div style="color:var(--parchment-d);margin-bottom:4px">Up next (${city.buildQueue.length - 1}/${MAX_BUILD_QUEUE_LEN - 1}):</div>`;
+      for (let i = 1; i < city.buildQueue.length; i++) {
+        const q = city.buildQueue[i];
+        const qName = q.kind === 'unit' ? UNIT_TYPES[q.id].name : BUILDING_TYPES[q.id].name;
+        const qGlyph = q.kind === 'unit' ? UNIT_TYPES[q.id].glyph : BUILDING_TYPES[q.id].glyph;
+        const upDisabled = i === 1;
+        const downDisabled = i === city.buildQueue.length - 1;
+        html += `<div class="queue-item" style="display:flex;align-items:center;gap:4px;padding:3px 4px;border:1px solid rgba(78,205,196,0.3);border-radius:3px;margin-bottom:2px">`;
+        html += `<span style="flex:1">${qGlyph} ${qName}</span>`;
+        html += `<button onclick="moveCityBuild(${city.id},${i},-1)" style="padding:0 6px;background:rgba(78,205,196,0.15);border:1px solid var(--aether);border-radius:2px;color:var(--parchment);cursor:pointer${upDisabled ? ';opacity:0.3;cursor:default' : ''}" ${upDisabled ? 'disabled' : ''}>↑</button>`;
+        html += `<button onclick="moveCityBuild(${city.id},${i},1)" style="padding:0 6px;background:rgba(78,205,196,0.15);border:1px solid var(--aether);border-radius:2px;color:var(--parchment);cursor:pointer${downDisabled ? ';opacity:0.3;cursor:default' : ''}" ${downDisabled ? 'disabled' : ''}>↓</button>`;
+        html += `<button onclick="removeCityBuild(${city.id},${i})" style="padding:0 6px;background:rgba(220,80,80,0.2);border:1px solid #c66;border-radius:2px;color:var(--parchment);cursor:pointer">×</button>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
+    } else if (city.buildQueue.length === 1) {
+      // One item in flight, queue otherwise empty — hint at the cap.
+      html += `<div style="margin-bottom:10px;font-size:11px;color:var(--parchment-d)">Queue empty — click below to enqueue (cap ${MAX_BUILD_QUEUE_LEN}).</div>`;
+    }
   }
 
   const cityTile = getTile(city.q, city.r);
@@ -107,5 +129,34 @@ function setCityBuild(cityId: number, kind: 'unit' | 'building', id: string): vo
   updateUI();
 }
 
-(window as Window & typeof globalThis & { setCityBuild: typeof setCityBuild }).setCityBuild =
-  setCityBuild;
+function moveCityBuild(cityId: number, idx: number, dir: -1 | 1): void {
+  const c = G.cities.find((c) => c.id === cityId);
+  if (!c || c.factionIdx !== G.playerFactionIdx) return;
+  // queue[0] is the in-flight build — only positions 1..N reorder.
+  if (idx < 1 || idx >= c.buildQueue.length) return;
+  const target = idx + dir;
+  if (target < 1 || target >= c.buildQueue.length) return;
+  const tmp = c.buildQueue[idx];
+  c.buildQueue[idx] = c.buildQueue[target];
+  c.buildQueue[target] = tmp;
+  updateUI();
+}
+
+function removeCityBuild(cityId: number, idx: number): void {
+  const c = G.cities.find((c) => c.id === cityId);
+  if (!c || c.factionIdx !== G.playerFactionIdx) return;
+  if (idx < 1 || idx >= c.buildQueue.length) return;
+  c.buildQueue.splice(idx, 1);
+  updateUI();
+}
+
+type CityPanelWindow = Window &
+  typeof globalThis & {
+    setCityBuild: typeof setCityBuild;
+    moveCityBuild: typeof moveCityBuild;
+    removeCityBuild: typeof removeCityBuild;
+  };
+
+(window as CityPanelWindow).setCityBuild = setCityBuild;
+(window as CityPanelWindow).moveCityBuild = moveCityBuild;
+(window as CityPanelWindow).removeCityBuild = removeCityBuild;
