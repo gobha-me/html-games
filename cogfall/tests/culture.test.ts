@@ -429,7 +429,11 @@ describe('Phase 2g-1: culture types and save migration', () => {
     G.playerFactionIdx = 0 as FactionIdx;
     G.difficulty = 'medium';
     G.culturalHegemonyEnabled = true;
-    G.culturalHegemonyThreshold = 0.4;
+    // Threshold lowered for this test: 17×17 synthetic plains map = 289
+    // walkable tiles. A single radius-3 claim caps near 37 tiles ≈ 13% —
+    // we want the counter mechanic, not realistic balance, so 5% lets
+    // the test land squarely above threshold without staging four cities.
+    G.culturalHegemonyThreshold = 0.05;
     G.culturalHegemonyRequired = 5;
     G.culturalHegemonyCounter = {};
 
@@ -488,7 +492,9 @@ describe('Phase 2g-1: culture types and save migration', () => {
     G.playerFactionIdx = 0 as FactionIdx;
     G.difficulty = 'medium';
     G.culturalHegemonyEnabled = true;
-    G.culturalHegemonyThreshold = 0.4;
+    // Lowered threshold matches the counter-increment test rationale —
+    // we're pinning the victory dispatch, not staging a realistic claim.
+    G.culturalHegemonyThreshold = 0.05;
     G.culturalHegemonyRequired = 3;
     G.culturalHegemonyCounter = { 0: 2 }; // one shy of required
 
@@ -506,6 +512,44 @@ describe('Phase 2g-1: culture types and save migration', () => {
     G.culturalHegemonyCounter[0] = 2;
     const r2 = processCulturalHegemony(G.factions[0]);
     expect(r2.victory).toBe(false);
+    expect(G.culturalHegemonyCounter[0]).toBe(0);
+  });
+
+  it('regression: a single capital with culture (Verdant turn-1) does not trivially exceed 40% share', () => {
+    // Pre-fix bug: getCulturalShare divided perFaction by *claimed* tiles,
+    // so a faction that was the only one generating culture trivially hit
+    // 100% share and won the cultural-hegemony victory in 5 turns. Post-
+    // fix the denominator is walkable tiles, so a single radius-3 claim
+    // around a turn-1 Verdant capital sits well under the 40% threshold.
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false), makeFaction(1, true)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+    G.culturalHegemonyEnabled = true;
+    G.culturalHegemonyThreshold = 0.4;
+    G.culturalHegemonyRequired = 5;
+    G.culturalHegemonyCounter = {};
+
+    // Mimics turn-1 Verdant: capital with the +1-culture trait, AI rival
+    // with no culture buildings yet. (We approximate the trait via a
+    // printing_press for +2; the precise number doesn't matter — what
+    // matters is that it's the only culture source on the map.)
+    const cap = createCity(0 as FactionIdx, 0, 0, 'Verdant Cap');
+    cap.buildings.add('printing_press');
+    createCity(1 as FactionIdx, 12, 0, 'Rival Cap');
+
+    computeCulturalClaim();
+    const share = getCulturalShare(0 as FactionIdx);
+    expect(share).toBeLessThan(G.culturalHegemonyThreshold);
+
+    const result = processCulturalHegemony(G.factions[0]);
+    expect(result.victory).toBe(false);
     expect(G.culturalHegemonyCounter[0]).toBe(0);
   });
 

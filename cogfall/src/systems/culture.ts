@@ -108,30 +108,38 @@ export function computeCulturalClaim(): void {
 }
 
 /**
- * Returns claimed-tile counts per faction plus the global total. Used by
- * the cultural-hegemony victory check in 2g-4 and by the HUD share
- * readout in 2g-6. O(map.tiles) walk; fine for the map sizes in play.
+ * Returns claimed-tile counts per faction plus the global claim count and
+ * the total walkable-tile count. Walkable is the denominator for cultural
+ * share — see getCulturalShare for why "of claimed" was the wrong choice.
+ * O(map.tiles) walk; fine for the map sizes in play.
  */
-export function tallyClaimedTiles(): { perFaction: number[]; total: number } {
+export function tallyClaimedTiles(): { perFaction: number[]; total: number; walkable: number } {
   const perFaction = new Array(G.factions.length).fill(0);
   let total = 0;
-  if (!G.map) return { perFaction, total };
+  let walkable = 0;
+  if (!G.map) return { perFaction, total, walkable };
   for (const tile of G.map.tiles.values()) {
+    if (TERRAIN_TYPES[tile.terrain].walkable) walkable++;
     if (tile.claim == null) continue;
     perFaction[tile.claim]++;
     total++;
   }
-  return { perFaction, total };
+  return { perFaction, total, walkable };
 }
 
 /**
- * Faction's share of all claimed tiles in [0, 1]. Returns 0 if no tiles
- * are claimed at all (avoids NaN from 0/0). Used by the 2g-4 victory
- * check and exported for the 2g-6 HUD readout.
+ * Faction's share of all walkable land in [0, 1]. Returns 0 on a map with
+ * no walkable tiles (avoids NaN). Pre-2m the denominator was *claimed*
+ * tiles, which gave the only culture-generating faction (Verdant on turn 1)
+ * a 100% share trivially and a free hegemony win in 5 turns. Walkable as
+ * the denominator forces a faction to actually dominate the map.
+ *
+ * Used by the 2g-4 cultural-hegemony victory check and the 2g-6 topbar
+ * share readout — both surface the new "% of walkable land" semantics.
  */
 export function getCulturalShare(factionIdx: FactionIdx): number {
-  const { perFaction, total } = tallyClaimedTiles();
-  return total > 0 ? perFaction[factionIdx] / total : 0;
+  const { perFaction, walkable } = tallyClaimedTiles();
+  return walkable > 0 ? perFaction[factionIdx] / walkable : 0;
 }
 
 /**
