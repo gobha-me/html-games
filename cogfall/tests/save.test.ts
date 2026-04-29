@@ -196,6 +196,94 @@ describe('save / load', () => {
     expect(G.turn).toBe(7);
   });
 
+  it('migrates a v4 save with a single-item buildQueue to a one-element array', () => {
+    // v4 → v5: City.buildQueue widened from `BuildQueue | null` to
+    // `BuildQueue[]`. A v4 save with `buildQueue: { kind: 'unit', id: 'COGMAN' }`
+    // must load as `[{ kind: 'unit', id: 'COGMAN' }]`.
+    buildSmallScenario();
+    const data = serializeGameState();
+    data.state.cities.push({
+      id: 1,
+      factionIdx: 0 as FactionIdx,
+      q: 0,
+      r: 0,
+      name: 'Cogspire',
+      buildings: [],
+      population: 1,
+      foodStored: 0,
+      foodNeeded: 10,
+      productionStored: 0,
+      buildQueue: { kind: 'unit', id: 'COGMAN' } as never,
+      isCapital: true,
+      hp: 50,
+      maxHp: 50,
+    });
+    data.version = 4;
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    expect(() => loadGameState(round)).not.toThrow();
+    expect(G.cities).toHaveLength(1);
+    expect(G.cities[0].buildQueue).toEqual([{ kind: 'unit', id: 'COGMAN' }]);
+  });
+
+  it('migrates a v4 save with null buildQueue to an empty array', () => {
+    buildSmallScenario();
+    const data = serializeGameState();
+    data.state.cities.push({
+      id: 1,
+      factionIdx: 0 as FactionIdx,
+      q: 0,
+      r: 0,
+      name: 'Verdance',
+      buildings: [],
+      population: 1,
+      foodStored: 0,
+      foodNeeded: 10,
+      productionStored: 0,
+      buildQueue: null as never,
+      isCapital: true,
+      hp: 50,
+      maxHp: 50,
+    });
+    data.version = 4;
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    expect(() => loadGameState(round)).not.toThrow();
+    expect(G.cities[0].buildQueue).toEqual([]);
+  });
+
+  it('round-trips a v5 save with a multi-item queue preserving order', () => {
+    buildSmallScenario();
+    G.cities = [
+      {
+        id: 1,
+        factionIdx: 0 as FactionIdx,
+        q: 0,
+        r: 0,
+        name: 'Cogspire',
+        buildings: new Set(),
+        population: 1,
+        foodStored: 0,
+        foodNeeded: 10,
+        productionStored: 0,
+        buildQueue: [
+          { kind: 'building', id: 'walls' },
+          { kind: 'unit', id: 'COGMAN' },
+          { kind: 'building', id: 'granary' },
+        ],
+        isCapital: true,
+        hp: 50,
+        maxHp: 50,
+      },
+    ];
+    const data = serializeGameState();
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    loadGameState(round);
+    expect(G.cities[0].buildQueue).toEqual([
+      { kind: 'building', id: 'walls' },
+      { kind: 'unit', id: 'COGMAN' },
+      { kind: 'building', id: 'granary' },
+    ]);
+  });
+
   it('validateSaveAgainstData detects unknown unit / building / tech IDs', () => {
     buildSmallScenario();
     const data = serializeGameState();

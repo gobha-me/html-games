@@ -18,6 +18,7 @@ import { BUILDING_TYPES } from '../data/buildings';
 import { TECHS } from '../data/techs';
 import type {
   AIMemory,
+  BuildQueue,
   BuildingId,
   City,
   ControlMode,
@@ -52,7 +53,13 @@ import type {
 // type the save references). Pre-2i this would silently crash later in
 // yield aggregation; now it throws a descriptive SaveDataMismatchError up
 // front.
-export const SAVE_VERSION = 4;
+//
+// v4 → v5: City.buildQueue widened from `BuildQueue | null` to
+// `BuildQueue[]` (Phase 2n-3 — multi-slot production queue with player-
+// driven reorder). Semantic shift on an existing field, so SAVE_VERSION
+// bumps. Migration wraps each city's legacy value into an array
+// (`null → []`, `{kind,id} → [{kind,id}]`) before applySerializedStateToG.
+export const SAVE_VERSION = 5;
 export const MANUAL_SLOTS = 3;
 export const AUTOSAVE_KEY = 'cogfall:autosave';
 const slotKey = (n: number): string => `cogfall:save:${n}`;
@@ -143,7 +150,11 @@ export function serializeGameState(): SaveData {
       : null,
     factions: G.factions.map((f) => ({ ...f, techs: [...f.techs] })),
     units: G.units.map((u) => ({ ...u })),
-    cities: G.cities.map((c) => ({ ...c, buildings: [...c.buildings] })),
+    cities: G.cities.map((c) => ({
+      ...c,
+      buildings: [...c.buildings],
+      buildQueue: [...c.buildQueue],
+    })),
     turn: G.turn,
     currentFactionIdx: G.currentFactionIdx,
     playerFactionIdx: G.playerFactionIdx,
@@ -273,7 +284,11 @@ export function applySerializedStateToG(s: SerializedGameState): void {
     : null;
   G.factions = s.factions.map((f) => ({ ...f, techs: new Set<TechId>(f.techs) }));
   G.units = s.units.map((u) => ({ ...u }));
-  G.cities = s.cities.map((c) => ({ ...c, buildings: new Set<BuildingId>(c.buildings) }));
+  G.cities = s.cities.map((c) => ({
+    ...c,
+    buildings: new Set<BuildingId>(c.buildings),
+    buildQueue: [...c.buildQueue],
+  }));
   G.turn = s.turn;
   G.currentFactionIdx = s.currentFactionIdx;
   G.playerFactionIdx = s.playerFactionIdx;
@@ -305,6 +320,7 @@ export function loadGameState(data: SaveData): void {
     data.version !== 1 &&
     data.version !== 2 &&
     data.version !== 3 &&
+    data.version !== 4 &&
     data.version !== SAVE_VERSION
   ) {
     throw new SaveVersionMismatchError(data.version, SAVE_VERSION);
@@ -318,6 +334,15 @@ export function loadGameState(data: SaveData): void {
   const missing = validateSaveAgainstData(s);
   if (missing.length > 0) {
     throw new SaveDataMismatchError(missing);
+  }
+
+  // v4 → v5: buildQueue widened from `BuildQueue | null` to `BuildQueue[]`.
+  // Wrap each city's legacy value into an array before applying state.
+  if (data.version === 4) {
+    for (const c of s.cities) {
+      const legacy = c.buildQueue as unknown as BuildQueue | null;
+      c.buildQueue = legacy == null ? [] : [legacy];
+    }
   }
 
   applySerializedStateToG(s);

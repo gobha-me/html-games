@@ -180,7 +180,7 @@ describe('Phase 2g-1: culture types and save migration', () => {
 
     const data = serializeGameState();
     expect(data.version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(4);
+    expect(SAVE_VERSION).toBe(5);
 
     // Round-trip through JSON to simulate localStorage.
     const json = JSON.stringify(data);
