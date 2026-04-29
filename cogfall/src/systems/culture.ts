@@ -20,13 +20,17 @@ import type { Faction, FactionIdx } from '../core/types';
 
 export const CLAIM_RADIUS = 3;
 
-export function computeCulturalClaim(): void {
-  if (!G.map) return;
-  const factionCount = G.factions.length;
-  // Per-tile pressure totals, keyed by hexKey. Number[] indexed by
-  // factionIdx — fastest path with no Map overhead in the inner loop.
+/**
+ * Per-tile pressure sums, keyed by hexKey. Each entry is a Number[]
+ * indexed by factionIdx — fastest path with no Map overhead in the
+ * inner loop. Pure / deterministic; reads only G.factions, G.cities,
+ * G.map. Used by computeCulturalClaim and exposed for the Phase 2L
+ * debug overlay's culture-pressure mode.
+ */
+export function computeCulturalPressureMap(): Map<string, number[]> {
   const pressure = new Map<string, number[]>();
-
+  if (!G.map) return pressure;
+  const factionCount = G.factions.length;
   for (const city of G.cities) {
     const fac = G.factions[city.factionIdx];
     if (!fac.alive) continue;
@@ -53,6 +57,12 @@ export function computeCulturalClaim(): void {
       }
     }
   }
+  return pressure;
+}
+
+export function computeCulturalClaim(): void {
+  if (!G.map) return;
+  const pressure = computeCulturalPressureMap();
 
   for (const tile of G.map.tiles.values()) {
     // Owned tiles never receive a claim. owner is the source of truth

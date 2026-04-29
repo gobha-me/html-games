@@ -721,3 +721,57 @@ describe('Phase 2g-1: culture types and save migration', () => {
     expect(G.culturalHegemonyCounter).toEqual({});
   });
 });
+
+describe('Phase 2L: computeCulturalPressureMap', () => {
+  it('returns per-faction pressure sums that fall off with distance', async () => {
+    const { computeCulturalPressureMap } = await import('../src/systems/culture');
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+
+    const c = createCity(0 as FactionIdx, 0, 0, 'Press');
+    c.buildings.add('printing_press'); // +2 culture
+
+    const pressure = computeCulturalPressureMap();
+    // Tile 2 hexes away should have non-zero pressure.
+    const arr = pressure.get(hexKey(2, 0));
+    expect(arr).toBeDefined();
+    expect(arr![0]).toBeGreaterThan(0);
+    // Distance-3 tile has lower pressure than distance-2 tile.
+    const arrFar = pressure.get(hexKey(3, 0));
+    if (arrFar) expect(arrFar[0]).toBeLessThan(arr![0]);
+  });
+
+  it('records both factions on a contested tile', async () => {
+    const { computeCulturalPressureMap } = await import('../src/systems/culture');
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false), makeFaction(1, true)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+
+    const cA = createCity(0 as FactionIdx, 0, 0, 'A');
+    const cB = createCity(1 as FactionIdx, 6, 0, 'B');
+    cA.buildings.add('printing_press');
+    cB.buildings.add('printing_press');
+
+    const pressure = computeCulturalPressureMap();
+    const mid = pressure.get(hexKey(3, 0));
+    expect(mid).toBeDefined();
+    expect(mid![0]).toBeGreaterThan(0);
+    expect(mid![1]).toBeGreaterThan(0);
+    expect(mid![0]).toBe(mid![1]); // symmetric
+  });
+});

@@ -181,6 +181,58 @@ export function aiScoutAction(faction: Faction, unit: Unit): void {
   else unit.mp = 0;
 }
 
+/**
+ * Score a single attack target the way aiMilitaryAction's inner loop does.
+ * Pure read — no mutation — so the Phase 2L debug overlay can call this for
+ * every tile a unit could reach without changing AI behavior. Mirrors the
+ * formula at the top of aiMilitaryAction; if you change one, change both.
+ */
+function scoreAttackTarget(faction: Faction, unit: Unit, t: { q: number; r: number }): number {
+  let score = 20;
+  const enemy = getUnitAt(t.q, t.r);
+  const enemyCity = getCityAt(t.q, t.r);
+  const targetFac = (enemy || enemyCity)?.factionIdx;
+  if (targetFac == null) return score;
+  if (
+    faction.diplo[targetFac] !== 'war' &&
+    effectiveAgg(faction, targetFac) < HIGH_AGG_THRESHOLD
+  ) {
+    score -= NON_WAR_ATTACK_PENALTY_TIMID;
+  } else if (faction.diplo[targetFac] !== 'war') {
+    score -= NON_WAR_ATTACK_PENALTY_AGGRO;
+  }
+  if (enemy) {
+    const eTpl = UNIT_TYPES[enemy.typeId];
+    const myTpl = UNIT_TYPES[unit.typeId];
+    const myPow = myTpl.atk * (unit.hp / unit.maxHp);
+    const enPow = eTpl.def * (enemy.hp / enemy.maxHp);
+    score += (myPow - enPow) * 5;
+    if (enemy.hp / enemy.maxHp < 0.4) score += 30;
+  }
+  if (enemyCity) {
+    score += 80;
+    if (enemyCity.hp / enemyCity.maxHp < 0.4) score += 60;
+  }
+  return score;
+}
+
+/**
+ * Phase 2L — read-only mirror of aiMilitaryAction's per-tile attack scoring.
+ * Returns one entry per attack target the unit can currently reach. Used by
+ * the debug overlay's `ai` mode; argmax of this Map matches what
+ * aiMilitaryAction would attack (pinned by tests/debugOverlay.test.ts).
+ */
+export function getMilitaryScoresForUnit(
+  faction: Faction,
+  unit: Unit,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const t of computeAttackTargets(unit)) {
+    out.set(`${t.q},${t.r}`, scoreAttackTarget(faction, unit, t));
+  }
+  return out;
+}
+
 export function aiMilitaryAction(faction: Faction, unit: Unit): void {
   const p = PERSONALITIES[faction.personality];
   const phase = G.aiMemory[faction.idx]?.strategicPhase;
@@ -190,30 +242,7 @@ export function aiMilitaryAction(faction: Faction, unit: Unit): void {
     let best: (typeof atkTargets)[number] | null = null;
     let bestScore = -Infinity;
     for (const t of atkTargets) {
-      let score = 20;
-      const enemy = getUnitAt(t.q, t.r);
-      const enemyCity = getCityAt(t.q, t.r);
-      const targetFac = (enemy || enemyCity)!.factionIdx;
-      if (
-        faction.diplo[targetFac] !== 'war' &&
-        effectiveAgg(faction, targetFac) < HIGH_AGG_THRESHOLD
-      ) {
-        score -= NON_WAR_ATTACK_PENALTY_TIMID;
-      } else if (faction.diplo[targetFac] !== 'war') {
-        score -= NON_WAR_ATTACK_PENALTY_AGGRO;
-      }
-      if (enemy) {
-        const eTpl = UNIT_TYPES[enemy.typeId];
-        const myTpl = UNIT_TYPES[unit.typeId];
-        const myPow = myTpl.atk * (unit.hp / unit.maxHp);
-        const enPow = eTpl.def * (enemy.hp / enemy.maxHp);
-        score += (myPow - enPow) * 5;
-        if (enemy.hp / enemy.maxHp < 0.4) score += 30;
-      }
-      if (enemyCity) {
-        score += 80;
-        if (enemyCity.hp / enemyCity.maxHp < 0.4) score += 60;
-      }
+      const score = scoreAttackTarget(faction, unit, t);
       if (score > bestScore) {
         bestScore = score;
         best = t;
