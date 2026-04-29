@@ -21,7 +21,7 @@ import {
 } from '../core/save';
 import { log } from '../core/log';
 import { closeModal } from './modals';
-import { openConfirm } from './confirmModal';
+import { openConfirm, openError } from './confirmModal';
 import { resumeAfterLoad } from '../systems/turn';
 import { dumpTelemetry, getTelemetryLog } from '../systems/telemetry';
 import { dumpReplay, getReplayLog } from '../systems/replay';
@@ -111,15 +111,17 @@ async function loadFromSlot(key: string): Promise<void> {
     loadGameState(data);
   } catch (err) {
     if (err instanceof SaveVersionMismatchError) {
-      window.alert(
+      await openError(
+        'Cannot Load Save',
         `This save was made with version ${err.got}; current is ${err.want}. Cannot load.`
       );
     } else if (err instanceof ModMismatchError) {
-      window.alert(err.message);
+      await openError('Cannot Load Save', err.message);
     } else if (err instanceof SaveDataMismatchError) {
-      window.alert(`Cannot load: ${err.message}.`);
+      await openError('Cannot Load Save', `Cannot load: ${err.message}.`);
     } else {
-      window.alert(
+      await openError(
+        'Cannot Load Save',
         `Failed to load: ${err instanceof Error ? err.message : 'unknown error'}.`
       );
     }

@@ -53,6 +53,7 @@ import {
 import { setupGame } from './systems/setup';
 import { AUTOSAVE_KEY, loadGameState, readSlot } from './core/save';
 import { closeModal } from './ui/modals';
+import { openError } from './ui/confirmModal';
 import { log } from './core/log';
 
 // Wire the turn loop's redraw hook. render() now chains the minimap hook
@@ -72,13 +73,16 @@ document.getElementById(DOM_IDS.START_GAME)?.addEventListener('click', setupGame
 const continueBtn = document.getElementById(DOM_IDS.CONTINUE_BTN);
 if (continueBtn) {
   refreshContinueButton();
-  continueBtn.addEventListener('click', () => {
+  continueBtn.addEventListener('click', async () => {
     const data = readSlot(AUTOSAVE_KEY);
     if (!data) return;
     try {
       loadGameState(data);
     } catch (err) {
-      window.alert(`Failed to load: ${err instanceof Error ? err.message : 'unknown error'}.`);
+      await openError(
+        'Cannot Load Save',
+        `Failed to load: ${err instanceof Error ? err.message : 'unknown error'}.`
+      );
       return;
     }
     closeModal(DOM_IDS.SETUP_MODAL);

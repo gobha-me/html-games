@@ -4,6 +4,10 @@
 //
 // Only one confirm can be open at a time; calling openConfirm while another
 // is pending resolves the previous one as Cancel and starts a new one.
+//
+// Phase 2n-2: openError reuses the same DOM frame with the Cancel button
+// hidden — gives load-error paths a styled OK-only acknowledgement instead
+// of window.alert, matching the rest of the UI.
 
 import { DOM_IDS } from '../core/dom';
 import { closeModal, openModal } from './modals';
@@ -13,6 +17,7 @@ interface ConfirmOpts {
   body: string;
   confirmText?: string;
   cancelText?: string;
+  hideCancel?: boolean;
 }
 
 let pending: ((ok: boolean) => void) | null = null;
@@ -30,11 +35,24 @@ export function openConfirm(opts: ConfirmOpts): Promise<boolean> {
     if (titleEl) titleEl.textContent = opts.title;
     if (bodyEl) bodyEl.textContent = opts.body;
     if (okBtn) okBtn.textContent = opts.confirmText ?? 'OK';
-    if (cancelBtn) cancelBtn.textContent = opts.cancelText ?? 'Cancel';
+    if (cancelBtn) {
+      cancelBtn.textContent = opts.cancelText ?? 'Cancel';
+      cancelBtn.style.display = opts.hideCancel ? 'none' : '';
+    }
     pending = resolve;
     openModal(DOM_IDS.CONFIRM_MODAL);
     setTimeout(() => okBtn?.focus(), 0);
   });
+}
+
+/** Styled replacement for window.alert. OK-only acknowledgement; resolves
+ * when the user dismisses. Reuses the confirm DOM frame with Cancel hidden. */
+export async function openError(
+  title: string,
+  body: string,
+  okText = 'OK'
+): Promise<void> {
+  await openConfirm({ title, body, confirmText: okText, hideCancel: true });
 }
 
 /** Open exactly when a confirm is awaiting input. closeAllModals checks
