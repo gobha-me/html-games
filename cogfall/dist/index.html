@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Cogfall — A Steampunk 4X</title>
-  <script type="module" crossorigin src="./assets/index-DccsVIGu.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-_8A8tO9g.css">
+  <script type="module" crossorigin src="./assets/index-BqFsXvvl.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-C_n1Bqul.css">
 </head>
 <body>
 <body>
@@ -43,8 +43,9 @@
 <div id="event-log"></div>
 <div id="tooltip"></div>
 <div id="ai-thinking"><div class="spinner"></div><span id="ai-thinking-text">The factions stir...</span></div>
+<div id="ai-action-banner" title="Click to dismiss"><div class="ai-action-heading" id="ai-action-banner-heading"></div><div class="ai-action-list" id="ai-action-banner-list"></div><div class="ai-action-hint">click or wait</div></div>
 <canvas id="minimap" width="160" height="120" title="Click to recenter the camera."></canvas>
-<div class="help-hint"><kbd>L-Click</kbd> select/move · <kbd>R-Click drag</kbd> pan · <kbd>Wheel</kbd> zoom · <kbd>Space</kbd> end turn · <kbd>N</kbd> next unit · <kbd>F</kbd> fortify</div>
+<div class="help-hint"><kbd>L-Click</kbd> select/move · <kbd>R-Click drag</kbd> pan · <kbd>Wheel</kbd> zoom · <kbd>Space</kbd> end turn · <kbd>N</kbd> next unit · <kbd>F</kbd> fortify · <kbd>?</kbd> codex</div>
 <div id="setup-modal" class="modal show">
 <div class="modal-content">
 <h2>The Cogfall — A Steampunk 4X</h2>
@@ -107,6 +108,13 @@
 <h2 id="confirm-title" style="margin-bottom:8px">Confirm</h2>
 <p id="confirm-body" style="color:var(--parchment-d);margin:6px 0 18px"></p>
 <div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="confirm-cancel" type="button">Cancel</button><button class="btn primary" id="confirm-ok" type="button">OK</button></div>
+</div></div>
+<div id="hotkey-modal" class="modal">
+<div class="modal-content" style="width:560px">
+<h2>Stewards' Codex</h2>
+<p style="color:var(--parchment-d);margin-bottom:14px;font-style:italic">Bind one to memory, then bind another. The Engine respects discipline.</p>
+<div id="hotkey-content"></div>
+<div style="text-align:right;margin-top:16px"><button class="btn" onclick="closeModal('hotkey-modal')">Close</button></div>
 </div></div>
 <div id="replay-modal" class="modal">
 <div class="modal-content" style="width:680px">
