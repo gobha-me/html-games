@@ -32,7 +32,12 @@ const SCORE_PER_POP = 4;
 const SCORE_PER_UNIT = 3;
 const SCORE_PER_TECH = 8;
 const SCORE_GOLD_WEIGHT = 0.05;
-const SCORE_AETHER_WEIGHT = 0.5;
+// Phase 2n-3: dropped from 0.5 → 0.1. Aether output per turn lands in the
+// same order of magnitude as gold output for an aether-rich faction (3-8
+// vs 5-15), so a 10× score multiplier was overpaying. 2× preserves the
+// "aether is scarcer" thumb on the scale without pinning the leaderboard
+// to a single resource. Speculative — revisit after a playthrough.
+const SCORE_AETHER_WEIGHT = 0.1;
 
 // --- Render hook -----------------------------------------------------------
 
