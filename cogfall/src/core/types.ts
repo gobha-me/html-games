@@ -198,6 +198,13 @@ export interface GameState {
   aiMemory: Partial<Record<number, AIMemory>>;
   /** Seed used to initialise the game RNG. Stamped on each save for replay. */
   seed: number;
+  /** Phase 2L — noise seed used by mapgen to build the elevation field.
+   * Derived from the game RNG inside generateMap (rng() * 1000), persisted
+   * here so the debug overlay can recompute elevation post-mapgen / post-
+   * load without re-running mapgen. Optional for back-compat: pre-2L saves
+   * load with mapSeed undefined, and the elevation overlay degrades to a
+   * "no mapSeed" label for those. */
+  mapSeed?: number;
 }
 
 // Helper for exhaustive switch checks.

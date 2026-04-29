@@ -104,6 +104,11 @@ export interface SerializedGameState {
   /** v4+ (Phase 2i): hash + name of the mod active at save time, if any. */
   modHash?: string;
   modName?: string;
+  /** v4+ (Phase 2L): noise seed used by mapgen, persisted so the debug
+   * overlay can recompute elevation after load. Additive optional field —
+   * pre-2L v4 saves load with mapSeed undefined and the overlay degrades
+   * gracefully. SAVE_VERSION stays at 4. */
+  mapSeed?: number;
 }
 
 export interface SaveData {
@@ -149,6 +154,7 @@ export function serializeGameState(): SaveData {
     aiMemory: { ...G.aiMemory },
     seed: G.seed,
     rngState: getGameRngState(),
+    mapSeed: G.mapSeed,
     culturalHegemonyThreshold: G.culturalHegemonyThreshold,
     culturalHegemonyRequired: G.culturalHegemonyRequired,
     culturalHegemonyCounter: { ...G.culturalHegemonyCounter },
@@ -279,6 +285,7 @@ export function applySerializedStateToG(s: SerializedGameState): void {
   G.nextCityId = s.nextCityId;
   G.gameOver = s.gameOver;
   G.aiMemory = { ...s.aiMemory };
+  G.mapSeed = s.mapSeed;
 }
 
 export function loadGameState(data: SaveData): void {

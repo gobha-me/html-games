@@ -24,6 +24,7 @@ import type { GameMap, Tile, TerrainId } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { RESOURCES, type ResourceDef, getResource } from '../data/resources';
 import { MAP_SIZES, type MapSizeId } from '../data/factions';
+import { makeNoise } from './noise';
 
 const RUIN_FRACTION = 0.025;
 const AETHER_FRACTION = 0.018;
@@ -89,41 +90,13 @@ export function generateMap(
     }
   }
 
+  // Persist the noise seed on G so the Phase 2L debug overlay can
+  // re-derive the elevation field after the closure goes out of scope.
+  // Same value the noise closure has always used — extracted, not
+  // changed.
   const seed = rng() * 1000;
-
-  function hash2(x: number, y: number): number {
-    let h = x * 374761393 + y * 668265263;
-    h = (h ^ (h >> 13)) * 1274126177;
-    return ((h ^ (h >> 16)) >>> 0) / 4294967295;
-  }
-
-  function fakeNoise(x: number, y: number): number {
-    const ix = Math.floor(x);
-    const iy = Math.floor(y);
-    const fx = x - ix;
-    const fy = y - iy;
-    const a = hash2(ix, iy);
-    const b = hash2(ix + 1, iy);
-    const c = hash2(ix, iy + 1);
-    const d = hash2(ix + 1, iy + 1);
-    const u = fx * fx * (3 - 2 * fx);
-    const v = fy * fy * (3 - 2 * fy);
-    return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
-  }
-
-  function noise(x: number, y: number): number {
-    let n = 0;
-    let amp = 1;
-    let freq = 0.15;
-    let sum = 0;
-    for (let o = 0; o < 4; o++) {
-      n += amp * fakeNoise(x * freq + seed, y * freq + seed * 1.3);
-      sum += amp;
-      amp *= 0.5;
-      freq *= 2;
-    }
-    return n / sum;
-  }
+  G.mapSeed = seed;
+  const noise = makeNoise(seed);
 
   // Compute elevation + moisture per tile (deterministic, no rng draws).
   const fields = new Map<string, { elevation: number; moisture: number }>();

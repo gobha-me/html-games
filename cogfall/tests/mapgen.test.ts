@@ -349,4 +349,21 @@ describe('mapgen', () => {
       }
     });
   });
+
+  describe('mapSeed persistence (Phase 2L)', () => {
+    it('stamps G.mapSeed during generateMap', () => {
+      G.mapSeed = undefined;
+      generateMap('small', createSeededRng(123));
+      expect(typeof G.mapSeed).toBe('number');
+      expect(Number.isFinite(G.mapSeed!)).toBe(true);
+    });
+
+    it('produces the same mapSeed for the same RNG seed', () => {
+      generateMap('small', createSeededRng(99));
+      const a = G.mapSeed;
+      generateMap('small', createSeededRng(99));
+      const b = G.mapSeed;
+      expect(a).toBe(b);
+    });
+  });
 });
