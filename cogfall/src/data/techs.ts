@@ -47,7 +47,7 @@ export const TECHS = {
   },
   espionage: {
     name: 'Espionage',
-    cost: 120,
+    cost: 110,
     prereqs: ['rediscovery'],
     branch: 'science',
     unlocks: ['SABOTEUR'],
