@@ -16,6 +16,7 @@ import { closeAllModals, openModal } from '../ui/modals';
 import { renderTechTree } from '../ui/techModal';
 import { renderDiploScreen } from '../ui/diploModal';
 import { renderSaveModal } from '../ui/saveModal';
+import { openHotkeyLegend } from '../ui/hotkeyLegend';
 import { clearHoveredHex, handleHover } from '../ui/tooltip';
 import { updateUI } from '../ui/topbar';
 import { cycleMode, getMode, isOverlayEnabled, setMode } from '../systems/debugOverlay';
@@ -209,6 +210,11 @@ window.addEventListener('keydown', (e) => {
     if (!isOverlayEnabled()) return;
     setMode(cycleMode(getMode()));
     render();
+    e.preventDefault();
+  }
+  // Phase 2n-2 — `?` opens the Stewards' Codex (hotkey legend).
+  if (e.key === '?') {
+    openHotkeyLegend();
     e.preventDefault();
   }
 });

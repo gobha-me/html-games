@@ -672,3 +672,43 @@ body {
   font-family: monospace;
   font-size: 10px;
 }
+/* Phase 2n-2 — Stewards' Codex (hotkey legend) modal table */
+.hotkey-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.hotkey-table tr + tr td {
+  border-top: 1px solid var(--brass-d);
+}
+.hotkey-table td {
+  padding: 8px 6px;
+  vertical-align: top;
+}
+.hotkey-table td.keys {
+  white-space: nowrap;
+  width: 1%;
+}
+.hotkey-table td.label {
+  color: var(--brass);
+  font-weight: bold;
+  white-space: nowrap;
+}
+.hotkey-table td.desc {
+  color: var(--parchment-d);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.hotkey-table kbd {
+  background: var(--bg-3);
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--brass-d);
+  color: var(--brass);
+  font-family: monospace;
+  font-size: 12px;
+}
+.hotkey-table .sep {
+  color: var(--parchment-d);
+  margin: 0 2px;
+}

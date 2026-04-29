@@ -104,6 +104,10 @@ export const DOM_IDS = {
   CONFIRM_OK: 'confirm-ok',
   CONFIRM_CANCEL: 'confirm-cancel',
 
+  // Phase 2n-2: Stewards' Codex (hotkey legend)
+  HOTKEY_MODAL: 'hotkey-modal',
+  HOTKEY_CONTENT: 'hotkey-content',
+
   // Phase 2k: replay viewer
   REPLAY_ENABLED: 'replay-enabled',
   REPLAY_DOWNLOAD_BTN: 'replay-download',
