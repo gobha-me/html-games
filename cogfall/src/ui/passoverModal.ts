@@ -17,6 +17,7 @@
 import { DOM_IDS } from '../core/dom';
 import { G } from '../core/state';
 import { closeModal, openModal } from './modals';
+import { clearAllUnitTweens } from '../render/unitTweens';
 import type { Faction } from '../core/types';
 
 let activeResolver: (() => void) | null = null;
@@ -30,6 +31,9 @@ export function openPassover(next: Faction): Promise<void> {
     // Don't bleed the previous player's last hover into player B's view
     // when the curtain comes down.
     G.hoveredHex = null;
+    // Drop any AI tweens still in flight so player B doesn't see a
+    // catchup-animation when the curtain comes down.
+    clearAllUnitTweens();
     const titleEl = document.getElementById(DOM_IDS.PASSOVER_TITLE);
     const flavorEl = document.getElementById(DOM_IDS.PASSOVER_FLAVOR);
     const glyphEl = document.getElementById(DOM_IDS.PASSOVER_GLYPH);

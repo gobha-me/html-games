@@ -31,6 +31,7 @@ import {
 import { computeCulturalPressureMap } from '../systems/culture';
 import { getMilitaryScoresForUnit } from '../ai/unitAI';
 import { renderSVGOverlay } from './overlay';
+import { getUnitTweenOffset } from './unitTweens';
 
 // Minimap hook (same pattern as old canvas.ts). main.ts wires it so every
 // render() chains a minimap repaint without canvas.ts importing ui/.
@@ -579,7 +580,10 @@ function drawUnit(parent: Container, u: Unit): void {
   const tpl = UNIT_TYPES[u.typeId];
   const naval = isNaval(u.typeId);
   const spy = isSpy(u.typeId);
-  const { x, y } = hexToPixel(u.q, u.r);
+  const base = hexToPixel(u.q, u.r);
+  const tween = getUnitTweenOffset(u);
+  const x = base.x + (tween?.dx ?? 0);
+  const y = base.y + (tween?.dy ?? 0);
   const cityHere = getCityAt(u.q, u.r);
   const offY = cityHere ? HEX_SIZE * 0.35 : 0;
 

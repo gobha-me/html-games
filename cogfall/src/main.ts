@@ -38,6 +38,13 @@ import { updateUI } from './ui/topbar';
 // render/pixi can't import minimap.ts directly without an awkward layering
 // flip, so it runs whatever hook main.ts hands it.
 setMinimapHook(renderMinimap);
+
+// Wire the unit-tween RAF loop's render hook. unitTweens.ts can't import
+// render/pixi directly because that pulls pixi.ts (and its #map-canvas
+// requirement) into the test environment via combat → movement →
+// unitTweens. Same pattern as the minimap hook above.
+import { setUnitTweenRenderHook } from './render/unitTweens';
+setUnitTweenRenderHook(render);
 import {
   populateSeedInput,
   refreshContinueButton,
