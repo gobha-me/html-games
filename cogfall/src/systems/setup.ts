@@ -28,7 +28,7 @@ import { centerOnHex, resizeCanvas } from '../render/pixi';
 import { closeModal } from '../ui/modals';
 import { updateUI } from '../ui/topbar';
 import { render } from '../render/pixi';
-import { getSelectedFactionIdx, getSetupSeed } from '../ui/setupModal';
+import { getHumanFactionIndices, getSetupControlMode, getSetupSeed } from '../ui/setupModal';
 
 const STARTING_GOLD = 50;
 const COIN_BONUS_GOLD = 50;
@@ -120,19 +120,33 @@ export function setupGame(): void {
 
   G.map = generateMap(mapSize, getGameRng(), { waterLevel, resourceDensity });
 
-  // Build factions: player + N AI.
-  const selFactionIdx = getSelectedFactionIdx();
-  const playerFaction = FACTIONS[selFactionIdx];
-  const aiCandidates = FACTIONS.filter(
-    (_, i) => i !== selFactionIdx
-  ).slice() as unknown as FactionDef[];
-  shuffle(aiCandidates, getGameRng());
-  G.factions.push(createFaction(playerFaction as unknown as FactionDef, false, 0));
-  for (let i = 0; i < opponentCount; i++) {
-    G.factions.push(createFaction(aiCandidates[i], true, i + 1));
+  // Build factions. Phase 2m: hot-seat picks N humans from the FACTIONS
+  // pool; AI fills the remainder. Single-player path is byte-identical to
+  // pre-2m (1 human + opponentCount AIs from the shuffled pool).
+  const controlMode = getSetupControlMode();
+  const humanPoolIdxs = getHumanFactionIndices();
+  const aiPool = FACTIONS.filter((_, i) => !humanPoolIdxs.includes(i)).slice() as unknown as FactionDef[];
+  shuffle(aiPool, getGameRng());
+
+  // In hot-seat every remaining FACTION plays ("AI picks what's left").
+  // In single-player the user-set opponent count caps AI seats as today.
+  const aiCount = controlMode === 'hotseat' ? aiPool.length : opponentCount;
+
+  // Push humans in pool-index ascending order (deterministic; matches
+  // setupModal's "lowest-human-index becomes the first seat" rule), then
+  // AIs from the shuffled remaining pool.
+  humanPoolIdxs.forEach((poolIdx, gameIdx) => {
+    const def = FACTIONS[poolIdx] as unknown as FactionDef;
+    G.factions.push(createFaction(def, false, gameIdx));
+  });
+  for (let i = 0; i < aiCount; i++) {
+    G.factions.push(createFaction(aiPool[i], true, humanPoolIdxs.length + i));
   }
+  G.controlMode = controlMode;
+  G.humanFactionIdxs = humanPoolIdxs.map((_, gameIdx) => gameIdx as FactionIdx);
   G.playerFactionIdx = 0 as FactionIdx;
   G.currentFactionIdx = 0 as FactionIdx;
+  G.passoverActive = false;
 
   // Initial diplo: all unmet.
   for (const f of G.factions) {

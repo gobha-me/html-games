@@ -13,9 +13,31 @@ import { isReplayEnabled, setReplayEnabled } from '../systems/replay';
 import { isOverlayEnabled, setOverlayEnabled } from '../systems/debugOverlay';
 
 let setupSelectedFaction = 0;
+// Phase 2m — hot-seat state. When false, behavior is byte-identical to today
+// (single-pick, opponent-count slot fills AIs). When true, every FACTION in
+// the live pool plays and the user marks individual cards Human; the rest
+// auto-become AI ("AI picks what's left"). humanSeats stores FACTIONS-pool
+// indices, NOT runtime faction.idx values — those are assigned in setup.ts
+// based on push order (humans first, AIs after).
+let setupHotSeatEnabled = false;
+let humanSeats = new Set<number>([0]);
 
 export function getSelectedFactionIdx(): number {
   return setupSelectedFaction;
+}
+
+/** Phase 2m — sorted FACTIONS-pool indices marked human in the setup modal.
+ * Single-player mode returns [setupSelectedFaction] for a uniform setup.ts
+ * code path. Always non-empty (UI prevents zero-human selection). */
+export function getHumanFactionIndices(): number[] {
+  if (!setupHotSeatEnabled) return [setupSelectedFaction];
+  return [...humanSeats].sort((a, b) => a - b);
+}
+
+/** Phase 2m — derived control mode. Coerces back to 'single' when hot-seat
+ * is enabled but only one human is marked (the toggle is a no-op below 2). */
+export function getSetupControlMode(): 'single' | 'hotseat' {
+  return setupHotSeatEnabled && humanSeats.size >= 2 ? 'hotseat' : 'single';
 }
 
 /**
@@ -49,14 +71,30 @@ function randomizeSetupSeed(): void {
 export function renderFactionList(): void {
   const el = document.getElementById(DOM_IDS.FACTION_LIST);
   if (!el) return;
-  el.innerHTML = FACTIONS.map(
-    (f, i) =>
-      `<div class="faction-card ${i === setupSelectedFaction ? 'selected' : ''}" onclick="setupSelectFaction(${i})"><div class="swatch" style="background:${f.color}33;border-color:${f.color}">${f.glyph}</div><div class="info"><div class="title" style="color:${f.color}">${f.name}</div><div class="desc">${f.desc}</div><div class="traits">${f.traits}</div></div></div>`
-  ).join('');
+  el.innerHTML = FACTIONS.map((f, i) => {
+    const isHuman = setupHotSeatEnabled ? humanSeats.has(i) : i === setupSelectedFaction;
+    const role = setupHotSeatEnabled
+      ? `<div class="role" style="font-size:11px;color:${isHuman ? f.color : 'var(--parchment-d)'};font-style:italic;margin-top:4px">${isHuman ? '👤 Human' : '🤖 AI'}</div>`
+      : '';
+    return `<div class="faction-card ${isHuman ? 'selected' : ''}" onclick="setupSelectFaction(${i})"><div class="swatch" style="background:${f.color}33;border-color:${f.color}">${f.glyph}</div><div class="info"><div class="title" style="color:${f.color}">${f.name}</div><div class="desc">${f.desc}</div><div class="traits">${f.traits}</div>${role}</div></div>`;
+  }).join('');
 }
 
 function setupSelectFaction(i: number): void {
-  setupSelectedFaction = i;
+  if (setupHotSeatEnabled) {
+    if (humanSeats.has(i)) {
+      humanSeats.delete(i);
+      // Never empty — flipping the only human back to AI re-adds it.
+      if (humanSeats.size === 0) humanSeats.add(i);
+    } else {
+      humanSeats.add(i);
+    }
+    // Keep setupSelectedFaction pointed at the lowest-index human so a
+    // hot-seat → single toggle flip lands on a sensible card.
+    setupSelectedFaction = Math.min(...humanSeats);
+  } else {
+    setupSelectedFaction = i;
+  }
   renderFactionList();
 }
 
@@ -125,6 +163,31 @@ if (debugOverlayCheckbox) {
   debugOverlayCheckbox.checked = isOverlayEnabled();
   debugOverlayCheckbox.addEventListener('change', () => {
     setOverlayEnabled(debugOverlayCheckbox.checked);
+  });
+}
+
+// Phase 2m: hot-seat toggle. Default-OFF (single-player byte-identical to
+// pre-2m). Flipping ON seeds humanSeats with the currently-selected card so
+// the user starts from a sensible "1 human" state and adds seats by clicking
+// other cards. Flipping OFF projects back to single-pick on the lowest
+// human-seat index. Opponent-count input is hidden in hot-seat — every
+// FACTION in the live pool plays, AIs fill what humans don't claim.
+const hotSeatCheckbox = document.getElementById(
+  DOM_IDS.HOT_SEAT_ENABLED,
+) as HTMLInputElement | null;
+const opponentCountSection = document.getElementById(DOM_IDS.OPPONENT_COUNT_SECTION);
+if (hotSeatCheckbox) {
+  hotSeatCheckbox.addEventListener('change', () => {
+    setupHotSeatEnabled = hotSeatCheckbox.checked;
+    if (setupHotSeatEnabled) {
+      humanSeats = new Set([setupSelectedFaction]);
+    } else {
+      setupSelectedFaction = humanSeats.size > 0 ? Math.min(...humanSeats) : 0;
+    }
+    if (opponentCountSection) {
+      opponentCountSection.style.display = setupHotSeatEnabled ? 'none' : '';
+    }
+    renderFactionList();
   });
 }
 

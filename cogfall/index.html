@@ -51,7 +51,7 @@
 <div class="setup-section"><label>Choose your faction</label><div id="faction-list"></div></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
 <div class="setup-section"><label>Map size</label><select id="map-size"><option value="small">Small (cozy duel)</option><option value="medium" selected>Medium (standard)</option><option value="large">Large (epic)</option></select></div>
-<div class="setup-section"><label>Opponents (1-4)</label><input type="number" id="opponent-count" min="1" max="4" value="3"></div>
+<div class="setup-section" id="opponent-count-section"><label>Opponents (1-4)</label><input type="number" id="opponent-count" min="1" max="4" value="3"></div>
 <div class="setup-section"><label>Difficulty</label><select id="difficulty"><option value="easy">Apprentice (AI handicapped)</option><option value="medium" selected>Journeyman (fair)</option><option value="hard">Master (AI bonuses)</option></select></div>
 <div class="setup-section"><label>Hegemony threshold</label><select id="game-speed"><option value="quick">3000 gold (quick)</option><option value="standard" selected>5000 gold (standard)</option><option value="long">8000 gold (epic)</option></select></div>
 <div class="setup-section"><label>Water</label><select id="water-level"><option value="none">None (all land)</option><option value="lakes">Lakes (scattered)</option><option value="coasts" selected>Coasts (standard)</option><option value="continents">Continents (heavy seas)</option></select></div>
@@ -63,6 +63,7 @@
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="telemetry-enabled" checked> <span>📊 Record telemetry (download from Records)</span></label></div>
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="replay-enabled" checked> <span>🎬 Record replay (scrub past turns from Records)</span></label></div>
 <div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="debug-overlay-enabled"> <span>🔍 Debug overlay (~ key cycles modes)</span></label></div>
+<div class="setup-section" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="hot-seat-enabled"> <span>👥 Hot-seat (all factions play; mark each card Human or AI)</span></label></div>
 <div class="setup-section" style="margin-top:14px"><label>World seed</label><div style="display:flex;gap:8px;align-items:stretch"><input type="number" id="setup-seed" min="0" max="4294967295" step="1" style="flex:1" title="Same seed produces the same world. Type a number or click the die."><button class="btn small" id="seed-regen" type="button" title="Generate a new random seed">🎲</button></div></div>
 <div style="text-align:right;margin-top:16px;display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="continue-btn" style="display:none">Continue Last Game</button><button class="btn primary" id="start-game">Begin the Awakening</button></div>
 </div></div>

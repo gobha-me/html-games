@@ -88,6 +88,10 @@ export const DOM_IDS = {
   // Phase 2L: debug overlay
   DEBUG_OVERLAY_ENABLED: 'debug-overlay-enabled',
 
+  // Phase 2m: hot-seat multiplayer
+  HOT_SEAT_ENABLED: 'hot-seat-enabled',
+  OPPONENT_COUNT_SECTION: 'opponent-count-section',
+
   // Phase 2k: replay viewer
   REPLAY_ENABLED: 'replay-enabled',
   REPLAY_DOWNLOAD_BTN: 'replay-download',
