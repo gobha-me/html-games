@@ -57,6 +57,20 @@
 //     reset them to fresh defaults so a saved game doesn't carry
 //     stale cursor / toggle state across reloads or human handoffs.
 //     New UI flags follow this precedent without bumping SAVE_VERSION.
+//
+//  9. Production queue (Phase 2n-3) is FIFO over `City.buildQueue:
+//     BuildQueue[]`. processCity completes queue[0] and `.shift()`s it
+//     when `productionStored >= cost`; the early-return refund branches
+//     (naval no-water, garrison-blocked) leave the queue untouched so a
+//     deferred build retries next turn. Player edits (push, ↑/↓, ×) in
+//     ui/cityPanel.ts mutate the array in place, with cap at
+//     MAX_BUILD_QUEUE_LEN and dedupe on push. AI continues to use
+//     length-1 queues (aiPickBuild fires only when queue.length === 0)
+//     — byte-identical to pre-2n-3. City capture clears via `= []`,
+//     mirroring the building-sack semantic. Replay parity unchanged:
+//     no new RNG calls, queue is part of the serialized snapshot, and
+//     the v4→v5 save migration wraps legacy single-or-null values into
+//     arrays at load.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
