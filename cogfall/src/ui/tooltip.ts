@@ -6,6 +6,7 @@ import { G, getCityAt, getTile, getUnitAt } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
 import { UNIT_TYPES } from '../data/units';
+import { previewCombat } from '../systems/combat';
 
 const TOOLTIP_OFFSET = 18;
 const TOOLTIP_MAX_WIDTH = 280;
@@ -63,6 +64,24 @@ export function handleHover(e: MouseEvent): void {
     html += `<div class="stat">${fac.name}</div>`;
     html += `<div class="stat">HP: <strong>${unit.hp}/${unit.maxHp}</strong> · Atk: <strong>${tpl.atk}</strong> · Def: <strong>${tpl.def}</strong></div>`;
     html += `<div class="stat">MP: <strong>${unit.mp}/${unit.maxMp}</strong></div>`;
+  }
+
+  const sel = G.selected;
+  if (sel?.type === 'unit' && sel.ref.factionIdx === G.playerFactionIdx) {
+    const targeted = G.attackTargets.find((t) => t.q === q && t.r === r);
+    if (targeted) {
+      const preview = previewCombat(sel.ref, targeted);
+      if (preview) {
+        html += `<hr style="border-color:var(--brass-d);margin:6px 0">`;
+        html += `<div class="stat" style="color:var(--brass-l)"><strong>If you attack:</strong></div>`;
+        if (preview.kind === 'unit') {
+          html += `<div class="stat">You deal: <strong>${preview.atkMin}–${preview.atkMax}</strong></div>`;
+          html += `<div class="stat">You take: <strong>${preview.defMin}–${preview.defMax}</strong></div>`;
+        } else {
+          html += `<div class="stat">City damage: <strong>${preview.dmgMin}</strong></div>`;
+        }
+      }
+    }
   }
   tip.innerHTML = html;
   tip.style.display = 'block';

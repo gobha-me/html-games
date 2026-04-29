@@ -36,6 +36,69 @@ const CAPTURE_LOOT_PER_POP = 30;
 const CAPTURE_HP_FLOOR = 20;
 const SACK_FRACTION = 1 / 3;
 
+// Damage preview for the UI tooltip. Mirrors the deterministic prefix of
+// combat() — same faction/terrain/fortify/citadel/AI-bonus stack — but
+// substitutes rng()=0 (min) and rng()→1 (max) into the damage formulas
+// instead of rolling. Pure read; never calls rng() so replay parity is
+// untouched even when the tooltip is up. Returns null when there's no
+// valid target on the tile.
+export type CombatPreview =
+  | { kind: 'unit'; atkMin: number; atkMax: number; defMin: number; defMax: number }
+  | { kind: 'city'; dmgMin: number; dmgMax: number };
+
+export function previewCombat(attacker: Unit, target: AttackTarget): CombatPreview | null {
+  const defender = getUnitAt(target.q, target.r);
+  const defCity = getCityAt(target.q, target.r);
+  const aTpl = UNIT_TYPES[attacker.typeId];
+
+  if (defender) {
+    const dTpl = UNIT_TYPES[defender.typeId];
+    const defTile = getTile(defender.q, defender.r);
+    const terrainDef = defTile ? TERRAIN_TYPES[defTile.terrain].defBonus : 0;
+    const fortifyBonus = defender.fortified ? FORTIFY_DEF_BONUS : 0;
+
+    let cityDef = 0;
+    let factionDefBonus = 0;
+    const cityHere = getCityAt(defender.q, defender.r);
+    if (cityHere) {
+      cityDef = CITY_DEF_BONUS_BASE;
+      if (cityHere.buildings.has('walls')) cityDef += WALLS_DEF_BONUS;
+      if (cityHere.buildings.has('citadel')) cityDef += CITADEL_DEF_BONUS;
+      if (G.factions[defender.factionIdx].id === 'verdant') {
+        factionDefBonus += VERDANT_CITY_DEF_BONUS;
+      }
+    }
+    const aFac = G.factions[attacker.factionIdx];
+    const ironBonus = aFac.id === 'iron' ? IRON_ATK_BONUS : 0;
+    const aiBonus = getDifficultyAtkBonus(attacker.factionIdx);
+
+    const atkPow = aTpl.atk * (1 + ironBonus + aiBonus) * (attacker.hp / attacker.maxHp);
+    const defPow =
+      dTpl.def *
+      (1 + terrainDef + fortifyBonus + cityDef + factionDefBonus) *
+      (defender.hp / defender.maxHp);
+    const ratio = atkPow / Math.max(0.5, defPow);
+    const atkMin = Math.max(2, Math.round(8 * ratio));
+    const atkMax = Math.max(2, Math.round(8 * ratio + 4));
+    const defMin = Math.max(1, Math.round(8 / ratio));
+    const defMax = Math.max(1, Math.round(8 / ratio + 3));
+    return { kind: 'unit', atkMin, atkMax, defMin, defMax };
+  }
+
+  if (defCity) {
+    let cityDef = CITY_BASE_DEF;
+    if (defCity.buildings.has('walls')) cityDef += CITY_WALLS_BONUS;
+    if (defCity.buildings.has('citadel')) cityDef += CITY_CITADEL_BONUS;
+    if (G.factions[defCity.factionIdx].id === 'verdant') cityDef += VERDANT_CITY_FLAT_BONUS;
+    const aiBonus = getDifficultyAtkBonus(attacker.factionIdx);
+    const atkPow = aTpl.atk * (attacker.hp / attacker.maxHp) * (1 + aiBonus);
+    const dmg = Math.max(2, Math.round((atkPow * 60) / cityDef));
+    return { kind: 'city', dmgMin: dmg, dmgMax: dmg };
+  }
+
+  return null;
+}
+
 export function combat(attacker: Unit, defenderQR: AttackTarget, rng: Rng = defaultRng): void {
   const defender = getUnitAt(defenderQR.q, defenderQR.r);
   const defCity = getCityAt(defenderQR.q, defenderQR.r);
