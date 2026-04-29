@@ -148,9 +148,13 @@ export function cityYields(city: City): CityYields {
 
   if (fac.idx !== G.playerFactionIdx) {
     if (G.difficulty === 'hard') {
-      gold = Math.round(gold * 1.1);
-      prod = Math.round(prod * 1.1);
-      sci = Math.round(sci * 1.15);
+      // Phase 2n-3: per-turn compound trimmed (10/10/15 → 5/5/10).
+      // The kickoff (+100g/+20sci) and combat +15% stay — they're a
+      // one-shot and an iconic feel-knob respectively. The per-turn
+      // multipliers were the actual snowball over 60+ turns.
+      gold = Math.round(gold * 1.05);
+      prod = Math.round(prod * 1.05);
+      sci = Math.round(sci * 1.1);
     } else if (G.difficulty === 'easy') {
       gold = Math.round(gold * 0.9);
       prod = Math.round(prod * 0.9);
