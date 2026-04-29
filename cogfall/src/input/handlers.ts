@@ -70,6 +70,9 @@ canvas.addEventListener('wheel', (e) => {
 
 canvas.addEventListener('click', (e) => {
   if (G.gameOver) return;
+  // Phase 2m: curtain modal blocks all canvas input until the next player
+  // clicks Continue. Pre-curtain checks (gameOver) take precedence.
+  if (G.passoverActive) return;
   if (G.factions[G.currentFactionIdx].isAI) return;
   const wx = (e.clientX - G.cameraX) / G.zoom;
   const wy = (e.clientY - G.cameraY) / G.zoom;
@@ -166,6 +169,10 @@ window.addEventListener('keydown', (e) => {
   const target = e.target as HTMLElement | null;
   if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT')) return;
   if (G.gameOver) return;
+  // Phase 2m: curtain modal blocks game hotkeys (Space/Enter/N/F/Esc/`).
+  // The Continue button is browser-focused so Enter/Space activates it
+  // natively without going through this listener.
+  if (G.passoverActive) return;
   if (e.key === ' ' || e.key === 'Enter') {
     if (!G.factions[G.currentFactionIdx].isAI) endTurn();
     e.preventDefault();

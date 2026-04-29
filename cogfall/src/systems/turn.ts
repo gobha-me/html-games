@@ -19,6 +19,7 @@ import { recordTelemetry } from './telemetry';
 import { recordReplaySnapshot } from './replay';
 import { DOM_IDS } from '../core/dom';
 import { saveAuto } from '../core/save';
+import { openPassover } from '../ui/passoverModal';
 
 const AI_THINK_BASE_MS = 450;
 const AI_THINK_JITTER_MS = 300;
@@ -136,8 +137,32 @@ export function endTurn(): void {
   // state to roll back to.
   if (!next.isAI) saveAuto();
 
-  if (next.isAI) runAITurn(next);
-  else requestRedraw();
+  dispatchHandoff(next);
+}
+
+// Phase 2m — handoff dispatch seam. Three paths:
+//   - next is AI:                                             runAITurn
+//   - next is human, single-player or same-human wraparound:  requestRedraw
+//   - next is human, hot-seat AND a different human:          curtain → advance
+// PBEM and Plinth modes plug in here as additional branches; the rest of
+// the engine doesn't care which mode is active.
+function dispatchHandoff(next: Faction): void {
+  if (next.isAI) {
+    runAITurn(next);
+    return;
+  }
+  if (G.controlMode === 'hotseat' && next.idx !== G.playerFactionIdx) {
+    void openPassover(next).then(() => {
+      G.playerFactionIdx = next.idx;
+      // Per-faction visibility was recomputed already; rebuild the player
+      // edge-distance fog cache for the *new* viewer so fog renders for
+      // their POV as soon as the curtain drops.
+      recomputeVisibility();
+      requestRedraw();
+    });
+    return;
+  }
+  requestRedraw();
 }
 
 export function runAITurn(faction: Faction): void {

@@ -91,6 +91,11 @@ export const DOM_IDS = {
   // Phase 2m: hot-seat multiplayer
   HOT_SEAT_ENABLED: 'hot-seat-enabled',
   OPPONENT_COUNT_SECTION: 'opponent-count-section',
+  PASSOVER_MODAL: 'passover-modal',
+  PASSOVER_GLYPH: 'passover-glyph',
+  PASSOVER_TITLE: 'passover-title',
+  PASSOVER_FLAVOR: 'passover-flavor',
+  PASSOVER_CONTINUE: 'passover-continue',
 
   // Phase 2k: replay viewer
   REPLAY_ENABLED: 'replay-enabled',

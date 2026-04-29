@@ -12,7 +12,12 @@ export function closeModal(id: string): void {
 
 export function closeAllModals(): void {
   document.querySelectorAll('.modal.show').forEach((m) => {
-    if (m.id !== 'setup-modal' && m.id !== 'game-over-modal') m.classList.remove('show');
+    // Phase 2m: passover-modal is also non-dismissable — ESC during a
+    // hot-seat handoff would leak the next player's POV before they sit
+    // down. Continue is the only exit.
+    if (m.id !== 'setup-modal' && m.id !== 'game-over-modal' && m.id !== 'passover-modal') {
+      m.classList.remove('show');
+    }
   });
 }
 
