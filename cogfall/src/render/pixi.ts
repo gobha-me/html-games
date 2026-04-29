@@ -15,14 +15,21 @@
 // or pooled Text — out of scope for the migration itself.
 
 import { Application, BlurFilter, Container, Graphics, Text } from 'pixi.js';
-import { HEX_DIRS, HEX_SIZE, hexToPixel } from '../core/hex';
+import { HEX_DIRS, HEX_SIZE, hexKey, hexToPixel } from '../core/hex';
 import { DOM_IDS } from '../core/dom';
 import { G, getCityAt, getTile } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
 import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
 import type { City, Tile, Unit, Visibility } from '../core/types';
-import { fogLerp } from '../systems/visibility';
+import { fogLerp, getFogEdgeDistance, FOG_MAX_DISTANCE } from '../systems/visibility';
+import {
+  getElevationField,
+  getMode,
+  getVisibilityFactionsFor,
+} from '../systems/debugOverlay';
+import { computeCulturalPressureMap } from '../systems/culture';
+import { getMilitaryScoresForUnit } from '../ai/unitAI';
 import { renderSVGOverlay } from './overlay';
 
 // Minimap hook (same pattern as old canvas.ts). main.ts wires it so every
@@ -191,6 +198,7 @@ export function render(): void {
 
   drawOwnership(worldLayer);
   drawCulturalClaim(worldLayer);
+  drawDebugOverlay(worldLayer);
 
   for (const c of G.cities) {
     const t = getTile(c.q, c.r);
@@ -340,6 +348,182 @@ function drawCulturalClaim(parent: Container): void {
         g.stroke({ color: fac.color, width: 1.5 });
       }
     }
+  }
+}
+
+// --- Debug overlay (Phase 2L) ----------------------------------------------
+//
+// Cycled by the backtick hotkey when the master flag is on. Each mode
+// paints a single Graphics fill pass (alpha-blended over terrain) plus
+// per-tile Text labels where useful. eventMode='none' so the overlay
+// can never swallow click/hover events from the gameplay layers above
+// it. Pre-2L saves with no mapSeed get a "no mapSeed" fallback in the
+// elevation mode; everything else degrades to empty results gracefully.
+
+function lerpColor(t: number, a: [number, number, number], b: [number, number, number]): string {
+  const r = Math.round(a[0] + (b[0] - a[0]) * t);
+  const g = Math.round(a[1] + (b[1] - a[1]) * t);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * t);
+  return `rgb(${r},${g},${bl})`;
+}
+
+function elevationToColor(v: number): string {
+  // Three-stop ramp blue → green → red, clamped to [0, 1].
+  const x = Math.max(0, Math.min(1, v));
+  if (x < 0.5) return lerpColor(x * 2, [40, 80, 200], [60, 200, 80]);
+  return lerpColor((x - 0.5) * 2, [60, 200, 80], [220, 60, 40]);
+}
+
+function drawDebugOverlay(parent: Container): void {
+  const mode = getMode();
+  if (mode === 'off' || !G.map) return;
+
+  const overlay = new Container();
+  overlay.eventMode = 'none';
+  parent.addChild(overlay);
+
+  const g = new Graphics();
+  overlay.addChild(g);
+
+  if (mode === 'elevation') {
+    const field = getElevationField();
+    if (!field) {
+      // Pre-2L save: stamp a single label at the camera-relative origin.
+      // Camera position is applied via worldLayer transform; (0, 0) is
+      // the noise-space origin which lives on the visible map for any
+      // sane size, so this is fine without per-call recomputation.
+      const { x, y } = hexToPixel(0, 0);
+      overlay.addChild(
+        makeText('no mapSeed (pre-2L save)', 14, 'Georgia', '#ff6060', 0.95, x, y, true),
+      );
+      return;
+    }
+    for (const tile of G.map.tiles.values()) {
+      const v = field.get(hexKey(tile.q, tile.r));
+      if (v == null) continue;
+      const { x, y } = hexToPixel(tile.q, tile.r);
+      g.poly(hexPolygon(x, y)).fill({ color: elevationToColor(v), alpha: 0.45 });
+    }
+    return;
+  }
+
+  if (mode === 'ai') {
+    const sel = G.selected;
+    if (!sel || sel.type !== 'unit' || sel.ref.factionIdx !== G.playerFactionIdx) {
+      const { x, y } = hexToPixel(0, 0);
+      overlay.addChild(
+        makeText('AI mode: select a friendly unit', 14, 'Georgia', '#f4e4bc', 0.95, x, y, true),
+      );
+      return;
+    }
+    const unit = sel.ref;
+    const faction = G.factions[unit.factionIdx];
+    const scores = getMilitaryScoresForUnit(faction, unit);
+    if (scores.size === 0) {
+      const { x, y } = hexToPixel(unit.q, unit.r);
+      overlay.addChild(
+        makeText('no attack targets', 12, 'Georgia', '#f4e4bc', 0.9, x, y - HEX_SIZE * 1.1),
+      );
+      return;
+    }
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const v of scores.values()) {
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    const span = hi - lo || 1;
+    for (const [key, score] of scores) {
+      const [qStr, rStr] = key.split(',');
+      const q = Number(qStr);
+      const r = Number(rStr);
+      const { x, y } = hexToPixel(q, r);
+      const norm = (score - lo) / span;
+      const alpha = 0.25 + norm * 0.45;
+      g.poly(hexPolygon(x, y)).fill({ color: '#ffd060', alpha });
+      overlay.addChild(
+        makeText(String(Math.round(score)), 11, 'monospace', '#1a1108', 1, x, y, true),
+      );
+    }
+    return;
+  }
+
+  if (mode === 'visibility') {
+    const playerIdx = G.playerFactionIdx;
+    for (const tile of G.map.tiles.values()) {
+      const { x, y } = hexToPixel(tile.q, tile.r);
+      const vis = tile.visibility[playerIdx];
+      const factions = getVisibilityFactionsFor(tile);
+      // Player perspective tint.
+      let color = '#404040';
+      if (vis === 'visible') color = '#60ff60';
+      else if (vis === 'seen') color = '#a0a0ff';
+      const alpha = vis === 'visible' ? 0.18 : vis === 'seen' ? 0.14 : 0.08;
+      g.poly(hexPolygon(x, y)).fill({ color, alpha });
+      // Edge-distance number for visible/seen player tiles.
+      if (vis === 'visible' || vis === 'seen') {
+        const d = getFogEdgeDistance(tile);
+        if (d <= FOG_MAX_DISTANCE) {
+          overlay.addChild(
+            makeText(String(d), 10, 'monospace', '#101010', 0.85, x, y - HEX_SIZE * 0.35, true),
+          );
+        }
+      }
+      // List faction indices that can see this tile.
+      if (factions.length > 0) {
+        overlay.addChild(
+          makeText(
+            factions.map((f) => `F${f}`).join(' '),
+            9,
+            'monospace',
+            '#101010',
+            0.9,
+            x,
+            y + HEX_SIZE * 0.45,
+            true,
+          ),
+        );
+      }
+    }
+    return;
+  }
+
+  if (mode === 'culture') {
+    const pressure = computeCulturalPressureMap();
+    let hi = 0;
+    for (const arr of pressure.values()) {
+      for (const v of arr) if (v > hi) hi = v;
+    }
+    if (hi === 0) {
+      const { x, y } = hexToPixel(0, 0);
+      overlay.addChild(
+        makeText('culture mode: no pressure yet', 14, 'Georgia', '#f4e4bc', 0.95, x, y, true),
+      );
+      return;
+    }
+    for (const tile of G.map.tiles.values()) {
+      const arr = pressure.get(hexKey(tile.q, tile.r));
+      if (!arr) continue;
+      let bestIdx = -1;
+      let bestVal = 0;
+      let total = 0;
+      for (let i = 0; i < arr.length; i++) {
+        total += arr[i];
+        if (arr[i] > bestVal) {
+          bestVal = arr[i];
+          bestIdx = i;
+        }
+      }
+      if (bestIdx < 0) continue;
+      const fac = G.factions[bestIdx];
+      const { x, y } = hexToPixel(tile.q, tile.r);
+      const intensity = Math.min(1, bestVal / hi);
+      g.poly(hexPolygon(x, y)).fill({ color: fac.color, alpha: 0.15 + intensity * 0.4 });
+      overlay.addChild(
+        makeText(String(Math.round(total)), 10, 'monospace', '#101010', 0.85, x, y, true),
+      );
+    }
+    return;
   }
 }
 
