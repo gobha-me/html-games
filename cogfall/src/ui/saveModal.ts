@@ -21,8 +21,7 @@ import {
 } from '../core/save';
 import { log } from '../core/log';
 import { closeModal } from './modals';
-import { updateUI } from './topbar';
-import { render } from '../render/pixi';
+import { resumeAfterLoad } from '../systems/turn';
 import { dumpTelemetry, getTelemetryLog } from '../systems/telemetry';
 import { dumpReplay, getReplayLog } from '../systems/replay';
 import { openReplayModal } from './replayModal';
@@ -126,8 +125,9 @@ function loadFromSlot(key: string): void {
   closeModal(DOM_IDS.SAVE_MODAL);
   closeModal(DOM_IDS.SETUP_MODAL);
   log(`Records read. The Awakening resumes at turn ${G.turn}.`, 'flavor');
-  updateUI();
-  render();
+  // Hot-seat: open curtain if the save was at a pending different-human
+  // handoff. Single-player path is unchanged (just redraws).
+  resumeAfterLoad();
 }
 
 function deleteFromSlot(key: string): void {

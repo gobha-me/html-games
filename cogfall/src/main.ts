@@ -28,7 +28,7 @@ import './ui/minimap';
 import './ui/replayModal';
 
 import { DOM_IDS } from './core/dom';
-import { setRequestRedraw } from './systems/turn';
+import { resumeAfterLoad, setRequestRedraw } from './systems/turn';
 import { initPixi, resizeCanvas, render, setMinimapHook } from './render/pixi';
 import { renderMinimap } from './ui/minimap';
 import { updateUI } from './ui/topbar';
@@ -77,8 +77,9 @@ if (continueBtn) {
     closeModal(DOM_IDS.SETUP_MODAL);
     resizeCanvas();
     log(`Records read. The Awakening resumes at turn ${data.turn}.`, 'flavor');
-    updateUI();
-    render();
+    // resumeAfterLoad opens the curtain when the autosave was taken at a
+    // pending hot-seat handoff (Phase 2m); otherwise it just redraws.
+    resumeAfterLoad();
   });
 }
 

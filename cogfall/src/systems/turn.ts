@@ -118,12 +118,18 @@ export function endTurn(): void {
   // the final turn is still captured for replay.
   if (G.currentFactionIdx === 0) recordReplaySnapshot();
 
-  const aliveOpps = G.factions.filter((f) => f.alive && f.idx !== G.playerFactionIdx);
-  if (aliveOpps.length === 0 && G.factions[G.playerFactionIdx].alive) {
-    triggerVictory(G.playerFactionIdx, 'domination');
+  // Phase 2m: multi-human aware victory/defeat. Single-player collapses to
+  // pre-2m behavior because humanFactionIdxs has exactly 1 entry. Hot-seat
+  // rule: domination requires exactly one alive faction AND it's a human
+  // (last human standing — humans must outlast each other AND any AI),
+  // defeat requires every human dead.
+  const humansAlive = G.humanFactionIdxs.filter((i) => G.factions[i].alive);
+  const aliveTotal = G.factions.filter((f) => f.alive).length;
+  if (humansAlive.length === 1 && aliveTotal === 1) {
+    triggerVictory(humansAlive[0], 'domination');
     return;
   }
-  if (!G.factions[G.playerFactionIdx].alive) {
+  if (humansAlive.length === 0) {
     triggerDefeat();
     return;
   }
@@ -138,6 +144,25 @@ export function endTurn(): void {
   if (!next.isAI) saveAuto();
 
   dispatchHandoff(next);
+}
+
+// Phase 2m — called by main.ts / saveModal.ts after loadGameState restores
+// G. In hot-seat, if the saved currentFactionIdx is a human different from
+// the saved playerFactionIdx (i.e. autosave was taken right before a
+// pending handoff to a *different* human), open the curtain so the right
+// player gets the keyboard. In single-player or same-human resume cases,
+// just redraw — keeps "Continue Last Game" instant for the common path.
+export function resumeAfterLoad(): void {
+  const cur = G.factions[G.currentFactionIdx];
+  if (G.controlMode === 'hotseat' && !cur.isAI && cur.idx !== G.playerFactionIdx) {
+    void openPassover(cur).then(() => {
+      G.playerFactionIdx = cur.idx;
+      recomputeVisibility();
+      requestRedraw();
+    });
+    return;
+  }
+  requestRedraw();
 }
 
 // Phase 2m — handoff dispatch seam. Three paths:
@@ -228,7 +253,11 @@ const VICTORY_MESSAGES: Record<VictoryType, { title: string; flavorTemplate: str
 export function triggerVictory(factionIdx: FactionIdx, type: VictoryType): void {
   G.gameOver = true;
   const fac = G.factions[factionIdx];
-  const isPlayer = factionIdx === G.playerFactionIdx;
+  // Phase 2m: a human win is "any human won" so the shared screen banners
+  // VICTORY for the table and DEFEAT only when the AI takes the game from
+  // every human at once. Single-player collapses to the pre-2m semantics
+  // because humanFactionIdxs has one entry equal to playerFactionIdx.
+  const isPlayer = G.humanFactionIdxs.includes(factionIdx);
   if (isPlayer) playSfx('victory');
   const m = VICTORY_MESSAGES[type];
   const flavor = m.flavorTemplate.replace('{name}', fac.name);
