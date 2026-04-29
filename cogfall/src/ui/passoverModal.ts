@@ -18,6 +18,7 @@ import { DOM_IDS } from '../core/dom';
 import { G } from '../core/state';
 import { closeModal, openModal } from './modals';
 import { clearAllUnitTweens } from '../render/unitTweens';
+import { clearCombatEffects } from '../render/combatEffects';
 import type { Faction } from '../core/types';
 
 let activeResolver: (() => void) | null = null;
@@ -32,8 +33,10 @@ export function openPassover(next: Faction): Promise<void> {
     // when the curtain comes down.
     G.hoveredHex = null;
     // Drop any AI tweens still in flight so player B doesn't see a
-    // catchup-animation when the curtain comes down.
+    // catchup-animation when the curtain comes down. Same for any
+    // shake/hit-flash from the previous player's combat (Phase 2n-2).
     clearAllUnitTweens();
+    clearCombatEffects();
     const titleEl = document.getElementById(DOM_IDS.PASSOVER_TITLE);
     const flavorEl = document.getElementById(DOM_IDS.PASSOVER_FLAVOR);
     const glyphEl = document.getElementById(DOM_IDS.PASSOVER_GLYPH);

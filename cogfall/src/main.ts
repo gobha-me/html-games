@@ -45,6 +45,13 @@ setMinimapHook(renderMinimap);
 // unitTweens. Same pattern as the minimap hook above.
 import { setUnitTweenRenderHook } from './render/unitTweens';
 setUnitTweenRenderHook(render);
+
+// Phase 2n-2 — same hook pattern for combat effects (screen shake +
+// per-unit hit flash). combat.ts triggers them; pixi.ts reads the offset
+// and color back during render. The hook keeps combatEffects.ts
+// pixi-import-free, mirroring the unitTweens carry-forward.
+import { setCombatEffectsRenderHook } from './render/combatEffects';
+setCombatEffectsRenderHook(render);
 import {
   populateSeedInput,
   refreshContinueButton,

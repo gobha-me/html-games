@@ -32,6 +32,7 @@ import { computeCulturalPressureMap } from '../systems/culture';
 import { getMilitaryScoresForUnit } from '../ai/unitAI';
 import { renderSVGOverlay } from './overlay';
 import { getUnitTweenOffset } from './unitTweens';
+import { getShakeOffset, getUnitFlashColor } from './combatEffects';
 
 // Minimap hook (same pattern as old canvas.ts). main.ts wires it so every
 // render() chains a minimap repaint without canvas.ts importing ui/.
@@ -188,7 +189,10 @@ export function render(): void {
     return;
   }
 
-  worldLayer.position.set(G.cameraX, G.cameraY);
+  // Phase 2n-2 — shake offset is added to the world transform so the
+  // whole map jolts (camera, terrain, units) without disturbing G.cameraX/Y.
+  const shake = getShakeOffset();
+  worldLayer.position.set(G.cameraX + shake.dx, G.cameraY + shake.dy);
   worldLayer.scale.set(G.zoom);
 
   const playerIdx = G.playerFactionIdx;
@@ -598,9 +602,12 @@ function drawUnit(parent: Container, u: Unit): void {
     g.stroke({ color: '#7fb8d6', width: 1.2, alpha: 0.45 });
   }
 
+  // Phase 2n-2 — stroke color blends toward the flash hue when the unit
+  // was just hit; returns fac.color unchanged when no flash is active.
+  const strokeColor = getUnitFlashColor(u.id, fac.color);
   g.circle(x, y - offY, HEX_SIZE * 0.42)
     .fill(naval ? '#0a1830' : '#0a0805')
-    .stroke({ color: fac.color, width: 2.5 });
+    .stroke({ color: strokeColor, width: 2.5 });
 
   if (spy) {
     drawDashedCircle(g, x, y - offY, HEX_SIZE * 0.52, 3, 3);
