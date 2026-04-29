@@ -125,12 +125,29 @@ canvas.addEventListener('click', (e) => {
   }
   const unit = getUnitAt(q, r);
   const city = getCityAt(q, r);
-  if (unit && unit.factionIdx === G.playerFactionIdx) {
-    G.selected = { type: 'unit', ref: unit };
-    G.moveTargets = computeMoveTargets(unit);
-    G.attackTargets = computeAttackTargets(unit);
-  } else if (city && city.factionIdx === G.playerFactionIdx) {
-    G.selected = { type: 'city', ref: city };
+  const ownUnit = unit && unit.factionIdx === G.playerFactionIdx ? unit : null;
+  const ownCity = city && city.factionIdx === G.playerFactionIdx ? city : null;
+  // Stacked-tile click-cycle: when both an own unit and own city share a
+  // tile, the first click prefers the unit (matches pre-2m behavior). A
+  // repeat click while the unit is already selected reveals the city so
+  // the build menu / city panel becomes reachable. Symmetric the other
+  // way — clicking while the city is selected re-selects the unit. Without
+  // this cycle a city with a garrison was effectively un-clickable.
+  const unitAlreadySelectedHere =
+    ownUnit &&
+    G.selected &&
+    G.selected.type === 'unit' &&
+    G.selected.ref.id === ownUnit.id;
+  if (ownUnit && ownCity && unitAlreadySelectedHere) {
+    G.selected = { type: 'city', ref: ownCity };
+    G.moveTargets = [];
+    G.attackTargets = [];
+  } else if (ownUnit) {
+    G.selected = { type: 'unit', ref: ownUnit };
+    G.moveTargets = computeMoveTargets(ownUnit);
+    G.attackTargets = computeAttackTargets(ownUnit);
+  } else if (ownCity) {
+    G.selected = { type: 'city', ref: ownCity };
     G.moveTargets = [];
     G.attackTargets = [];
   } else {
