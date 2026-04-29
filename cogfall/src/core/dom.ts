@@ -97,6 +97,13 @@ export const DOM_IDS = {
   PASSOVER_FLAVOR: 'passover-flavor',
   PASSOVER_CONTINUE: 'passover-continue',
 
+  // Phase 2n-1: styled confirm modal
+  CONFIRM_MODAL: 'confirm-modal',
+  CONFIRM_TITLE: 'confirm-title',
+  CONFIRM_BODY: 'confirm-body',
+  CONFIRM_OK: 'confirm-ok',
+  CONFIRM_CANCEL: 'confirm-cancel',
+
   // Phase 2k: replay viewer
   REPLAY_ENABLED: 'replay-enabled',
   REPLAY_DOWNLOAD_BTN: 'replay-download',

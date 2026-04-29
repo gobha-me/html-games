@@ -21,6 +21,7 @@ import {
 } from '../core/save';
 import { log } from '../core/log';
 import { closeModal } from './modals';
+import { openConfirm } from './confirmModal';
 import { resumeAfterLoad } from '../systems/turn';
 import { dumpTelemetry, getTelemetryLog } from '../systems/telemetry';
 import { dumpReplay, getReplayLog } from '../systems/replay';
@@ -95,13 +96,15 @@ function saveToSlot(key: string): void {
   }
 }
 
-function loadFromSlot(key: string): void {
+async function loadFromSlot(key: string): Promise<void> {
   const data = readSlot(key);
   if (!data) return;
   if (G.map !== null) {
-    const ok = window.confirm(
-      `Load this save? Your current game (Turn ${G.turn}) will be discarded.`
-    );
+    const ok = await openConfirm({
+      title: 'Discard current game?',
+      body: `Your current game (Turn ${G.turn}) will be lost. Load this save instead?`,
+      confirmText: 'Load',
+    });
     if (!ok) return;
   }
   try {
@@ -130,12 +133,14 @@ function loadFromSlot(key: string): void {
   resumeAfterLoad();
 }
 
-function deleteFromSlot(key: string): void {
+async function deleteFromSlot(key: string): Promise<void> {
   const data = readSlot(key);
   if (!data) return;
-  const ok = window.confirm(
-    `Delete the save for ${data.factionName} (Turn ${data.turn})?`
-  );
+  const ok = await openConfirm({
+    title: 'Delete save?',
+    body: `Delete the save for ${data.factionName} (Turn ${data.turn})? This cannot be undone.`,
+    confirmText: 'Delete',
+  });
   if (!ok) return;
   if (key === AUTOSAVE_KEY) {
     // Autosave is replaced on next end-of-turn; deleting it is allowed

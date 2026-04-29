@@ -2,6 +2,8 @@
 // HTML inline `onclick="closeModal('tech-modal')"` handlers in index.html;
 // migrating those to data-attributes + listeners is a Phase 2 polish item.
 
+import { isConfirmPending } from './confirmModal';
+
 export function openModal(id: string): void {
   document.getElementById(id)?.classList.add('show');
 }
@@ -15,9 +17,13 @@ export function closeAllModals(): void {
     // Phase 2m: passover-modal is also non-dismissable — ESC during a
     // hot-seat handoff would leak the next player's POV before they sit
     // down. Continue is the only exit.
-    if (m.id !== 'setup-modal' && m.id !== 'game-over-modal' && m.id !== 'passover-modal') {
-      m.classList.remove('show');
+    // Phase 2n-1: confirm-modal while pending is also non-dismissable —
+    // ESC would ambiguously resolve the awaiting promise. Cancel is.
+    if (m.id === 'setup-modal' || m.id === 'game-over-modal' || m.id === 'passover-modal') {
+      return;
     }
+    if (m.id === 'confirm-modal' && isConfirmPending()) return;
+    m.classList.remove('show');
   });
 }
 
