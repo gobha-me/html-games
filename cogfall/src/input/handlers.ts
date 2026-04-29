@@ -16,7 +16,7 @@ import { closeAllModals, openModal } from '../ui/modals';
 import { renderTechTree } from '../ui/techModal';
 import { renderDiploScreen } from '../ui/diploModal';
 import { renderSaveModal } from '../ui/saveModal';
-import { handleHover } from '../ui/tooltip';
+import { clearHoveredHex, handleHover } from '../ui/tooltip';
 import { updateUI } from '../ui/topbar';
 import { cycleMode, getMode, isOverlayEnabled, setMode } from '../systems/debugOverlay';
 
@@ -35,6 +35,7 @@ canvas.addEventListener('mousedown', (e) => {
       cameraX: G.cameraX,
       cameraY: G.cameraY,
     };
+    clearHoveredHex();
     e.preventDefault();
   }
 });
@@ -52,6 +53,8 @@ canvas.addEventListener('mousemove', (e) => {
     handleHover(e);
   }
 });
+
+canvas.addEventListener('mouseleave', clearHoveredHex);
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 

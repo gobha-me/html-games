@@ -210,6 +210,11 @@ export interface GameState {
   culturalHegemonyCounter: Partial<Record<number, number>>;
   culturalHegemonyEnabled: boolean;
   selected: Selection | null;
+  /** Phase 2n-1 — hex the cursor is currently over, in axial coords. UI
+   * transient (parallel to selected / moveTargets / attackTargets);
+   * never serialized. Cleared on canvas leave, dragstart, and while the
+   * hot-seat curtain is up so it doesn't bleed into the next player's view. */
+  hoveredHex: { q: number; r: number } | null;
   moveTargets: MoveTarget[];
   attackTargets: AttackTarget[];
   sabotageTargets: SabotageTarget[];

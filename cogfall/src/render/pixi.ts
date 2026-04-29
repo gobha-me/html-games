@@ -216,6 +216,7 @@ export function render(): void {
     drawUnit(worldLayer, u);
   }
 
+  drawHoverHex(worldLayer);
   drawSelection(worldLayer);
 
   app.renderer.render(app.stage);
@@ -631,6 +632,24 @@ function drawUnit(parent: Container, u: Unit): void {
       ),
     );
   }
+}
+
+function drawHoverHex(parent: Container): void {
+  const h = G.hoveredHex;
+  if (!h) return;
+  // Don't paint hover under the selection — the selection already has its
+  // own glow and we want the hex to feel "currently selected" not
+  // "currently hovered" when both happen to be the same hex.
+  if (G.selected) {
+    if (G.selected.type === 'unit' && G.selected.ref.q === h.q && G.selected.ref.r === h.r) return;
+    if (G.selected.type === 'tile' && G.selected.ref.q === h.q && G.selected.ref.r === h.r) return;
+    if (G.selected.type === 'city' && G.selected.ref.q === h.q && G.selected.ref.r === h.r) return;
+  }
+  const { x, y } = hexToPixel(h.q, h.r);
+  const g = new Graphics();
+  g.poly(hexPolygon(x, y)).fill({ color: 0xf4e4bc, alpha: 0.12 });
+  g.poly(hexPolygon(x, y)).stroke({ color: 0xf4e4bc, width: 1.5, alpha: 0.6 });
+  parent.addChild(g);
 }
 
 function drawSelection(parent: Container): void {

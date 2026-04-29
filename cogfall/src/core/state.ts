@@ -75,6 +75,7 @@ export const G: GameState = {
   culturalHegemonyCounter: {},
   culturalHegemonyEnabled: true,
   selected: null,
+  hoveredHex: null,
   moveTargets: [],
   attackTargets: [],
   sabotageTargets: [],

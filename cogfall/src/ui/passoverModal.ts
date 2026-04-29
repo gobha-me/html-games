@@ -27,6 +27,9 @@ let activeResolver: (() => void) | null = null;
 export function openPassover(next: Faction): Promise<void> {
   return new Promise((resolve) => {
     G.passoverActive = true;
+    // Don't bleed the previous player's last hover into player B's view
+    // when the curtain comes down.
+    G.hoveredHex = null;
     const titleEl = document.getElementById(DOM_IDS.PASSOVER_TITLE);
     const flavorEl = document.getElementById(DOM_IDS.PASSOVER_FLAVOR);
     const glyphEl = document.getElementById(DOM_IDS.PASSOVER_GLYPH);

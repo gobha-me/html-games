@@ -7,25 +7,56 @@ import { TERRAIN_TYPES } from '../data/terrain';
 import { getResource } from '../data/resources';
 import { UNIT_TYPES } from '../data/units';
 import { previewCombat } from '../systems/combat';
+import { render } from '../render/pixi';
 
 const TOOLTIP_OFFSET = 18;
 const TOOLTIP_MAX_WIDTH = 280;
 const TOOLTIP_MAX_HEIGHT = 160;
 
+/** Clear the hovered hex and hide the tooltip. Called on canvas mouseleave,
+ * drag start, and when the hot-seat curtain goes up so the glow doesn't
+ * bleed into the next player's view. */
+export function clearHoveredHex(): void {
+  const tip = document.getElementById(DOM_IDS.TOOLTIP);
+  if (tip) tip.style.display = 'none';
+  if (G.hoveredHex !== null) {
+    G.hoveredHex = null;
+    render();
+  }
+}
+
 export function handleHover(e: MouseEvent): void {
+  // Curtain up: don't show tooltip / hover glow for the previous player's POV.
+  if (G.passoverActive) {
+    clearHoveredHex();
+    return;
+  }
   const wx = (e.clientX - G.cameraX) / G.zoom;
   const wy = (e.clientY - G.cameraY) / G.zoom;
   const { q, r } = pixelToHex(wx, wy);
   const tile = getTile(q, r);
   const tip = document.getElementById(DOM_IDS.TOOLTIP);
   if (!tip) return;
+  // Track the hovered hex for the renderer's hover-glow. Skip render() if
+  // the hex didn't change so we don't rebuild the world layer 60 Hz.
+  const prev = G.hoveredHex;
+  const prevQ = prev?.q;
+  const prevR = prev?.r;
   if (
     !tile ||
     !tile.visibility[G.playerFactionIdx] ||
     tile.visibility[G.playerFactionIdx] === 'unseen'
   ) {
+    if (G.hoveredHex !== null) {
+      G.hoveredHex = null;
+      render();
+    }
     tip.style.display = 'none';
     return;
+  }
+  if (prevQ !== q || prevR !== r) {
+    G.hoveredHex = { q, r };
+    render();
   }
   const tt = TERRAIN_TYPES[tile.terrain];
   const unit = getUnitAt(q, r);
