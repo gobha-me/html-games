@@ -48,6 +48,13 @@ export type ControlMode = 'single' | 'hotseat';
 
 export type BuildQueue = { kind: 'unit'; id: UnitTypeId } | { kind: 'building'; id: BuildingId };
 
+// Phase 2n-3 — production queue widened from `BuildQueue | null` to
+// `BuildQueue[]`. Player can stack up to MAX_BUILD_QUEUE_LEN items via
+// the city panel; processCity shifts queue[0] on completion. AI continues
+// to use length-1 queues (push only when empty). See decision-log item 9
+// in core/state.ts.
+export const MAX_BUILD_QUEUE_LEN = 6;
+
 export interface Tile {
   q: number;
   r: number;
@@ -98,7 +105,7 @@ export interface City {
   foodNeeded: number;
   productionStored: number;
   buildings: Set<BuildingId>;
-  buildQueue: BuildQueue | null;
+  buildQueue: BuildQueue[];
   isCapital: boolean;
   hp: number;
   maxHp: number;

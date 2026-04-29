@@ -178,7 +178,7 @@ describe('audio trigger sites', () => {
       foodNeeded: 10,
       productionStored: 1000, // way over any building cost
       buildings: new Set(),
-      buildQueue: { kind: 'building', id: 'walls' },
+      buildQueue: [{ kind: 'building', id: 'walls' }],
       isCapital: true,
       hp: 100,
       maxHp: 100,

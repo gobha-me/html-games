@@ -58,7 +58,7 @@ export function createCity(factionIdx: FactionIdx, q: number, r: number, name: s
     foodNeeded: FOOD_NEEDED_BASE,
     productionStored: 0,
     buildings: new Set(),
-    buildQueue: null,
+    buildQueue: [],
     isCapital: false,
     hp: 50,
     maxHp: 50,
@@ -191,8 +191,8 @@ export function processCity(city: City): void {
     u.hp = Math.min(u.maxHp, u.hp + GARRISON_HEAL_PER_TURN);
   }
 
-  if (city.buildQueue) {
-    const item = city.buildQueue;
+  if (city.buildQueue.length > 0) {
+    const item = city.buildQueue[0];
     let cost = 0;
     if (item.kind === 'unit') cost = UNIT_TYPES[item.id].cost;
     else if (item.kind === 'building') cost = BUILDING_TYPES[item.id].cost;
@@ -247,7 +247,7 @@ export function processCity(city: City): void {
         );
         if (city.factionIdx === G.playerFactionIdx) playSfx('buildComplete');
       }
-      city.buildQueue = null;
+      city.buildQueue.shift();
     }
   }
 }

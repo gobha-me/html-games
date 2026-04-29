@@ -83,7 +83,7 @@ function makeCity(id: number, factionIdx: number, q: number, r: number): City {
     maxHp: 50,
     isCapital: false,
     buildings: new Set(),
-    buildQueue: null,
+    buildQueue: [],
   };
 }
 

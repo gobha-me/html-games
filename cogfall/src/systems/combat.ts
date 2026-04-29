@@ -252,7 +252,7 @@ export function captureCity(city: City, newFactionIdx: FactionIdx): void {
   city.factionIdx = newFactionIdx;
   city.hp = Math.max(CAPTURE_HP_FLOOR, Math.floor(city.maxHp / 2));
   city.population = Math.max(1, city.population - 1);
-  city.buildQueue = null;
+  city.buildQueue = [];
 
   // Sack a third of the buildings (insertion order preserved by Set; matches
   // prototype's [...city.buildings] iteration).

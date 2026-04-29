@@ -160,7 +160,7 @@ describe('naval production', () => {
   it('processCity spawns a naval unit on a free WATER neighbor', () => {
     // City at (1,1) — interior plains, has WATER neighbors at (0,1), (1,0), etc.
     const city = createCity(asFactionIdx(0), 1, 1, 'Foundry');
-    city.buildQueue = { kind: 'unit', id: 'STEAMSHIP' };
+    city.buildQueue = [{ kind: 'unit', id: 'STEAMSHIP' }];
     city.productionStored = 35;
     processCity(city);
     expect(G.units.length).toBe(1);
@@ -173,14 +173,14 @@ describe('naval production', () => {
   it('processCity defers naval spawn (refunds production) when no water neighbor is free', () => {
     // City at (2,2) — fully surrounded by PLAINS (no WATER neighbor).
     const city = createCity(asFactionIdx(0), 2, 2, 'Inland');
-    city.buildQueue = { kind: 'unit', id: 'STEAMSHIP' };
+    city.buildQueue = [{ kind: 'unit', id: 'STEAMSHIP' }];
     const before = 35;
     city.productionStored = before;
     processCity(city);
     // No unit spawned; queue retained for retry; production NOT consumed
     // (refund matches what would have been deducted, modulo this turn's yield).
     expect(G.units.length).toBe(0);
-    expect(city.buildQueue).toEqual({ kind: 'unit', id: 'STEAMSHIP' });
+    expect(city.buildQueue).toEqual([{ kind: 'unit', id: 'STEAMSHIP' }]);
     // Production should be at least `before` — the refund canceled the deduct.
     expect(city.productionStored).toBeGreaterThanOrEqual(before);
   });

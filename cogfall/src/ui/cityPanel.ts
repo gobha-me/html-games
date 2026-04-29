@@ -4,6 +4,7 @@
 
 import { DOM_IDS } from '../core/dom';
 import { G, getTile } from '../core/state';
+import { MAX_BUILD_QUEUE_LEN } from '../core/types';
 import type { BuildingId, City, UnitTypeId } from '../core/types';
 import { BUILDING_TYPES } from '../data/buildings';
 import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
@@ -21,8 +22,8 @@ export function renderCityDetailsRight(city: City): void {
   const fac = G.factions[city.factionIdx];
 
   let html = '';
-  if (city.buildQueue) {
-    const item = city.buildQueue;
+  if (city.buildQueue.length > 0) {
+    const item = city.buildQueue[0];
     let cost = 0;
     let name = '';
     if (item.kind === 'unit') {
@@ -44,10 +45,9 @@ export function renderCityDetailsRight(city: City): void {
   for (const [uid, tpl] of Object.entries(UNIT_TYPES)) {
     if ('requires' in tpl && tpl.requires && !fac.techs.has(tpl.requires)) continue;
     if (isNaval(uid as UnitTypeId) && !coastal) continue;
-    const isCur =
-      city.buildQueue &&
-      city.buildQueue.kind === 'unit' &&
-      city.buildQueue.id === (uid as UnitTypeId);
+    const isCur = city.buildQueue.some(
+      (q) => q.kind === 'unit' && q.id === (uid as UnitTypeId)
+    );
     const navalTag = isNaval(uid as UnitTypeId) ? ' · Naval' : '';
     const spyTag = isSpy(uid as UnitTypeId) ? ' · Spy' : '';
     html += `<div class="build-item ${isCur ? 'current' : ''}" onclick="setCityBuild(${city.id},'unit','${uid}')">`;
@@ -61,10 +61,9 @@ export function renderCityDetailsRight(city: City): void {
   for (const [bid, b] of Object.entries(BUILDING_TYPES)) {
     if (city.buildings.has(bid as BuildingId)) continue;
     const locked = 'requires' in b && b.requires && !fac.techs.has(b.requires);
-    const isCur =
-      city.buildQueue &&
-      city.buildQueue.kind === 'building' &&
-      city.buildQueue.id === (bid as BuildingId);
+    const isCur = city.buildQueue.some(
+      (q) => q.kind === 'building' && q.id === (bid as BuildingId)
+    );
     html += `<div class="build-item ${isCur ? 'current' : ''} ${locked ? 'locked' : ''}" ${
       !locked ? `onclick="setCityBuild(${city.id},'building','${bid}')"` : ''
     }>`;
@@ -88,6 +87,7 @@ export function renderCityDetailsRight(city: City): void {
 function setCityBuild(cityId: number, kind: 'unit' | 'building', id: string): void {
   const c = G.cities.find((c) => c.id === cityId);
   if (!c || c.factionIdx !== G.playerFactionIdx) return;
+  if (c.buildQueue.length >= MAX_BUILD_QUEUE_LEN) return;
   const player = G.factions[G.playerFactionIdx];
   if (kind === 'unit') {
     const tpl = UNIT_TYPES[id as UnitTypeId];
@@ -96,11 +96,13 @@ function setCityBuild(cityId: number, kind: 'unit' | 'building', id: string): vo
       const t = getTile(c.q, c.r);
       if (!t || !G.map || !isCoast(t, G.map)) return;
     }
-    c.buildQueue = { kind: 'unit', id: id as UnitTypeId };
+    if (c.buildQueue.some((q) => q.kind === 'unit' && q.id === (id as UnitTypeId))) return;
+    c.buildQueue.push({ kind: 'unit', id: id as UnitTypeId });
   } else {
     const tpl = BUILDING_TYPES[id as BuildingId];
     if ('requires' in tpl && tpl.requires && !player.techs.has(tpl.requires)) return;
-    c.buildQueue = { kind: 'building', id: id as BuildingId };
+    if (c.buildQueue.some((q) => q.kind === 'building' && q.id === (id as BuildingId))) return;
+    c.buildQueue.push({ kind: 'building', id: id as BuildingId });
   }
   updateUI();
 }

@@ -34,10 +34,10 @@ export function aiPlayTurn(faction: Faction): void {
     if (c) faction.currentResearch = c;
   }
   for (const city of G.cities.filter((c) => c.factionIdx === faction.idx)) {
-    if (!city.buildQueue) {
+    if (city.buildQueue.length === 0) {
       const c = aiPickBuild(faction, city);
       if (c) {
-        city.buildQueue = c;
+        city.buildQueue.push(c);
         recordTelemetry({
           kind: 'build',
           turn: G.turn,

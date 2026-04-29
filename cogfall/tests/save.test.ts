@@ -223,7 +223,7 @@ describe('save / load', () => {
       foodStored: 0,
       foodNeeded: 10,
       productionStored: 0,
-      buildQueue: null,
+      buildQueue: [],
       isCapital: false,
       hp: 10,
       maxHp: 10,
