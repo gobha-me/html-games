@@ -215,6 +215,11 @@ export interface GameState {
    * never serialized. Cleared on canvas leave, dragstart, and while the
    * hot-seat curtain is up so it doesn't bleed into the next player's view. */
   hoveredHex: { q: number; r: number } | null;
+  /** Phase 2n-2 — player-facing threat-range overlay toggle (T hotkey).
+   * UI transient (same precedent as hoveredHex); never serialized. The
+   * threatened-tile set itself is recomputed each render and not stored
+   * on G — only the toggle persists in-session. */
+  showThreatRange: boolean;
   moveTargets: MoveTarget[];
   attackTargets: AttackTarget[];
   sabotageTargets: SabotageTarget[];

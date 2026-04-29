@@ -349,6 +349,7 @@ export function loadGameState(data: SaveData): void {
   G.sabotageTargets = [];
   G.isDragging = false;
   G.dragStart = null as DragStart | null;
+  G.showThreatRange = false;
 
   // Telemetry + replay logs scope to the current timeline; loading
   // switches timelines so both get wiped.

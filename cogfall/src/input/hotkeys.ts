@@ -34,6 +34,12 @@ export const HOTKEYS: Hotkey[] = [
       'Park the selected unit in place; it skips its turn for a small defense bump.',
   },
   {
+    keys: ['T'],
+    label: 'Threat range',
+    description:
+      'Toggle a tinted overlay marking hexes within visible enemy attack reach.',
+  },
+  {
     keys: ['Esc'],
     label: 'Close / deselect',
     description:
@@ -48,6 +54,6 @@ export const HOTKEYS: Hotkey[] = [
     keys: ['`', '~'],
     label: 'Debug overlay',
     description:
-      'Cycle visualization modes (visibility / claim / threat). Active only when the setup-modal Debug Overlay box is checked.',
+      'Cycle visualization modes (elevation / ai / visibility / culture). Active only when the setup-modal Debug Overlay box is checked.',
   },
 ];

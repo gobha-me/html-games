@@ -6,6 +6,7 @@
 import { HEX_SIZE, hexToPixel } from '../core/hex';
 import { DOM_IDS } from '../core/dom';
 import { G } from '../core/state';
+import { computeThreatRange } from '../systems/threat';
 
 const svg = document.getElementById(DOM_IDS.OVERLAY_SVG) as SVGSVGElement | null;
 
@@ -17,9 +18,39 @@ const ATTACK_GLYPH_SIZE = 18;
 const SABOTAGE_INDICATOR_RADIUS = 0.45;
 const SABOTAGE_GLYPH_SIZE = 18;
 
+// Pointy-top hex corner offsets, matching pixi.ts's hexCorner formula
+// (60° * i - 30°). Precomputed at module load so the per-frame loop
+// only multiplies by zoom.
+const HEX_CORNER_OFFSETS: readonly { dx: number; dy: number }[] = (() => {
+  const out: { dx: number; dy: number }[] = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 180) * (60 * i - 30);
+    out.push({ dx: HEX_SIZE * Math.cos(a), dy: HEX_SIZE * Math.sin(a) });
+  }
+  return out;
+})();
+
 export function renderSVGOverlay(): void {
   if (!svg) return;
   let html = '';
+  // Threat-range tint paints first so move / attack / sabotage indicators
+  // layer above it. Recomputed per frame — small N, cheap, avoids any
+  // stale-cache subtlety.
+  if (G.showThreatRange && G.map) {
+    const tiles = computeThreatRange(G.playerFactionIdx);
+    for (const k of tiles) {
+      const t = G.map.tiles.get(k);
+      if (!t) continue;
+      const { x, y } = hexToPixel(t.q, t.r);
+      const px = x * G.zoom + G.cameraX;
+      const py = y * G.zoom + G.cameraY;
+      let pts = '';
+      for (const c of HEX_CORNER_OFFSETS) {
+        pts += `${px + c.dx * G.zoom},${py + c.dy * G.zoom} `;
+      }
+      html += `<polygon points="${pts.trim()}" fill="rgba(212,74,58,0.18)" stroke="none"/>`;
+    }
+  }
   for (const t of G.moveTargets) {
     const { x, y } = hexToPixel(t.q, t.r);
     const px = x * G.zoom + G.cameraX;

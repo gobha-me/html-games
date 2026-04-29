@@ -194,6 +194,10 @@ window.addEventListener('keydown', (e) => {
       updateUI();
     }
   }
+  if (e.key === 't' || e.key === 'T') {
+    G.showThreatRange = !G.showThreatRange;
+    render();
+  }
   if (e.key === 'Escape') {
     closeAllModals();
     G.selected = null;

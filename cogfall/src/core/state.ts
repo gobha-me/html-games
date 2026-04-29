@@ -50,6 +50,13 @@
 //     would silently shift food/prod/gold and break replay parity. Claim
 //     is recomputed in endTurn after processCity and before the victory
 //     check — order matters for byte-equal save reproduction.
+//
+//  8. UI transients on G (selected / moveTargets / attackTargets /
+//     sabotageTargets / hoveredHex / showThreatRange) are *never*
+//     serialized. SerializedGameState must omit them and load must
+//     reset them to fresh defaults so a saved game doesn't carry
+//     stale cursor / toggle state across reloads or human handoffs.
+//     New UI flags follow this precedent without bumping SAVE_VERSION.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
@@ -76,6 +83,7 @@ export const G: GameState = {
   culturalHegemonyEnabled: true,
   selected: null,
   hoveredHex: null,
+  showThreatRange: false,
   moveTargets: [],
   attackTargets: [],
   sabotageTargets: [],
