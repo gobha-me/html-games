@@ -3,120 +3,368 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML Games</title>
+    <title>HTML Games — Arcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg: #0a0a14;
+            --surface: #12122a;
+            --text: #e0e0f0;
+            --muted: #7a7a9a;
+            --forge: #f59e0b;
+            --kimi: #f43f5e;
+            --snake: #10b981;
+            --invaders: #8b5cf6;
+            --reclamation: #eab308;
+            --cogfall: #d97706;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
+            overflow-x: hidden;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
         }
-        .container {
+
+        /* ── starfield ── */
+        .stars {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── header ── */
+        .header {
+            position: relative;
+            z-index: 2;
             text-align: center;
-            padding: 2rem;
+            padding: 64px 24px 40px;
         }
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
-            color: #00d4ff;
+
+        .header-icon {
+            font-size: 56px;
+            margin-bottom: 12px;
+            display: block;
+            animation: float 3s ease-in-out infinite;
         }
-        p {
-            color: #888;
-            margin-bottom: 3rem;
-            font-size: 1.1rem;
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
-        .games {
-            display: flex;
-            gap: 2rem;
-            flex-wrap: wrap;
-            justify-content: center;
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: clamp(36px, 8vw, 72px);
+            letter-spacing: 0.04em;
+            background: linear-gradient(135deg, #c084fc, #818cf8, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            filter: drop-shadow(0 0 24px rgba(129,140,248,0.3));
         }
-        .game-card {
-            background: #16213e;
-            border: 2px solid #0f3460;
-            border-radius: 12px;
-            padding: 2rem;
-            width: 250px;
-            transition: transform 0.2s, border-color 0.2s;
+
+        .header .sub {
+            margin-top: 8px;
+            font-size: 15px;
+            color: var(--muted);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        /* ── grid ── */
+        .grid {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            max-width: 1100px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        /* ── card ── */
+        .card {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            padding: 0;
+            overflow: hidden;
             text-decoration: none;
             color: inherit;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            display: flex;
+            flex-direction: column;
         }
-        .game-card:hover {
-            transform: translateY(-5px);
-            border-color: #00d4ff;
+
+        .card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(255,255,255,0.15);
+            box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
         }
-        .game-card h2 {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            color: #fff;
+
+        .card-accent {
+            height: 4px;
+            width: 100%;
+            transition: height 0.3s ease;
         }
-        .game-card p {
-            font-size: 0.9rem;
-            color: #888;
-            margin-bottom: 1rem;
+
+        .card:hover .card-accent { height: 6px; }
+
+        .card-body {
+            padding: 28px 28px 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
-        .play-btn {
+
+        .card-emoji {
+            font-size: 40px;
+            margin-bottom: 16px;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover .card-emoji { transform: scale(1.12); }
+
+        .card h2 {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 20px;
+            margin-bottom: 6px;
+            letter-spacing: 0.02em;
+        }
+
+        .card .tagline {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 14px;
+            line-height: 1.5;
+        }
+
+        .card .meta {
+            margin-top: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .card .meta-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
             display: inline-block;
-            background: #00d4ff;
-            color: #1a1a2e;
-            padding: 0.5rem 1.5rem;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 0.9rem;
+        }
+
+        /* per-game glow */
+        .card.forge:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(245,158,11,0.15); }
+        .card.kimi:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(244,63,94,0.15); }
+        .card.snake:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.15); }
+        .card.invaders:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.18); }
+        .card.reclamation:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(234,179,8,0.15); }
+        .card.cogfall:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
+
+        /* ── footer ── */
+        .footer {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            padding: 0 24px 40px;
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: auto;
+        }
+
+        .footer span { opacity: 0.6; }
+
+        /* entrance animation */
+        .card {
+            opacity: 0;
+            animation: cardIn 0.6s ease forwards;
+        }
+
+        .card:nth-child(1) { animation-delay: 0.05s; }
+        .card:nth-child(2) { animation-delay: 0.12s; }
+        .card:nth-child(3) { animation-delay: 0.19s; }
+        .card:nth-child(4) { animation-delay: 0.26s; }
+        .card:nth-child(5) { animation-delay: 0.33s; }
+        .card:nth-child(6) { animation-delay: 0.40s; }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 480px) {
+            .grid { grid-template-columns: 1fr; padding: 0 16px 60px; }
+            .header { padding: 40px 16px 28px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>HTML Games</h1>
-        <p>A collection of browser-based games</p>
-        
-        <div class="games">
-            <a href="/games/forge-defense/" class="game-card">
+
+    <!-- starfield canvas -->
+    <canvas class="stars" id="stars"></canvas>
+
+    <!-- header -->
+    <header class="header">
+        <span class="header-icon">🕹️</span>
+        <h1>HTML GAMES</h1>
+        <p class="sub">Arcade Collection</p>
+    </header>
+
+    <!-- game grid -->
+    <main class="grid">
+
+        <!-- Forge Defense -->
+        <a href="forge-defense/" class="card forge">
+            <div class="card-accent" style="background:var(--forge)"></div>
+            <div class="card-body">
+                <span class="card-emoji">⚒️</span>
                 <h2>Forge Defense</h2>
-                <p>Defend your forge against waves of enemies</p>
-                <span class="play-btn">Play</span>
-            </a>
-            
-            <a href="/games/kimi/" class="game-card">
+                <p class="tagline">Defend the forge against waves of enemies in this tactical defense game.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--forge)"></span> Tower Defense
+                </div>
+            </div>
+        </a>
+
+        <!-- Kimi -->
+        <a href="kimi/defence.html" class="card kimi">
+            <div class="card-accent" style="background:var(--kimi)"></div>
+            <div class="card-body">
+                <span class="card-emoji">🏭</span>
                 <h2>Kimi</h2>
-                <p>A mysterious adventure game</p>
-                <span class="play-btn">Play</span>
-            </a>
-            
-            <a href="/games/snake/" class="game-card">
-                <h2>🐍 Snake</h2>
-                <p>Classic snake game - eat, grow, and survive!</p>
-                <span class="play-btn">Play</span>
-            </a>
-            
-            <a href="/games/space-invaders/" class="game-card">
-                <h2>👾 Space Invaders</h2>
-                <p>Classic arcade shooter - defend Earth from alien invasion!</p>
-                <span class="play-btn">Play</span>
-            </a>
+                <p class="tagline">Protect the factory core with zoom controls and precision strategy.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--kimi)"></span> Core Protector
+                </div>
+            </div>
+        </a>
 
-            <a href="/games/reclamation-wars/" class="game-card">
-                <h2>⚔️ Reclamation Wars</h2>
-                <p>4X turn-based hex strategy - conquer, research, and reclaim a post-collapse world!</p>
-                <span class="play-btn">Play</span>
-            </a>
+        <!-- Snake -->
+        <a href="snake/" class="card snake">
+            <div class="card-accent" style="background:var(--snake)"></div>
+            <div class="card-body">
+                <span class="card-emoji">🐍</span>
+                <h2>Snake</h2>
+                <p class="tagline">The timeless classic — eat, grow, and don't bite your own tail.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--snake)"></span> Arcade Classic
+                </div>
+            </div>
+        </a>
 
-            <a href="/games/cogfall/dist/" class="game-card">
-                <h2>⚙️ Cogfall</h2>
-                <p>Steampunk 4X — rebuild civilization from the ashes of the Cogfall</p>
-                <span class="play-btn">Play</span>
-            </a>
-        </div>
-    </div>
+        <!-- Space Invaders -->
+        <a href="space-invaders/" class="card invaders">
+            <div class="card-accent" style="background:var(--invaders)"></div>
+            <div class="card-body">
+                <span class="card-emoji">👾</span>
+                <h2>Space Invaders</h2>
+                <p class="tagline">Blast alien waves in this retro arcade shooter. How long can you survive?</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--invaders)"></span> Arcade Shooter
+                </div>
+            </div>
+        </a>
+
+        <!-- Reclamation Wars -->
+        <a href="reclamation-wars/" class="card reclamation">
+            <div class="card-accent" style="background:var(--reclamation)"></div>
+            <div class="card-body">
+                <span class="card-emoji">⚔️</span>
+                <h2>Reclamation Wars</h2>
+                <p class="tagline">Lead your forces to reclaim lost territory in this strategic war game.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--reclamation)"></span> Strategy
+                </div>
+            </div>
+        </a>
+
+        <!-- Cogfall -->
+        <a href="cogfall/" class="card cogfall">
+            <div class="card-accent" style="background:var(--cogfall)"></div>
+            <div class="card-body">
+                <span class="card-emoji">⚙️</span>
+                <h2>Cogfall</h2>
+                <p class="tagline">A steampunk 4X adventure. Explore, expand, exploit, and exterminate.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--cogfall)"></span> Steampunk 4X
+                </div>
+            </div>
+        </a>
+
+    </main>
+
+    <!-- footer -->
+    <footer class="footer">
+        <span>HTML Games Arcade &copy; 2025</span>
+    </footer>
+
+    <!-- starfield script -->
+    <script>
+        (function() {
+            const c = document.getElementById('stars');
+            const ctx = c.getContext('2d');
+            let stars = [];
+            const COUNT = 160;
+
+            function resize() {
+                c.width = window.innerWidth;
+                c.height = window.innerHeight;
+            }
+
+            function seed() {
+                stars = [];
+                for (let i = 0; i < COUNT; i++) {
+                    stars.push({
+                        x: Math.random() * c.width,
+                        y: Math.random() * c.height,
+                        r: Math.random() * 1.6 + 0.3,
+                        a: Math.random(),
+                        speed: Math.random() * 0.008 + 0.002,
+                        phase: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, c.width, c.height);
+                for (const s of stars) {
+                    s.a += s.speed;
+                    const alpha = 0.3 + 0.7 * ((Math.sin(s.a + s.phase) + 1) / 2);
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(200,210,255,${alpha.toFixed(2)})`;
+                    ctx.fill();
+                }
+                requestAnimationFrame(draw);
+            }
+
+            resize();
+            seed();
+            draw();
+            window.addEventListener('resize', () => { resize(); seed(); });
+        })();
+    </script>
+
 </body>
 </html>
