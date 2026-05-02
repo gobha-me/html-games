@@ -9,6 +9,7 @@ import type { BuildingId } from '../data/buildings';
 import type { TechId, TechBranch } from '../data/techs';
 import type { PersonalityId } from '../data/personalities';
 import type { FactionId } from '../data/factions';
+import type { AIBehavior } from '../ai/behavior';
 
 // Brand FactionIdx so a number meant to be a faction index can't be silently
 // confused with a unit/city id or any other count. Cheap to thread because
@@ -131,6 +132,13 @@ export interface Faction {
   startTechs?: readonly string[];
   startBonus?: string;
   traits?: string;
+  /** Phase 3 S2 — opt-in per-faction AI override layer. Scalar fields
+   * overlay PERSONALITIES[personality] via `resolveBehavior(faction)`;
+   * optional hooks short-circuit aiPickTech / aiPickBuild / unit-priority
+   * sort. Absent on default factions (byte-identical to pre-S2). Not
+   * serialized — bound at game start from the static FACTIONS data table.
+   * See decision-log item 11 in core/state.ts. */
+  behavior?: AIBehavior;
 }
 
 export interface AIMemory {

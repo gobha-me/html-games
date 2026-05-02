@@ -13,8 +13,28 @@
 // indirectly biases toward the cultural hegemony victory path. Like
 // cunning, it's a deliberate dim: aiPickTech / aiPickBuild read it only
 // for culture-tagged options, never as a generic multiplier.
+//
+// `PersonalityDef` is the structural shape AI scoring code reads. It's
+// kept structural (not a narrow union of literal-typed objects) so that
+// Phase 3 S2's `resolveBehavior(faction)` can spread `Partial<PersonalityDef>`
+// overlays from `Faction.behavior` cleanly without TS rejecting the merged
+// shape.
 
-export const PERSONALITIES = {
+import type { TechBranch } from './techs';
+
+export interface PersonalityDef {
+  mil: number;
+  sci: number;
+  econ: number;
+  expand: number;
+  agg: number;
+  defenseFocus: number;
+  cunning: number;
+  culture: number;
+  prefBranch: TechBranch;
+}
+
+export const PERSONALITIES: Record<PersonalityId, PersonalityDef> = {
   industrial: {
     mil: 0.5,
     sci: 0.55,
@@ -70,7 +90,7 @@ export const PERSONALITIES = {
     culture: 0.5,
     prefBranch: 'economy',
   },
-} as const;
+};
 
 export const AI_THINKING_LINES = {
   industrial: ['gauges its forges...', 'consults its blueprints...', 'oils its gears...'],
@@ -84,5 +104,9 @@ export const AI_THINKING_LINES = {
   economic: ['counts its coin...', 'studies the markets...', 'cuts new contracts...'],
 } as const;
 
-export type PersonalityId = keyof typeof PERSONALITIES;
-export type PersonalityDef = (typeof PERSONALITIES)[PersonalityId];
+export type PersonalityId =
+  | 'industrial'
+  | 'scientific'
+  | 'militaristic'
+  | 'defensive'
+  | 'economic';

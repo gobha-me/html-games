@@ -98,7 +98,7 @@ function takeSnapshot(): Snapshot {
     techs: structuredClone(TECHS) as Snapshot['techs'],
     techBranches: structuredClone(TECH_BRANCHES) as Snapshot['techBranches'],
     resources: structuredClone(RESOURCES) as Snapshot['resources'],
-    personalities: structuredClone(PERSONALITIES) as Snapshot['personalities'],
+    personalities: structuredClone(PERSONALITIES) as unknown as Snapshot['personalities'],
     mapSizes: structuredClone(MAP_SIZES) as Snapshot['mapSizes'],
     aiThinkingLines: structuredClone(AI_THINKING_LINES) as unknown as Snapshot['aiThinkingLines'],
     factions: structuredClone(FACTIONS) as unknown as Snapshot['factions'],
