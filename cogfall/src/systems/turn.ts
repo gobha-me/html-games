@@ -17,6 +17,7 @@ import { recomputeVisibility } from './visibility';
 import { playSfx } from './audio';
 import { recordTelemetry } from './telemetry';
 import { recordReplaySnapshot } from './replay';
+import { emit } from '../render/animations';
 import { DOM_IDS } from '../core/dom';
 import { totalLogCount } from '../core/log';
 import { saveAuto } from '../core/save';
@@ -150,6 +151,11 @@ export function endTurn(): void {
   // state to roll back to.
   if (!next.isAI) saveAuto();
 
+  // Phase 3 S1 — bus emit. Fires once the rotation is committed and just
+  // before the handoff. Victory / defeat short-circuits above don't reach
+  // here; that's the documented contract on the AnimEvent definition.
+  emit({ type: 'turnEnd', factionIdx: cur.idx, turn: G.turn });
+
   dispatchHandoff(next);
 }
 
@@ -267,6 +273,7 @@ const VICTORY_MESSAGES: Record<VictoryType, { title: string; flavorTemplate: str
 
 export function triggerVictory(factionIdx: FactionIdx, type: VictoryType): void {
   G.gameOver = true;
+  emit({ type: 'victoryReached', factionIdx, victoryType: type });
   const fac = G.factions[factionIdx];
   // Phase 2m: a human win is "any human won" so the shared screen banners
   // VICTORY for the table and DEFEAT only when the AI takes the game from

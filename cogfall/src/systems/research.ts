@@ -7,6 +7,7 @@
 import { log } from '../core/log';
 import type { Faction } from '../core/types';
 import { TECHS } from '../data/techs';
+import { emit } from '../render/animations';
 
 export interface ResearchResult {
   ascensionTriggered: boolean;
@@ -37,6 +38,7 @@ export function processResearch(faction: Faction): ResearchResult {
     faction.researchProgress = 0;
     const completed = faction.currentResearch;
     faction.currentResearch = null;
+    emit({ type: 'techComplete', factionIdx: faction.idx, techId: completed });
     if (completed === 'grand_apparatus') ascensionTriggered = true;
   }
   faction.science = 0;

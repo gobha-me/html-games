@@ -17,6 +17,7 @@ import { getResource } from '../data/resources';
 import { UNIT_TYPES, isNaval } from '../data/units';
 import { createUnit } from './movement';
 import { playSfx } from './audio';
+import { emit } from '../render/animations';
 
 const BASE_CITY_FOOD = 2;
 const BASE_CITY_PROD = 1;
@@ -252,6 +253,15 @@ export function processCity(city: City): void {
         if (city.factionIdx === G.playerFactionIdx) playSfx('buildComplete');
       }
       city.buildQueue.shift();
+      emit({
+        type: 'cityBuilt',
+        cityId: city.id,
+        factionIdx: city.factionIdx,
+        buildKind: item.kind,
+        buildId: item.id,
+        q: city.q,
+        r: city.r,
+      });
     }
   }
 }

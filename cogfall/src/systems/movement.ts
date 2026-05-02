@@ -45,6 +45,13 @@ export function killUnit(unit: Unit): void {
   G.units = G.units.filter((u) => u.id !== unit.id);
   const t = getTile(unit.q, unit.r);
   if (t && t.unitId === unit.id) t.unitId = null;
+  emit({
+    type: 'unitKilled',
+    unitId: unit.id,
+    factionIdx: unit.factionIdx,
+    q: unit.q,
+    r: unit.r,
+  });
 }
 
 // Pathing -------------------------------------------------------------------
