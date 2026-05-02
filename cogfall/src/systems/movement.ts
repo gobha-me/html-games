@@ -13,7 +13,7 @@ import type { AttackTarget, FactionIdx, MoveTarget, Tile, Unit, UnitTypeId } fro
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES, isNaval } from '../data/units';
 import { recomputeVisibility } from './visibility';
-import { startUnitTween } from '../render/unitTweens';
+import { emit } from '../render/animations';
 
 const RUIN_GOLD_THRESHOLD = 0.35;
 const RUIN_SCIENCE_THRESHOLD = 0.65;
@@ -130,7 +130,7 @@ export function moveUnit(unit: Unit, q: number, r: number): boolean {
   if (newTile && 'isRuin' in TERRAIN_TYPES[newTile.terrain] && !newTile.improvement) {
     handleRuinDiscovery(unit, newTile);
   }
-  startUnitTween(unit, fromQ, fromR);
+  emit({ type: 'unitMoved', unitId: unit.id, fromQ, fromR });
   return true;
 }
 

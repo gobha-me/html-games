@@ -43,8 +43,13 @@ setMinimapHook(renderMinimap);
 // render/pixi directly because that pulls pixi.ts (and its #map-canvas
 // requirement) into the test environment via combat → movement →
 // unitTweens. Same pattern as the minimap hook above.
-import { setUnitTweenRenderHook } from './render/unitTweens';
+//
+// Phase 3 S1 — subscribeUnitTweens() wires the bus subscriber that
+// listens for 'unitMoved' and starts the tween. systems/movement.ts no
+// longer imports from render/unitTweens directly.
+import { setUnitTweenRenderHook, subscribeUnitTweens } from './render/unitTweens';
 setUnitTweenRenderHook(render);
+subscribeUnitTweens();
 
 // Phase 2n-2 — same hook pattern for combat effects (screen shake +
 // per-unit hit flash). combat.ts triggers them; pixi.ts reads the offset
