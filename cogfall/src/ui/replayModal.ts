@@ -20,10 +20,12 @@ import {
   type SaveData,
 } from '../core/save';
 import {
+  MAX_REPLAY_TURNS,
   ReplayValidationError,
   applyReplayTurn,
   dumpReplay,
   getReplayLog,
+  isReplayLogCapped,
   loadReplay,
   type ReplayDump,
 } from '../systems/replay';
@@ -57,8 +59,11 @@ export function openReplayModal(): void {
     applyReplayTurn(currentReplay, currentIdx);
     updateUI();
     render();
+    const cappedHint = isReplayLogCapped()
+      ? ` · showing last ${MAX_REPLAY_TURNS} turns (older snapshots dropped)`
+      : '';
     setStatus(
-      `${currentReplay.turns.length} snapshots from this game · seed ${currentReplay.seed}`
+      `${currentReplay.turns.length} snapshots from this game · seed ${currentReplay.seed}${cappedHint}`
     );
   } else {
     currentReplay = null;
