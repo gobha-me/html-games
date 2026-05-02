@@ -83,6 +83,30 @@ describe('aiPickTech', () => {
     }
     expect(industryCount).toBeGreaterThan(trials * 0.5);
   });
+
+  // Phase 3 S2 — pickTech hook short-circuits default scoring when the
+  // override returns an *available* tech id. A null hook return defers to
+  // default scoring (behavior byte-identical to pre-S2).
+  it('returns the pickTech hook override when the chosen tech is available', () => {
+    const f = makeFaction('scientific');
+    f.behavior = { pickTech: () => 'metallurgy' };
+    expect(aiPickTech(f, createSeededRng(7))).toBe('metallurgy');
+  });
+
+  it('falls through to default scoring when the pickTech hook returns null', () => {
+    const f = makeFaction('scientific');
+    const baseline = aiPickTech(f, createSeededRng(7));
+    f.behavior = { pickTech: () => null };
+    expect(aiPickTech(f, createSeededRng(7))).toBe(baseline);
+  });
+
+  it('falls through to default scoring when the pickTech hook returns an unavailable tech', () => {
+    const f = makeFaction('scientific');
+    f.techs.add('metallurgy');
+    const baseline = aiPickTech(f, createSeededRng(7));
+    f.behavior = { pickTech: () => 'metallurgy' };
+    expect(aiPickTech(f, createSeededRng(7))).toBe(baseline);
+  });
 });
 
 function makeTile(q: number, r: number, terrain: TerrainId = 'PLAINS'): Tile {

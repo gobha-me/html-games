@@ -7,7 +7,7 @@ import { hexDistance } from '../core/hex';
 import { G } from '../core/state';
 import type { Faction, FactionIdx } from '../core/types';
 import { UNIT_TYPES } from '../data/units';
-import { resolveBehavior } from './behavior';
+import { resolveBehavior, unitPriorityOverride } from './behavior';
 import { aiPickTech } from './techAI';
 import { aiPickBuild } from './cityAI';
 import { aiUnitTurn } from './unitAI';
@@ -49,7 +49,11 @@ export function aiPlayTurn(faction: Faction): void {
     }
   }
   const myUnits = G.units.filter((u) => u.factionIdx === faction.idx).slice();
-  myUnits.sort((a, b) => aiUnitPriority(a) - aiUnitPriority(b));
+  myUnits.sort((a, b) => {
+    const aP = unitPriorityOverride(faction, a) ?? aiUnitPriority(a);
+    const bP = unitPriorityOverride(faction, b) ?? aiUnitPriority(b);
+    return aP - bP;
+  });
   for (const unit of myUnits) aiUnitTurn(faction, unit);
   aiDiplomacy(faction);
   aiTelegraph(faction);

@@ -4,12 +4,14 @@
 
 import { defaultRng, type Rng } from '../core/rng';
 import type { Faction, TechId } from '../core/types';
-import { resolveBehavior } from './behavior';
+import { pickTechOverride, resolveBehavior } from './behavior';
 import { getAvailableTechs } from '../systems/research';
 
 export function aiPickTech(faction: Faction, rng: Rng = defaultRng): TechId | null {
   const avail = getAvailableTechs(faction);
   if (!avail.length) return null;
+  const override = pickTechOverride(faction, rng);
+  if (override !== null && avail.some((t) => t.id === override)) return override;
   const p = resolveBehavior(faction);
 
   const scored = avail.map((t) => {
