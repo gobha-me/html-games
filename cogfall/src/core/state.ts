@@ -126,6 +126,24 @@
 //     flavored victories land). Don't add consumers for either without
 //     a real scenario need — the type stub keeps the shape stable
 //     across S7/S8 without dead code paths.
+//
+// 13. Replay log cap (post-S3 crash fix). `recordReplaySnapshot` in
+//     `systems/replay.ts` appends a full SerializedGameState every
+//     game-turn boundary; without a cap the array grew unbounded and
+//     long campaigns OOM-killed the tab (~100-200 KB per snapshot on a
+//     medium map; default-on). `MAX_REPLAY_TURNS = 200` bounds the log
+//     at ~30 MB via FIFO ring-buffer semantics — the oldest snapshot
+//     shifts off when length crosses the cap. The replay modal's slider
+//     labels by `snapshot.turn` not array index, so the rolling window
+//     scrolls correctly without UI changes; `isReplayLogCapped()`
+//     surfaces the cap state to the modal so the player sees a
+//     "showing last 200 turns" hint when relevant. **Don't** remove
+//     the cap or raise it without a fresh memory budget — and keep
+//     `recordReplaySnapshot` calling `serializeGameState` so the
+//     snapshot format stays byte-equal to the save format (the cap
+//     is purely a length bound, not a shape change). G.events is
+//     separately capped at MAX_LOG_ENTRIES=100 in `core/log.ts`, so
+//     each snapshot's embedded event slice is bounded too.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
