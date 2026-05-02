@@ -15,7 +15,7 @@ import { UNIT_TYPES } from '../data/units';
 import { killUnit, moveUnit } from './movement';
 import { playSfx } from './audio';
 import { recordTelemetry } from './telemetry';
-import { startCombatShake, startUnitFlash } from '../render/combatEffects';
+import { emit } from '../render/animations';
 
 const FORTIFY_DEF_BONUS = 0.3;
 const CITY_DEF_BONUS_BASE = 0.25;
@@ -159,11 +159,14 @@ export function combat(attacker: Unit, defenderQR: AttackTarget, rng: Rng = defa
     // Phase 2n-2 — combat juice. Gated by playerInvolved so AI-vs-AI
     // scuffles in the fog don't shake the player's screen mysteriously.
     // Pure render-side; no game-state mutation, no seeded-RNG calls.
-    if (playerInvolved) {
-      startCombatShake();
-      startUnitFlash(defender.id);
-      startUnitFlash(attacker.id);
-    }
+    // Phase 3 S1: emitted through render/animations bus; combatEffects
+    // subscribes in main.ts.
+    emit({
+      type: 'combatHit',
+      attackerId: attacker.id,
+      defenderUnitId: defender.id,
+      playerInvolved,
+    });
     recordTelemetry({
       kind: 'combat',
       turn: G.turn,
@@ -200,10 +203,12 @@ export function combat(attacker: Unit, defenderQR: AttackTarget, rng: Rng = defa
     defCity.hp -= dmg;
     attacker.hp -= CITY_ASSAULT_RECOIL;
     attacker.mp = 0;
-    if (playerInvolved) {
-      startCombatShake();
-      startUnitFlash(attacker.id);
-    }
+    emit({
+      type: 'combatHit',
+      attackerId: attacker.id,
+      defenderUnitId: null,
+      playerInvolved,
+    });
     recordTelemetry({
       kind: 'combat',
       turn: G.turn,

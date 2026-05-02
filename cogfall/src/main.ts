@@ -50,8 +50,13 @@ setUnitTweenRenderHook(render);
 // per-unit hit flash). combat.ts triggers them; pixi.ts reads the offset
 // and color back during render. The hook keeps combatEffects.ts
 // pixi-import-free, mirroring the unitTweens carry-forward.
-import { setCombatEffectsRenderHook } from './render/combatEffects';
+//
+// Phase 3 S1 — subscribeCombatEffects() wires the bus subscriber that
+// listens for 'combatHit' and replays the shake + flash sequence.
+// systems/combat.ts no longer imports from render/combatEffects directly.
+import { setCombatEffectsRenderHook, subscribeCombatEffects } from './render/combatEffects';
 setCombatEffectsRenderHook(render);
+subscribeCombatEffects();
 import {
   populateSeedInput,
   refreshContinueButton,

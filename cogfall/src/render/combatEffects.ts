@@ -9,6 +9,15 @@
 // render/pixi.ts directly because that pulls pixi.ts (and its
 // #map-canvas requirement) into the test environment via every module
 // that transitively imports systems/combat.ts.
+//
+// Phase 3 S1 — driven by the animation bus (render/animations.ts).
+// systems/combat.ts emits 'combatHit'; subscribeCombatEffects() (called
+// from main.ts at boot) replays the existing shake + flash sequence
+// when playerInvolved. The startCombatShake / startUnitFlash exports
+// stay public so tests/combatEffects.test.ts continues to pin the
+// time-dependent read side directly.
+
+import { on } from './animations';
 
 const SHAKE_DURATION_MS = 180;
 const SHAKE_MAGNITUDE_PX = 6;
@@ -32,6 +41,21 @@ let rafId: number | null = null;
 
 export function setCombatEffectsRenderHook(fn: () => void): void {
   renderHook = fn;
+}
+
+/** Wire combatEffects as a subscriber on the animation bus. Call once at
+ * boot from main.ts. Mirrors the call sequence the pre-S1 direct calls
+ * produced: shake + attacker flash + (if defender is a unit) defender
+ * flash, all gated on playerInvolved. */
+export function subscribeCombatEffects(): void {
+  on('combatHit', (e) => {
+    if (!e.playerInvolved) return;
+    startCombatShake();
+    if (e.defenderUnitId !== null) {
+      startUnitFlash(e.defenderUnitId);
+    }
+    startUnitFlash(e.attackerId);
+  });
 }
 
 export function startCombatShake(
