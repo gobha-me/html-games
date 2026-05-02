@@ -84,6 +84,25 @@
 //     subscriber instead. Scaffolded events (turnEnd, techComplete,
 //     cityBuilt, unitKilled, victoryReached) ship without subscribers
 //     in S1 — S4/S6 wire them.
+//
+// 11. Per-faction AI behavior (Phase 3 S2) is resolved through
+//     `ai/behavior.ts`'s `resolveBehavior(faction)` — never via direct
+//     `PERSONALITIES[faction.personality]` reads. `Faction.behavior?:
+//     AIBehavior` is an *opt-in* override layer: scalar fields overlay
+//     the personality template (Partial<PersonalityDef>); optional
+//     hooks (pickTech, pickBuild, unitPriority) short-circuit default
+//     AI logic when they return a non-null value, and fall through to
+//     the existing scoring on null. The scaffold ships with zero
+//     overrides — Faction.behavior is undefined for all 5 default
+//     factions, so resolveBehavior returns the unmodified PERSONALITIES
+//     row and the hook accessors return null. Behavior is byte-
+//     identical to pre-S2 (290-test suite proves it). `behavior` is
+//     *not* serialized: it's bound at game start from the static
+//     FACTIONS data table, so saves stay v5 with no migration. Don't
+//     add direct `PERSONALITIES[...]` reads in new AI code — go through
+//     the resolver so S5 (per-faction AI variety) and S7 (faction-
+//     flavored victories) can plug in overrides without re-wiring
+//     every call site.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
