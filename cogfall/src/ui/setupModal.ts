@@ -6,6 +6,7 @@ import { DOM_IDS } from '../core/dom';
 import { applyMod, clearMod, getActiveMod } from '../core/mod';
 import { AUTOSAVE_KEY, readSlot } from '../core/save';
 import { FACTIONS } from '../data/factions';
+import { SCENARIOS } from '../data/scenarios';
 import { isMinimapVisible, setMinimapVisible } from './minimap';
 import { isAudioMuted, setAudioMuted } from '../systems/audio';
 import { isTelemetryEnabled, setTelemetryEnabled } from '../systems/telemetry';
@@ -58,6 +59,30 @@ function freshSeed(): number {
   return (Math.random() * 0x100000000) >>> 0;
 }
 
+/** Phase 3 S3 — id of the scenario picked in the setup dropdown, or null
+ * for "Random map". The static <option value="">Random map</option> in
+ * index.html is the always-on default; populateScenarioOptions appends one
+ * option per registered ScenarioDef at module load. With SCENARIOS empty
+ * in S3 only the default option exists, so this returns null on every call. */
+export function getScenarioId(): string | null {
+  const el = document.getElementById(DOM_IDS.SCENARIO) as HTMLSelectElement | null;
+  if (!el) return null;
+  const v = el.value;
+  return v === '' ? null : v;
+}
+
+function populateScenarioOptions(): void {
+  const el = document.getElementById(DOM_IDS.SCENARIO) as HTMLSelectElement | null;
+  if (!el) return;
+  for (const s of SCENARIOS) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name;
+    opt.title = s.description;
+    el.appendChild(opt);
+  }
+}
+
 export function populateSeedInput(): void {
   const el = document.getElementById(DOM_IDS.SETUP_SEED) as HTMLInputElement | null;
   if (!el) return;
@@ -105,6 +130,8 @@ function setupSelectFaction(i: number): void {
 // Wire the 🎲 button. Inline onclick would also work, but the button has no
 // other handler so a single addEventListener at module load is cleaner.
 document.getElementById(DOM_IDS.SEED_REGEN)?.addEventListener('click', randomizeSetupSeed);
+
+populateScenarioOptions();
 
 // Phase 2h-2: hydrate the minimap checkbox from the persisted preference so
 // the user sees their last setting reflected when the modal opens. Toggle

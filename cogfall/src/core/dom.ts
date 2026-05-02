@@ -72,6 +72,7 @@ export const DOM_IDS = {
   SETUP_SEED: 'setup-seed',
   SEED_REGEN: 'seed-regen',
   CULTURAL_VICTORY: 'cultural-victory',
+  SCENARIO: 'scenario',
   SHOW_MINIMAP: 'show-minimap',
   SOUND_ON: 'sound-on',
   START_GAME: 'start-game',
