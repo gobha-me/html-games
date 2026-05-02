@@ -103,6 +103,29 @@
 //     the resolver so S5 (per-faction AI variety) and S7 (faction-
 //     flavored victories) can plug in overrides without re-wiring
 //     every call site.
+//
+// 12. Scenario system (Phase 3 S3) lives in `data/scenarios.ts`. The
+//     SCENARIOS registry ships *empty* in S3 — only "Random map" appears
+//     in the setup dropdown — so the random-map code path stays in
+//     charge on every code path until Session 8 authors entries.
+//     `getScenario(id)` returns null on null/empty/unknown so the
+//     setup-flow caller branches uniformly with `if (scenario)`.
+//     `resolveScenarioStarts` is pure (no G access, no RNG draws) and
+//     throws on off-map / unwalkable coords so authoring bugs surface
+//     at setup. `setupGame()` lets `mapGenOverrides` fall through
+//     field-by-field over the form picks, forces controlMode='single',
+//     and validates the player's faction is in scenario.factions BEFORE
+//     any state mutation. Per-faction `startTechs` append to the default
+//     FactionDef techs after createFaction — they don't replace.
+//     `G.scenarioId: string | null` persists additively in
+//     SerializedGameState (precedent: item 8 — pre-S3 v5 saves load
+//     with scenarioId coalesced to null). Two ScenarioDef fields are
+//     intentionally *type-only* in S3: `startBuildings` (S8 wires when
+//     its scenario content needs pre-placed improvements) and
+//     `victoryOverrides` (S7 designs the concrete shape when faction-
+//     flavored victories land). Don't add consumers for either without
+//     a real scenario need — the type stub keeps the shape stable
+//     across S7/S8 without dead code paths.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
