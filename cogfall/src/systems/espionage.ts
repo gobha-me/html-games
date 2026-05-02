@@ -15,7 +15,7 @@ import { log } from '../core/log';
 import { getGameRng } from '../core/rng';
 import { G, getCityAt } from '../core/state';
 import type { BuildingId, City, TechId, Unit } from '../core/types';
-import { PERSONALITIES } from '../data/personalities';
+import { resolveBehavior } from '../ai/behavior';
 import { TECHS } from '../data/techs';
 import { killUnit } from './movement';
 
@@ -44,8 +44,8 @@ function clamp(v: number, lo: number, hi: number): number {
 export function rollSpyDetection(saboteur: Unit, victimCity: City): SpyDetection {
   const attacker = G.factions[saboteur.factionIdx];
   const defender = G.factions[victimCity.factionIdx];
-  const a = PERSONALITIES[attacker.personality].cunning;
-  const d = PERSONALITIES[defender.personality].cunning;
+  const a = resolveBehavior(attacker).cunning;
+  const d = resolveBehavior(defender).cunning;
   const chance = clamp(
     DETECTION_BASE + d * DETECTION_DEFENDER_WEIGHT - a * DETECTION_ATTACKER_WEIGHT,
     DETECTION_MIN,

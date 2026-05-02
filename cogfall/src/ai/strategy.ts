@@ -7,7 +7,7 @@ import { hexDistance } from '../core/hex';
 import { G } from '../core/state';
 import type { Faction, FactionIdx } from '../core/types';
 import { UNIT_TYPES } from '../data/units';
-import { PERSONALITIES } from '../data/personalities';
+import { resolveBehavior } from './behavior';
 import { aiPickTech } from './techAI';
 import { aiPickBuild } from './cityAI';
 import { aiUnitTurn } from './unitAI';
@@ -77,7 +77,7 @@ export function updateAIStrategy(faction: Faction): void {
     mem.strategicPhase = 'expand';
   } else if (
     myStrShare < FORTIFY_STR_THRESHOLD &&
-    PERSONALITIES[faction.personality].agg < FORTIFY_AGG_CEILING
+    resolveBehavior(faction).agg < FORTIFY_AGG_CEILING
   ) {
     mem.strategicPhase = 'fortify';
   } else if (faction.techs.has('aether_war') || faction.techs.has('steam_armor')) {
@@ -186,7 +186,7 @@ export function aiFactionMilitaryStrength(factionIdx: FactionIdx): number {
 const DRIFT_PER_GRUDGE = 0.0015;
 
 export function effectiveAgg(faction: Faction, otherIdx: FactionIdx): number {
-  const base = PERSONALITIES[faction.personality].agg;
+  const base = resolveBehavior(faction).agg;
   const mem = G.aiMemory[faction.idx];
   const grudge = mem?.grudges[otherIdx] ?? 0;
   const v = base + grudge * DRIFT_PER_GRUDGE;

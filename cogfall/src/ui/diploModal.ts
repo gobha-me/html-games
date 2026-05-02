@@ -7,7 +7,7 @@ import { log } from '../core/log';
 import { DOM_IDS } from '../core/dom';
 import { G } from '../core/state';
 import type { FactionIdx } from '../core/types';
-import { PERSONALITIES } from '../data/personalities';
+import { resolveBehavior } from '../ai/behavior';
 import { aiFactionMilitaryStrength } from '../ai/strategy';
 import { updateUI } from './topbar';
 
@@ -68,7 +68,7 @@ function offerPeace(idx: FactionIdx): void {
   const theirStr = aiFactionMilitaryStrength(idx);
   const ratio = theirStr / Math.max(1, myStr);
   let acceptScore = 20 - grudge * 0.3 + (ratio < 0.7 ? 40 : 0) + (ratio > 1.3 ? -20 : 0);
-  if (PERSONALITIES[other.personality].agg > 0.7) acceptScore -= 20;
+  if (resolveBehavior(other).agg > 0.7) acceptScore -= 20;
   if (acceptScore > 0 || Math.random() < RANDOM_PEACE_ACCEPT_CHANCE) {
     player.diplo[idx] = 'peace';
     other.diplo[player.idx] = 'peace';

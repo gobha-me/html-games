@@ -4,13 +4,13 @@
 
 import { defaultRng, type Rng } from '../core/rng';
 import type { Faction, TechId } from '../core/types';
-import { PERSONALITIES } from '../data/personalities';
+import { resolveBehavior } from './behavior';
 import { getAvailableTechs } from '../systems/research';
 
 export function aiPickTech(faction: Faction, rng: Rng = defaultRng): TechId | null {
   const avail = getAvailableTechs(faction);
   if (!avail.length) return null;
-  const p = PERSONALITIES[faction.personality];
+  const p = resolveBehavior(faction);
 
   const scored = avail.map((t) => {
     let score = 100 - t.cost * 0.1;

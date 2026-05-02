@@ -10,7 +10,7 @@ import { getGameRng } from '../core/rng';
 import type { Faction, Unit } from '../core/types';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
-import { PERSONALITIES } from '../data/personalities';
+import { resolveBehavior } from './behavior';
 import { combat } from '../systems/combat';
 import {
   sabotageBuilding,
@@ -234,7 +234,7 @@ export function getMilitaryScoresForUnit(
 }
 
 export function aiMilitaryAction(faction: Faction, unit: Unit): void {
-  const p = PERSONALITIES[faction.personality];
+  const p = resolveBehavior(faction);
   const phase = G.aiMemory[faction.idx]?.strategicPhase;
   const atkTargets = computeAttackTargets(unit);
 
@@ -422,7 +422,7 @@ const SABOTAGE_PREFERENCE_THRESHOLD = 0.6;
 
 export function aiSaboteurAction(faction: Faction, unit: Unit): void {
   if (!G.map) return;
-  const p = PERSONALITIES[faction.personality];
+  const p = resolveBehavior(faction);
   const warEnemies = new Set(
     G.factions.filter((f) => f.alive && faction.diplo[f.idx] === 'war').map((f) => f.idx)
   );

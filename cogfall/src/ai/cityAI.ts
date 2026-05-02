@@ -7,7 +7,7 @@ import { G, getTile } from '../core/state';
 import type { BuildQueue, City, Faction, UnitTypeId } from '../core/types';
 import { BUILDING_TYPES } from '../data/buildings';
 import { UNIT_TYPES, isNaval, isSpy } from '../data/units';
-import { PERSONALITIES } from '../data/personalities';
+import { resolveBehavior } from './behavior';
 import { isCoast } from '../systems/mapgen';
 
 const SECOND_BEST_VARIATION_CHANCE = 0.15;
@@ -18,7 +18,7 @@ export function aiPickBuild(
   city: City,
   rng: Rng = defaultRng
 ): BuildQueue | null {
-  const p = PERSONALITIES[faction.personality];
+  const p = resolveBehavior(faction);
   const phase = G.aiMemory[faction.idx]?.strategicPhase;
   const myCityCount = G.cities.filter((c) => c.factionIdx === faction.idx).length;
   const myUnits = G.units.filter((u) => u.factionIdx === faction.idx);
