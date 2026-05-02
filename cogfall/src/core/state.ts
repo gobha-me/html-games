@@ -144,6 +144,7 @@ export const G: GameState = {
   gameOver: false,
   aiMemory: {},
   seed: 0,
+  scenarioId: null,
 };
 
 // Lookup helpers — read-only views into state, used by every system.

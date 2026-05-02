@@ -257,6 +257,12 @@ export interface GameState {
    * load with mapSeed undefined, and the elevation overlay degrades to a
    * "no mapSeed" label for those. */
   mapSeed?: number;
+  /** Phase 3 S3 — id of the scenario the player picked at setup, or null
+   * for "Random map". Persisted additively (no SAVE_VERSION bump) so a
+   * loaded save remembers which named scenario it came from; lookups go
+   * through getScenario() in data/scenarios.ts. The registry ships empty
+   * in S3 — Session 8 authors the first scenarios. */
+  scenarioId: string | null;
 }
 
 // Helper for exhaustive switch checks.
