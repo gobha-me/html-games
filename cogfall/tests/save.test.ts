@@ -85,6 +85,7 @@ function clearGameState(): void {
   G.attackTargets = [];
   G.isDragging = false;
   G.dragStart = null;
+  G.scenarioId = null;
 }
 
 describe('save / load', () => {
@@ -404,6 +405,39 @@ describe('save / load', () => {
     expect(G.controlMode).toBe('single');
     expect(G.humanFactionIdxs).toEqual([G.playerFactionIdx]);
     expect(G.passoverActive).toBe(false);
+  });
+
+  it('round-trips scenarioId when a scenario was picked at setup', () => {
+    // Phase 3 S3 — scenarioId is an additive optional field on
+    // SerializedGameState, persisted so a loaded save remembers which
+    // named scenario it came from. The registry is empty in S3, but the
+    // serialization shape is in place for S8's authored scenarios.
+    buildSmallScenario();
+    G.scenarioId = 'aether_ascendancy';
+
+    const data = serializeGameState();
+    expect(data.state.scenarioId).toBe('aether_ascendancy');
+
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+    clearGameState();
+    G.scenarioId = null;
+    loadGameState(round);
+
+    expect(G.scenarioId).toBe('aether_ascendancy');
+  });
+
+  it('pre-S3 save (no scenarioId) loads with scenarioId coalesced to null', () => {
+    // Mirrors the 2L mapSeed / 2m controlMode additive-load precedent.
+    buildSmallScenario();
+    const data = serializeGameState();
+    delete (data.state as { scenarioId?: string | null }).scenarioId;
+    const round = JSON.parse(JSON.stringify(data)) as ReturnType<typeof serializeGameState>;
+
+    clearGameState();
+    G.scenarioId = 'stale_value';
+    loadGameState(round);
+
+    expect(G.scenarioId).toBeNull();
   });
 
   it('loads a v2 save without targetCityId and survives an updateAIStrategy call', () => {

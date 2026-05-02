@@ -123,6 +123,11 @@ export interface SerializedGameState {
    * SAVE_VERSION stays at 4 (mirrors the 2L mapSeed precedent above). */
   controlMode?: ControlMode;
   humanFactionIdxs?: FactionIdx[];
+  /** v5+ (Phase 3 S3): id of the scenario picked at setup, or null for
+   * "Random map". Additive optional field — pre-S3 v5 saves load with
+   * scenarioId coalesced to null (random-map semantics). SAVE_VERSION
+   * stays at 5 (mirrors the 2L mapSeed / 2m controlMode precedents). */
+  scenarioId?: string | null;
 }
 
 export interface SaveData {
@@ -181,6 +186,7 @@ export function serializeGameState(): SaveData {
     culturalHegemonyEnabled: G.culturalHegemonyEnabled,
     modHash: mod?.hash,
     modName: mod?.name,
+    scenarioId: G.scenarioId,
   };
 
   const player = G.factions[G.playerFactionIdx];
@@ -312,6 +318,7 @@ export function applySerializedStateToG(s: SerializedGameState): void {
   G.mapSeed = s.mapSeed;
   G.controlMode = s.controlMode ?? 'single';
   G.humanFactionIdxs = s.humanFactionIdxs ? [...s.humanFactionIdxs] : [s.playerFactionIdx];
+  G.scenarioId = s.scenarioId ?? null;
   G.passoverActive = false;
 }
 
