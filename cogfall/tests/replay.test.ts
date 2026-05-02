@@ -5,12 +5,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { G } from '../src/core/state';
 import {
+  MAX_REPLAY_TURNS,
   ReplayValidationError,
   applyReplayTurn,
   clearReplayLog,
   dumpReplay,
   getReplayLog,
   isReplayEnabled,
+  isReplayLogCapped,
   loadReplay,
   recordReplaySnapshot,
   setReplayEnabled,
@@ -322,5 +324,56 @@ describe('replay trigger site: endTurn', () => {
 
     expect(G.currentFactionIdx).toBe(2);
     expect(getReplayLog().length).toBe(0);
+  });
+});
+
+describe('replay log cap (MAX_REPLAY_TURNS)', () => {
+  beforeEach(() => {
+    resetForReplay();
+    buildSmallScenario();
+  });
+
+  it('isReplayLogCapped is false until the cap is reached', () => {
+    expect(isReplayLogCapped()).toBe(false);
+    for (let i = 0; i < MAX_REPLAY_TURNS - 1; i++) {
+      G.turn = i + 1;
+      recordReplaySnapshot();
+    }
+    expect(getReplayLog().length).toBe(MAX_REPLAY_TURNS - 1);
+    expect(isReplayLogCapped()).toBe(false);
+  });
+
+  it('caps length at MAX_REPLAY_TURNS and isReplayLogCapped flips true', () => {
+    for (let i = 0; i < MAX_REPLAY_TURNS; i++) {
+      G.turn = i + 1;
+      recordReplaySnapshot();
+    }
+    expect(getReplayLog().length).toBe(MAX_REPLAY_TURNS);
+    expect(isReplayLogCapped()).toBe(true);
+  });
+
+  it('FIFO drops the oldest snapshot when pushing past the cap', () => {
+    // Stamp G.turn into each snapshot so we can identify which were kept.
+    for (let i = 0; i < MAX_REPLAY_TURNS + 50; i++) {
+      G.turn = i + 1;
+      recordReplaySnapshot();
+    }
+    const log = getReplayLog();
+    expect(log.length).toBe(MAX_REPLAY_TURNS);
+    // The oldest 50 snapshots (turns 1..50) were evicted; the surviving
+    // window is turns 51..(MAX+50) in order.
+    expect(log[0].turn).toBe(51);
+    expect(log[log.length - 1].turn).toBe(MAX_REPLAY_TURNS + 50);
+  });
+
+  it('clearReplayLog resets cap state', () => {
+    for (let i = 0; i < MAX_REPLAY_TURNS; i++) {
+      G.turn = i + 1;
+      recordReplaySnapshot();
+    }
+    expect(isReplayLogCapped()).toBe(true);
+    clearReplayLog();
+    expect(getReplayLog().length).toBe(0);
+    expect(isReplayLogCapped()).toBe(false);
   });
 });
