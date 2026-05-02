@@ -71,6 +71,19 @@
 //     no new RNG calls, queue is part of the serialized snapshot, and
 //     the v4→v5 save migration wraps legacy single-or-null values into
 //     arrays at load.
+//
+// 10. Animation event bus (Phase 3 S1) lives in render/animations.ts.
+//     systems/{combat,movement,turn,research,city} emit typed AnimEvents;
+//     render-side subscribers (combatEffects, unitTweens, future
+//     turn-transition / tech-pop / death modules) wire in main.ts at
+//     boot via subscribe* fns. The bus stays pixi-free so it remains
+//     test-importable (the 2n-1 boundary). Fan-out is synchronous so
+//     emit + handler runs in the same tick a direct call would have —
+//     byte-identical behavior preserved. Don't bypass with a direct
+//     `render/...` import from systems/; extend AnimEvent and add a
+//     subscriber instead. Scaffolded events (turnEnd, techComplete,
+//     cityBuilt, unitKilled, victoryReached) ship without subscribers
+//     in S1 — S4/S6 wire them.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
