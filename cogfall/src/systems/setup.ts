@@ -7,8 +7,9 @@ import { hexNeighbors } from '../core/hex';
 import { log } from '../core/log';
 import { getGameRng, initGameRng, shuffle } from '../core/rng';
 import { G, getTile, getUnitAt } from '../core/state';
-import type { Difficulty, Faction, FactionIdx } from '../core/types';
+import type { Difficulty, Faction, FactionIdx, TechId } from '../core/types';
 import { FACTIONS, type MapSizeId, type FactionDef } from '../data/factions';
+import { getScenario, resolveScenarioStarts } from '../data/scenarios';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
 import { initAIMemory } from '../ai/memory';
@@ -28,7 +29,12 @@ import { centerOnHex, resizeCanvas } from '../render/pixi';
 import { closeModal } from '../ui/modals';
 import { updateUI } from '../ui/topbar';
 import { render } from '../render/pixi';
-import { getHumanFactionIndices, getSetupControlMode, getSetupSeed } from '../ui/setupModal';
+import {
+  getHumanFactionIndices,
+  getScenarioId,
+  getSetupControlMode,
+  getSetupSeed,
+} from '../ui/setupModal';
 
 const STARTING_GOLD = 50;
 const COIN_BONUS_GOLD = 50;
@@ -74,13 +80,37 @@ export function setupGame(): void {
     DOM_IDS.RESOURCE_DENSITY,
   ) as HTMLSelectElement | null;
 
-  const mapSize = mapSizeEl.value as MapSizeId;
-  const waterLevel = (waterEl?.value ?? 'coasts') as WaterLevel;
-  const resourceDensity = (densityEl?.value ?? 'standard') as ResourceDensity;
+  const formMapSize = mapSizeEl.value as MapSizeId;
+  const formWaterLevel = (waterEl?.value ?? 'coasts') as WaterLevel;
+  const formResourceDensity = (densityEl?.value ?? 'standard') as ResourceDensity;
   const opponentCount = Math.max(
     1,
     Math.min(MAX_OPPONENTS, parseInt(opponentCountEl.value, 10) || 3)
   );
+
+  // Phase 3 S3 — scenario lookup. With SCENARIOS empty in S3, getScenario
+  // always returns null and the random-map path stays in charge. The
+  // scenario branch below only runs once Session 8 authors entries.
+  const scenario = getScenario(getScenarioId());
+
+  // Validate the player's chosen faction is in the scenario's roster
+  // BEFORE any state mutation so we don't half-clear G on a bad pick.
+  // Scenarios force single-player (multi-human-scenario design is S8's
+  // job), so getHumanFactionIndices()[0] is always the player.
+  const playerPoolIdx = getHumanFactionIndices()[0];
+  if (scenario && !scenario.factions.some((s) => s.idx === (playerPoolIdx as FactionIdx))) {
+    const allowed = scenario.factions.map((s) => FACTIONS[s.idx].name).join(', ');
+    alert(`Scenario "${scenario.name}" requires picking one of: ${allowed}.`);
+    return;
+  }
+
+  // Scenario.mapGenOverrides take priority over the form; falls through
+  // field-by-field so a scenario that only pins, say, water level still
+  // honors the player's map-size and density picks.
+  const mapSize = scenario?.mapGenOverrides?.mapSize ?? formMapSize;
+  const waterLevel = scenario?.mapGenOverrides?.waterLevel ?? formWaterLevel;
+  const resourceDensity = scenario?.mapGenOverrides?.resourceDensity ?? formResourceDensity;
+
   G.difficulty = difficultyEl.value as Difficulty;
   const speed = speedEl.value;
   G.goldHegemonyThreshold =
@@ -120,33 +150,52 @@ export function setupGame(): void {
 
   G.map = generateMap(mapSize, getGameRng(), { waterLevel, resourceDensity });
 
-  // Build factions. Phase 2m: hot-seat picks N humans from the FACTIONS
-  // pool; AI fills the remainder. Single-player path is byte-identical to
-  // pre-2m (1 human + opponentCount AIs from the shuffled pool).
-  const controlMode = getSetupControlMode();
-  const humanPoolIdxs = getHumanFactionIndices();
-  const aiPool = FACTIONS.filter((_, i) => !humanPoolIdxs.includes(i)).slice() as unknown as FactionDef[];
-  shuffle(aiPool, getGameRng());
+  if (scenario) {
+    // Scenario roster: factions are pushed in scenario.factions order;
+    // the human is whichever entry matches playerPoolIdx (validated above).
+    // controlMode forced to 'single' — multi-human scenarios are S8's call.
+    scenario.factions.forEach((s, gameIdx) => {
+      const def = FACTIONS[s.idx] as unknown as FactionDef;
+      const isAI = s.idx !== (playerPoolIdx as FactionIdx);
+      const f = createFaction(def, isAI, gameIdx);
+      if (s.startTechs) {
+        for (const t of s.startTechs) f.techs.add(t as TechId);
+      }
+      G.factions.push(f);
+    });
+    G.controlMode = 'single';
+    G.humanFactionIdxs = G.factions.filter((f) => !f.isAI).map((f) => f.idx);
+    G.playerFactionIdx = G.humanFactionIdxs[0] ?? (0 as FactionIdx);
+  } else {
+    // Build factions. Phase 2m: hot-seat picks N humans from the FACTIONS
+    // pool; AI fills the remainder. Single-player path is byte-identical to
+    // pre-2m (1 human + opponentCount AIs from the shuffled pool).
+    const controlMode = getSetupControlMode();
+    const humanPoolIdxs = getHumanFactionIndices();
+    const aiPool = FACTIONS.filter((_, i) => !humanPoolIdxs.includes(i)).slice() as unknown as FactionDef[];
+    shuffle(aiPool, getGameRng());
 
-  // In hot-seat every remaining FACTION plays ("AI picks what's left").
-  // In single-player the user-set opponent count caps AI seats as today.
-  const aiCount = controlMode === 'hotseat' ? aiPool.length : opponentCount;
+    // In hot-seat every remaining FACTION plays ("AI picks what's left").
+    // In single-player the user-set opponent count caps AI seats as today.
+    const aiCount = controlMode === 'hotseat' ? aiPool.length : opponentCount;
 
-  // Push humans in pool-index ascending order (deterministic; matches
-  // setupModal's "lowest-human-index becomes the first seat" rule), then
-  // AIs from the shuffled remaining pool.
-  humanPoolIdxs.forEach((poolIdx, gameIdx) => {
-    const def = FACTIONS[poolIdx] as unknown as FactionDef;
-    G.factions.push(createFaction(def, false, gameIdx));
-  });
-  for (let i = 0; i < aiCount; i++) {
-    G.factions.push(createFaction(aiPool[i], true, humanPoolIdxs.length + i));
+    // Push humans in pool-index ascending order (deterministic; matches
+    // setupModal's "lowest-human-index becomes the first seat" rule), then
+    // AIs from the shuffled remaining pool.
+    humanPoolIdxs.forEach((poolIdx, gameIdx) => {
+      const def = FACTIONS[poolIdx] as unknown as FactionDef;
+      G.factions.push(createFaction(def, false, gameIdx));
+    });
+    for (let i = 0; i < aiCount; i++) {
+      G.factions.push(createFaction(aiPool[i], true, humanPoolIdxs.length + i));
+    }
+    G.controlMode = controlMode;
+    G.humanFactionIdxs = humanPoolIdxs.map((_, gameIdx) => gameIdx as FactionIdx);
+    G.playerFactionIdx = 0 as FactionIdx;
   }
-  G.controlMode = controlMode;
-  G.humanFactionIdxs = humanPoolIdxs.map((_, gameIdx) => gameIdx as FactionIdx);
-  G.playerFactionIdx = 0 as FactionIdx;
   G.currentFactionIdx = 0 as FactionIdx;
   G.passoverActive = false;
+  G.scenarioId = scenario?.id ?? null;
 
   // Initial diplo: all unmet.
   for (const f of G.factions) {
@@ -156,8 +205,12 @@ export function setupGame(): void {
   // AI memory.
   for (const f of G.factions) if (f.isAI) initAIMemory(f.idx);
 
-  // Faction starts: capital + initial units.
-  const starts = findFactionStarts(G.factions.length);
+  // Faction starts: capital + initial units. Scenario picks pre-baked
+  // coords (resolveScenarioStarts validates walkability + on-map);
+  // random-map mode greedily scores tiles via findFactionStarts.
+  const starts = scenario
+    ? resolveScenarioStarts(scenario, G.map)
+    : findFactionStarts(G.factions.length);
   for (let i = 0; i < G.factions.length; i++) {
     const f = G.factions[i];
     const s = starts[i];

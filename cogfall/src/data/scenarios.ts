@@ -11,7 +11,9 @@
 // consumed in S3 — keeping the type stable across S7/S8 avoids re-shaping
 // later. See decision-log item 12 in core/state.ts.
 
-import type { FactionIdx } from '../core/types';
+import { hexKey } from '../core/hex';
+import type { FactionIdx, GameMap, Tile } from '../core/types';
+import { TERRAIN_TYPES } from '../data/terrain';
 import type { TechId } from '../data/techs';
 import type { MapSizeId } from '../data/factions';
 import type { ResourceDensity, WaterLevel } from '../systems/mapgen';
@@ -55,4 +57,27 @@ export const SCENARIOS: readonly ScenarioDef[] = [];
 export function getScenario(id: string | null | undefined): ScenarioDef | null {
   if (id == null || id === '') return null;
   return SCENARIOS.find((s) => s.id === id) ?? null;
+}
+
+/**
+ * Resolve a scenario's per-faction (q, r) starts to actual map Tiles, in
+ * scenario.factions order. Pure — no G access, no RNG draws. Throws if a
+ * coord is off-map or on unwalkable terrain so authoring mistakes surface
+ * immediately at setup time instead of at city-placement time.
+ */
+export function resolveScenarioStarts(scenario: ScenarioDef, map: GameMap): Tile[] {
+  return scenario.factions.map((s, i) => {
+    const tile = map.tiles.get(hexKey(s.startQ, s.startR));
+    if (!tile) {
+      throw new Error(
+        `Scenario "${scenario.id}" faction[${i}] start (${s.startQ}, ${s.startR}) is off-map.`,
+      );
+    }
+    if (!TERRAIN_TYPES[tile.terrain].walkable) {
+      throw new Error(
+        `Scenario "${scenario.id}" faction[${i}] start (${s.startQ}, ${s.startR}) is on ${tile.terrain} (unwalkable).`,
+      );
+    }
+    return tile;
+  });
 }
