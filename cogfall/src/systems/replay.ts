@@ -40,6 +40,15 @@ export class ReplayValidationError extends Error {
   }
 }
 
+/** Hard cap on retained per-turn snapshots. A medium-map serialized state
+ * runs ~100-200 KB; without a cap the log grew unbounded and a campaign
+ * past a few hundred turns slowed (GC pressure) then OOM-killed the tab.
+ * 200 keeps memory bounded at ~30 MB and covers the recent-history use
+ * case the replay viewer was built for. When the cap is hit we drop the
+ * oldest snapshot (FIFO) — the modal slider labels by snapshot.turn, not
+ * array index, so the rolling window renders correctly without UI work. */
+export const MAX_REPLAY_TURNS = 200;
+
 const replayLog: SerializedGameState[] = [];
 let enabled = readEnabled();
 
@@ -67,6 +76,16 @@ export function recordReplaySnapshot(): void {
   // the snapshot format byte-equal to the save format, so dumpReplay can
   // ship snapshots directly without a separate format spec.
   replayLog.push(serializeGameState().state);
+  // FIFO drop oldest once we cross the cap — see MAX_REPLAY_TURNS doc.
+  if (replayLog.length > MAX_REPLAY_TURNS) replayLog.shift();
+}
+
+/** True once the replay log is at MAX_REPLAY_TURNS — the next push will
+ * evict the oldest snapshot. The replay modal reads this to surface a
+ * "Showing last N turns" hint so a player who scrubs in a long game
+ * doesn't wonder why turn 1 isn't there. */
+export function isReplayLogCapped(): boolean {
+  return replayLog.length >= MAX_REPLAY_TURNS;
 }
 
 /** Snapshot of the in-memory replay log. Production callers usually want
