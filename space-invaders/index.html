@@ -38,8 +38,29 @@
                 <p>Don't let them reach the bottom!</p>
             </div>
             <button id="start-btn" class="main-btn">START GAME</button>
+            <div class="button-group">
+                <button id="high-scores-btn" class="secondary-btn">HIGH SCORES</button>
+            </div>
             <div class="high-score-display">
                 <p>High Score: <span id="menu-high-score">0</span></p>
+            </div>
+        </div>
+
+        <!-- High Scores Screen -->
+        <div id="highscores-screen" class="screen" style="display: none;">
+            <h2>🏆 HIGH SCORES</h2>
+            <div class="high-scores-table">
+                <div class="hs-header">
+                    <span class="hs-rank">#</span>
+                    <span class="hs-name">NAME</span>
+                    <span class="hs-score">SCORE</span>
+                </div>
+                <div id="hs-entries"></div>
+                <div id="hs-empty" class="hs-empty">No scores yet — be the first!</div>
+            </div>
+            <div class="button-group">
+                <button id="hs-back-btn" class="secondary-btn">BACK</button>
+                <button id="hs-reset-btn" class="danger-btn">RESET</button>
             </div>
         </div>
 
@@ -91,14 +112,25 @@
                 <div id="new-high-score" style="display: none;">
                     <p class="achievement">🏆 NEW HIGH SCORE! 🏆</p>
                 </div>
+                <!-- Initials input (shown when score qualifies for top 10) -->
+                <div id="initials-section" style="display: none;">
+                    <p class="achievement">🏆 TOP 10 SCORE! 🏆</p>
+                    <p style="color: #aaa; margin: 0.5rem 0;">Enter your initials:</p>
+                    <div class="initials-input-group">
+                        <input type="text" id="initials-input" maxlength="3" placeholder="AAA" autocomplete="off">
+                        <button id="initials-submit-btn" class="main-btn" style="padding: 0.5rem 1.5rem; font-size: 1rem;">SAVE</button>
+                    </div>
+                </div>
             </div>
             <div class="button-group">
                 <button id="restart-btn" class="main-btn">PLAY AGAIN</button>
                 <button id="menu-btn" class="secondary-btn">MAIN MENU</button>
+                <button id="gameover-hs-btn" class="secondary-btn">HIGH SCORES</button>
             </div>
         </div>
     </div>
 
+    <script src="js/highscore.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/projectile.js"></script>
     <script src="js/player.js"></script>

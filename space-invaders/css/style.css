@@ -145,6 +145,132 @@ kbd {
     font-size: 1.3rem;
 }
 
+/* High Scores Screen */
+#highscores-screen h2 {
+    font-size: 2.5rem;
+    color: #00d4ff;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+.high-scores-table {
+    background: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 500px;
+    margin: 0 auto 2rem auto;
+    min-height: 200px;
+}
+
+.hs-header {
+    display: grid;
+    grid-template-columns: 3rem 1fr 1fr;
+    padding: 0.5rem 1rem;
+    color: #00d4ff;
+    font-weight: bold;
+    font-size: 0.9rem;
+    letter-spacing: 0.1rem;
+    border-bottom: 2px solid #0f3460;
+    margin-bottom: 0.5rem;
+}
+
+.hs-entry {
+    display: grid;
+    grid-template-columns: 3rem 1fr 1fr;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.hs-entry:hover {
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.hs-entry.highlight {
+    background: rgba(255, 215, 0, 0.15);
+    border-left: 3px solid #ffd700;
+}
+
+.hs-rank {
+    color: #888;
+    font-weight: bold;
+}
+
+.hs-name {
+    color: #eee;
+    font-family: monospace;
+    letter-spacing: 0.15rem;
+}
+
+.hs-score {
+    color: #00d4ff;
+    font-weight: bold;
+    text-align: right;
+}
+
+.hs-empty {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 3rem 0;
+    font-size: 1.1rem;
+}
+
+/* Initials Input */
+.initials-input-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+#initials-input {
+    background: #0a0a15;
+    border: 2px solid #00d4ff;
+    border-radius: 6px;
+    color: #00d4ff;
+    font-family: monospace;
+    font-size: 1.5rem;
+    font-weight: bold;
+    letter-spacing: 0.3rem;
+    padding: 0.5rem 1rem;
+    text-align: center;
+    width: 120px;
+    outline: none;
+    transition: box-shadow 0.2s;
+}
+
+#initials-input:focus {
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.5);
+}
+
+#initials-input::placeholder {
+    color: #334;
+    letter-spacing: 0.3rem;
+}
+
+/* Danger Button */
+.danger-btn {
+    background: #16213e;
+    color: #ff4444;
+    border: 2px solid #ff4444;
+    padding: 1rem 3rem;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.danger-btn:hover {
+    background: #ff4444;
+    color: #1a1a2e;
+    transform: translateY(-2px);
+}
+
 /* Game Screen */
 .score-panel {
     display: flex;

@@ -10,8 +10,9 @@ const Game = {
     keys: {},
 
     init() {
-        // Load high score from localStorage
-        this.highScore = parseInt(localStorage.getItem('spaceInvadersHighScore')) || 0;
+        // Initialize high score table
+        HighScoreManager.init();
+        this.highScore = HighScoreManager.getTopScore();
         
         // Initialize audio
         AudioManager.init();
@@ -191,12 +192,24 @@ const Game = {
         document.getElementById('final-wave').textContent = this.wave - 1;
         document.getElementById('aliens-killed').textContent = this.aliensKilled;
         
-        // Check for new high score
+        // Check if score qualifies for top 10
+        const initialsSection = document.getElementById('initials-section');
         const newHighScore = document.getElementById('new-high-score');
-        if (this.score >= this.highScore && this.score > 0) {
+        
+        if (HighScoreManager.qualifies(this.score) && this.score > 0) {
+            // Show initials input
+            initialsSection.style.display = 'block';
+            newHighScore.style.display = 'none';
+            const input = document.getElementById('initials-input');
+            input.value = '';
+            setTimeout(() => input.focus(), 100);
+        } else if (this.score >= this.highScore && this.score > 0) {
+            // Legacy: beat the single high score but not top 10
             newHighScore.style.display = 'block';
+            initialsSection.style.display = 'none';
         } else {
             newHighScore.style.display = 'none';
+            initialsSection.style.display = 'none';
         }
     },
 
@@ -226,15 +239,45 @@ const Game = {
     },
 
     updateHighScoreDisplay() {
+        this.highScore = HighScoreManager.getTopScore();
         document.getElementById('menu-high-score').textContent = this.highScore;
+        document.getElementById('high-score').textContent = this.highScore;
     },
 
     saveHighScore() {
-        localStorage.setItem('spaceInvadersHighScore', this.highScore.toString());
+        // Delegated to HighScoreManager
+        this.highScore = HighScoreManager.getTopScore();
     },
 
+    /**
+     * Render the high scores table on the high scores screen.
+     * @param {number|null} highlightRank - 1-based rank to highlight, or null
+     */
+    renderHighScores(highlightRank) {
+        const entries = HighScoreManager.getAll();
+        const container = document.getElementById('hs-entries');
+        const empty = document.getElementById('hs-empty');
+
+        container.innerHTML = '';
+        if (entries.length === 0) {
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+
+        entries.forEach((entry, i) => {
+            const row = document.createElement('div');
+            row.className = 'hs-entry' + (highlightRank === i + 1 ? ' highlight' : '');
+            row.innerHTML = `
+                <span class="hs-rank">${i + 1}</span>
+                <span class="hs-name">${entry.initials}</span>
+                <span class="hs-score">${entry.score.toLocaleString()}</span>
+            `;
+            container.appendChild(row);
+        });
+    },
     showScreen(screenId) {
-        const screens = ['start-screen', 'game-screen', 'gameover-screen'];
+        const screens = ['start-screen', 'game-screen', 'gameover-screen', 'highscores-screen'];
         screens.forEach(id => {
             document.getElementById(id).style.display = id === screenId ? 'block' : 'none';
         });

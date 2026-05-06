@@ -25,9 +25,57 @@ function setupEventListeners() {
         Game.updateHighScoreDisplay();
     });
 
+    // High Scores button (title screen)
+    document.getElementById('high-scores-btn').addEventListener('click', () => {
+        Game.showScreen('highscores-screen');
+        Game.renderHighScores(null);
+    });
+
+    // High Scores button (game over screen)
+    document.getElementById('gameover-hs-btn').addEventListener('click', () => {
+        Game.showScreen('highscores-screen');
+        Game.renderHighScores(null);
+    });
+
+    // Back button (high scores screen)
+    document.getElementById('hs-back-btn').addEventListener('click', () => {
+        Game.showScreen('start-screen');
+        Game.updateHighScoreDisplay();
+    });
+
+    // Reset high scores button
+    document.getElementById('hs-reset-btn').addEventListener('click', () => {
+        if (confirm('Are you sure you want to reset all high scores? This cannot be undone.')) {
+            HighScoreManager.reset();
+            Game.updateHighScoreDisplay();
+            Game.renderHighScores(null);
+        }
+    });
+
+    // Submit initials
+    document.getElementById('initials-submit-btn').addEventListener('click', submitInitials);
+    document.getElementById('initials-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitInitials();
+    });
+
     // Keyboard controls
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
+}
+
+function submitInitials() {
+    const input = document.getElementById('initials-input');
+    const initials = input.value.trim().toUpperCase();
+    if (initials.length === 0) {
+        input.focus();
+        return;
+    }
+    const rank = HighScoreManager.addEntry(initials, Game.score);
+    Game.updateHighScoreDisplay();
+    // Hide initials section, show high scores
+    document.getElementById('initials-section').style.display = 'none';
+    Game.showScreen('highscores-screen');
+    Game.renderHighScores(rank);
 }
 
 function handleKeyDown(event) {
