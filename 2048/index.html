@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <title>2048 — Power Tiles</title>
+</head>
+<body>
+    <header class="game-header">
+        <h1>2048</h1>
+        <p class="subtitle">Power Tiles Edition</p>
+    </header>
+
+    <div class="score-panel">
+        <div class="score-box">
+            <div class="label">Score</div>
+            <div class="value" id="score">0</div>
+        </div>
+        <div class="score-box">
+            <div class="label">Best</div>
+            <div class="value" id="best">0</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="undo-btn" disabled>↩ Undo</button>
+        <button class="btn" id="new-game-btn">New Game</button>
+    </div>
+
+    <div class="board-container">
+        <div class="board" id="board">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        </div>
+        <div class="tile-layer" id="tile-layer"></div>
+        <div class="overlay" id="overlay">
+            <h2 id="overlay-title"></h2>
+            <button class="btn" id="overlay-btn"></button>
+        </div>
+    </div>
+
+    <p class="power-indicator">⚡ <span>Power tiles</span> appear every 10 moves — merge them to clear a 3×3 area!</p>
+
+    <div class="instructions">
+        Use <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to slide tiles.<br>
+        Equal tiles merge. Reach <strong>2048</strong> to win!
+    </div>
+
+    <div class="back-link">
+        <a href="../index.html">← Back to Arcade</a>
+    </div>
+
+    <script src="js/game.js"></script>
+</body>
+</html>

@@ -21,6 +21,7 @@
             --invaders: #8b5cf6;
             --reclamation: #eab308;
             --cogfall: #d97706;
+            --tiles: #a78bfa;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -199,6 +200,7 @@
         .card.invaders:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.18); }
         .card.reclamation:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(234,179,8,0.15); }
         .card.cogfall:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
+        .card.tiles:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(167,139,250,0.18); }
 
         /* ── footer ── */
         .footer {
@@ -318,6 +320,7 @@
         </a>
 
         <!-- Cogfall -->
+        <!-- Cogfall -->
         <a href="cogfall/dist/" class="card cogfall">
             <div class="card-accent" style="background:var(--cogfall)"></div>
             <div class="card-body">
@@ -330,7 +333,21 @@
             </div>
         </a>
 
+        <!-- 2048 Power Tiles -->
+        <a href="2048/" class="card tiles">
+            <div class="card-accent" style="background:var(--tiles)"></div>
+            <div class="card-body">
+                <span class="card-emoji">🔢</span>
+                <h2>2048</h2>
+                <p class="tagline">Slide, merge, and explode! Reach 2048 with strategic power-tile combos.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--tiles)"></span> Puzzle
+                </div>
+            </div>
+        </a>
+
     </main>
+
 
     <!-- footer -->
     <footer class="footer">
