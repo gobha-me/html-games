@@ -104,6 +104,43 @@ const Renderer = {
     },
 
     /**
+     * Draw ghost trail for a single snake
+     */
+    drawGhostTrail(body, color, trailLength) {
+        if (!GameState.ghostTrail || body.length < 2) return;
+
+        const segments = Math.min(trailLength, body.length - 1);
+        const cellSize = GameState.cellSize;
+
+        for (let i = 1; i <= segments; i++) {
+            const segment = body[i];
+            const x = segment.x * cellSize;
+            const y = segment.y * cellSize;
+            // Alpha fades from 0.4 down to 0 across the trail
+            const alpha = 0.4 * (1 - (i - 1) / segments);
+
+            this.ctx.fillStyle = this.hexToRgba(color, alpha);
+            this.roundRect(
+                x + 1,
+                y + 1,
+                cellSize - 2,
+                cellSize - 2,
+                4
+            );
+        }
+    },
+
+    /**
+     * Convert hex color to rgba string
+     */
+    hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    },
+
+    /**
      * Draw snake(s)
      */
     drawSnake() {
@@ -112,15 +149,18 @@ const Renderer = {
             for (const player of Multiplayer.players) {
                 if (!player.alive) continue;
                 const colors = this.playerColors[player.id];
+                this.drawGhostTrail(player.snake.body, colors.body, GameState.ghostTrailLength);
                 this.drawSnakeBody(player.snake.body, colors);
             }
         } else {
             // Single player - draw single snake
-            this.drawSnakeBody(Snake.body, {
+            const snakeColors = {
                 body: this.colors.snake,
                 head: this.colors.snakeHead,
                 glow: this.colors.snake
-            });
+            };
+            this.drawGhostTrail(Snake.body, this.colors.snake, GameState.ghostTrailLength);
+            this.drawSnakeBody(Snake.body, snakeColors);
         }
     },
 

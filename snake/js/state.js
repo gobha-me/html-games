@@ -45,11 +45,16 @@ const GameState = {
     gridSize: 30,
     cellSize: 20,
 
+    // Ghost trail visual option
+    ghostTrail: false,
+    ghostTrailLength: 5,
+
     /**
      * Initialize state from localStorage
      */
     init() {
         this.loadHighScore();
+        this.loadGhostTrail();
         this.setDifficulty(this.difficulty);
     },
 
@@ -130,5 +135,28 @@ const GameState = {
      */
     isMultiplayer() {
         return this.gameMode === 'multiplayer';
+    },
+
+    /**
+     * Load ghost trail setting from localStorage
+     */
+    loadGhostTrail() {
+        const saved = localStorage.getItem('snakeGhostTrail');
+        this.ghostTrail = saved === 'true';
+    },
+
+    /**
+     * Save ghost trail setting to localStorage
+     */
+    saveGhostTrail() {
+        localStorage.setItem('snakeGhostTrail', this.ghostTrail.toString());
+    },
+
+    /**
+     * Toggle ghost trail setting
+     */
+    toggleGhostTrail() {
+        this.ghostTrail = !this.ghostTrail;
+        this.saveGhostTrail();
     }
 };

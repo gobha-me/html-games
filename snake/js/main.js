@@ -9,7 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update menu high score display
     updateMenuHighScore();
-
+    
+    // Update ghost trail toggle UI
+    updateGhostTrailUI();
     // Setup event listeners
     setupEventListeners();
 });
@@ -76,6 +78,13 @@ function setupEventListeners() {
         });
     });
 
+    // Ghost trail toggle
+    const ghostTrailBtn = document.getElementById('ghost-trail-btn');
+    ghostTrailBtn.addEventListener('click', () => {
+        GameState.toggleGhostTrail();
+        updateGhostTrailUI();
+    });
+
     // Start button
     document.getElementById('start-btn').addEventListener('click', () => {
         startNewGame();
@@ -121,6 +130,21 @@ function updateModeUI(mode) {
         playerCountSection.style.display = 'none';
         multiplayerControls.style.display = 'none';
         singleControls.style.display = 'block';
+    }
+}
+
+/**
+ * Update ghost trail toggle button UI
+ */
+function updateGhostTrailUI() {
+    const ghostTrailBtn = document.getElementById('ghost-trail-btn');
+    const indicator = ghostTrailBtn.querySelector('.toggle-indicator');
+    if (GameState.ghostTrail) {
+        ghostTrailBtn.classList.add('active');
+        indicator.textContent = 'ON';
+    } else {
+        ghostTrailBtn.classList.remove('active');
+        indicator.textContent = 'OFF';
     }
 }
 
