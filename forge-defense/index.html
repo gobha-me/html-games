@@ -7,8 +7,102 @@
 
 <title>Forge Defense</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/help.css">
 </head>
 <body>
+
+<!-- INTRO SCREEN — shown on first visit, blocks the game until dismissed -->
+<div id="intro-screen">
+    <div class="intro-card">
+        <div class="intro-icon">⚒️</div>
+        <h1>Forge Defense</h1>
+        <p class="intro-subtitle">Build. Craft. Defend.</p>
+
+        <div class="intro-rules">
+            <div class="rule">
+                <span class="rule-icon">🏗️</span>
+                <div>
+                    <strong>Build</strong> — Press <kbd>1</kbd>–<kbd>9</kbd> to pick a building, then click the map to place it. <kbd>R</kbd> rotates, <kbd>Q</kbd> cancels.
+                </div>
+            </div>
+            <div class="rule">
+                <span class="rule-icon">⛏️</span>
+                <div>
+                    <strong>Craft</strong> — Mines harvest ore & coal. Furnaces smelt plates. Assemblers make circuits & ammo.
+                </div>
+            </div>
+            <div class="rule">
+                <span class="rule-icon">⚔️</span>
+                <div>
+                    <strong>Defend</strong> — Turrets auto-fire at enemies. Gun turrets need <strong>ammo</strong>, cannons need <strong>shells</strong>.
+                </div>
+            </div>
+            <div class="rule">
+                <span class="rule-icon">🏆</span>
+                <div>
+                    <strong>Survive</strong> 50 waves to win. Right-click buildings to delete (50% refund).
+                </div>
+            </div>
+        </div>
+
+        <div class="intro-actions">
+            <button class="intro-btn start" onclick="dismissIntro()">⚔️ Start Game</button>
+            <button class="intro-btn help" onclick="openHowToPlay()">📖 Full Guide</button>
+        </div>
+    </div>
+</div>
+
+<!-- Full Help Overlay (re-openable via ❓ button) -->
+<div id="how-to-play-overlay" class="overlay" style="display: none;">
+    <div class="overlay-backdrop" onclick="closeHowToPlay()"></div>
+    <div class="overlay-content">
+        <div class="overlay-header">
+            <h2>⚒️ How to Play — Forge Defense</h2>
+            <button class="overlay-close" onclick="closeHowToPlay()" title="Close">✕</button>
+        </div>
+        <div class="overlay-body">
+            <div class="help-section">
+                <h3>🎯 Goal</h3>
+                <p>Defend your forge from waves of enemies. Build turrets, craft ammo, and survive to Wave 50 for victory!</p>
+            </div>
+            <div class="help-section">
+                <h3>🏗️ Building</h3>
+                <ul>
+                    <li>Press <kbd>1</kbd>–<kbd>9</kbd> to select a building from the sidebar</li>
+                    <li>Click on the map to place it</li>
+                    <li>Press <kbd>R</kbd> to rotate before placing</li>
+                    <li>Press <kbd>Q</kbd> or <kbd>Esc</kbd> to cancel placement</li>
+                    <li><strong>Right-click</strong> an existing building to delete it (refunds 50%)</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3>⛏️ Resources & Crafting</h3>
+                <ul>
+                    <li>Mines auto-harvest raw ore, coal, and stone</li>
+                    <li>Furnaces smelt ore + coal into plates</li>
+                    <li>Assemblers turn plates into circuits and ammo</li>
+                    <li>Use the <strong>Manual Craft</strong> buttons for quick one-off crafting</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3>⚔️ Combat</h3>
+                <ul>
+                    <li>Turrets auto-fire at enemies in range</li>
+                    <li>Gun turrets need <strong>ammo</strong>; cannon turrets need <strong>shells</strong></li>
+                    <li>Keep your supply lines running — turrets stop firing without ammo!</li>
+                </ul>
+            </div>
+            <div class="help-section">
+                <h3>💾 Save / Load</h3>
+                <p>Use the 💾 and 📂 buttons in the sidebar. Your progress is stored locally in the browser.</p>
+            </div>
+        </div>
+        <div class="overlay-footer">
+            <button class="overlay-btn primary" onclick="closeHowToPlay()">Got it!</button>
+        </div>
+    </div>
+</div>
+
 <div id="game-container">
     <!-- TOP BAR - Status displays (non-interactive) -->
     <div id="top-status-bar">
@@ -74,6 +168,7 @@
                     <button class="audio-btn" id="music-toggle" onclick="toggleMusic()">🎵</button>
                 </div>
                 <div class="action-buttons-row">
+                    <button class="action-btn help" onclick="openHowToPlay()" title="How to Play">❓</button>
                     <button class="action-btn achievements" onclick="openAchievements()">🏆 <span id="achievement-count">0</span></button>
                     <button class="action-btn save" onclick="saveGame()">💾</button>
                     <button class="action-btn load" onclick="loadGame()">📂</button>
@@ -180,6 +275,271 @@
         </div>
     </div>
 </div>
+
+<style>
+/* ── Intro Screen (first-run) ── */
+#intro-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a15 100%);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #e0e0e0;
+}
+#intro-screen.hidden {
+    display: none;
+}
+.intro-card {
+    text-align: center;
+    max-width: 560px;
+    width: 90%;
+    padding: 40px 32px;
+    background: linear-gradient(135deg, #1e1e36 0%, #16162a 100%);
+    border: 2px solid #e67e22;
+    border-radius: 16px;
+    box-shadow: 0 0 60px rgba(230, 126, 34, 0.25), 0 20px 60px rgba(0,0,0,0.5);
+}
+.intro-icon {
+    font-size: 3.5rem;
+    margin-bottom: 8px;
+}
+.intro-card h1 {
+    margin: 0 0 4px;
+    font-size: 2rem;
+    color: #e67e22;
+    letter-spacing: 2px;
+}
+.intro-subtitle {
+    margin: 0 0 28px;
+    font-size: 1rem;
+    color: #888;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+}
+.intro-rules {
+    text-align: left;
+    margin-bottom: 32px;
+}
+.rule {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid #2a2a40;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #ccc;
+}
+.rule:last-child { border-bottom: none; }
+.rule-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    width: 32px;
+    text-align: center;
+}
+.rule kbd {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.85em;
+    font-family: monospace;
+    color: #fff;
+}
+.rule strong { color: #f0c040; }
+.intro-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.intro-btn {
+    padding: 14px 32px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.intro-btn:hover {
+    transform: translateY(-2px);
+}
+.intro-btn.start {
+    background: linear-gradient(135deg, #e67e22, #d35400);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(230, 126, 34, 0.4);
+}
+.intro-btn.start:hover {
+    box-shadow: 0 6px 28px rgba(230, 126, 34, 0.6);
+}
+.intro-btn.help {
+    background: #2a2a40;
+    color: #ccc;
+    border: 1px solid #444;
+}
+.intro-btn.help:hover {
+    background: #3a3a55;
+    color: #fff;
+}
+
+/* ── Full Help Overlay ── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+}
+.overlay-content {
+    position: relative;
+    background: #1a1a2e;
+    border: 2px solid #e67e22;
+    border-radius: 12px;
+    max-width: 620px;
+    width: 90%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 40px rgba(230, 126, 34, 0.3);
+    color: #e0e0e0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #333;
+}
+.overlay-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #e67e22;
+}
+.overlay-close {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.overlay-close:hover { color: #fff; }
+.overlay-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+.help-section {
+    margin-bottom: 18px;
+}
+.help-section:last-child {
+    margin-bottom: 0;
+}
+.help-section h3 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    color: #f0c040;
+}
+.help-section p, .help-section ul {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #ccc;
+}
+.help-section ul {
+    padding-left: 20px;
+}
+.help-section li {
+    margin-bottom: 4px;
+}
+.help-section kbd {
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.85em;
+    font-family: monospace;
+    color: #fff;
+}
+.overlay-footer {
+    padding: 14px 20px;
+    border-top: 1px solid #333;
+    display: flex;
+    justify-content: flex-end;
+}
+.overlay-btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+.overlay-btn.primary {
+    background: #e67e22;
+    color: #fff;
+}
+.overlay-btn.primary:hover {
+    background: #d35400;
+}
+</style>
+
+<script>
+// Intro screen + how-to-play logic
+(function() {
+    var STORAGE_KEY = 'forgeDefense_helpSeen';
+
+    // Dismiss the intro screen and mark as seen
+    window.dismissIntro = function() {
+        document.getElementById('intro-screen').classList.add('hidden');
+        try { localStorage.setItem(STORAGE_KEY, '1'); } catch(e) {}
+    };
+
+    // Open the full help overlay (re-openable via ❓ button)
+    window.openHowToPlay = function() {
+        document.getElementById('how-to-play-overlay').style.display = 'flex';
+    };
+
+    window.closeHowToPlay = function() {
+        document.getElementById('how-to-play-overlay').style.display = 'none';
+    };
+
+    // Show intro on first visit only
+    try {
+        if (!localStorage.getItem(STORAGE_KEY)) {
+            // Show immediately — intro screen is already in the DOM
+            // No need to wait for load; it sits above everything at z-index 20000
+        } else {
+            // Returning player — hide intro immediately
+            document.getElementById('intro-screen').classList.add('hidden');
+        }
+    } catch(e) {}
+
+    // Close help overlay on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var overlay = document.getElementById('how-to-play-overlay');
+            if (overlay && overlay.style.display === 'flex') {
+                window.closeHowToPlay();
+            }
+        }
+    });
+})();
+</script>
 
 <script src="js/config.js"></script>
 <script src="js/audio.js"></script>
