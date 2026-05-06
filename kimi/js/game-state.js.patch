@@ -1,9 +1,0 @@
---- a/kimi/js/game-state.js
-+++ b/kimi/js/game-state.js
-@@ -20,6 +20,7 @@ function createInitialGameState() {
-         wave: 1,
-         enemiesInWave: 3,
-+        enemiesSpawnedThisWave: 0,
-         waveTimer: 0,
-         gameTime: 0,
-         revealed: new Set(),

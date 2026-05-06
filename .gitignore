@@ -1,0 +1,21 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.project
+.settings/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Per-game tooling owns its own .gitignore (e.g. cogfall/.gitignore handles
+# node_modules, dist preservation, .vite, tsconfig.tsbuildinfo). This root
+# file is just for OS / editor cruft that can leak in from any contributor.
