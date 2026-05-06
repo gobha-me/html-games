@@ -117,6 +117,22 @@
             box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
         }
 
+        /* ── focus-visible (keyboard navigation) ── */
+        .card:focus-visible {
+            outline: 3px solid var(--text);
+            outline-offset: 3px;
+            transform: translateY(-6px);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .card.forge:focus-visible     { outline-color: var(--forge); }
+        .card.kimi:focus-visible      { outline-color: var(--kimi); }
+        .card.snake:focus-visible     { outline-color: var(--snake); }
+        .card.invaders:focus-visible  { outline-color: var(--invaders); }
+        .card.reclamation:focus-visible { outline-color: var(--reclamation); }
+        .card.cogfall:focus-visible   { outline-color: var(--cogfall); }
+
+
         .card-accent {
             height: 4px;
             width: 100%;
