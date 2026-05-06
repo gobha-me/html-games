@@ -3,9 +3,11 @@ node_modules
 .vite
 .DS_Store
 tsconfig.tsbuildinfo
+dist
 
-# NOTE: dist/ is intentionally NOT ignored.
-# The repo's deployment is `python3 -m http.server` over a `COPY . .` of the
-# repo root — there is no build step in CI. The built dist/ folder MUST be
-# committed for Cogfall to actually deploy at /games/cogfall/dist/.
-# Run `npm run build` and commit the output.
+# Cogfall is built in CI by the multi-stage Dockerfile (Node stage runs
+# `npm ci && npm run build`, Python stage serves the result). Don't
+# commit dist/ — Vite emits content-hashed filenames, so committed dist
+# would churn on every src change and conflict between concurrent PRs.
+# Local dev: `npm run dev` (Vite). Local static-server preview:
+# `npm run build` first.

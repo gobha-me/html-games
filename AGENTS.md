@@ -51,21 +51,26 @@ For any non-trivial change:
   `deployment.yaml` are repo-level — change them with care, they
   affect everyone.
 
-## Deployment gotcha
+## Deployment & PR checks
 
-The deploy image is just `python3 -m http.server` over `COPY . .`.
-**There is no CI build step.** Implications for you:
+The deploy image is a multi-stage Dockerfile: a Node stage builds
+Cogfall (`npm ci && npm run build`), and a Python stage serves the
+repo plus the built `cogfall/dist/` via `python3 -m http.server`.
+Implications for you:
 
 - Vanilla games (HTML / CSS / JS) deploy as-is. The source *is* the
   artifact.
-- Cogfall is the exception: it's Vite + TypeScript, and its `dist/`
-  folder is committed on purpose. **If you change Cogfall source, run
-  `npm run build` and commit the rebuilt `cogfall/dist/`** in the same
-  PR — otherwise the deployed game breaks. See
-  [`cogfall/.gitignore`](cogfall/.gitignore) for the explanatory note.
-- New build-tool-using games should follow Cogfall's pattern: commit
-  `dist/`, point the launcher card at `<game>/dist/`, document the
-  build step in the game's README.
+- Cogfall is built in CI. **Don't commit `cogfall/dist/`** — it's
+  gitignored. Edit `cogfall/src/`, push, open a PR; the image rebuilds
+  on merge to `main`.
+- PR checks (`.gitea/workflows/pr-checks.yaml`) run lint, build, and
+  tests on any PR that touches `cogfall/**`. All three must pass
+  before merge — that's the quality gate browser-only agents like
+  ai-editor rely on.
+- New build-tool-using games should extend the multi-stage Dockerfile
+  with their own build stage and follow Cogfall's gitignore-the-dist
+  pattern. Point the launcher card at `<game>/dist/` and document the
+  build in the game's README.
 
 ## Tech-stack defaults
 
@@ -92,7 +97,9 @@ Match the template by skimming `snake/README.md` and
 
 ## Things that will break the deploy
 
-- Pushing Cogfall source changes without rebuilding `dist/`.
+- Pushing Cogfall changes that fail PR checks (lint / build / tests) —
+  the merge still goes through if a human force-merges, but the deploy
+  image build will fail at the Node stage.
 - Adding a launcher card with a broken relative path.
 - Renaming a game directory without updating the launcher's link.
 - Committing files with absolute paths or `localhost` URLs.

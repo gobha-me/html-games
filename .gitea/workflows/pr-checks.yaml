@@ -1,0 +1,43 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'cogfall/**'
+      - '.gitea/workflows/pr-checks.yaml'
+
+jobs:
+  cogfall:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cogfall
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Uses Node already present in the runner image. We skip
+      # actions/setup-node because act (the Gitea Actions runner) clones
+      # the action repo from GitHub on every invocation, which adds
+      # minutes for no benefit. If the runner image regresses below
+      # Node 20, this step fails loudly — ask the maintainer to bump
+      # the CI image rather than re-adding setup-node.
+      - name: Verify Node version
+        run: |
+          echo "node: $(node --version)"
+          echo "npm:  $(npm --version)"
+          node -e "const m = process.versions.node.split('.').map(Number); if (m[0] < 20) { console.error('Node >= 20 required, got', process.versions.node); process.exit(1) }"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test
