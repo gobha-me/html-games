@@ -8,21 +8,28 @@
     <title>HTML Games — Arcade</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
         :root {
             --bg: #0a0a14;
             --surface: #12122a;
             --text: #e0e0f0;
             --muted: #7a7a9a;
-            --cogfall: #d97706;
-            --tiles: #a78bfa;
-            --mines: #10b981;
-            --tiles: #a78bfa;
-            --breakout: #38bdf8;
+            --forge: #f59e0b;
+            --kimi: #f43f5e;
+            --snake: #10b981;
+            --invaders: #8b5cf6;
             --reclamation: #eab308;
             --cogfall: #d97706;
             --tiles: #a78bfa;
+            --breakout: #38bdf8;
+            --mines: #10b981;
             --pong: #00d4ff;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
             font-family: 'Inter', system-ui, sans-serif;
             background: var(--bg);
             color: var(--text);
@@ -130,6 +137,9 @@
         .card.invaders:focus-visible  { outline-color: var(--invaders); }
         .card.reclamation:focus-visible { outline-color: var(--reclamation); }
         .card.cogfall:focus-visible   { outline-color: var(--cogfall); }
+        .card.tiles:focus-visible     { outline-color: var(--tiles); }
+        .card.breakout:focus-visible  { outline-color: var(--breakout); }
+        .card.mines:focus-visible     { outline-color: var(--mines); }
         .card.pong:focus-visible      { outline-color: var(--pong); }
 
         .card-accent {
@@ -197,6 +207,8 @@
         .card.reclamation:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(234,179,8,0.15); }
         .card.cogfall:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
         .card.tiles:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(167,139,250,0.18); }
+        .card.breakout:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(56,189,248,0.18); }
+        .card.mines:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.15); }
         .card.pong:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.18); }
 
         /* ── footer ── */
@@ -218,11 +230,18 @@
             animation: cardIn 0.6s ease forwards;
         }
 
+        .card:nth-child(1) { animation-delay: 0.05s; }
+        .card:nth-child(2) { animation-delay: 0.12s; }
+        .card:nth-child(3) { animation-delay: 0.19s; }
+        .card:nth-child(4) { animation-delay: 0.26s; }
         .card:nth-child(5) { animation-delay: 0.33s; }
         .card:nth-child(6) { animation-delay: 0.40s; }
         .card:nth-child(7) { animation-delay: 0.47s; }
+        .card:nth-child(8) { animation-delay: 0.54s; }
+        .card:nth-child(9) { animation-delay: 0.61s; }
 
         @keyframes cardIn {
+            from { opacity: 0; transform: translateY(24px); }
             to   { opacity: 1; transform: translateY(0); }
         }
 
@@ -313,7 +332,6 @@
         </a>
 
         <!-- Cogfall -->
-        <!-- Cogfall -->
         <a href="cogfall/dist/" class="card cogfall">
             <div class="card-accent" style="background:var(--cogfall)"></div>
             <div class="card-body">
@@ -328,6 +346,18 @@
 
         <!-- 2048 Power Tiles -->
         <a href="2048/" class="card tiles">
+            <div class="card-accent" style="background:var(--tiles)"></div>
+            <div class="card-body">
+                <span class="card-emoji">🔢</span>
+                <h2>2048</h2>
+                <p class="tagline">Slide, merge, and explode! Reach 2048 with strategic power-tile combos.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--tiles)"></span> Puzzle
+                </div>
+            </div>
+        </a>
+
+        <!-- Breakout -->
         <a href="breakout/" class="card breakout">
             <div class="card-accent" style="background:var(--breakout)"></div>
             <div class="card-body">
