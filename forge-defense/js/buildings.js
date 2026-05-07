@@ -287,6 +287,7 @@ function updateBuildingHealth(building) {
 }
 
 function updateBuildingProduction() {
+    if (gameState.isGameOver || gameState.isPaused) return;
     const now = Date.now();
     gameState.production = {};
 
@@ -448,6 +449,15 @@ function setupEventListeners() {
 
     // Keyboard
     window.addEventListener('keydown', (e) => {
+        // P key: toggle pause (works regardless of game state)
+        if (e.key.toLowerCase() === 'p') {
+            togglePause();
+            return;
+        }
+
+        // All other keys are suppressed while paused
+        if (gameState.isPaused) return;
+
         const speed = 20 / gameState.camera.scale;  // Adjust for zoom
         switch(e.key.toLowerCase()) {
             case 'w': gameState.camera.y -= speed; updateCameraPosition(); break;
@@ -464,6 +474,7 @@ function setupEventListeners() {
             selectBuildingForPlacement(BUILDING_KEYS[e.key]);
         }
     });
+
 
     // Minimap click - navigate to clicked location
     minimapCanvas.addEventListener('click', (e) => {

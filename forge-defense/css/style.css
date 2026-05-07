@@ -1179,3 +1179,117 @@ body {
 .back-to-arcade:hover {
     color: #ecf0f1;
 }
+
+
+/* ============================================================================
+   PAUSE BUTTON (top status bar)
+   ============================================================================ */
+
+.pause-btn {
+    margin-left: auto;
+    padding: 4px 14px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.pause-btn:hover,
+.pause-btn:focus {
+    background: rgba(233,69,96,0.5);
+    border-color: #e94560;
+    outline: 2px solid #e94560;
+    outline-offset: 2px;
+}
+
+.pause-btn[aria-pressed="true"] {
+    background: #e94560;
+    border-color: #e94560;
+}
+
+/* ============================================================================
+   PAUSE OVERLAY
+   ============================================================================ */
+
+#pause-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: none;          /* toggled by JS: none ↔ flex */
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(3px);
+}
+
+.pause-card {
+    background: linear-gradient(135deg, #1e1e36 0%, #12121a 100%);
+    border: 2px solid #e94560;
+    border-radius: 12px;
+    padding: 48px 60px;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(233,69,96,0.3);
+    animation: pause-pop 0.18s ease-out;
+}
+
+@keyframes pause-pop {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+.pause-card h2 {
+    font-size: 40px;
+    color: #e94560;
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+}
+
+.pause-hint {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 32px;
+}
+
+.pause-hint kbd {
+    background: #2a2a3e;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: #ddd;
+    font-size: 13px;
+}
+
+.pause-actions {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.pause-action-btn {
+    padding: 12px 36px;
+    font-size: 15px;
+    font-family: inherit;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.15s, filter 0.15s;
+}
+
+.pause-action-btn:hover,
+.pause-action-btn:focus {
+    transform: scale(1.06);
+    filter: brightness(1.2);
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.pause-action-btn.resume  { background: #2ecc71; color: #fff; }
+.pause-action-btn.restart { background: #e94560; color: #fff; }
