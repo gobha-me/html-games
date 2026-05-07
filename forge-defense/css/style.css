@@ -1,6 +1,7 @@
-/* ============================================================================
-   FORGE DEFENSE - Main Stylesheet
-   ============================================================================ */
+:root {
+    --muted: #7f8c8d;
+    --accent: #ecf0f1;
+}
 
 * {
     margin: 0;
@@ -1160,24 +1161,6 @@ body {
     font-size: 10px;
 }
 
-
-/* ── back to arcade link ── */
-.back-to-arcade {
-    position: fixed;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: #7f8c8d;
-    text-decoration: none;
-    font-size: 13px;
-    letter-spacing: 0.05em;
-    transition: color 0.2s;
-    z-index: 1000;
-}
-
-.back-to-arcade:hover {
-    color: #ecf0f1;
-}
 
 
 /* ============================================================================

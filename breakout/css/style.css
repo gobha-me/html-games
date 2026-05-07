@@ -162,20 +162,3 @@ body {
     transform: translateY(0);
 }
 
-/* ── back to arcade link ── */
-.back-to-arcade {
-    position: fixed;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 13px;
-    letter-spacing: 0.05em;
-    transition: color 0.2s;
-    z-index: 1000;
-}
-
-.back-to-arcade:hover {
-    color: var(--accent);
-}
