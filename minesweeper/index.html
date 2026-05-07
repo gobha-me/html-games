@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <title>Minesweeper — HTML Games</title>
+</head>
+<body>
+    <header class="game-header">
+        <h1>💣 Minesweeper</h1>
+        <p class="subtitle">Clear the minefield without detonating!</p>
+    </header>
+
+    <div class="difficulty-bar">
+        <button class="btn diff-btn active" data-diff="easy">Easy</button>
+        <button class="btn diff-btn" data-diff="medium">Medium</button>
+        <button class="btn diff-btn" data-diff="hard">Hard</button>
+    </div>
+
+    <div class="score-panel">
+        <div class="score-box">
+            <div class="label">Mines</div>
+            <div class="value" id="mine-count">10</div>
+        </div>
+        <div class="score-box">
+            <div class="label">Time</div>
+            <div class="value" id="timer">000</div>
+        </div>
+        <div class="score-box">
+            <div class="label">Best</div>
+            <div class="value" id="best-time">--</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="new-game-btn">😊 New Game</button>
+    </div>
+
+    <div class="board-wrapper">
+        <div class="board" id="board"></div>
+    </div>
+
+    <div class="instructions">
+        <strong>Left-click</strong> to reveal a cell · <strong>Right-click</strong> to flag/unflag · <strong>Middle-click</strong> a number to chord-reveal
+    </div>
+
+    <div class="back-link">
+        <a href="../index.html">← Back to Arcade</a>
+    </div>
+
+    <script src="js/game.js"></script>
+</body>
+</html>
