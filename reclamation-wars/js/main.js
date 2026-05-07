@@ -2,6 +2,7 @@
 let game;
 let ui;
 let setup;
+let keyboard;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize game engine
@@ -12,6 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize setup screen
     setup = new SetupScreen();
+
+    // Initialize keyboard input handler
+    keyboard = new KeyboardInput(game, ui);
 
     console.log('Reclamation Wars loaded. Select a faction to begin.');
 });

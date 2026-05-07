@@ -531,15 +531,9 @@ class GameUI {
             for (const tech of available) {
                 const costStr = Object.entries(tech.cost).map(([t, a]) => `${RESOURCE_TYPES[t]?.icon || t}${a}`).join(' ');
                 const canAfford = this.game.playerFaction.canAfford(tech.cost);
-
-                html += `
-                    <div class="research-item ${canAfford ? '' : 'locked'}" onclick="game.startResearch('${tech.id}'); ui.update();">
-                        <div class="tech-name">${tech.name} (T${tech.tier})</div>
-                        <div class="tech-cost">${costStr}</div>
-                        <div class="tech-desc">${tech.description}</div>
-                    </div>
-                `;
+                html += `\n                    <div class="research-item ${canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Research ${tech.name}" onclick="game.startResearch('${tech.id}'); ui.update();">\n                        <div class="tech-name">${tech.name} (T${tech.tier})</div>\n                        <div class="tech-cost">${costStr}</div>\n                        <div class="tech-desc">${tech.description}</div>\n                    </div>\n                `;
             }
+
 
             html += `</div>`;
         }
@@ -583,13 +577,7 @@ class GameUI {
                 const costStr = Object.entries(cost).map(([t, a]) => `${RESOURCE_TYPES[t]?.icon || t}${a}`).join(' ');
                 const canAfford = this.game.playerFaction.canAfford(cost);
 
-                html += `
-                    <div class="production-item ${canAfford ? '' : 'locked'}" onclick="game.buildUnit('${id}', game.selectedHex); ui.update();">
-                        <div class="prod-name">${unit.icon} ${unit.name}</div>
-                        <div class="prod-cost">${costStr}</div>
-                        <div class="prod-desc">ATK:${unit.attack} DEF:${unit.defense} MOV:${unit.movement} HP:${unit.hp}</div>
-                    </div>
-                `;
+                html += `\n                    <div class="production-item ${canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Build ${unit.name}" onclick="game.buildUnit('${id}', game.selectedHex); ui.update();">\n                        <div class="prod-name">${unit.icon} ${unit.name}</div>\n                        <div class="prod-cost">${costStr}</div>\n                        <div class="prod-desc">ATK:${unit.attack} DEF:${unit.defense} MOV:${unit.movement} HP:${unit.hp}</div>\n                    </div>\n                `;
             }
             html += `</div>`;
 
@@ -599,13 +587,7 @@ class GameUI {
             for (const building of availableBuildings) {
                 const costStr = Object.entries(building.cost).map(([t, a]) => `${RESOURCE_TYPES[t]?.icon || t}${a}`).join(' ');
 
-                html += `
-                    <div class="production-item ${building.canAfford ? '' : 'locked'}" onclick="game.buildBuilding('${building.id}', game.selectedHex); ui.update();">
-                        <div class="prod-name">${building.icon} ${building.name}</div>
-                        <div class="prod-cost">${costStr}</div>
-                        <div class="prod-desc">${building.description}</div>
-                    </div>
-                `;
+                html += `\n                    <div class="production-item ${building.canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Build ${building.name}" onclick="game.buildBuilding('${building.id}', game.selectedHex); ui.update();">\n                        <div class="prod-name">${building.icon} ${building.name}</div>\n                        <div class="prod-cost">${costStr}</div>\n                        <div class="prod-desc">${building.description}</div>\n                    </div>\n                `;
             }
             html += `</div>`;
         }
