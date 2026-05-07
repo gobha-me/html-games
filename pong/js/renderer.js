@@ -31,9 +31,9 @@ const Renderer = {
         this.drawCenterLine();
         
         // Draw paddles
-        this.drawPaddle(0, GameState.p1Y, '#00d4ff', true); // Player 1 - cyan
-        this.drawPaddle(CONFIG.CANVAS_WIDTH - CONFIG.PADDLE_WIDTH, GameState.p2Y, 
-            GameState.mode === 'cpu' ? '#ff6b6b' : '#00ff88', false); // Player 2/CPU
+        this.drawPaddle(0, GameState.p1Y, '#00d4ff'); // Player 1 - cyan
+        this.drawPaddle(CONFIG.CANVAS_WIDTH - CONFIG.PADDLE_WIDTH, GameState.p2Y,
+            GameState.mode === 'cpu' ? '#ff6b6b' : '#00ff88'); // Player 2/CPU
         
         // Draw ball
         this.drawBall();
@@ -67,7 +67,7 @@ const Renderer = {
     /**
      * Draw a paddle
      */
-    drawPaddle(x, y, color, isLeft) {
+    drawPaddle(x, y, color) {
         this.ctx.fillStyle = color;
         
         // Add glow effect
@@ -86,11 +86,7 @@ const Renderer = {
         // Add inner highlight
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         this.ctx.beginPath();
-        if (isLeft) {
-            this.ctx.roundRect(x + 2, y + 2, CONFIG.PADDLE_WIDTH - 4, CONFIG.PADDLE_HEIGHT - 4, radius - 2);
-        } else {
-            this.ctx.roundRect(x + 2, y + 2, CONFIG.PADDLE_WIDTH - 4, CONFIG.PADDLE_HEIGHT - 4, radius - 2);
-        }
+        this.ctx.roundRect(x + 2, y + 2, CONFIG.PADDLE_WIDTH - 4, CONFIG.PADDLE_HEIGHT - 4, radius - 2);
         this.ctx.fill();
     },
     
