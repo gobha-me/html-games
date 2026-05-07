@@ -59,7 +59,7 @@ const Game = (() => {
 
   // ── ball creation ──
   function createBall(x, y, dx, dy) {
-    return { x: x ?? W / 2, y: y ?? PADDLE_Y - BALL_R - 2, dx: dx ?? 0, dy: dy ?? 0, stuck: dx === 0 && dy === 0 };
+    return { x: x ?? W / 2, y: y ?? PADDLE_Y - BALL_R - 2, dx: dx ?? 0, dy: dy ?? 0, stuck: !dx && !dy };
   }
 
   // ── level init ──
