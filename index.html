@@ -8,8 +8,6 @@
     <title>HTML Games — Arcade</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <style>
         :root {
             --bg: #0a0a14;
             --surface: #12122a;
@@ -23,11 +21,8 @@
             --reclamation: #eab308;
             --cogfall: #d97706;
             --tiles: #a78bfa;
+            --pong: #00d4ff;
         }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
             font-family: 'Inter', system-ui, sans-serif;
             background: var(--bg);
             color: var(--text);
@@ -135,7 +130,7 @@
         .card.invaders:focus-visible  { outline-color: var(--invaders); }
         .card.reclamation:focus-visible { outline-color: var(--reclamation); }
         .card.cogfall:focus-visible   { outline-color: var(--cogfall); }
-
+        .card.pong:focus-visible      { outline-color: var(--pong); }
 
         .card-accent {
             height: 4px;
@@ -202,6 +197,7 @@
         .card.reclamation:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(234,179,8,0.15); }
         .card.cogfall:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
         .card.tiles:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(167,139,250,0.18); }
+        .card.pong:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.18); }
 
         /* ── footer ── */
         .footer {
@@ -222,15 +218,11 @@
             animation: cardIn 0.6s ease forwards;
         }
 
-        .card:nth-child(1) { animation-delay: 0.05s; }
-        .card:nth-child(2) { animation-delay: 0.12s; }
-        .card:nth-child(3) { animation-delay: 0.19s; }
-        .card:nth-child(4) { animation-delay: 0.26s; }
         .card:nth-child(5) { animation-delay: 0.33s; }
         .card:nth-child(6) { animation-delay: 0.40s; }
+        .card:nth-child(7) { animation-delay: 0.47s; }
 
         @keyframes cardIn {
-            from { opacity: 0; transform: translateY(24px); }
             to   { opacity: 1; transform: translateY(0); }
         }
 
@@ -336,17 +328,6 @@
 
         <!-- 2048 Power Tiles -->
         <a href="2048/" class="card tiles">
-            <div class="card-accent" style="background:var(--tiles)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🔢</span>
-                <h2>2048</h2>
-                <p class="tagline">Slide and merge tiles to reach the legendary 2048 — with a power-tile twist!</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--tiles)"></span> Puzzle Classic
-                </div>
-            </div>
-        </a>
-        <!-- Breakout -->
         <a href="breakout/" class="card breakout">
             <div class="card-accent" style="background:var(--breakout)"></div>
             <div class="card-body">
@@ -355,6 +336,19 @@
                 <p class="tagline">Smash bricks, collect power-ups, and battle bosses in this brick-breaking arcade classic.</p>
                 <div class="meta">
                     <span class="meta-dot" style="background:var(--breakout)"></span> Arcade Classic
+                </div>
+            </div>
+        </a>
+
+        <!-- Pong -->
+        <a href="pong/" class="card pong">
+            <div class="card-accent" style="background:var(--pong)"></div>
+            <div class="card-body">
+                <span class="card-emoji">🏓</span>
+                <h2>Pong</h2>
+                <p class="tagline">The classic arcade battle — challenge the CPU or play locally with a friend!</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--pong)"></span> Arcade Classic
                 </div>
             </div>
         </a>
@@ -371,7 +365,6 @@
                 </div>
             </div>
         </a>
-
     </main>
 
 

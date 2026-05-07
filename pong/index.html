@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+
+    <title>Pong</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>🏓 PONG</h1>
+            
+            <!-- Game Mode Selection -->
+            <div class="menu-section">
+                <h3>Select Mode</h3>
+                <div class="mode-buttons">
+                    <button class="mode-btn active" data-mode="cpu">VS CPU</button>
+                    <button class="mode-btn" data-mode="2p">2P Local</button>
+                </div>
+            </div>
+            
+            <!-- 2P Controls Preview -->
+            <div class="menu-section" id="controls-preview" style="display: none;">
+                <h3>Controls</h3>
+                <div class="controls-info">
+                    <div class="control-row">
+                        <span style="color: #00d4ff; font-weight: bold;">Player 1:</span>
+                        <kbd>W</kbd><kbd>S</kbd>
+                        <span>Up / Down</span>
+                    </div>
+                    <div class="control-row">
+                        <span style="color: #00ff88; font-weight: bold;">Player 2:</span>
+                        <kbd>↑</kbd><kbd>↓</kbd>
+                        <span>Up / Down</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- CPU Controls Preview -->
+            <div class="menu-section" id="cpu-controls-preview">
+                <h3>Controls</h3>
+                <div class="controls-info">
+                    <div class="control-row">
+                        <span style="color: #00d4ff; font-weight: bold;">Player 1:</span>
+                        <kbd>W</kbd><kbd>S</kbd>
+                        <span>Up / Down</span>
+                    </div>
+                    <div class="control-row">
+                        <span style="color: #888;">CPU:</span>
+                        <span>Computer AI</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="menu-section">
+                <h3>Select Difficulty (CPU)</h3>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+                    <button class="difficulty-btn active" data-difficulty="normal">Normal</button>
+                    <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+                </div>
+            </div>
+            
+            <div class="menu-section">
+                <h3>Winning Score</h3>
+                <div class="toggle-buttons">
+                    <button class="win-score-btn" data-score="5">First to 5</button>
+                    <button class="win-score-btn active" data-score="11">First to 11</button>
+                </div>
+            </div>
+            
+            <button id="start-btn" class="main-btn">Start Game</button>
+            <div class="menu-section high-score-section">
+                High Score: <span id="menu-high-score">0</span>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen" style="display: none;">
+            <div id="game-header">
+                <div class="score-panel">
+                    <div class="stat">
+                        <span class="stat-label">P1</span>
+                        <span class="stat-value" id="p1-score">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">High Score</span>
+                        <span class="stat-value" id="high-score">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">P2</span>
+                        <span class="stat-value" id="p2-score">0</span>
+                    </div>
+                </div>
+                <button id="pause-btn" class="icon-btn">⏸️</button>
+            </div>
+            
+            <div id="canvas-container">
+                <canvas id="game-canvas"></canvas>
+                <div id="pause-overlay" class="overlay" style="display: none;">
+                    <h2>⏸️ PAUSED</h2>
+                    <p>Press <kbd>Space</kbd> or <kbd>P</kbd> to resume</p>
+                </div>
+                <div id="countdown-overlay" class="overlay" style="display: none;">
+                    <h2 id="countdown-text">3</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="screen" style="display: none;">
+            <h1 id="gameover-title">🏆 GAME OVER</h1>
+            <div class="gameover-stats" id="single-stats">
+                <div class="winner-display">
+                    <span class="winner-text" id="winner-text">Player 1 Wins!</span>
+                    <span class="winner-score" id="winner-score">Score: 0</span>
+                </div>
+                <div class="stat-item new-high-score" id="new-high-score" style="display: none;">
+                    🏆 New High Score! 🏆
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="play-again-btn" class="main-btn">Play Again</button>
+                <button id="menu-btn" class="secondary-btn">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/state.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/main.js"></script>
+
+    <a href="../" class="back-to-arcade">← Back to Arcade</a>
+</body>
+</html>

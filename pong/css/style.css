@@ -1,0 +1,387 @@
+/* Pong Game Styles */
+:root {
+    --pong-primary: #00d4ff;
+    --pong-secondary: #00ff88;
+    --pong-accent: #ff6b6b;
+    --pong-bg: #0a0a12;
+    --pong-dark: #12121a;
+    --pong-text: #e0e0e0;
+    --pong-dim: #666;
+}
+
+#pong #game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--pong-bg) 0%, #0f0f1a 100%);
+    font-family: 'Courier New', monospace;
+    position: relative;
+}
+
+#pong .screen {
+    text-align: center;
+    padding: 2rem;
+}
+
+#pong h1 {
+    font-size: 4rem;
+    color: var(--pong-primary);
+    text-shadow: 0 0 20px var(--pong-primary), 0 0 40px var(--pong-primary);
+    margin-bottom: 2rem;
+    letter-spacing: 0.3em;
+}
+
+#pong h3 {
+    color: var(--pong-text);
+    margin: 1.5rem 0 0.75rem;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Menu Sections */
+#pong .menu-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Mode Buttons */
+#pong .mode-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+#pong .mode-btn, #pong .difficulty-btn, #pong .win-score-btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 2px solid var(--pong-primary);
+    background: transparent;
+    color: var(--pong-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#pong .mode-btn:hover, #pong .difficulty-btn:hover, #pong .win-score-btn:hover {
+    background: var(--pong-primary);
+    color: var(--pong-bg);
+}
+
+#pong .mode-btn.active, #pong .difficulty-btn.active, #pong .win-score-btn.active {
+    background: var(--pong-primary);
+    color: var(--pong-bg);
+    font-weight: bold;
+    box-shadow: 0 0 15px var(--pong-primary);
+}
+
+/* Difficulty Buttons */
+#pong .difficulty-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+#pong .difficulty-btn {
+    border-color: var(--pong-secondary);
+    color: var(--pong-secondary);
+}
+
+#pong .difficulty-btn:hover, #pong .difficulty-btn.active {
+    background: var(--pong-secondary);
+    color: var(--pong-bg);
+    box-shadow: 0 0 15px var(--pong-secondary);
+}
+
+#pong .difficulty-btn[data-difficulty="easy"] {
+    border-color: #4ade80;
+    color: #4ade80;
+}
+#pong .difficulty-btn[data-difficulty="easy"]:hover,
+#pong .difficulty-btn[data-difficulty="easy"].active {
+    background: #4ade80;
+    box-shadow: 0 0 15px #4ade80;
+}
+
+#pong .difficulty-btn[data-difficulty="hard"] {
+    border-color: var(--pong-accent);
+    color: var(--pong-accent);
+}
+#pong .difficulty-btn[data-difficulty="hard"]:hover,
+#pong .difficulty-btn[data-difficulty="hard"].active {
+    background: var(--pong-accent);
+    box-shadow: 0 0 15px var(--pong-accent);
+}
+
+/* Toggle Buttons (Win Score) */
+#pong .toggle-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+#pong .win-score-btn {
+    border-color: #a78bfa;
+    color: #a78bfa;
+}
+
+#pong .win-score-btn:hover, #pong .win-score-btn.active {
+    background: #a78bfa;
+    color: var(--pong-bg);
+    box-shadow: 0 0 15px #a78bfa;
+}
+
+/* Controls Info */
+#pong .controls-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#pong .control-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+#pong kbd {
+    background: var(--pong-dark);
+    border: 1px solid var(--pong-dim);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: var(--pong-text);
+}
+
+/* Main Button */
+#pong .main-btn {
+    padding: 1rem 3rem;
+    font-size: 1.25rem;
+    font-family: inherit;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: linear-gradient(135deg, var(--pong-primary) 0%, #0099cc 100%);
+    color: var(--pong-bg);
+    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+    margin-top: 1rem;
+}
+
+#pong .main-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(0, 212, 255, 0.6);
+}
+
+#pong .secondary-btn {
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+    font-family: inherit;
+    border: 2px solid var(--pong-dim);
+    background: transparent;
+    color: var(--pong-text);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#pong .secondary-btn:hover {
+    border-color: var(--pong-text);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* High Score Section */
+#pong .high-score-section {
+    margin-top: 2rem;
+    color: #ffd700;
+    font-size: 1.25rem;
+}
+
+/* Game Screen */
+#pong #game-screen {
+    width: 100%;
+    max-width: 1000px;
+}
+
+#pong #game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 12px 12px 0 0;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: none;
+}
+
+#pong .score-panel {
+    display: flex;
+    gap: 3rem;
+}
+
+#pong .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#pong .stat-label {
+    font-size: 0.75rem;
+    color: var(--pong-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+#pong .stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--pong-primary);
+}
+
+#pong .stat:first-child .stat-value {
+    color: var(--pong-primary);
+}
+
+#pong .stat:last-child .stat-value {
+    color: var(--pong-secondary);
+}
+
+#pong .stat:nth-child(2) .stat-value {
+    color: #ffd700;
+}
+
+#pong .icon-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+#pong .icon-btn:hover {
+    opacity: 1;
+}
+
+/* Canvas Container */
+#pong #canvas-container {
+    position: relative;
+    background: var(--pong-bg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0 0 12px 12px;
+    overflow: hidden;
+}
+
+#pong #game-canvas {
+    display: block;
+    width: 100%;
+    background: linear-gradient(90deg, 
+        rgba(0, 212, 255, 0.03) 0%, 
+        transparent 33%, 
+        transparent 66%, 
+        rgba(0, 255, 136, 0.03) 100%
+    );
+}
+
+#pong .overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 18, 0.9);
+    z-index: 10;
+}
+
+#pong .overlay h2 {
+    font-size: 3rem;
+    color: var(--pong-primary);
+    text-shadow: 0 0 20px var(--pong-primary);
+    margin-bottom: 1rem;
+}
+
+#pong .overlay p {
+    color: var(--pong-text);
+}
+
+/* Game Over Screen */
+#pong #gameover-screen h1 {
+    font-size: 3rem;
+    color: #ffd700;
+    text-shadow: 0 0 20px #ffd700, 0 0 40px #ffd700;
+}
+
+#pong .winner-display {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 2rem 0;
+}
+
+#pong .winner-text {
+    font-size: 2rem;
+    color: var(--pong-text);
+}
+
+#pong .winner-score {
+    font-size: 1.25rem;
+    color: var(--pong-dim);
+}
+
+#pong .button-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+#pong .new-high-score {
+    color: #ffd700;
+    font-size: 1.5rem;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* Back Link */
+#pong .back-to-arcade {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    color: var(--pong-dim);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.2s;
+}
+
+#pong .back-to-arcade:hover {
+    color: var(--pong-text);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    #pong h1 { font-size: 2.5rem; }
+    #pong .score-panel { gap: 1.5rem; }
+    #pong .stat-value { font-size: 1.5rem; }
+    #pong .mode-buttons, #pong .difficulty-buttons, #pong .toggle-buttons {
+        flex-wrap: wrap;
+    }
+}
