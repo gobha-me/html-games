@@ -271,22 +271,24 @@ body {
     font-family: inherit;
 }
 
-/* ── back link ── */
-.back-link {
-    margin: 24px 0 40px;
-}
-
-.back-link a {
-    color: var(--accent);
+/* ── back to arcade link ── */
+.back-to-arcade {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--muted);
     text-decoration: none;
-    font-size: 14px;
+    font-size: 13px;
+    letter-spacing: 0.05em;
     transition: color 0.2s;
+    z-index: 1000;
 }
 
-.back-link a:hover {
-    color: #c4b5fd;
-    text-decoration: underline;
+.back-to-arcade:hover {
+    color: var(--accent);
 }
+
 
 /* ── power tile indicator ── */
 .power-indicator {
