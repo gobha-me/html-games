@@ -53,8 +53,40 @@ function gameTick() {
 }
 
 /**
+ * Focus-trap handler for the pause overlay — cycles Tab between
+ * the two action buttons and wraps around at the edges.
+ */
+function _pauseFocusTrap(e) {
+    if (e.key !== 'Tab') return;
+    const focusable = [
+        document.getElementById('pause-resume-btn'),
+        document.getElementById('pause-restart-btn'),
+    ].filter(Boolean);
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+
+    if (e.shiftKey) {
+        // Shift+Tab: if on first, wrap to last
+        if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        }
+    } else {
+        // Tab: if on last, wrap to first
+        if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    }
+}
+
+/**
  * Toggle pause state — called by P key and the pause button.
  */
+let _prePauseFocusTarget = null;
+
 function togglePause() {
     if (gameState.isGameOver) return;
     gameState.isPaused = !gameState.isPaused;
@@ -65,12 +97,23 @@ function togglePause() {
     if (gameState.isPaused) {
         overlay.style.display = 'flex';
         if (btn) { btn.textContent = '▶ Resume'; btn.setAttribute('aria-pressed', 'true'); }
+        // Stash the element that had focus so we can restore it later
+        _prePauseFocusTarget = document.activeElement;
         // Move focus into the overlay so keyboard users can act immediately
         const resumeBtn = document.getElementById('pause-resume-btn');
         if (resumeBtn) resumeBtn.focus();
+        // Install focus trap
+        document.addEventListener('keydown', _pauseFocusTrap);
     } else {
         overlay.style.display = 'none';
         if (btn) { btn.textContent = '⏸ Pause';  btn.setAttribute('aria-pressed', 'false'); }
+        // Remove focus trap
+        document.removeEventListener('keydown', _pauseFocusTrap);
+        // Restore focus to whatever was focused before pausing
+        if (_prePauseFocusTarget && typeof _prePauseFocusTarget.focus === 'function') {
+            _prePauseFocusTarget.focus();
+        }
+        _prePauseFocusTarget = null;
     }
 }
 
