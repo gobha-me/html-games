@@ -75,12 +75,12 @@ function togglePause() {
 }
 
 // Auto-pause when the player switches tabs or minimises the window
-window.addEventListener('blur', () => {
+function pauseIfActive() {
     if (!gameState.isGameOver && !gameState.isPaused) togglePause();
-});
+}
 
 document.addEventListener('visibilitychange', () => {
-    if (document.hidden && !gameState.isGameOver && !gameState.isPaused) togglePause();
+    if (document.hidden) pauseIfActive();
 });
 
 // Start the game
