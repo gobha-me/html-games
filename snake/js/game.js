@@ -142,7 +142,6 @@ const Game = {
             this.updateMultiplayerUI();
         }
     },
-
     /**
      * Handle eating food
      */
@@ -158,6 +157,9 @@ const Game = {
 
         // Spawn new food
         Food.spawn();
+
+        // Play eat sound
+        if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.blip();
 
         // Update UI
         this.updateUI();
@@ -204,6 +206,9 @@ const Game = {
         GameState.currentState = GameState.GAMEOVER;
         cancelAnimationFrame(this.animationFrameId);
 
+        // Play game over sound
+        if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.playPattern([400, 350, 300, 200], 0.2, 0.05, 'sawtooth', 0.1);
+
         // Update game over screen
         document.getElementById('final-score').textContent = GameState.score;
         document.getElementById('final-length').textContent = Snake.getLength();
@@ -225,6 +230,9 @@ const Game = {
     multiplayerGameOver() {
         GameState.currentState = GameState.GAMEOVER;
         cancelAnimationFrame(this.animationFrameId);
+
+        // Play game over sound
+        if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.playPattern([400, 350, 300, 200], 0.2, 0.05, 'sawtooth', 0.1);
 
         // Get winner
         const winner = Multiplayer.winner;
