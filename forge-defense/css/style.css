@@ -200,7 +200,6 @@ body {
 .action-btn.help { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; color: #fff; font-size: 16px; padding: 4px 10px; }
 .action-btn.help:hover { background: rgba(255, 255, 255, 0.2); border-color: #e94560; }
 
-
 .action-btn:hover {
     filter: brightness(1.2);
     transform: translateY(-1px);
