@@ -455,6 +455,12 @@ function setupEventListeners() {
             return;
         }
 
+        // Escape: close pause overlay when paused, otherwise cancel placement
+        if (e.key === 'Escape' && gameState.isPaused) {
+            togglePause();
+            return;
+        }
+
         // All other keys are suppressed while paused
         if (gameState.isPaused) return;
 
