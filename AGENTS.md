@@ -95,6 +95,22 @@ Every game directory should carry a `README.md` covering:
 Match the template by skimming `snake/README.md` and
 `space-invaders/README.md` — they're the current models.
 
+## 'Back to arcade' link convention
+
+Every game must include a persistent "← Back to Arcade" link so players
+can navigate back to the launcher without using the browser back button.
+
+- **HTML**: `<a href="../" class="back-to-arcade">← Back to Arcade</a>`
+  placed near the bottom of `<body>` (before `<script>` tags).
+- **Cogfall exception**: Cogfall's source lives in `cogfall/index.html`
+  but is built to `cogfall/dist/` in CI. The link in the source must use
+  `href="../../"` to reach the repo root from the built output.
+- **Styling**: Use class `back-to-arcade`. Placement and color are
+  flexible per game's aesthetic, but it must be visually unobtrusive
+  (e.g. muted color, fixed position at bottom or corner).
+- **New games**: Follow this convention when adding a new game.
+
+
 ## Things that will break the deploy
 
 - Pushing Cogfall changes that fail PR checks (lint / build / tests) —
