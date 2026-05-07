@@ -585,9 +585,21 @@ const Game = (() => {
   canvas.addEventListener('mouseleave', () => { useMouseControl = false; });
   canvas.addEventListener('click', () => {
     Audio.init();
-    if (state === 'menu') startGame();
+    if (state === 'menu') {
+      startGame();
+    } else if (state === 'playing') {
+      // Launch any stuck ball on click (mouse-friendly launch)
+      balls.forEach(b => {
+        if (b.stuck) {
+          const lvl = LEVELS[currentLevel];
+          const angle = rand(-0.4, 0.4);
+          b.dx = lvl.ballSpeed * Math.sin(angle);
+          b.dy = -lvl.ballSpeed * Math.cos(angle);
+          b.stuck = false;
+        }
+      });
+    }
   });
-
   overlayBtn.addEventListener('click', () => {
     Audio.init();
     if (state === 'menu' || state === 'gameOver') startGame();
