@@ -140,3 +140,7 @@ Potential additions:
 - Classic Space Invaders gameplay by Tomohiro Nishikado (1978)
 - Recreated for HTML-Games collection
 - Theme colors: #1a1a2e (bg), #00d4ff (accent), #16213e (cards)
+
+
+## Status
+Playable.

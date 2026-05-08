@@ -54,6 +54,20 @@ Tier 3 (Circuits):
 - **Building Deletion** - Right-click to salvage buildings (50% refund)
 - **Auto-save** - Game saves to localStorage
 
+
+## Status
+Playable.
+
+## File layout
+- `index.html` — entry point
+- `js/main.js` — bootstrap and game initialization
+- `js/game.js` — core game loop and state
+- `js/buildings.js` — building definitions and logic
+- `js/enemies.js` — enemy wave logic
+- `js/resources.js` — resource management
+- `js/ui.js` — UI components and interactions
+- `css/style.css` — styles and theme
+
 ## Resource Colors
 
 - **Iron** - Blue-steel color (clearly different from stone)

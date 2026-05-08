@@ -120,3 +120,7 @@ Part of the HTML-Games collection.
 ---
 
 **Enjoy the game! 🐍**
+
+
+## Status
+Playable.

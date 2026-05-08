@@ -105,3 +105,33 @@ by category (`new-game`, `enhancement`, `bug`, `cleanup`, `docs`,
 Cogfall has its own multi-phase roadmap; the per-session breakdown lives
 in `cogfall/PHASE_3_ROADMAP.md`. Cogfall PRs are tagged `cogfall` so
 they're easy to filter out when triaging arcade-wide work.
+
+
+## Per-game README template
+
+Every game subdirectory MUST have a `README.md` following this structure:
+
+```markdown
+# <Game name>
+
+One-paragraph description.
+
+## How to play
+Goal of the game, controls, win/lose conditions.
+
+## Tech
+Vanilla HTML/CSS/JS or framework + build tool.
+
+## Status
+Playable / WIP / known issues.
+
+## File layout
+- `index.html` — entry
+- `js/main.js` — bootstrap
+- ...
+```
+
+Keep it concise — this is a quick-reference for newcomers (human or LLM)
+to understand what the game is, how to play it, what it's built with,
+and where the code lives. Extra sections (scoring, tips, design notes)
+are welcome after the four required sections.

@@ -60,6 +60,14 @@ Pure HTML, CSS, and JavaScript — just open `index.html` in a browser.
 - Safari (latest)
 - Mobile browsers with touch support
 
+
+## Status
+Playable.
+
+## File layout
+- `index.html` — entry point
+- `js/game.js` — complete game engine (state, movement logic, rendering, input handling)
+
 ## 🎨 Design
 
 Matches the HTML-Games collection theme:

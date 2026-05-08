@@ -61,6 +61,19 @@ All UI buttons and interactive elements are reachable via the `Tab` key. A visib
 - **Dust Runners** — Nomadic, movement and scouting advantages
 - **Arcane Engineers** — Mystical, building and defense bonuses
 
+
+## Status
+Playable.
+
+## File layout
+- `index.html` — entry point
+- `js/main.js` — bootstrap and game initialization
+- `js/game.js` — core game loop and state management
+- `js/map.js` — hex map rendering and interaction
+- `js/factions.js` — faction definitions and AI
+- `js/ui.js` — UI panels and controls
+- `css/style.css` — styles and theme
+
 ## Technical Notes
 
 - Built with vanilla JavaScript, SVG for the hex map, and DOM for UI

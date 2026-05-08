@@ -149,3 +149,17 @@ Pure vanilla JavaScript, HTML5, and CSS3 — no external libraries required!
 ---
 
 **Enjoy the game! 🚀**
+
+
+## Status
+Playable.
+
+## File layout
+- `index.html` — entry point
+- `js/main.js` — bootstrap and game initialization
+- `js/game.js` — core game loop and state management
+- `js/buildings.js` — building definitions and placement logic
+- `js/enemies.js` — enemy wave logic and pathfinding
+- `js/resources.js` — resource management and production chain
+- `js/ui.js` — UI panels, minimap, and controls
+- `css/style.css` — styles and theme
