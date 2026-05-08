@@ -11,6 +11,16 @@ class KeyboardInput {
         document.addEventListener('keydown', this._onKeyDown);
     }
 
+    unbind() {
+        document.removeEventListener('keydown', this._onKeyDown);
+    }
+
+    destroy() {
+        this.unbind();
+        this.game = null;
+        this.ui = null;
+    }
+
     _onKeyDown(e) {
         // Don't capture keys when typing in inputs
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
@@ -234,6 +244,9 @@ class KeyboardInput {
     }
 
     _handleEscape() {
+        // Victory screen: ignore Escape to avoid mutating game state
+        if (document.getElementById('victory-screen')?.classList.contains('active')) return;
+
         // Setup screen: deselect faction
         if (document.getElementById('setup-screen')?.classList.contains('active')) {
             document.querySelectorAll('.faction-card').forEach(c => c.classList.remove('selected'));

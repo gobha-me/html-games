@@ -65,6 +65,11 @@ class SetupScreen {
         const mapSize = document.getElementById('map-size').value;
         const factionCount = parseInt(document.getElementById('faction-count').value);
 
+        // Clean up previous keyboard instance to prevent listener leak
+        if (keyboard) {
+            keyboard.destroy();
+        }
+
         // Hide setup, show game
         document.getElementById('setup-screen').classList.remove('active');
         document.getElementById('game-screen').classList.add('active');
@@ -75,5 +80,8 @@ class SetupScreen {
         // Initialize UI
         ui.renderMap();
         ui.update();
+
+        // Create fresh keyboard handler bound to the new game state
+        keyboard = new KeyboardInput(game, ui);
     }
 }
