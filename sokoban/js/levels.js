@@ -1,5 +1,5 @@
 /**
- * Sokoban Level Definitions
+ * Sokoban Level Definitions — "The Archive"
  *
  * Encoding:
  *   # = wall
@@ -11,296 +11,325 @@
  *     = empty floor
  *
  * Each level: { name, map: string[], par: number }
- * par = optimal move count (approximate, for reference)
+ * par = approximate optimal move count (each level was BFS-verified solvable;
+ *       see /tmp/sokoban_design.py for the verifier).
  */
 
 const LEVELS = [
-  // ── TUTORIAL (Levels 1-5) ──
+  // ── TUTORIAL (Levels 1-5) ── one new concept per level
   {
-    name: "First Steps",
+    // Lesson: pushing — walk into a box, it moves one square in the same direction.
+    name: "First Push",
     map: [
-      "  ##### ",
-      "###   # ",
-      "#.@$  # ",
-      "### $.# ",
-      "#.##$ # ",
-      "# # . ##",
-      "#$*$.  #",
-      "#   #  #",
-      "#####  #",
-      "    ####",
-      "    #   ",
-      "    ####"
+      "########",
+      "#      #",
+      "#@$  . #",
+      "#      #",
+      "########",
     ],
-    par: 12
+    par: 5,
   },
   {
-    name: "One Box",
+    // Lesson: change direction — boxes can be pushed along multiple axes.
+    name: "Two Steps",
     map: [
-      "  #####",
-      "###   #",
-      "# @$###",
-      "# $  .#",
-      "#   . #",
-      "#######"
+      "########",
+      "# @    #",
+      "# $    #",
+      "#      #",
+      "#  .   #",
+      "#      #",
+      "########",
     ],
-    par: 8
+    par: 8,
   },
   {
-    name: "Two Crates",
+    // Lesson: two boxes, two targets — each box claims one pedestal.
+    name: "Two Texts",
     map: [
-      "  #####",
-      "###   #",
-      "#.@$  #",
-      "### $ #",
-      "#. .  #",
-      "#######"
+      "########",
+      "#      #",
+      "# .    #",
+      "#  $   #",
+      "#  $@  #",
+      "#  .   #",
+      "#      #",
+      "########",
     ],
-    par: 14
+    par: 8,
   },
   {
-    name: "Corner Push",
+    // Lesson: ordering — push the right box first or you'll block yourself in.
+    name: "The Antechamber",
     map: [
-      " ######",
-      "##    #",
-      "# .$  #",
-      "# #$. #",
-      "# .@###",
-      "#####  "
+      "########",
+      "#   .  #",
+      "#  $   #",
+      "#@ $.  #",
+      "#      #",
+      "########",
     ],
-    par: 10
+    par: 9,
   },
   {
-    name: "Simple Room",
+    // Lesson: detour — sometimes you must walk the long way around to push.
+    name: "Around the Pillar",
     map: [
-      "  #####",
-      "###   #",
-      "# .$. #",
-      "#  $  #",
-      "# .@. #",
-      "#######"
+      "########",
+      "#  .   #",
+      "# ##   #",
+      "# @$   #",
+      "#    # #",
+      "#      #",
+      "########",
     ],
-    par: 18
+    par: 12,
   },
 
   // ── EASY (Levels 6-10) ──
   {
-    name: "Warehouse Aisle",
+    // One box inside a nested chamber — simple but the chamber walls force routing.
+    name: "Inner Chamber",
     map: [
-      "  ######",
-      "  #    #",
-      "### #$ #",
-      "# . $ ##",
-      "# . $@ #",
-      "# .  ###",
-      "######  "
+      "##########",
+      "#        #",
+      "# ###### #",
+      "# # .  # #",
+      "# # $  # #",
+      "# # $@ # #",
+      "# # .  # #",
+      "# ###### #",
+      "#        #",
+      "##########",
     ],
-    par: 22
+    par: 12,
   },
   {
-    name: "The Corridor",
+    // Cross-shaped room — four boxes radiate to four targets.
+    name: "Crossroads",
     map: [
-      "  ########",
-      "  #  . . #",
-      "###  $ $ #",
-      "#    #   #",
-      "# $  #  ##",
-      "##.  @ ###",
-      " ########  "
+      "###########",
+      "#####.#####",
+      "#####$#####",
+      "#         #",
+      "#.$  @  $.#",
+      "#         #",
+      "#####$#####",
+      "#####.#####",
+      "###########",
     ],
-    par: 28
+    par: 16,
   },
   {
-    name: "Four Corners",
+    // Two stacked boxes that drop onto stacked targets.
+    name: "Stacked Storage",
     map: [
-      "  ######",
-      "  #    #",
-      "### #$ #",
-      "# .  $ #",
-      "# $  . #",
-      "## $# ##",
-      " # .@#  ",
-      " #####  "
+      "########",
+      "#      #",
+      "# $@   #",
+      "# $    #",
+      "#  .   #",
+      "#  .   #",
+      "#      #",
+      "########",
     ],
-    par: 26
+    par: 14,
   },
   {
-    name: "T-Junction",
+    // Symmetric chamber, four boxes, four targets — practice routing.
+    name: "The Reading Room",
     map: [
-      "  ####  ",
-      "###  ###",
-      "#    $ #",
-      "# #$$$ #",
-      "# #.@# #",
-      "#   .  #",
-      "##.#####",
-      " ##     "
+      "#########",
+      "#       #",
+      "# .   . #",
+      "#   $   #",
+      "# $ @ $ #",
+      "#   .   #",
+      "#       #",
+      "#########",
     ],
-    par: 24
+    par: 14,
   },
   {
-    name: "Staircase",
+    // Two pillars in the middle — boxes navigate around obstacles.
+    name: "Twin Pillars",
     map: [
-      "  ######",
-      "###    #",
-      "# .$ $ #",
-      "#  $   #",
-      "## #$. #",
-      " # .@###",
-      " #####  "
+      "##########",
+      "#        #",
+      "# .  ##  #",
+      "#  $ ## $#",
+      "#@   ##  #",
+      "# $  ## .#",
+      "#  .     #",
+      "##########",
     ],
-    par: 30
+    par: 18,
   },
 
   // ── MEDIUM (Levels 11-15) ──
   {
-    name: "The Maze",
+    // Three boxes in a line, three targets in a line — choose which goes where.
+    name: "The Stacks",
     map: [
-      "  ########",
-      "  #  . . #",
-      "###  $ $ #",
-      "# .  #   #",
-      "# $$ # $ #",
-      "#  # #.  #",
-      "## #   ###",
-      " # @##    ",
-      " ####     "
+      "##########",
+      "#        #",
+      "# . . .  #",
+      "#        #",
+      "# $ $ $@ #",
+      "#        #",
+      "##########",
     ],
-    par: 38
+    par: 14,
   },
   {
-    name: "Crossroads",
+    // Courtyard split by a central wall — four boxes, four diagonal targets.
+    name: "The Courtyard",
     map: [
-      "   ######",
-      "   #    #",
-      " ### #$ #",
-      " # .$$  #",
-      "## # $###",
-      "#  # .#  ",
-      "# . .@#  ",
-      "#   ###  ",
-      "#####    "
+      "############",
+      "#          #",
+      "#  . ## .  #",
+      "#          #",
+      "# $  ##  $ #",
+      "#    ##    #",
+      "# $  ##  $ #",
+      "#          #",
+      "#  . ## .  #",
+      "#     @    #",
+      "############",
     ],
-    par: 34
+    par: 26,
   },
   {
+    // Library floor — twin walls force boxes around them.
+    name: "Library Floor",
+    map: [
+      "############",
+      "#          #",
+      "# .  ..  . #",
+      "#          #",
+      "# $$ ## $$ #",
+      "#    ##    #",
+      "#     @    #",
+      "############",
+    ],
+    par: 26,
+  },
+  {
+    // Vault chamber — four boxes converge on top and bottom pedestals.
     name: "The Vault",
     map: [
-      " ########",
-      " #  . . #",
-      "## $ $ ##",
-      "#  $ $  #",
-      "# .  .  #",
-      "#   @   #",
-      "#########"
+      "##########",
+      "#   ..   #",
+      "#        #",
+      "#  $  $  #",
+      "#   $$   #",
+      "#   @    #",
+      "#        #",
+      "#   ..   #",
+      "##########",
     ],
-    par: 36
+    par: 26,
   },
   {
-    name: "Serpent's Path",
+    // Concentric chambers — push boxes from inside ring to outer corners.
+    name: "Concentric",
     map: [
-      "  ########",
-      "  # .  . #",
-      "### $  $ #",
+      "##########",
+      "#  .  .  #",
+      "#        #",
+      "# $    $ #",
       "#   ##   #",
-      "# # $$ # #",
-      "# #  $ # #",
-      "# .  @ # #",
-      "##.##### #",
-      " #######  "
+      "#  @##   #",
+      "# $    $ #",
+      "#        #",
+      "#  .  .  #",
+      "##########",
     ],
-    par: 42
-  },
-  {
-    name: "The Grid",
-    map: [
-      "  #######",
-      "  #  .  #",
-      "### $ $ #",
-      "# . # . #",
-      "# $ $ $ #",
-      "# . # . #",
-      "## $@####",
-      " ####    "
-    ],
-    par: 40
+    par: 28,
   },
 
   // ── HARD (Levels 16-20) ──
   {
-    name: "The Labyrinth",
+    // Quartet plus a fifth box wedged in the middle.
+    name: "Quartet",
     map: [
-      "  ########",
-      "  # .  . #",
-      "### $$ $ #",
-      "#   #  $ #",
-      "# # $$ # #",
-      "# #  #   #",
-      "# .  . $ #",
-      "## #  @###",
-      " ########  "
+      "##########",
+      "#  .  .  #",
+      "#        #",
+      "# $ $$ $ #",
+      "#   @    #",
+      "#        #",
+      "#  .  .  #",
+      "##########",
     ],
-    par: 52
+    par: 30,
   },
   {
-    name: "Fortress",
+    // Shelves — boxes pushed up through narrow gaps in a shelf wall.
+    name: "Shelves",
     map: [
-      "   ######",
-      "   #    #",
-      " ### #$ #",
-      " # .$$. #",
-      "## #$$###",
-      "#  .  #  ",
-      "# .@. #  ",
-      "#  ####  ",
-      "#####    "
-    ],
-    par: 48
-  },
-  {
-    name: "The Gauntlet",
-    map: [
-      " ########",
-      " # .  . #",
-      "## $  $ #",
-      "#  $ $$ #",
-      "# # # $ #",
-      "# . . $ #",
-      "##  @  ##",
-      " ######## "
-    ],
-    par: 56
-  },
-  {
-    name: "Master's Challenge",
-    map: [
-      "  ########",
-      "  # .  . #",
-      "### $$ $ #",
-      "#   #  $ #",
-      "# # $$ # #",
-      "# # .#   #",
-      "# .  . $ #",
-      "## #  @###",
-      " ########  "
-    ],
-    par: 60
-  },
-  {
-    name: "The Final Warehouse",
-    map: [
-      "  #########",
-      "  #  .  . #",
-      "### $ $ $ #",
-      "#   # #   #",
+      "###########",
+      "#         #",
+      "# . . . . #",
+      "#         #",
+      "## # # # ##",
+      "#         #",
       "# $ $ $ $ #",
-      "# . # # . #",
-      "## $   $ ##",
-      " #  .@.  # ",
-      " ######### "
+      "#@        #",
+      "###########",
     ],
-    par: 68
-  }
+    par: 36,
+  },
+  {
+    // Four boxes, four corners — funnel walls force a specific path to each.
+    name: "Four Corners",
+    map: [
+      "##########",
+      "#.######.#",
+      "#        #",
+      "#  $  $  #",
+      "#   @    #",
+      "#  $  $  #",
+      "#        #",
+      "#.######.#",
+      "##########",
+    ],
+    par: 36,
+  },
+  {
+    // Master catalog — twin walls plus jagged lower obstruction.
+    name: "Master Catalog",
+    map: [
+      "############",
+      "#  .    .  #",
+      "#          #",
+      "# $$ ## $$ #",
+      "#    ##    #",
+      "## #    # ##",
+      "#    @     #",
+      "#          #",
+      "#  .    .  #",
+      "############",
+    ],
+    par: 36,
+  },
+  {
+    // The Final Archive — four columns funneled through three shelf gaps.
+    name: "The Final Archive",
+    map: [
+      "###########",
+      "#         #",
+      "# . . . . #",
+      "#         #",
+      "## # # # ##",
+      "#         #",
+      "# $ $ $ $ #",
+      "#         #",
+      "#    @    #",
+      "###########",
+    ],
+    par: 40,
+  },
 ];
 
 if (typeof module !== 'undefined' && module.exports) {

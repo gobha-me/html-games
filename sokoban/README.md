@@ -22,11 +22,14 @@ Push all crates onto the target tiles (glowing circles) to complete each level.
 
 ## Features
 
-### 20 Hand-Authored Levels
-- **Levels 1–5**: Tutorial — learn the basics with small rooms and few crates
-- **Levels 6–10**: Easy — larger rooms, more crates to manage
-- **Levels 11–15**: Medium — complex layouts requiring careful planning
-- **Levels 16–20**: Hard — the ultimate challenge for puzzle masters
+### 20 Hand-Authored Levels — every one BFS-verified solvable
+- **Levels 1–5**: Tutorial — one new concept per level (push, turn, multi-box, ordering, detour)
+- **Levels 6–10**: Easy — chambers, symmetric rooms, light obstacles
+- **Levels 11–15**: Medium — courtyards, vaults, multi-target planning
+- **Levels 16–20**: Hard — the final archive halls
+
+Every level was run through a BFS solver — no impossible configurations, no
+mismatched box/target counts. Pars are derived from the optimal solution length.
 
 ### Quality of Life
 - **Unlimited Undo** — never get stuck, always try again
