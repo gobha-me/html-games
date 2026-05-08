@@ -28,6 +28,16 @@ python3 -m http.server 8000
 
 That's it. Click any game card.
 
+## Verify
+
+Check that all game links in the launcher resolve to real files:
+
+```bash
+bash scripts/linkcheck.sh
+```
+
+Exit code 0 means all links are valid; non-zero means one or more are broken.
+
 ## Deploy
 
 Each game's deployable artifact is committed to git. There is no CI
