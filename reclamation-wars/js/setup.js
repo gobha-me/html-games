@@ -14,6 +14,51 @@ class SetupScreen {
         }
 
         document.getElementById('start-btn').addEventListener('click', () => this._startGame());
+
+        // End Turn button — mirrors the 'E' keyboard handler
+        const endTurnBtn = document.getElementById('end-turn-btn');
+        if (endTurnBtn) {
+            endTurnBtn.addEventListener('click', () => {
+                if (game.gameOver || game.phase !== PHASES.PLANNING) return;
+                game.endPlayerTurn();
+                ui.update();
+            });
+        }
+
+        // Play Again button — reset to setup screen with fresh state
+        const playAgainBtn = document.getElementById('play-again-btn');
+        if (playAgainBtn) {
+            playAgainBtn.addEventListener('click', () => {
+                document.getElementById('victory-screen').classList.remove('active');
+                document.getElementById('game-screen').classList.remove('active');
+                document.getElementById('setup-screen').classList.add('active');
+                // Reset selection so the user re-picks
+                this.selectedFaction = null;
+                document.querySelectorAll('.faction-card').forEach(c => c.classList.remove('selected'));
+                const btn = document.getElementById('start-btn');
+                btn.disabled = true;
+                btn.textContent = 'Select a faction to begin';
+                // Fresh game + UI to avoid stale state (game.init appends, doesn't reset)
+                if (keyboard) keyboard.destroy();
+                game = new Game();
+                ui = new GameUI(game);
+            });
+        }
+
+        // Tab buttons — delegated click handler for Info/Research/Production/Diplomacy
+        const panelTabs = document.getElementById('panel-tabs');
+        if (panelTabs) {
+            panelTabs.addEventListener('click', (e) => {
+                const btn = e.target.closest('.tab-btn');
+                if (!btn) return;
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const tabId = btn.dataset.tab;
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById('tab-' + tabId).classList.add('active');
+                ui.update();
+            });
+        }
     }
 
     _showSetup() {
