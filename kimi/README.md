@@ -2,6 +2,10 @@
 
 A base-building tower defense game. Mine resources, craft buildings, and defend your core against waves of enemies. Build a rocket silo and launch to win!
 
+## 📝 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a history of changes.
+
 ## 🎮 How to Play
 
 ### Objective
