@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="../shared/back-to-arcade.css">
+    <title>Sokoban — HTML Games</title>
+</head>
+<body>
+    <header class="game-header">
+        <h1>📦 Sokoban</h1>
+        <p class="subtitle">Push crates onto targets in this classic warehouse puzzle</p>
+    </header>
+
+    <div class="level-nav">
+        <button class="btn" id="prev-btn">← Prev</button>
+        <select id="level-select"></select>
+        <button class="btn" id="next-btn">Next →</button>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat-box">
+            <div class="label">Moves</div>
+            <div class="value" id="moves-display">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="label">Pushes</div>
+            <div class="value" id="pushes-display">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="label">Best</div>
+            <div class="value" id="best-display">—</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn" id="undo-btn">↩ Undo</button>
+        <button class="btn" id="reset-btn">🔄 Reset</button>
+    </div>
+
+    <div class="board-wrapper">
+        <div class="board" id="board"></div>
+    </div>
+
+    <div class="instructions">
+        <strong>Arrow Keys</strong> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move ·
+        <kbd>U</kbd> to undo ·
+        <kbd>Ctrl+R</kbd> to reset<br>
+        Push all crates onto the glowing targets to complete each level.
+        You can only <em>push</em>, never pull — think ahead!
+    </div>
+
+    <a href="../" class="back-to-arcade">← Back to Arcade</a>
+
+    <script src="js/levels.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

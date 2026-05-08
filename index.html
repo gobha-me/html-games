@@ -20,7 +20,8 @@
             --snake: #10b981;
             --invaders: #8b5cf6;
             --reclamation: #eab308;
-            --cogfall: #d97706;
+            --typing: #2ed573;
+            --sokoban: #d97706;
             --tiles: #a78bfa;
             --breakout: #38bdf8;
             --mines: #10b981;
@@ -143,7 +144,8 @@
         .card.mines:focus-visible     { outline-color: var(--mines); }
         .card.pong:focus-visible      { outline-color: var(--pong); }
         .card.typing:focus-visible    { outline-color: var(--typing); }
-
+        .card.typing:focus-visible    { outline-color: var(--typing); }
+        .card.sokoban:focus-visible   { outline-color: var(--sokoban); }
         .card-accent {
             height: 4px;
             width: 100%;
@@ -213,6 +215,7 @@
         .card.mines:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.15); }
         .card.pong:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.18); }
         .card.typing:hover   { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(46,213,115,0.18); }
+        .card.sokoban:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
 
         /* ── footer ── */
         .footer {
@@ -242,6 +245,7 @@
         .card:nth-child(7) { animation-delay: 0.47s; }
         .card:nth-child(8) { animation-delay: 0.54s; }
         .card:nth-child(9) { animation-delay: 0.61s; }
+        .card:nth-child(10) { animation-delay: 0.68s; }
 
         @keyframes cardIn {
             from { opacity: 0; transform: translateY(24px); }
@@ -408,6 +412,19 @@
                 <p class="tagline">Type falling words before they hit the ground! Multiple word lists, modes, and live WPM tracking.</p>
                 <div class="meta">
                     <span class="meta-dot" style="background:var(--typing)"></span> Skill Builder
+                </div>
+            </div>
+        </a>
+
+        <!-- Sokoban -->
+        <a href="sokoban/" class="card sokoban">
+            <div class="card-accent" style="background:var(--sokoban)"></div>
+            <div class="card-body">
+                <span class="card-emoji">📦</span>
+                <h2>Sokoban</h2>
+                <p class="tagline">Push crates onto targets in this classic box-pushing puzzle. Think ahead — you can only push, never pull!</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--sokoban)"></span> Puzzle Classic
                 </div>
             </div>
         </a>
