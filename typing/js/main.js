@@ -89,7 +89,7 @@ document.addEventListener('keydown', (e) => {
     }
 
     // Pause toggle
-    if (e.key === 'Escape' || e.key === 'p') {
+    if (e.key === 'Escape') {
         e.preventDefault();
         game.togglePause();
         pauseOverlay.classList.toggle('hidden', !game.paused);
