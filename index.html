@@ -25,6 +25,7 @@
             --breakout: #38bdf8;
             --mines: #10b981;
             --pong: #00d4ff;
+            --typing: #2ed573;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -141,6 +142,7 @@
         .card.breakout:focus-visible  { outline-color: var(--breakout); }
         .card.mines:focus-visible     { outline-color: var(--mines); }
         .card.pong:focus-visible      { outline-color: var(--pong); }
+        .card.typing:focus-visible    { outline-color: var(--typing); }
 
         .card-accent {
             height: 4px;
@@ -210,6 +212,7 @@
         .card.breakout:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(56,189,248,0.18); }
         .card.mines:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.15); }
         .card.pong:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.18); }
+        .card.typing:hover   { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(46,213,115,0.18); }
 
         /* ── footer ── */
         .footer {
@@ -392,6 +395,19 @@
                 <p class="tagline">Clear the minefield without detonating! Flag mines, reveal safe cells, and beat your best time.</p>
                 <div class="meta">
                     <span class="meta-dot" style="background:var(--mines)"></span> Puzzle Classic
+                </div>
+            </div>
+        </a>
+
+        <!-- Typing Game -->
+        <a href="typing/" class="card typing">
+            <div class="card-accent" style="background:var(--typing)"></div>
+            <div class="card-body">
+                <span class="card-emoji">⌨️</span>
+                <h2>Typing Game</h2>
+                <p class="tagline">Type falling words before they hit the ground! Multiple word lists, modes, and live WPM tracking.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--typing)"></span> Skill Builder
                 </div>
             </div>
         </a>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <title>Typing Game — HTML Games</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Back to launcher -->
+        <a href="../index.html" class="back-btn">← Arcade</a>
+
+        <!-- Game canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- HUD -->
+        <div id="hud" style="display: none;">
+            <div class="hud-left">
+                <div>
+                    <div class="hud-label">Score</div>
+                    <div class="hud-value" id="hud-score">0</div>
+                </div>
+            </div>
+            <div class="hud-center">
+                <div class="hud-lives" id="hud-lives"></div>
+            </div>
+            <div class="hud-right">
+                <div>
+                    <div class="hud-label">WPM</div>
+                    <div class="hud-value" id="hud-wpm">0</div>
+                </div>
+                <div>
+                    <div class="hud-label">Accuracy</div>
+                    <div class="hud-value" id="hud-accuracy">100%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typing input bar -->
+        <div id="input-bar" style="display: none;">
+            <span class="prefix">⟩</span>
+            <div id="input-display"><span class="cursor"></span></div>
+        </div>
+
+        <!-- Pause overlay -->
+        <div id="pause-overlay" class="hidden">
+            <div class="pause-text">PAUSED</div>
+        </div>
+
+        <!-- Start screen -->
+        <div id="start-screen" class="screen-overlay">
+            <div class="screen-title">⌨️ Typing Game</div>
+            <div class="screen-subtitle">
+                Type the falling words before they reach the bottom!<br>
+                Words get faster and longer as you progress.
+            </div>
+
+            <!-- Mode selection -->
+            <div class="mode-grid">
+                <button class="mode-btn" data-mode="endless">
+                    <span class="mode-icon">♾️</span>
+                    <span class="mode-name">Endless</span>
+                    <span class="mode-desc">Survive as long as you can</span>
+                </button>
+                <button class="mode-btn" data-mode="timed">
+                    <span class="mode-icon">⏱️</span>
+                    <span class="mode-name">Timed 60s</span>
+                    <span class="mode-desc">Max score in 60 seconds</span>
+                </button>
+            </div>
+
+            <!-- Word list selection -->
+            <div class="wordlist-section">
+                <div class="wordlist-label">Word List</div>
+                <div class="wordlist-options">
+                    <button class="wordlist-btn" data-list="english">📝 Common</button>
+                    <button class="wordlist-btn" data-list="programming">💻 Programming</button>
+                    <button class="wordlist-btn" data-list="scifi">🚀 Sci-Fi</button>
+                </div>
+            </div>
+
+            <button id="start-btn" class="start-btn">START GAME</button>
+
+            <div class="screen-subtitle" style="margin-top: 24px; margin-bottom: 0; font-size: 12px;">
+                <strong>Controls:</strong> Type letters to match words · <strong>Backspace</strong> reset current word · <strong>Esc/P</strong> pause
+            </div>
+        </div>
+
+        <!-- Game over screen -->
+        <div id="gameover-screen" class="screen-overlay hidden">
+            <div class="screen-title">Game Over</div>
+            <div class="screen-subtitle" id="final-mode">Endless Mode</div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="final-score">0</div>
+                    <div class="stat-label">Score</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="final-wpm">0</div>
+                    <div class="stat-label">WPM</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="final-accuracy">0%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="final-words">0</div>
+                    <div class="stat-label">Words Typed</div>
+                </div>
+                <div class="stat-card" style="grid-column: span 2;">
+                    <div class="stat-value" id="final-combo">0</div>
+                    <div class="stat-label">Best Combo</div>
+                </div>
+            </div>
+
+            <button id="play-again-btn" class="start-btn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
