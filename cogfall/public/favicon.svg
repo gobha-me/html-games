@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Arcade joystick favicon -->
+  <rect x="4" y="24" width="24" height="4" rx="2" fill="#f59e0b"/>
+  <rect x="14" y="10" width="4" height="16" rx="2" fill="#e0e0f0"/>
+  <circle cx="16" cy="8" r="5" fill="#f43f5e"/>
+  <circle cx="16" cy="8" r="3" fill="#fb7185"/>
+</svg>
