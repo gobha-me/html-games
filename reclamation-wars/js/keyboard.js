@@ -86,7 +86,7 @@ class KeyboardInput {
         // End turn
         if (key === 'e') {
             e.preventDefault();
-            if (this.game.phase === 'PLANNING') {
+            if (this.game.phase === PHASES.PLANNING) {
                 this.game.endPlayerTurn();
                 this.ui.update();
             }
@@ -108,7 +108,7 @@ class KeyboardInput {
         }
 
         // Hex navigation and camera pan (only during planning phase)
-        if (this.game.phase === 'PLANNING') {
+        if (this.game.phase === PHASES.PLANNING) {
             const direction = this._getHexDirection(key);
             if (direction) {
                 e.preventDefault();

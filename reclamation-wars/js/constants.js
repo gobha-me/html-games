@@ -485,3 +485,4 @@ const PHASES = {
     AI_TURN: 'AI Turn',
     COMBAT: 'Combat Resolution'
 };
+Object.freeze(PHASES);
