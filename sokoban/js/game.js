@@ -31,13 +31,12 @@
   let bestMoves = {};   // per-level best move counts
 
   // ── DOM refs ──
-  let boardEl, levelEl, movesEl, pushesEl, undoBtn, resetBtn;
+  let boardEl, movesEl, pushesEl, undoBtn, resetBtn;
   let prevBtn, nextBtn, levelSelect;
 
   // ── Initialization ──
   function init() {
     boardEl = document.getElementById("board");
-    levelEl = document.getElementById("level-display");
     movesEl = document.getElementById("moves-display");
     pushesEl = document.getElementById("pushes-display");
     undoBtn = document.getElementById("undo-btn");
@@ -149,8 +148,6 @@
   }
 
   function updateUI() {
-    const lvl = LEVELS[currentLevel];
-    levelEl.textContent = `Level ${currentLevel + 1}: ${lvl.name}`;
     movesEl.textContent = moves;
     pushesEl.textContent = pushes;
 
