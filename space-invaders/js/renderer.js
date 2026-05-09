@@ -25,9 +25,11 @@ const Renderer = {
         // Render in layers
         this.renderStars();
         this.renderBarriers();
-        this.renderPlayer();
+        this.renderPlayers();
         this.renderAliens();
         this.renderProjectiles();
+        this.renderUFO();
+    },
         this.renderUFO();
     },
 
@@ -42,22 +44,30 @@ const Renderer = {
         }
     },
 
-    renderPlayer() {
-        if (!Player.isAlive()) return;
+    renderPlayers() {
+        const players = PlayerManager.getAllPlayers();
+        for (const player of players) {
+            this.renderPlayerShip(player);
+        }
+    },
 
-        const { x, y, width, height } = Player;
+    renderPlayerShip(player) {
+        if (!player.isAlive()) return;
+
+        const { x, y, width, height } = player;
         
         // Flashing effect when invulnerable
-        if (Player.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
+        if (player.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
             return;
         }
 
         this.ctx.save();
         
-        // Player ship - triangle shape with glow
-        this.ctx.fillStyle = '#00d4ff';
+        // P1 = cyan, P2 = red-orange
+        const color = player.index === 1 ? '#00d4ff' : '#ff6b6b';
+        this.ctx.fillStyle = color;
         this.ctx.shadowBlur = 10;
-        this.ctx.shadowColor = '#00d4ff';
+        this.ctx.shadowColor = color;
         
         this.ctx.beginPath();
         this.ctx.moveTo(x + width / 2, y);
@@ -73,6 +83,10 @@ const Renderer = {
         this.ctx.restore();
     },
 
+    renderPlayer() {
+        // Backward compatibility — delegates to renderPlayers
+        this.renderPlayers();
+    },
     renderAliens() {
         AlienManager.aliens.forEach(alien => {
             if (!alien.active) return;

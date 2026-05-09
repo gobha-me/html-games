@@ -397,6 +397,58 @@ kbd {
     margin-top: 2rem;
 }
 
+/* ── 2P Mode Styles ── */
+.mode-select {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 1rem 0;
+}
+
+.mode-select .main-btn {
+    margin: 0;
+    min-width: 180px;
+}
+
+#p2-controls {
+    margin-top: 1rem;
+}
+
+#p2-controls h3 {
+    color: #ff6b6b;
+}
+
+#p2-controls kbd {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+    background: #2a1a2e;
+}
+
+#p2-lives-stat .stat-label {
+    color: #ff6b6b;
+}
+
+.hs-mode-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: bold;
+}
+
+.hs-mode-badge.mode-1p {
+    background: #0f3460;
+    color: #00d4ff;
+}
+
+.hs-mode-badge.mode-2p {
+    background: #2a1a2e;
+    color: #ff6b6b;
+}
+
+/* Responsive Design */
 /* Responsive Design */
 @media (max-width: 768px) {
     #start-screen h1 {

@@ -8,7 +8,7 @@ const Game = {
     lastUpdateTime: 0,
     animationFrameId: null,
     keys: {},
-
+    playerMode: '1p', // '1p' or '2p'
     init() {
         // Initialize high score table
         HighScoreManager.init();
@@ -24,7 +24,8 @@ const Game = {
         this.updateHighScoreDisplay();
     },
 
-    start() {
+    start(mode = '1p') {
+        this.playerMode = mode;
         this.state = 'playing';
         this.score = 0;
         this.wave = 1;
@@ -32,11 +33,15 @@ const Game = {
         this.keys = {};
         
         // Initialize game entities
-        Player.init(Renderer.width, Renderer.height);
+        PlayerManager.init(Renderer.width, Renderer.height, mode);
         AlienManager.init(this.wave);
         BarrierManager.init(Renderer.width, Renderer.height);
         ProjectileManager.clear();
         UFO.init();
+        
+        // Show/hide P2 lives indicator
+        const p2Stat = document.getElementById('p2-lives-stat');
+        if (p2Stat) p2Stat.style.display = mode === '2p' ? 'block' : 'none';
         
         // Update UI
         this.updateUI();
@@ -67,7 +72,7 @@ const Game = {
         this.handleInput(deltaTime);
         
         // Update entities
-        Player.update(deltaTime, Renderer.width);
+        PlayerManager.update(deltaTime, Renderer.width);
         AlienManager.update(deltaTime, Renderer.width, Renderer.height);
         ProjectileManager.update(deltaTime, Renderer.height);
         UFO.update(deltaTime, Renderer.width);
@@ -83,11 +88,25 @@ const Game = {
     },
 
     handleInput(deltaTime) {
-        if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) {
-            Player.moveLeft(deltaTime);
+        // P1 controls: Arrow keys (always)
+        if (this.keys['ArrowLeft']) {
+            PlayerManager.getP1().moveLeft(deltaTime);
         }
-        if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) {
-            Player.moveRight(deltaTime);
+        if (this.keys['ArrowRight']) {
+            PlayerManager.getP1().moveRight(deltaTime);
+        }
+
+        // P2 controls: A/D keys (only in 2P mode)
+        if (this.playerMode === '2p') {
+            const p2 = PlayerManager.getP2();
+            if (p2) {
+                if (this.keys['a'] || this.keys['A']) {
+                    p2.moveLeft(deltaTime);
+                }
+                if (this.keys['d'] || this.keys['D']) {
+                    p2.moveRight(deltaTime);
+                }
+            }
         }
     },
 
@@ -117,19 +136,9 @@ const Game = {
         // Projectiles vs barriers
         BarrierManager.checkCollisions(ProjectileManager.projectiles);
         
-        // Alien projectiles vs player
+        // Alien projectiles vs players (handles both players in 2P mode)
         const alienProjectiles = ProjectileManager.getAlienProjectiles();
-        alienProjectiles.forEach(proj => {
-            if (!proj.active) return;
-            
-            const playerBounds = Player.getBounds();
-            const projBounds = proj.getBounds();
-            
-            if (this.checkCollision(projBounds, playerBounds)) {
-                proj.active = false;
-                Player.hit();
-            }
-        });
+        PlayerManager.checkPlayerCollisions(alienProjectiles);
     },
 
     checkCollision(rect1, rect2) {
@@ -140,8 +149,8 @@ const Game = {
     },
 
     checkGameState() {
-        // Check if player lost all lives
-        if (!Player.isAlive()) {
+        // Check if all players lost all lives
+        if (PlayerManager.allDead()) {
             this.gameOver();
             return;
         }
@@ -233,9 +242,19 @@ const Game = {
         document.getElementById('high-score').textContent = this.highScore;
         document.getElementById('wave').textContent = this.wave;
         
-        // Update lives display
-        const hearts = '❤️'.repeat(Math.max(0, Player.lives));
-        document.getElementById('lives').textContent = hearts || '💀';
+        // Update P1 lives display
+        const p1 = PlayerManager.getP1();
+        const p1Hearts = '❤️'.repeat(Math.max(0, p1.lives));
+        document.getElementById('lives').textContent = p1Hearts || '💀';
+        
+        // Update P2 lives display (2P mode only)
+        if (this.playerMode === '2p') {
+            const p2 = PlayerManager.getP2();
+            if (p2) {
+                const p2Hearts = '❤️'.repeat(Math.max(0, p2.lives));
+                document.getElementById('p2-lives').textContent = p2Hearts || '💀';
+            }
+        }
     },
 
     updateHighScoreDisplay() {
@@ -268,12 +287,14 @@ const Game = {
         entries.forEach((entry, i) => {
             const row = document.createElement('div');
             row.className = 'hs-entry' + (highlightRank === i + 1 ? ' highlight' : '');
+            const mode = entry.mode || '1p';
+            const modeLabel = mode === '2p' ? '2P' : '1P';
+            const modeClass = mode === '2p' ? 'mode-2p' : 'mode-1p';
             row.innerHTML = `
                 <span class="hs-rank">${i + 1}</span>
-                <span class="hs-name">${entry.initials}</span>
+                <span class="hs-name">${entry.initials}<span class="hs-mode-badge ${modeClass}">${modeLabel}</span></span>
                 <span class="hs-score">${entry.score.toLocaleString()}</span>
             `;
-            container.appendChild(row);
         });
     },
     showScreen(screenId) {

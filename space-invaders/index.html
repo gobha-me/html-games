@@ -16,7 +16,7 @@
             <div class="controls-info">
                 <h3>HOW TO PLAY</h3>
                 <div class="control-row">
-                    <kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd>
+                    <kbd>←</kbd><kbd>→</kbd>
                     <span>Move Ship</span>
                 </div>
                 <div class="control-row">
@@ -32,12 +32,26 @@
                     <span>Restart (Game Over)</span>
                 </div>
             </div>
+            <div class="controls-info" id="p2-controls">
+                <h3>PLAYER 2</h3>
+                <div class="control-row">
+                    <kbd>A</kbd><kbd>D</kbd>
+                    <span>Move Ship</span>
+                </div>
+                <div class="control-row">
+                    <kbd>F</kbd>
+                    <span>Fire Laser</span>
+                </div>
+            </div>
             <div class="objective">
                 <h3>OBJECTIVE</h3>
                 <p>Defend Earth by destroying waves of alien invaders!</p>
                 <p>Don't let them reach the bottom!</p>
             </div>
-            <button id="start-btn" class="main-btn">START GAME</button>
+            <div class="mode-select">
+                <button id="start-1p-btn" class="main-btn">1 PLAYER</button>
+                <button id="start-2p-btn" class="main-btn">2 PLAYERS</button>
+            </div>
             <div class="button-group">
                 <button id="high-scores-btn" class="secondary-btn">HIGH SCORES</button>
             </div>
@@ -82,6 +96,10 @@
                 <div class="stat">
                     <div class="stat-label">LIVES</div>
                     <div class="stat-value" id="lives">❤️❤️❤️</div>
+                </div>
+                <div class="stat" id="p2-lives-stat" style="display: none;">
+                    <div class="stat-label">P2 LIVES</div>
+                    <div class="stat-value" id="p2-lives">❤️❤️❤️</div>
                 </div>
             </div>
             <canvas id="game-canvas"></canvas>

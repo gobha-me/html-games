@@ -7,16 +7,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
-    // Start button
-    document.getElementById('start-btn').addEventListener('click', () => {
+    // 1 Player start button
+    document.getElementById('start-1p-btn').addEventListener('click', () => {
         Game.showScreen('game-screen');
-        Game.start();
+        Game.start('1p');
     });
 
-    // Restart button
+    // 2 Players start button
+    document.getElementById('start-2p-btn').addEventListener('click', () => {
+        Game.showScreen('game-screen');
+        Game.start('2p');
+    });
+
+    // Restart button (keeps current player mode)
     document.getElementById('restart-btn').addEventListener('click', () => {
         Game.showScreen('game-screen');
-        Game.start();
+        Game.start(Game.playerMode);
     });
 
     // Menu button
@@ -70,7 +76,7 @@ function submitInitials() {
         input.focus();
         return;
     }
-    const rank = HighScoreManager.addEntry(initials, Game.score);
+    const rank = HighScoreManager.addEntry(initials, Game.score, Game.playerMode);
     Game.updateHighScoreDisplay();
     // Hide initials section, show high scores
     document.getElementById('initials-section').style.display = 'none';
@@ -80,7 +86,7 @@ function submitInitials() {
 
 function handleKeyDown(event) {
     // Prevent default for game keys
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(event.key)) {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D', 'f', 'F'].includes(event.key)) {
         event.preventDefault();
     }
 
@@ -90,7 +96,14 @@ function handleKeyDown(event) {
     // Handle special keys
     if (Game.state === 'playing') {
         if (event.key === ' ') {
-            Player.shoot();
+            // P1 shoots
+            PlayerManager.getP1().shoot();
+        } else if (event.key === 'f' || event.key === 'F') {
+            // P2 shoots (only in 2P mode)
+            if (Game.playerMode === '2p') {
+                const p2 = PlayerManager.getP2();
+                if (p2) p2.shoot();
+            }
         } else if (event.key === 'p' || event.key === 'P') {
             Game.pause();
         }
@@ -101,7 +114,7 @@ function handleKeyDown(event) {
     } else if (Game.state === 'gameover') {
         if (event.key === 'r' || event.key === 'R') {
             Game.showScreen('game-screen');
-            Game.start();
+            Game.start(Game.playerMode);
         }
     }
 }

@@ -49,9 +49,12 @@ const HighScoreManager = {
 
     /**
      * Add a new entry and save. Returns the rank (1-based) of the new entry.
+     * @param {string} initials - Player initials
+     * @param {number} score - Score value
+     * @param {string} mode - '1p' or '2p' (defaults to '1p' for backward compat)
      */
-    addEntry(initials, score) {
-        this.scores.push({ initials: initials.toUpperCase(), score, date: Date.now() });
+    addEntry(initials, score, mode = '1p') {
+        this.scores.push({ initials: initials.toUpperCase(), score, date: Date.now(), mode: mode || '1p' });
         this.scores.sort((a, b) => b.score - a.score);
         if (this.scores.length > this.MAX_ENTRIES) {
             this.scores = this.scores.slice(0, this.MAX_ENTRIES);
