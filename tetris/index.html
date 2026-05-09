@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <title>Tetris — HTML Games Arcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Back to Arcade -->
+    <a href="../index.html" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Arcade
+    </a>
+
+    <!-- Header -->
+    <div class="game-header">
+        <h1>TETRIS</h1>
+        <div class="subtitle">Falling Block Puzzle</div>
+    </div>
+
+    <!-- Game Area -->
+    <div class="game-container">
+        <canvas id="board-canvas"></canvas>
+        <canvas id="ui-canvas"></canvas>
+    </div>
+
+    <!-- Controls Footer -->
+    <div class="controls-footer">
+        <kbd>←</kbd> <kbd>→</kbd> Move &nbsp;|&nbsp;
+        <kbd>↑</kbd> Rotate CW &nbsp;|&nbsp;
+        <kbd>Z</kbd> Rotate CCW &nbsp;|&nbsp;
+        <kbd>↓</kbd> Soft Drop &nbsp;|&nbsp;
+        <kbd>Space</kbd> Hard Drop &nbsp;|&nbsp;
+        <kbd>C</kbd> Hold &nbsp;|&nbsp;
+        <kbd>P</kbd> Pause
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="js/state.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

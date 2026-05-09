@@ -1,0 +1,148 @@
+/**
+ * Tetris Game Styles
+ * Neon arcade aesthetic matching the HTML-Games theme.
+ */
+
+:root {
+    --tetris-bg: #0a0a1a;
+    --tetris-surface: #12122a;
+    --tetris-text: #e0e0f0;
+    --tetris-muted: #7a7a9a;
+    --tetris-accent: #c084fc;
+    --tetris-glow: rgba(192, 132, 252, 0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--tetris-bg);
+    color: var(--tetris-text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* ── Game Container ── */
+.game-container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+    padding: 20px;
+}
+
+/* ── Board Canvas ── */
+#board-canvas {
+    border: 2px solid rgba(192, 132, 252, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 0 30px var(--tetris-glow), inset 0 0 30px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+/* ── UI Canvas (overlays board for side panels) ── */
+#ui-canvas {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* ── Header ── */
+.game-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.game-header h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 28px;
+    letter-spacing: 0.08em;
+    background: linear-gradient(135deg, #c084fc, #818cf8, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 12px rgba(129, 140, 248, 0.4));
+}
+
+.game-header .subtitle {
+    font-size: 12px;
+    color: var(--tetris-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+
+/* ── Back Button ── */
+.back-link {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--tetris-muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: rgba(18, 18, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: all 0.2s ease;
+    z-index: 100;
+}
+
+.back-link:hover {
+    color: var(--tetris-text);
+    background: rgba(18, 18, 42, 0.95);
+    border-color: rgba(192, 132, 252, 0.3);
+}
+
+.back-link svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ── Footer Controls ── */
+.controls-footer {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--tetris-muted);
+    letter-spacing: 0.05em;
+}
+
+.controls-footer kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    margin: 0 2px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+    .game-container {
+        transform: scale(0.8);
+        transform-origin: center center;
+    }
+    
+    .game-header h1 {
+        font-size: 22px;
+    }
+}
