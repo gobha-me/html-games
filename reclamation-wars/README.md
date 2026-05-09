@@ -66,13 +66,38 @@ All UI buttons and interactive elements are reachable via the `Tab` key. A visib
 Playable.
 
 ## File layout
-- `index.html` — entry point
-- `js/main.js` — bootstrap and game initialization
-- `js/game.js` — core game loop and state management
-- `js/map.js` — hex map rendering and interaction
-- `js/factions.js` — faction definitions and AI
-- `js/ui.js` — UI panels and controls
-- `css/style.css` — styles and theme
+
+### Core
+- `index.html` — entry point + game-card / setup / game / victory screens
+- `js/main.js` — boot: instantiate Game, GameUI, KeyboardInput, SetupScreen
+- `js/constants.js` — PHASES, WIN_CONDITIONS, RESEARCH_TREE, UNIT_TYPES, BUILDING_TYPES, AI_PERSONALITIES
+- `js/game.js` — turn loop, win-condition checks, message log
+
+### Map & geometry
+- `js/hex.js` — hex coordinate math (axial ↔ pixel)
+- `js/map.js` — HexGrid, settlement placement, pathfinding
+
+### Game systems
+- `js/factions.js` — Faction class, diplomacy state
+- `js/units.js` — Unit class, combat resolution
+- `js/buildings.js` — Building registry, construction rules
+- `js/research.js` — research tree progression
+- `js/resources.js` — resource collection
+- `js/ai.js` — AI controller (read after factions/units, drives non-player turns)
+
+### UI (split because `ui.js` got too large — see PR #166)
+- `js/ui.js` — top-level GameUI shell, orchestrates updates
+- `js/ui-map.js` — SVG hex rendering
+- `js/ui-input.js` — mouse handlers (click / drag / wheel zoom) for the SVG map
+- `js/ui-panels.js` — side panel content (info / research / production / diplomacy)
+- `js/ui-status.js` — top bar, win-condition HUD, message log
+
+### Input
+- `js/keyboard.js` — global keyboard shortcuts (see Keyboard Controls above)
+- `js/setup.js` — landing card / setup-screen / faction selection
+
+### Style
+- `css/style.css` — all styles
 
 ## Technical Notes
 
