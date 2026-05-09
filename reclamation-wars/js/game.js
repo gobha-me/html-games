@@ -148,6 +148,14 @@ class Game {
 
             // Reset units
             this.unitManager.resetTurnForFaction(faction.id);
+
+            // Track ark beacon turns for cultural victory (incremented once per turn
+            // here, not in _checkWinConditions — bug fix from issue #176).
+            if (this.buildingManager.hasVictoryBuilding(faction.id, 'ark_beacon')) {
+                faction.arkTurns++;
+            } else {
+                faction.arkTurns = 0;
+            }
         }
 
         // Advance research
@@ -334,15 +342,10 @@ class Game {
                 return true;
             }
 
-            // Cultural: ark beacon maintained for 5 turns
-            if (this.buildingManager.hasVictoryBuilding(faction.id, 'ark_beacon')) {
-                faction.arkTurns++;
-                if (faction.arkTurns >= 5) {
-                    this._declareVictory(faction, 'CULTURAL');
-                    return true;
-                }
-            } else {
-                faction.arkTurns = 0;
+            // Cultural: ark beacon maintained for 5 turns (arkTurns incremented in _startNewTurn)
+            if (faction.arkTurns >= 5 && this.buildingManager.hasVictoryBuilding(faction.id, 'ark_beacon')) {
+                this._declareVictory(faction, 'CULTURAL');
+                return true;
             }
 
             // Elimination: all other factions have no settlements and no units
