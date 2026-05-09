@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="../shared/back-to-arcade.css">
+    <title>Solitaire — Klondike | HTML Games</title>
+</head>
+<body>
+    <header class="game-header">
+        <h1>🃏 Solitaire</h1>
+        <p class="subtitle">Classic Klondike — draw-1 or draw-3, Vegas or Standard scoring</p>
+    </header>
+
+    <div class="controls-bar">
+        <button class="btn btn-primary" id="new-game-btn">New Game</button>
+        <button class="btn" id="undo-btn">↩ Undo</button>
+        <button class="btn" id="auto-complete-btn">✨ Auto</button>
+        <button class="btn" id="draw-mode-btn">Draw 3</button>
+        <button class="btn" id="scoring-mode-btn">Standard</button>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat-box">
+            <div class="label">Score</div>
+            <div class="value" id="score-display">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="label">Moves</div>
+            <div class="value" id="moves-display">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="label">Time</div>
+            <div class="value" id="timer-display">00:00</div>
+        </div>
+    </div>
+
+    <div id="board">
+        <div class="top-row">
+            <div class="stock-waste">
+                <div id="stock"></div>
+                <div id="waste"></div>
+            </div>
+            <div id="foundations"></div>
+        </div>
+        <div id="tableau"></div>
+    </div>
+
+    <div class="daily-seed" id="daily-seed"></div>
+
+    <div class="instructions">
+        <strong>Click</strong> stock to draw · <strong>Click</strong> a card then <strong>click</strong> destination to move ·
+        <strong>Double-click</strong> to send to foundation · <strong>Drag &amp; drop</strong> also works<br>
+        <kbd>N</kbd> new game · <kbd>U</kbd> undo · <kbd>A</kbd> auto-complete · <kbd>1</kbd>/<kbd>3</kbd> draw mode
+    </div>
+
+    <!-- Win overlay -->
+    <div class="overlay" id="overlay">
+        <div class="overlay-content">
+            <h1 id="overlay-title">🎉 You Win!</h1>
+            <p id="overlay-body"></p>
+            <button class="btn btn-primary" id="overlay-btn">Play Again</button>
+        </div>
+    </div>
+
+    <a href="../" class="back-to-arcade">← Back to Arcade</a>
+
+    <script src="js/cards.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

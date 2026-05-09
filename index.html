@@ -27,6 +27,7 @@
             --breakout: #38bdf8;
             --mines: #10b981;
             --pong: #00d4ff;
+            --solitaire: #e11d48;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -215,6 +216,7 @@
         .card.pong:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.18); }
         .card.typing:hover   { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(46,213,115,0.18); }
         .card.sokoban:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
+        .card.solitaire:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(225,29,72,0.15); }
 
         /* ── footer ── */
         .footer {
@@ -424,6 +426,19 @@
                 <p class="tagline">Push crates onto targets in this classic box-pushing puzzle. Think ahead — you can only push, never pull!</p>
                 <div class="meta">
                     <span class="meta-dot" style="background:var(--sokoban)"></span> Puzzle Classic
+                </div>
+            </div>
+        </a>
+
+        <!-- Solitaire -->
+        <a href="solitaire/" class="card solitaire">
+            <div class="card-accent" style="background:var(--solitaire)"></div>
+            <div class="card-body">
+                <span class="card-emoji">🃏</span>
+                <h2>Solitaire</h2>
+                <p class="tagline">Classic Klondike with daily deals, Vegas scoring, and auto-complete. Draw-1 or draw-3 — your call.</p>
+                <div class="meta">
+                    <span class="meta-dot" style="background:var(--solitaire)"></span> Card Classic
                 </div>
             </div>
         </a>
