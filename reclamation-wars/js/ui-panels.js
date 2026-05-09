@@ -61,7 +61,7 @@ Object.assign(GameUI.prototype, {
                 const playerUnits = unitsOnHex.filter(u => u.owner === this.game.playerFaction.id);
 
                 if (!settlement && playerUnits.length > 0) {
-                    html += `<button class="btn-action btn-small" onclick="game.establishSettlement(game.selectedHex); ui.update();">Establish Settlement (5 scrap)</button>`;
+                    html += `<button class="btn-action btn-small" data-action="establish-settlement">Establish Settlement (5 scrap)</button>`;
                 }
 
                 if (settlement && settlement.owner === this.game.playerFaction.id) {
@@ -113,7 +113,7 @@ Object.assign(GameUI.prototype, {
             for (const tech of available) {
                 const costStr = Object.entries(tech.cost).map(([t, a]) => `${RESOURCE_TYPES[t]?.icon || t}${a}`).join(' ');
                 const canAfford = this.game.playerFaction.canAfford(tech.cost);
-                html += `\n                    <div class="research-item ${canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Research ${tech.name}" onclick="game.startResearch('${tech.id}'); ui.update();">\n                        <div class="tech-name">${tech.name} (T${tech.tier})</div>\n                        <div class="tech-cost">${costStr}</div>\n                        <div class="tech-desc">${tech.description}</div>\n                    </div>\n                `;
+                html += `\n                    <div class="research-item ${canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Research ${tech.name}" data-action="start-research" data-tech-id="${tech.id}">\n                        <div class="tech-name">${tech.name} (T${tech.tier})</div>\n                        <div class="tech-cost">${costStr}</div>\n                        <div class="tech-desc">${tech.description}</div>\n                    </div>\n                `;
             }
 
 
@@ -159,7 +159,7 @@ Object.assign(GameUI.prototype, {
                 const costStr = Object.entries(cost).map(([t, a]) => `${RESOURCE_TYPES[t]?.icon || t}${a}`).join(' ');
                 const canAfford = this.game.playerFaction.canAfford(cost);
 
-                html += `\n                    <div class="production-item ${canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Build ${unit.name}" onclick="game.buildUnit('${id}', game.selectedHex); ui.update();">\n                        <div class="prod-name">${unit.icon} ${unit.name}</div>\n                        <div class="prod-cost">${costStr}</div>\n                        <div class="prod-desc">ATK:${unit.attack} DEF:${unit.defense} MOV:${unit.movement} HP:${unit.hp}</div>\n                    </div>\n                `;
+                html += `\n                    <div class="production-item ${canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Build ${unit.name}" data-action="build-unit" data-unit-id="${id}">\n                        <div class="prod-name">${unit.icon} ${unit.name}</div>\n                        <div class="prod-cost">${costStr}</div>\n                        <div class="prod-desc">ATK:${unit.attack} DEF:${unit.defense} MOV:${unit.movement} HP:${unit.hp}</div>\n                    </div>\n                `;
             }
             html += `</div>`;
 
@@ -169,7 +169,7 @@ Object.assign(GameUI.prototype, {
             for (const building of availableBuildings) {
                 const costStr = Object.entries(building.cost).map(([t, a]) => `${RESOURCE_TYPES[t]?.icon || t}${a}`).join(' ');
 
-                html += `\n                    <div class="production-item ${building.canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Build ${building.name}" onclick="game.buildBuilding('${building.id}', game.selectedHex); ui.update();">\n                        <div class="prod-name">${building.icon} ${building.name}</div>\n                        <div class="prod-cost">${costStr}</div>\n                        <div class="prod-desc">${building.description}</div>\n                    </div>\n                `;
+                html += `\n                    <div class="production-item ${building.canAfford ? '' : 'locked'}" tabindex="0" role="button" aria-label="Build ${building.name}" data-action="build-building" data-building-id="${building.id}">\n                        <div class="prod-name">${building.icon} ${building.name}</div>\n                        <div class="prod-cost">${costStr}</div>\n                        <div class="prod-desc">${building.description}</div>\n                    </div>\n                `;
             }
             html += `</div>`;
         }
@@ -204,9 +204,9 @@ Object.assign(GameUI.prototype, {
                 html += `<div class="diplomacy-actions">`;
 
                 if (diplo.state !== 'AT_WAR') {
-                    html += `<button class="btn-action btn-small" onclick="game.playerFaction.declareWar('${faction.id}'); game.factions.find(f=>f.id==='${faction.id}').declareWar(game.playerFaction.id); ui.update();">Declare War</button>`;
+                    html += `<button class="btn-action btn-small" data-action="declare-war" data-faction-id="${faction.id}">Declare War</button>`;
                 } else {
-                    html += `<button class="btn-action btn-small" onclick="game.playerFaction.makePeace('${faction.id}'); game.factions.find(f=>f.id==='${faction.id}').makePeace(game.playerFaction.id); ui.update();">Propose Peace</button>`;
+                    html += `<button class="btn-action btn-small" data-action="propose-peace" data-faction-id="${faction.id}">Propose Peace</button>`;
                 }
 
                 html += `</div>`;
