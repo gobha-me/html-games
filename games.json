@@ -1,0 +1,130 @@
+{
+  "games": [
+    {
+      "slug": "forge-defense",
+      "title": "Forge Defense",
+      "description": "Defend the forge against waves of enemies in this tactical defense game.",
+      "tag": "Tower Defense",
+      "icon": "⚒️",
+      "href": "forge-defense/",
+      "theme": "forge"
+    },
+    {
+      "slug": "kimi",
+      "title": "Kimi",
+      "description": "Protect the factory core with zoom controls and precision strategy.",
+      "tag": "Core Protector",
+      "icon": "🏭",
+      "href": "kimi/defence.html",
+      "theme": "kimi"
+    },
+    {
+      "slug": "snake",
+      "title": "Snake",
+      "description": "The timeless classic — eat, grow, and don't bite your own tail.",
+      "tag": "Arcade Classic",
+      "icon": "🐍",
+      "href": "snake/",
+      "theme": "snake"
+    },
+    {
+      "slug": "space-invaders",
+      "title": "Space Invaders",
+      "description": "Blast alien waves in this retro arcade shooter. How long can you survive?",
+      "tag": "Arcade Shooter",
+      "icon": "👾",
+      "href": "space-invaders/",
+      "theme": "invaders"
+    },
+    {
+      "slug": "reclamation-wars",
+      "title": "Reclamation Wars",
+      "description": "Lead your forces to reclaim lost territory in this strategic war game.",
+      "tag": "Strategy",
+      "icon": "⚔️",
+      "href": "reclamation-wars/",
+      "theme": "reclamation"
+    },
+    {
+      "slug": "cogfall",
+      "title": "Cogfall",
+      "description": "A steampunk 4X adventure. Explore, expand, exploit, and exterminate.",
+      "tag": "Steampunk 4X",
+      "icon": "⚙️",
+      "href": "cogfall/dist/",
+      "theme": "cogfall"
+    },
+    {
+      "slug": "2048",
+      "title": "2048",
+      "description": "Slide, merge, and explode! Reach 2048 with strategic power-tile combos.",
+      "tag": "Puzzle",
+      "icon": "🔢",
+      "href": "2048/",
+      "theme": "tiles"
+    },
+    {
+      "slug": "breakout",
+      "title": "Breakout",
+      "description": "Smash bricks, collect power-ups, and battle bosses in this brick-breaking arcade classic.",
+      "tag": "Arcade Classic",
+      "icon": "🧱",
+      "href": "breakout/",
+      "theme": "breakout"
+    },
+    {
+      "slug": "pong",
+      "title": "Pong",
+      "description": "The classic arcade battle — challenge the CPU or play locally with a friend!",
+      "tag": "Arcade Classic",
+      "icon": "🏓",
+      "href": "pong/",
+      "theme": "pong"
+    },
+    {
+      "slug": "minesweeper",
+      "title": "Minesweeper",
+      "description": "Clear the minefield without detonating! Flag mines, reveal safe cells, and beat your best time.",
+      "tag": "Puzzle Classic",
+      "icon": "💣",
+      "href": "minesweeper/",
+      "theme": "mines"
+    },
+    {
+      "slug": "typing",
+      "title": "Typing Game",
+      "description": "Type falling words before they hit the ground! Multiple word lists, modes, and live WPM tracking.",
+      "tag": "Skill Builder",
+      "icon": "⌨️",
+      "href": "typing/",
+      "theme": "typing"
+    },
+    {
+      "slug": "sokoban",
+      "title": "Sokoban",
+      "description": "Push crates onto targets in this classic box-pushing puzzle. Think ahead — you can only push, never pull!",
+      "tag": "Puzzle Classic",
+      "icon": "📦",
+      "href": "sokoban/",
+      "theme": "sokoban"
+    },
+    {
+      "slug": "solitaire",
+      "title": "Solitaire",
+      "description": "Classic Klondike with daily deals, Vegas scoring, and auto-complete. Draw-1 or draw-3 — your call.",
+      "tag": "Card Classic",
+      "icon": "🃏",
+      "href": "solitaire/",
+      "theme": "solitaire"
+    },
+    {
+      "slug": "tetris",
+      "title": "Tetris",
+      "description": "Stack, rotate, and clear lines in this neon-arcade take on the falling-block classic.",
+      "tag": "Puzzle Classic",
+      "icon": "🧱",
+      "href": "tetris/",
+      "theme": "tetris"
+    }
+  ]
+}

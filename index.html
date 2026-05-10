@@ -28,6 +28,7 @@
             --breakout: #38bdf8;
             --mines: #10b981;
             --pong: #00d4ff;
+            --tiles: #a78bfa;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -237,16 +238,6 @@
             animation: cardIn 0.6s ease forwards;
         }
 
-        .card:nth-child(1) { animation-delay: 0.05s; }
-        .card:nth-child(2) { animation-delay: 0.12s; }
-        .card:nth-child(3) { animation-delay: 0.19s; }
-        .card:nth-child(4) { animation-delay: 0.26s; }
-        .card:nth-child(5) { animation-delay: 0.33s; }
-        .card:nth-child(6) { animation-delay: 0.40s; }
-        .card:nth-child(7) { animation-delay: 0.47s; }
-        .card:nth-child(8) { animation-delay: 0.54s; }
-        .card:nth-child(9) { animation-delay: 0.61s; }
-        .card:nth-child(10) { animation-delay: 0.68s; }
 
         @keyframes cardIn {
             from { opacity: 0; transform: translateY(24px); }
@@ -271,191 +262,10 @@
         <p class="sub">Arcade Collection</p>
     </header>
 
-    <!-- game grid -->
-    <main class="grid">
 
-        <!-- Forge Defense -->
-        <a href="forge-defense/" class="card forge">
-            <div class="card-accent" style="background:var(--forge)"></div>
-            <div class="card-body">
-                <span class="card-emoji">⚒️</span>
-                <h2>Forge Defense</h2>
-                <p class="tagline">Defend the forge against waves of enemies in this tactical defense game.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--forge)"></span> Tower Defense
-                </div>
-            </div>
-        </a>
+    <!-- game grid — populated from games.json by the loader script below -->
+    <main class="grid" id="game-grid"></main>
 
-        <!-- Kimi -->
-        <a href="kimi/defence.html" class="card kimi">
-            <div class="card-accent" style="background:var(--kimi)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🏭</span>
-                <h2>Kimi</h2>
-                <p class="tagline">Protect the factory core with zoom controls and precision strategy.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--kimi)"></span> Core Protector
-                </div>
-            </div>
-        </a>
-
-        <!-- Snake -->
-        <a href="snake/" class="card snake">
-            <div class="card-accent" style="background:var(--snake)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🐍</span>
-                <h2>Snake</h2>
-                <p class="tagline">The timeless classic — eat, grow, and don't bite your own tail.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--snake)"></span> Arcade Classic
-                </div>
-            </div>
-        </a>
-
-        <!-- Space Invaders -->
-        <a href="space-invaders/" class="card invaders">
-            <div class="card-accent" style="background:var(--invaders)"></div>
-            <div class="card-body">
-                <span class="card-emoji">👾</span>
-                <h2>Space Invaders</h2>
-                <p class="tagline">Blast alien waves in this retro arcade shooter. How long can you survive?</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--invaders)"></span> Arcade Shooter
-                </div>
-            </div>
-        </a>
-
-        <!-- Reclamation Wars -->
-        <a href="reclamation-wars/" class="card reclamation">
-            <div class="card-accent" style="background:var(--reclamation)"></div>
-            <div class="card-body">
-                <span class="card-emoji">⚔️</span>
-                <h2>Reclamation Wars</h2>
-                <p class="tagline">Lead your forces to reclaim lost territory in this strategic war game.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--reclamation)"></span> Strategy
-                </div>
-            </div>
-        </a>
-
-        <!-- Cogfall -->
-        <a href="cogfall/dist/" class="card cogfall">
-            <div class="card-accent" style="background:var(--cogfall)"></div>
-            <div class="card-body">
-                <span class="card-emoji">⚙️</span>
-                <h2>Cogfall</h2>
-                <p class="tagline">A steampunk 4X adventure. Explore, expand, exploit, and exterminate.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--cogfall)"></span> Steampunk 4X
-                </div>
-            </div>
-        </a>
-
-        <!-- 2048 Power Tiles -->
-        <a href="2048/" class="card tiles">
-            <div class="card-accent" style="background:var(--tiles)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🔢</span>
-                <h2>2048</h2>
-                <p class="tagline">Slide, merge, and explode! Reach 2048 with strategic power-tile combos.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--tiles)"></span> Puzzle
-                </div>
-            </div>
-        </a>
-
-        <!-- Breakout -->
-        <a href="breakout/" class="card breakout">
-            <div class="card-accent" style="background:var(--breakout)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🧱</span>
-                <h2>Breakout</h2>
-                <p class="tagline">Smash bricks, collect power-ups, and battle bosses in this brick-breaking arcade classic.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--breakout)"></span> Arcade Classic
-                </div>
-            </div>
-        </a>
-
-        <!-- Pong -->
-        <a href="pong/" class="card pong">
-            <div class="card-accent" style="background:var(--pong)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🏓</span>
-                <h2>Pong</h2>
-                <p class="tagline">The classic arcade battle — challenge the CPU or play locally with a friend!</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--pong)"></span> Arcade Classic
-                </div>
-            </div>
-        </a>
-
-        <!-- Minesweeper -->
-        <a href="minesweeper/" class="card mines">
-            <div class="card-accent" style="background:var(--mines)"></div>
-            <div class="card-body">
-                <span class="card-emoji">💣</span>
-                <h2>Minesweeper</h2>
-                <p class="tagline">Clear the minefield without detonating! Flag mines, reveal safe cells, and beat your best time.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--mines)"></span> Puzzle Classic
-                </div>
-            </div>
-        </a>
-
-        <!-- Typing Game -->
-        <a href="typing/" class="card typing">
-            <div class="card-accent" style="background:var(--typing)"></div>
-            <div class="card-body">
-                <span class="card-emoji">⌨️</span>
-                <h2>Typing Game</h2>
-                <p class="tagline">Type falling words before they hit the ground! Multiple word lists, modes, and live WPM tracking.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--typing)"></span> Skill Builder
-                </div>
-            </div>
-        </a>
-
-        <!-- Sokoban -->
-        <a href="sokoban/" class="card sokoban">
-            <div class="card-accent" style="background:var(--sokoban)"></div>
-            <div class="card-body">
-                <span class="card-emoji">📦</span>
-                <h2>Sokoban</h2>
-                <p class="tagline">Push crates onto targets in this classic box-pushing puzzle. Think ahead — you can only push, never pull!</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--sokoban)"></span> Puzzle Classic
-                </div>
-            </div>
-        </a>
-
-        <!-- Solitaire -->
-        <a href="solitaire/" class="card solitaire">
-            <div class="card-accent" style="background:var(--solitaire)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🃏</span>
-                <h2>Solitaire</h2>
-                <p class="tagline">Classic Klondike with daily deals, Vegas scoring, and auto-complete. Draw-1 or draw-3 — your call.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--solitaire)"></span> Card Classic
-                </div>
-            </div>
-        </a>
-
-        <!-- Tetris -->
-        <a href="tetris/" class="card tetris">
-            <div class="card-accent" style="background:var(--tetris)"></div>
-            <div class="card-body">
-                <span class="card-emoji">🧱</span>
-                <h2>Tetris</h2>
-                <p class="tagline">Stack, rotate, and clear lines in this neon-arcade take on the falling-block classic.</p>
-                <div class="meta">
-                    <span class="meta-dot" style="background:var(--tetris)"></span> Puzzle Classic
-                </div>
-            </div>
-        </a>
-    </main>
 
 
     <!-- footer -->
@@ -508,6 +318,49 @@
             draw();
             window.addEventListener('resize', () => { resize(); seed(); });
         })();
+    </script>
+
+    <!-- ── games.json loader ─────────────────────────────────────────────────
+         fetch() requires HTTP. To open locally, serve via:
+             python3 -m http.server 8080
+         Opening index.html as a file:// URL will show a graceful error below.
+         ──────────────────────────────────────────────────────────────────── -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const grid = document.getElementById('game-grid');
+            try {
+                const res = await fetch('games.json');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const { games } = await res.json();
+
+                games.forEach((game, i) => {
+                    const a = document.createElement('a');
+                    a.href = game.href;
+                    a.className = 'card ' + game.theme;
+                    a.style.animationDelay = (0.05 + i * 0.07).toFixed(2) + 's';
+                    a.innerHTML =
+                        '<div class="card-accent" style="background:var(--' + game.theme + ')"></div>' +
+                        '<div class="card-body">' +
+                            '<span class="card-emoji">' + game.icon + '</span>' +
+                            '<h2>' + game.title + '</h2>' +
+                            '<p class="tagline">' + game.description + '</p>' +
+                            '<div class="meta">' +
+                                '<span class="meta-dot" style="background:var(--' + game.theme + ')"></span> ' +
+                                game.tag +
+                            '</div>' +
+                        '</div>';
+                    grid.appendChild(a);
+                });
+            } catch (err) {
+                grid.innerHTML =
+                    '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:40px 0;line-height:2">' +
+                    '\u26a0\ufe0f Could not load the game list.<br>' +
+                    'Serve this page over HTTP \u2014 e.g. ' +
+                    '<code style="font-family:monospace;color:var(--text)">python3 -m http.server 8080</code>' +
+                    '</p>';
+                console.error('[launcher] games.json load failed:', err);
+            }
+        });
     </script>
 
 </body>
