@@ -19,6 +19,7 @@ import { G } from '../core/state';
 import { closeModal, openModal } from './modals';
 import { clearAllUnitTweens } from '../render/unitTweens';
 import { clearCombatEffects } from '../render/combatEffects';
+import { clearUnitKilledAnims } from '../render/unitKilledAnims';
 import type { Faction } from '../core/types';
 
 let activeResolver: (() => void) | null = null;
@@ -37,6 +38,7 @@ export function openPassover(next: Faction): Promise<void> {
     // shake/hit-flash from the previous player's combat (Phase 2n-2).
     clearAllUnitTweens();
     clearCombatEffects();
+    clearUnitKilledAnims();
     const titleEl = document.getElementById(DOM_IDS.PASSOVER_TITLE);
     const flavorEl = document.getElementById(DOM_IDS.PASSOVER_FLAVOR);
     const glyphEl = document.getElementById(DOM_IDS.PASSOVER_GLYPH);

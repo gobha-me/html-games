@@ -62,6 +62,24 @@ subscribeUnitTweens();
 import { setCombatEffectsRenderHook, subscribeCombatEffects } from './render/combatEffects';
 setCombatEffectsRenderHook(render);
 subscribeCombatEffects();
+
+// Phase 3 S6 — unit-death fade subscriber. unitKilledAnims keeps an
+// array of active deaths driven by the bus and pixi.ts reads it during
+// the post-units paint pass. Same render-hook pattern as combatEffects.
+import {
+  setUnitKilledAnimRenderHook,
+  subscribeUnitKilledAnim,
+} from './render/unitKilledAnims';
+setUnitKilledAnimRenderHook(render);
+subscribeUnitKilledAnim();
+
+// Phase 3 S4 — turn-end toast and tech-unlock pop. Both are DOM-only
+// and self-contained: they listen on the bus, gate on the local human
+// faction(s), and lazily build their own DOM nodes. No render hook.
+import { subscribeTurnEndAnim } from './render/turnEndAnims';
+import { subscribeTechCompleteAnim } from './render/techCompleteAnims';
+subscribeTurnEndAnim();
+subscribeTechCompleteAnim();
 import {
   populateSeedInput,
   refreshContinueButton,

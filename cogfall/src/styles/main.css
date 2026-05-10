@@ -780,3 +780,57 @@ body {
   color: var(--parchment-d);
   margin: 0 2px;
 }
+
+/* Phase 3 S4 — turn-end toast + tech-unlock pop */
+#cogfall-turn-toast {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: rgba(20, 16, 10, 0.92);
+  border: 1px solid var(--brass-d);
+  border-radius: 6px;
+  padding: 6px 14px;
+  z-index: 9;
+  color: var(--parchment);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+#cogfall-turn-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+#cogfall-tech-pop {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  background: rgba(20, 16, 10, 0.94);
+  border: 1px solid var(--brass);
+  border-radius: 8px;
+  padding: 14px 26px;
+  z-index: 9;
+  color: var(--brass);
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  pointer-events: none;
+  opacity: 0;
+  text-shadow: 0 0 8px rgba(212, 160, 23, 0.4);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+#cogfall-tech-pop.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #cogfall-turn-toast,
+  #cogfall-tech-pop {
+    transition: none;
+  }
+}

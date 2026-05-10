@@ -15,7 +15,14 @@ import { processCity } from '../src/systems/city';
 import { createCity } from '../src/systems/city';
 import { createUnit, killUnit } from '../src/systems/movement';
 import { endTurn, triggerVictory } from '../src/systems/turn';
-import { clearAllAnimSubscribers, on } from '../src/render/animations';
+import { clearAllAnimSubscribers, emit, on } from '../src/render/animations';
+import { subscribeTurnEndAnim } from '../src/render/turnEndAnims';
+import { subscribeTechCompleteAnim } from '../src/render/techCompleteAnims';
+import {
+  clearUnitKilledAnims,
+  getActiveDeaths,
+  subscribeUnitKilledAnim,
+} from '../src/render/unitKilledAnims';
 import type { Faction, FactionIdx } from '../src/core/types';
 
 function makeFaction(idx: number, isAI: boolean): Faction {
@@ -76,11 +83,32 @@ function resetGame(): void {
 beforeEach(() => {
   localStorage.clear();
   resetGame();
+  document.body.innerHTML = '';
+  clearUnitKilledAnims();
 });
 
 afterEach(() => {
   clearAllAnimSubscribers();
+  clearUnitKilledAnims();
+  document.body.innerHTML = '';
 });
+
+function mockReducedMotion(matches: boolean): () => void {
+  const original = window.matchMedia;
+  window.matchMedia = ((query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+  return () => {
+    window.matchMedia = original;
+  };
+}
 
 describe('animation bus — scaffolding emit sites', () => {
   it('endTurn emits turnEnd', () => {
@@ -151,5 +179,128 @@ describe('animation bus — scaffolding emit sites', () => {
       q: 0,
       r: 0,
     });
+  });
+});
+
+describe('Phase 3 S4 — turnEndAnims subscriber', () => {
+  it('shows the toast for the human player turn-end', () => {
+    subscribeTurnEndAnim();
+    endTurn();
+    const el = document.getElementById('cogfall-turn-toast');
+    expect(el).not.toBeNull();
+    expect(el!.textContent ?? '').toMatch(/End of Turn 3/);
+    expect(el!.classList.contains('show')).toBe(true);
+  });
+
+  it('suppresses the toast on AI faction turn-end', () => {
+    subscribeTurnEndAnim();
+    G.currentFactionIdx = 1 as FactionIdx;
+    G.factions[1].alive = true;
+    emit({ type: 'turnEnd', factionIdx: 1 as FactionIdx, turn: G.turn });
+    const el = document.getElementById('cogfall-turn-toast');
+    expect(el === null || !el.classList.contains('show')).toBe(true);
+  });
+
+  it('suppresses the toast during the hot-seat curtain', () => {
+    subscribeTurnEndAnim();
+    G.passoverActive = true;
+    emit({ type: 'turnEnd', factionIdx: 0 as FactionIdx, turn: G.turn });
+    const el = document.getElementById('cogfall-turn-toast');
+    expect(el === null || !el.classList.contains('show')).toBe(true);
+  });
+
+  it('skips the show class when prefers-reduced-motion is set', () => {
+    const restore = mockReducedMotion(true);
+    try {
+      subscribeTurnEndAnim();
+      emit({ type: 'turnEnd', factionIdx: 0 as FactionIdx, turn: G.turn });
+      const el = document.getElementById('cogfall-turn-toast');
+      expect(el).not.toBeNull();
+      expect(el!.textContent ?? '').toMatch(/End of Turn/);
+      expect(el!.classList.contains('show')).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe('Phase 3 S4 — techCompleteAnims subscriber', () => {
+  it('shows a tech-pop for the human player', () => {
+    subscribeTechCompleteAnim();
+    emit({ type: 'techComplete', factionIdx: 0 as FactionIdx, techId: 'metallurgy' });
+    const el = document.getElementById('cogfall-tech-pop');
+    expect(el).not.toBeNull();
+    expect(el!.textContent ?? '').toMatch(/Discovery: Metallurgy/);
+    expect(el!.classList.contains('show')).toBe(true);
+  });
+
+  it('suppresses the tech-pop for non-human factions', () => {
+    subscribeTechCompleteAnim();
+    emit({ type: 'techComplete', factionIdx: 1 as FactionIdx, techId: 'metallurgy' });
+    const el = document.getElementById('cogfall-tech-pop');
+    expect(el === null || !el.classList.contains('show')).toBe(true);
+  });
+
+  it('skips the show class when prefers-reduced-motion is set', () => {
+    const restore = mockReducedMotion(true);
+    try {
+      subscribeTechCompleteAnim();
+      emit({ type: 'techComplete', factionIdx: 0 as FactionIdx, techId: 'currency' });
+      const el = document.getElementById('cogfall-tech-pop');
+      expect(el).not.toBeNull();
+      expect(el!.textContent ?? '').toMatch(/Discovery: Currency/);
+      expect(el!.classList.contains('show')).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe('Phase 3 S6 — unitKilledAnims subscriber', () => {
+  it('records an active death when a unit is killed', () => {
+    subscribeUnitKilledAnim();
+    const unit = createUnit('SCOUT', 0 as FactionIdx, 0, 0);
+    killUnit(unit);
+    const active = getActiveDeaths();
+    expect(active).toHaveLength(1);
+    expect(active[0]).toMatchObject({ factionIdx: 0, q: 0, r: 0 });
+    expect(active[0].t).toBeGreaterThanOrEqual(0);
+    expect(active[0].t).toBeLessThan(1);
+  });
+
+  it('staggers multi-kill so consecutive deaths start at different times', () => {
+    subscribeUnitKilledAnim();
+    const u1 = createUnit('SCOUT', 0 as FactionIdx, 0, 0);
+    const u2 = createUnit('SCOUT', 0 as FactionIdx, 1, 0);
+    killUnit(u1);
+    killUnit(u2);
+    const active = getActiveDeaths();
+    expect(active).toHaveLength(2);
+    // Second death is staggered later, so its t is smaller (or zero
+    // before its start time elapses).
+    const tFirst = active.find((d) => d.q === 0)!.t;
+    const tSecond = active.find((d) => d.q === 1)!.t;
+    expect(tFirst).toBeGreaterThanOrEqual(tSecond);
+  });
+
+  it('skips death entries when prefers-reduced-motion is set', () => {
+    const restore = mockReducedMotion(true);
+    try {
+      subscribeUnitKilledAnim();
+      const unit = createUnit('SCOUT', 0 as FactionIdx, 0, 0);
+      killUnit(unit);
+      expect(getActiveDeaths()).toHaveLength(0);
+    } finally {
+      restore();
+    }
+  });
+
+  it('clearUnitKilledAnims drops in-flight deaths (passover curtain)', () => {
+    subscribeUnitKilledAnim();
+    const unit = createUnit('SCOUT', 0 as FactionIdx, 0, 0);
+    killUnit(unit);
+    expect(getActiveDeaths()).toHaveLength(1);
+    clearUnitKilledAnims();
+    expect(getActiveDeaths()).toHaveLength(0);
   });
 });

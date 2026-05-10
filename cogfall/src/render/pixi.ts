@@ -33,6 +33,7 @@ import { getMilitaryScoresForUnit } from '../ai/unitAI';
 import { renderSVGOverlay } from './overlay';
 import { getUnitTweenOffset } from './unitTweens';
 import { getShakeOffset, getUnitFlashColor } from './combatEffects';
+import { getActiveDeaths, type ActiveDeath } from './unitKilledAnims';
 
 // Minimap hook (same pattern as old canvas.ts). main.ts wires it so every
 // render() chains a minimap repaint without canvas.ts importing ui/.
@@ -219,6 +220,12 @@ export function render(): void {
     const t = getTile(u.q, u.r);
     if (!t || t.visibility[playerIdx] !== 'visible') continue;
     drawUnit(worldLayer, u);
+  }
+
+  for (const d of getActiveDeaths()) {
+    const t = getTile(d.q, d.r);
+    if (!t || t.visibility[playerIdx] !== 'visible') continue;
+    drawUnitDeathFade(worldLayer, d);
   }
 
   drawHoverHex(worldLayer);
@@ -643,6 +650,27 @@ function drawUnit(parent: Container, u: Unit): void {
       ),
     );
   }
+}
+
+// Phase 3 S6 — paints a fading "ghost" outline at a slain unit's hex.
+// Faction-color ring shrinks and fades to alpha 0; a small inner cross
+// signals fragmentation. Painted after the live-units pass so an active
+// unit on the same hex (a fresh occupier) covers the fade naturally.
+function drawUnitDeathFade(parent: Container, d: ActiveDeath): void {
+  const fac = G.factions[d.factionIdx];
+  if (!fac) return;
+  const { x, y } = hexToPixel(d.q, d.r);
+  const alpha = 1 - d.t;
+  const scale = 1 - d.t * 0.6;
+  const radius = HEX_SIZE * 0.42 * scale;
+  const g = new Graphics();
+  g.circle(x, y, radius).stroke({ color: fac.color, width: 2.5, alpha });
+  const arm = HEX_SIZE * 0.3 * scale;
+  g.moveTo(x - arm, y - arm).lineTo(x + arm, y + arm);
+  g.stroke({ color: fac.color, width: 1.5, alpha: alpha * 0.7 });
+  g.moveTo(x - arm, y + arm).lineTo(x + arm, y - arm);
+  g.stroke({ color: fac.color, width: 1.5, alpha: alpha * 0.7 });
+  parent.addChild(g);
 }
 
 function drawHoverHex(parent: Container): void {
