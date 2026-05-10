@@ -106,6 +106,12 @@ Cogfall has its own multi-phase roadmap; the per-session breakdown lives
 in `cogfall/PHASE_3_ROADMAP.md`. Cogfall PRs are tagged `cogfall` so
 they're easy to filter out when triaging arcade-wide work.
 
+Each game directory owns its own changelog, roadmap (optional), and
+decision log (optional) — format and cadence are the per-game session's
+call. See `AGENTS.md` § "Per-game documentation" for the contract and
+`AGENTS.md` § "Multi-session topology" for how the multi-session split
+between repo-root and per-game sessions works.
+
 
 ## Per-game README template
 

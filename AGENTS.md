@@ -19,8 +19,41 @@ for the broader picture; this file is the short, tactical version.
    in its own commit, refactor in its own commit. Don't mix mechanical
    changes with behavior changes.
 5. **Don't touch a game directory you weren't asked to touch.** Each
-   game subdir is owned by whoever started it. Cross-game refactors
-   need a ticket and explicit approval.
+   game subdir is owned by whoever started it (see "Multi-session
+   topology" below). Cross-game refactors need a ticket and explicit
+   approval.
+
+## Multi-session topology
+
+Multiple LLM sessions work this repo concurrently. The split is by
+subdirectory:
+
+- **Per-game sessions** open with a game's subdirectory as their
+  working context (e.g. a Cogfall session at `cogfall/`, a roguelike
+  session at `roguelike/`). Each session owns its subdir: its code
+  style, architectural choices, roadmap format, commit cadence, and
+  long-term tracking. A session inherits the conventions in this file
+  and `SPEC.md`; everything inside its subdir is its own to decide and
+  document.
+- **The repo-root session** opens at `/` and handles cross-cutting
+  work: launcher updates, `AGENTS.md`/`SPEC.md` changes,
+  `Dockerfile`/`deployment.yaml`, cross-game comparisons, triage. It
+  should not edit a game's interior unless that game has no active
+  session or the change is genuinely repo-wide (e.g. a shared label
+  rename, a launcher card refresh).
+
+The boundary:
+
+- **Repo-wide (root session territory):** this file, `SPEC.md`, deploy
+  pipeline, branch protection, tea-cli usage, the label set, the
+  launcher card list, the "Back to Arcade" link convention,
+  shared/cross-game tooling.
+- **Game-interior (per-game session territory):** code, tests,
+  `README.md`, `CHANGELOG.md`, optional roadmap doc, optional decision
+  log, build choices within the policy this file sets.
+
+Each game's documentation IS the per-session memory across
+conversations — keep it current.
 
 ## Workflow
 
@@ -82,18 +115,38 @@ something fun and playable", not "lightweight is virtuous". Strong
 training data and good docs are perfectly valid reasons to pick a
 library.
 
-## Per-game READMEs
+## Per-game documentation
 
-Every game directory should carry a `README.md` covering:
+Every game directory carries its own documentation. The session
+working on that game picks the format and cadence — these files are
+the session's memory across conversations.
 
-- **What it is** — one paragraph
-- **How to play** — controls and goal
-- **Tech stack** — vanilla? framework? build step?
-- **Status** — playable / WIP / known bugs
-- **File layout** — pointer to the entry HTML and the main JS modules
+**Required:**
 
-Match the template by skimming `snake/README.md` and
-`space-invaders/README.md` — they're the current models.
+- **`README.md`** — what it is, how to play, tech stack, status, file
+  layout. Template lives in [`SPEC.md`](SPEC.md). Skim
+  `snake/README.md` or `space-invaders/README.md` for current models.
+- **`CHANGELOG.md`** — chronological log of shipped changes. Format
+  is the session's call: `kimi/CHANGELOG.md` uses Keep-a-Changelog,
+  Cogfall captures equivalent detail in commit messages plus
+  `cogfall/PHASE_3_ROADMAP.md` annotations. Both are valid. The bar
+  is "a new session can read this and know what's already been
+  shipped without re-deriving from `git log`."
+
+**Optional (per session's call):**
+
+- **Roadmap doc.** Cogfall uses `cogfall/PHASE_3_ROADMAP.md` with a
+  per-session breakdown; other games may prefer a "next 3 things"
+  bullet list, a Gitea milestone, or no roadmap at all.
+- **Decision log.** Cogfall's lives in the comment block at the top of
+  `cogfall/src/core/state.ts`. Other games may not need one — use
+  one if the same design choices keep getting re-litigated across
+  conversations.
+
+If you're starting fresh on a new game, ship the README in the first
+PR and add a CHANGELOG no later than the second. Backfilling a
+CHANGELOG for an existing game is welcome but not required as part
+of unrelated PRs.
 
 ## 'Back to arcade' link convention
 
@@ -125,8 +178,11 @@ can navigate back to the launcher without using the browser back button.
 ## When you're stuck
 
 - Issue tracker is at <https://git.gobha.me/xcaliber/HTML-Games/issues>.
-- The repo's pre-flight cleanup PR (#TBD) and this `AGENTS.md` are the
-  current best on-ramp.
+- The repo's pre-flight cleanup PR (#80), this `AGENTS.md`, and
+  [`SPEC.md`](SPEC.md) are the current best on-ramp.
+- If you're working in a game subdir and need context the codebase
+  doesn't make obvious, check that game's `README.md` / `CHANGELOG.md`
+  / roadmap doc first — the prior session left them for you.
 - If a change you're about to make would obviously break the deploy
   pipeline (e.g. a new game that needs a backend), stop and open an
   issue first.
