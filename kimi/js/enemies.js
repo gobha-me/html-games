@@ -72,6 +72,46 @@ function createEnemy(type, x, y) {
     return enemy;
 }
 
+/**
+ * Spawn a swarm of minions around a boss enemy.
+ * Called ~1 second after the boss appears so they visibly emerge from it.
+ *
+ * Count formula: 3 + floor(wave / 10) * 2  →  wave 10 = 5, 20 = 7, 30 = 9 …
+ * Type: 'scout' up to wave 19, 'flyer' from wave 20 onward.
+ * Cadence: one minion every 300 ms.
+ */
+function spawnBossMinions(boss) {
+    const state = getGameState();
+    const wave = state.wave;
+
+    const minionCount = 3 + Math.floor(wave / 10) * 2;
+    const minionType = wave >= 20 ? 'flyer' : 'scout';
+
+    for (let i = 0; i < minionCount; i++) {
+        setTimeout(() => {
+            // Guard: game may have ended while timers were pending
+            const s = getGameState();
+            if (s.isPaused || s.rocketLaunched) return;
+
+            // Spawn near boss position with small random offset
+            const offsetX = (Math.random() - 0.5) * 3;
+            const offsetY = (Math.random() - 0.5) * 3;
+            const spawnX = Math.max(1, Math.min(GRID_SIZE - 2, (boss ? boss.x : CORE_POS.x) + offsetX));
+            const spawnY = Math.max(1, Math.min(GRID_SIZE - 2, (boss ? boss.y : CORE_POS.y) + offsetY));
+
+            const minion = createEnemy(minionType, spawnX, spawnY);
+            minion.isMinion = true; // tag for achievement tracking
+
+            document.getElementById('grid').appendChild(minion.element);
+            s.enemies.push(minion);
+            s.achievements.bossMinionsSpawned++;
+
+            AudioSystem?.playEnemyHit(); // light audio cue per minion
+        }, i * 300);
+    }
+}
+
+
 function updateEnemyElementPosition(el, x, y) {
     const state = getGameState();
     el.style.left = (x * CELL_SIZE * state.zoomLevel + 2 * state.zoomLevel) + 'px';
@@ -193,6 +233,7 @@ function killEnemy(enemy) {
     
     enemy.element.remove();
     state.achievements.enemiesKilled++;
+    if (enemy.isMinion) state.achievements.bossMinionsKilled++;
     
     AudioSystem?.playEnemyHit();
     checkAchievements();
@@ -212,7 +253,8 @@ function getEnemies() {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         selectEnemyType, createEnemy, updateEnemyElementPosition,
-        moveEnemies, damageBarrier, killEnemy, getEnemyCount, getEnemies
+        moveEnemies, damageBarrier, killEnemy, getEnemyCount, getEnemies,
+        spawnBossMinions
     };
 }
 
@@ -223,3 +265,4 @@ window.moveEnemies = moveEnemies;
 window.killEnemy = killEnemy;
 window.getEnemyCount = getEnemyCount;
 window.getEnemies = getEnemies;
+window.spawnBossMinions = spawnBossMinions;

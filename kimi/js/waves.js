@@ -125,10 +125,11 @@ function spawnSingleEnemy() {
     
     const enemyType = selectEnemyType();
     const enemy = createEnemy(enemyType, x, y);
-    
-    // Boss spawn sound
+    // Boss spawn: play sound and schedule minion swarm
     if (enemyType === 'boss') {
         AudioSystem?.playBossSpawn();
+        // Re-enable minions: spawn swarm 1 second after boss appears (issue #88)
+        setTimeout(() => spawnBossMinions(enemy), 1000);
     }
     
     document.getElementById('grid').appendChild(enemy.element);

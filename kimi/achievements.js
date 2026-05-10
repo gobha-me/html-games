@@ -92,6 +92,14 @@ const ACHIEVEMENTS = {
         badge: '🏆',
         points: 1000,
         check: (gameState) => calculateTotalPoints() >= 1000
+    },
+    bossSwarmSurvivor: {
+        id: 'bossSwarmSurvivor',
+        name: 'Boss Swarm Survivor',
+        description: 'Survive a boss wave — kill at least one boss minion',
+        badge: '🐉',
+        points: 250,
+        check: (gameState) => gameState.achievements && gameState.achievements.bossMinionsKilled >= 1
     }
 };
 
@@ -300,7 +308,7 @@ function addAchievementButtonToSidebar() {
     btn.id = 'achievementsBtn';
     btn.className = 'achieve-btn';
     btn.innerHTML = `🏆 Achievements (0)`;
-    btn.onclick = openAchievements; // FIX: Use openAchievements for consistency
+    btn.onclick = openAchievements;
 
     const stats = document.getElementById('stats');
     if (stats) {

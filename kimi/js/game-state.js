@@ -1,12 +1,12 @@
 /**
  * Game State Module
  * State management, save/load functionality
+ *
+ * NOTE: Achievement *badge* state (unlocked set, points) lives in achievements.js.
+ *       This module owns the in-game stat counters stored inside gameState.achievements.
  */
 
 let gameState = null;
-
-// Achievement tracking state
-let achievementState = null;
 
 function createInitialGameState() {
     return {
@@ -16,7 +16,7 @@ function createInitialGameState() {
         projectiles: [],
         coreHealth: CORE_MAX_HEALTH,
         wave: 1,
-        waveSpawnComplete: false, // NEW: Track if current wave has finished spawning
+        waveSpawnComplete: false,
         waveTimer: 0,
         gameTime: 0,
         revealed: new Set(),
@@ -25,9 +25,9 @@ function createInitialGameState() {
         rocketLaunched: false,
         objectives: [false, false, false, false, false],
         firstWaveSpawned: false,
-        camera: { 
-            x: -((GRID_SIZE * CELL_SIZE) / 2) + window.innerWidth / 2, 
-            y: -((GRID_SIZE * CELL_SIZE) / 2) + window.innerHeight / 2 
+        camera: {
+            x: -((GRID_SIZE * CELL_SIZE) / 2) + window.innerWidth / 2,
+            y: -((GRID_SIZE * CELL_SIZE) / 2) + window.innerHeight / 2
         },
         manualCrafting: { lastCrafted: 0 },
         zoomLevel: 1.0,
@@ -35,7 +35,9 @@ function createInitialGameState() {
             enemiesKilled: 0,
             turretsBuilt: 0,
             wavesSurvived: 0,
-            coreDamageTaken: 0
+            coreDamageTaken: 0,
+            bossMinionsSpawned: 0,
+            bossMinionsKilled: 0
         }
     };
 }
@@ -61,38 +63,6 @@ function resetGameState() {
     return gameState;
 }
 
-// Achievement state management
-function createInitialAchievementState() {
-    return {
-        unlocked: [],
-        totalPoints: 0,
-        stats: {
-            totalKills: 0,
-            totalResources: {},
-            wavesCompleted: 0,
-            buildingsBuilt: {},
-            maxTurrets: 0,
-            fastestWave5: null,
-            coreHealthAtWave5: 100
-        }
-    };
-}
-
-function initAchievementState() {
-    if (!achievementState) {
-        achievementState = createInitialAchievementState();
-    }
-    return achievementState;
-}
-
-function getAchievementState() {
-    return achievementState || initAchievementState();
-}
-
-function setAchievementState(state) {
-    achievementState = state;
-}
-
 // Save/Load system
 function saveGame() {
     const stateToSave = {
@@ -102,11 +72,12 @@ function saveGame() {
         projectiles: []
     };
     localStorage.setItem('factory_defense_v6', JSON.stringify(stateToSave));
-    
-    // Save achievement state
-    const achState = getAchievementState();
-    localStorage.setItem('factory_defense_achievements', JSON.stringify(achState));
-    
+
+    // Achievement badge state is owned by achievements.js
+    if (typeof getAchievementState === 'function') {
+        localStorage.setItem('factory_defense_achievements', JSON.stringify(getAchievementState()));
+    }
+
     showMessage('Game Saved', '#0f0');
 }
 
@@ -117,17 +88,23 @@ function loadGame() {
         gameState.revealed = new Set(gameState.revealed);
         gameState.enemies = [];
         gameState.projectiles = [];
-        
-        // Ensure new state variables exist
+
+        // Migration guards — ensure new fields exist in old saves
         if (gameState.waveSpawnComplete === undefined) {
             gameState.waveSpawnComplete = false;
         }
-        
-        // Setup grid and UI
+        if (!gameState.achievements) gameState.achievements = {};
+        if (gameState.achievements.bossMinionsSpawned === undefined) {
+            gameState.achievements.bossMinionsSpawned = 0;
+        }
+        if (gameState.achievements.bossMinionsKilled === undefined) {
+            gameState.achievements.bossMinionsKilled = 0;
+        }
+
         setupGrid();
         updateResources();
         updateZoomDisplay();
-        
+
         showMessage('Game Loaded', '#0f0');
         return true;
     }
@@ -149,22 +126,10 @@ function resetGame() {
     }
 }
 
-// Load achievement state
-function loadAchievementState() {
-    const saved = localStorage.getItem('factory_defense_achievements');
-    if (saved) {
-        achievementState = JSON.parse(saved);
-        return true;
-    }
-    return false;
-}
-
 // Export
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        gameState, achievementState,
         createInitialGameState, initGameState, getGameState, setGameState, resetGameState,
-        createInitialAchievementState, initAchievementState, getAchievementState, setAchievementState,
-        saveGame, loadGame, autoSave, resetGame, loadAchievementState
+        saveGame, loadGame, autoSave, resetGame
     };
 }
