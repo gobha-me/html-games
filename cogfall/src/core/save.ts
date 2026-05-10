@@ -15,6 +15,7 @@ import { clearTelemetryLog } from '../systems/telemetry';
 import { clearReplayLog } from '../systems/replay';
 import { UNIT_TYPES } from '../data/units';
 import { BUILDING_TYPES } from '../data/buildings';
+import { getFactionBehavior } from '../data/factionBehaviors';
 import { TECHS } from '../data/techs';
 import type {
   AIMemory,
@@ -66,7 +67,13 @@ const slotKey = (n: number): string => `cogfall:save:${n}`;
 
 // --- Serialized shapes -----------------------------------------------------
 
-interface SerializedFaction extends Omit<Faction, 'techs'> {
+// `behavior` is intentionally omitted: it's a function-bearing object
+// (hooks like pickTech / pickBuild) that JSON.stringify silently strips,
+// AND Phase 3 S5 binds it deterministically from FactionId at game start
+// (setup.ts) and on load (applySerializedStateToG below) via
+// `getFactionBehavior`. Type-narrowing here prevents a future maintainer
+// from accidentally adding `behavior` to the serialized shape.
+interface SerializedFaction extends Omit<Faction, 'techs' | 'behavior'> {
   techs: TechId[];
 }
 
@@ -288,7 +295,11 @@ export function applySerializedStateToG(s: SerializedGameState): void {
         tiles: new Map<TileKey, Tile>(s.map.tiles),
       } as GameMap)
     : null;
-  G.factions = s.factions.map((f) => ({ ...f, techs: new Set<TechId>(f.techs) }));
+  G.factions = s.factions.map((f) => ({
+    ...f,
+    techs: new Set<TechId>(f.techs),
+    behavior: getFactionBehavior(f.id),
+  }));
   G.units = s.units.map((u) => ({ ...u }));
   G.cities = s.cities.map((c) => ({
     ...c,

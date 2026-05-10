@@ -92,17 +92,23 @@
 //     the personality template (Partial<PersonalityDef>); optional
 //     hooks (pickTech, pickBuild, unitPriority) short-circuit default
 //     AI logic when they return a non-null value, and fall through to
-//     the existing scoring on null. The scaffold ships with zero
-//     overrides — Faction.behavior is undefined for all 5 default
-//     factions, so resolveBehavior returns the unmodified PERSONALITIES
-//     row and the hook accessors return null. Behavior is byte-
-//     identical to pre-S2 (290-test suite proves it). `behavior` is
-//     *not* serialized: it's bound at game start from the static
-//     FACTIONS data table, so saves stay v5 with no migration. Don't
-//     add direct `PERSONALITIES[...]` reads in new AI code — go through
-//     the resolver so S5 (per-faction AI variety) and S7 (faction-
-//     flavored victories) can plug in overrides without re-wiring
-//     every call site.
+//     the existing scoring on null. Phase 3 S5 wired four overlays in
+//     `data/factionBehaviors.ts` (iron, aetheric, verdant, coin);
+//     cogwright remains the byte-equal control. `behavior` is *not*
+//     serialized — JSON.stringify can't carry hook closures — so it's
+//     bound deterministically from FactionId at game start (setup.ts
+//     `createFaction`) AND re-bound on load
+//     (save.ts `applySerializedStateToG`) via `getFactionBehavior`.
+//     `SerializedFaction` Omits the field to make this contract loud.
+//     pickBuild call site (cityAI.ts:21) returns the override
+//     UNCONDITIONALLY: hook bodies MUST self-guard
+//     `city.buildings.has(id)` AND any `requires` tech, otherwise an
+//     already-built or prereq-missing return wastes a turn of city
+//     production. pickTech is gentler — techAI.ts:14 filters via
+//     `avail.some(...)`, so unmet-prereq returns fall through cleanly.
+//     Don't add direct `PERSONALITIES[...]` reads in new AI code — go
+//     through the resolver so S7 (faction-flavored victories) can plug
+//     in overrides without re-wiring every call site.
 //
 // 12. Scenario system (Phase 3 S3) lives in `data/scenarios.ts`. The
 //     SCENARIOS registry ships *empty* in S3 — only "Random map" appears

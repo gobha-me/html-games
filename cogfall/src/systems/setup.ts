@@ -9,6 +9,7 @@ import { getGameRng, initGameRng, shuffle } from '../core/rng';
 import { G, getTile, getUnitAt } from '../core/state';
 import type { Difficulty, Faction, FactionIdx, TechId } from '../core/types';
 import { FACTIONS, type MapSizeId, type FactionDef } from '../data/factions';
+import { getFactionBehavior } from '../data/factionBehaviors';
 import { getScenario, resolveScenarioStarts } from '../data/scenarios';
 import { TERRAIN_TYPES } from '../data/terrain';
 import { UNIT_TYPES } from '../data/units';
@@ -65,6 +66,7 @@ export function createFaction(template: FactionDef, isAI: boolean, idx: number):
     diplo: {},
     startBonus: 'startBonus' in template ? template.startBonus : undefined,
     traits: template.traits,
+    behavior: getFactionBehavior(template.id),
   };
   if (template.id === 'coin') f.resources.gold += COIN_BONUS_GOLD;
   return f;
