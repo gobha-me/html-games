@@ -1,33 +1,41 @@
-# ⚙️ The Cogfall — A Steampunk 4X
+# The Cogfall — A Steampunk 4X
 
 A turn-based 4X hex strategy game set in a steampunk world. Play as one of five factions competing to rediscover lost technology, expand settlements, and shape the future through exploration, research, diplomacy, and combat.
 
 ## How to play
 
 ### Objective
-Explore the hex map, gather resources (gold, aether, science, culture), build units and structures, research technologies, and achieve victory through domination, scientific advancement, or cultural dominance.
+Explore the hex map, gather resources (gold, aether, science, culture), build units and structures, research technologies, and achieve victory through one of four paths.
 
 ### Controls
-- **Click** a hex to select it
-- **Click** an adjacent hex to move a selected unit
-- **Click** action buttons in the side panel to build, research, or interact
-- **End Turn** button to pass to the next faction
-- **Tab** through UI elements for keyboard navigation
+- **Left-click** a hex to select; click an adjacent hex to move a selected unit
+- **Right-click drag** to pan the map; **scroll wheel** to zoom
+- **Space** end turn · **N** next unit · **F** fortify · **?** open the Stewards' Codex (full keybinds)
+- Click action buttons in the side panels to build, research, save, or open the replay viewer
 
 ### Win conditions
-- **Domination**: Control the majority of settlements
-- **Scientific**: Research the top-tier technology
-- **Cultural**: Achieve cultural dominance
+- **Domination** — be the last faction with a city standing
+- **Scientific** — complete the Grand Apparatus tech
+- **Cultural** — hold 40% of claimed tiles for 5 turns (toggle in setup)
+- **Economic** — amass 5000 gold for 3 turns (configurable: 3000 / 5000 / 8000)
 
 ## Tech
-Vanilla HTML/CSS/JS. Canvas for the hex map rendering, SVG for overlay elements, DOM for UI panels. No build step — open `index.html` in a browser.
+Vite + TypeScript (strict), PixiJS 8 for the hex map render layer, DOM for UI panels, Vitest for the test suite (~300 tests). Source under `src/` organized as `core/ data/ systems/ ai/ render/ ui/ input/`. The deployed bundle is built into `dist/` (gitignored — CI builds it during deploy).
+
+```sh
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # production bundle into dist/
+npm test         # Vitest
+npm run lint
+```
 
 ## Status
-WIP — Phase 3 development in progress. Combat resolution animations, per-faction AI personality variety, and turn-end/tech-unlock animations are planned (see issues #104, #105, #106).
+Phase 3 in progress. Sessions S1–S6 shipped: animation event bus, per-faction AI dispatch + variety, scenario scaffold, turn-end / tech-pop / unit-death animations. **Next: S7** — faction-flavored victory paths. See `PHASE_3_ROADMAP.md` for the full breakdown.
 
 ## File layout
-- `index.html` — entry point, game shell (top bar, bottom bar, canvas, SVG overlay)
-- `src/` — game source code (game logic, AI, rendering, UI)
-- `tests/` — test suite
-- `legacy/` — legacy code from earlier phases
-- `PHASE_3_ROADMAP.md` — detailed Phase 3 session breakdown
+- `index.html` — entry point, game shell (top bar, bottom bar, canvas, SVG overlay, modals)
+- `src/` — game source (core state, data tables, systems, AI, render, UI, input)
+- `tests/` — Vitest suite
+- `legacy/` — original prototype (kept as a byte-feel reference for refactors)
+- `PHASE_3_ROADMAP.md` — Phase 3 session breakdown
