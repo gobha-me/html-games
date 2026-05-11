@@ -22,13 +22,18 @@
         <span class="stat" id="turn">Turn&nbsp;<b>0</b></span>
       </div>
     </header>
+    <div id="mobile-banner" class="mobile-banner" hidden>
+      <p>Inkwell is keyboard-driven. Touch input isn't supported — play on a keyboard for the full reading.</p>
+      <button id="mobile-banner-dismiss" class="ink-button ghost" type="button">Play anyway</button>
+    </div>
     <div class="slots-strip" id="slots-strip" aria-label="Spell slots"></div>
 
     <div class="stage">
       <canvas id="board" width="960" height="600" aria-label="Inkwell game board"></canvas>
       <div id="overlay" class="overlay" hidden>
-        <div class="overlay-card">
+        <div class="overlay-card overlay-card-title">
           <h2 id="overlay-title">Inkwell</h2>
+          <div class="overlay-rule" aria-hidden="true"><span class="overlay-drip"></span></div>
           <p id="overlay-body">A scribe descends the pages of a corrupted grimoire.</p>
           <div id="seed-row" class="seed-row" hidden>
             <label for="seed-input" class="seed-label">Seed</label>

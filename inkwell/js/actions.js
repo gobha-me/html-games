@@ -1,8 +1,9 @@
 import { generatePage, isWalkable, spawnGlyph } from './map.js';
 import { entityAt, isHostile, isItem, isGlyph, stairsAt, createStairs } from './entity.js';
 import { KIND, ITEMS, GLYPHS, SPELLS } from './constants.js';
-import { pushLog } from './state.js';
+import { pushLog, pushAnim } from './state.js';
 import { createFovArrays, computeFOV, isVisible } from './fov.js';
+import { playSfx } from './audio.js';
 
 export function moveOrAttack(state, actor, dx, dy) {
   if (!actor.alive) return false;
@@ -40,6 +41,7 @@ export function pickup(state, actor) {
       const spec = ITEMS[e.kind];
       actor.inventory.push({ kind: e.kind, name: spec.name });
       pushLog(state, spec.pickup, 'good');
+      playSfx('pickup');
       e.alive = false;
       return true;
     }
@@ -49,6 +51,7 @@ export function pickup(state, actor) {
         actor.knownSpells.push(spec.spell);
       }
       pushLog(state, spec.pickup, 'good');
+      playSfx('pickup');
       e.alive = false;
       return true;
     }
@@ -116,6 +119,7 @@ export function castSpell(state, actor, slotIdx) {
   }
   if (!ok) return false;
   actor.ink -= cost;
+  playSfx('cast');
   return true;
 }
 
@@ -126,7 +130,7 @@ function applyStrike(state, actor, spec) {
     return false;
   }
   target.hp -= spec.power;
-  state.animations.push({ type: 'strike', x: target.x, y: target.y, turn: state.turn });
+  pushAnim(state, { type: 'strike', x: target.x, y: target.y, durationMs: 250 });
   pushLog(state, `You inscribe Strike — the ${target.name} loses ${spec.power}.`, 'good');
   if (target.hp <= 0) killEntity(state, target, actor, 'The {name} unravels under the glyph.');
   return true;
@@ -151,7 +155,7 @@ function applyBind(state, actor, spec) {
     return false;
   }
   target.boundTurns = spec.turns;
-  state.animations.push({ type: 'strike', x: target.x, y: target.y, turn: state.turn });
+  pushAnim(state, { type: 'strike', x: target.x, y: target.y, durationMs: 250 });
   pushLog(state, `Bind takes hold — the ${target.name} is fixed to the margin.`, 'good');
   return true;
 }
@@ -168,7 +172,7 @@ function applyErase(state, actor, spec) {
   target.hpMax = newMax;
   target.hp = Math.min(target.hp, target.hpMax);
   target.titleErased = true;
-  state.animations.push({ type: 'strike', x: target.x, y: target.y, turn: state.turn });
+  pushAnim(state, { type: 'strike', x: target.x, y: target.y, durationMs: 250 });
   pushLog(state, `You erase a word — the ${target.name} grows shorter (-${loss} max HP).`, 'good');
   if (target.hp <= 0) killEntity(state, target, actor, 'The {name} is unwritten.');
   return true;
@@ -195,6 +199,7 @@ function findEraseTarget(state, actor, range) {
 function killEntity(state, target, attacker, deathFlavor) {
   target.alive = false;
   target.hp = 0;
+  pushAnim(state, { type: 'smudge', x: target.x, y: target.y, durationMs: 500 });
   if (deathFlavor) {
     pushLog(state, deathFlavor.replace('{name}', target.name), 'good');
   }
@@ -273,12 +278,7 @@ export function attack(state, attacker, target) {
   let dmg = attacker.attack;
   if (target.kind === KIND.PLAYER && target.sealed) {
     target.sealed = false;
-    state.animations.push({
-      type: 'strike',
-      x: target.x,
-      y: target.y,
-      turn: state.turn,
-    });
+    pushAnim(state, { type: 'strike', x: target.x, y: target.y, durationMs: 250 });
     pushLog(state, 'The wax seal cracks — the blow glances off.', 'good');
     return;
   }
@@ -297,16 +297,13 @@ export function attack(state, attacker, target) {
     }
   }
   target.hp -= dmg;
-  state.animations.push({
-    type: 'strike',
-    x: target.x,
-    y: target.y,
-    turn: state.turn,
-  });
+  pushAnim(state, { type: 'strike', x: target.x, y: target.y, durationMs: 250 });
+  playSfx('hit');
   if (attacker.kind === KIND.PLAYER) {
     const tmpl = state.rng.pick(PLAYER_HIT_FLAVOR);
     pushLog(state, tmpl.replace('{name}', target.name).replace('{dmg}', dmg), 'good');
   } else {
+    pushAnim(state, { type: 'drip', x: target.x, y: target.y, durationMs: 350 });
     pushLog(state, `The ${attacker.name} ${enemyAttackVerb(attacker.kind)} you. (-${dmg} HP)`, 'bad');
   }
   if (target.hp <= 0) {
@@ -360,6 +357,8 @@ function transitionPage(state) {
   state.player.y = page.playerStart.y;
   state.player.ink = state.player.inkMax;
   state.animations = [];
+  state.transition = { startMs: performance.now(), durationMs: 450 };
+  playSfx('descend');
   state.fov = createFovArrays();
   computeFOV(state);
   if (nextDepth > state.meta.deepestPage) {
@@ -382,6 +381,7 @@ function enemyAttackVerb(kind) {
 
 function onPlayerDeath(state, killer) {
   state.mode = 'gameover';
+  playSfx('death');
   const flavorByKiller = {
     drip: 'The drip absorbed you',
     smear: 'A smear swallowed your final word',

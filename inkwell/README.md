@@ -38,69 +38,71 @@ learn its spell — then bind it to a slot in the inventory screen.
 **Win/lose:** there is no win in this PR — only how far you got. Death is
 permanent and the book closes. Press **R** to begin a new run.
 
+**Audio.** Short procedural Web Audio tones play on hits, pickups,
+spells, descending a page, and death. No mute UI in this build — the
+sounds are very short. Audio gracefully degrades to silent if your
+browser doesn't expose `AudioContext`.
+
+**Mobile.** Inkwell is keyboard-driven. On touch devices below 900 px
+a banner above the board explains as much; "Play anyway" dismisses it
+for the rest of the session.
+
 ## Tech
 
 Vanilla HTML/CSS/JS, ES modules, single `<canvas>` for the game board. No
 build step, no external dependencies beyond two Google Fonts (IM Fell English
 for UI, JetBrains Mono for glyphs). PRNG is a small Mulberry32 implementation
-so daily-seed mode will slot in cleanly in a later PR.
+that round-trips through `localStorage` for save resume and seeds the daily
+run. Audio is procedural Web Audio — no audio assets ship in the repo.
 
 ## Status
 
-**PR #4 — "distinctiveness."** The book becomes its own world. Six
-beats land in one PR:
+**PR #5 — "polish."** The final PR on the original 5-PR roadmap.
+Four areas land in one PR:
 
-1. **Daily seed + shareable run codes.** The title overlay now has a
-   seed input and a "Today's page" button. Any numeric seed boots a
-   deterministic run; today's seed is `YYYYMMDD` and switches the run
-   to a no-save daily mode. Run URLs share back as `#seed=N`. The
-   death overlay shows the seed for share-back.
-2. **Three new enemy kinds.** **Marginalia** (`,`, page 3+) — small,
-   fast, low HP. **Foxing** (`f`, page 5+) — heals adjacent ink-family
-   enemies each turn. **Erratum** (`!`, page 7+) — teleports adjacent
-   to the player every four turns. Total bestiary now six common kinds.
-3. **Bind + Erase spells.** Bind (cost 4, range 1) freezes an adjacent
-   hostile for four enemy-turns. Erase (cost 5, range 4) auto-aims the
-   nearest visible hostile, reducing both current and max HP
-   permanently. The glyphs for both spawn from page 3+.
-4. **Milestone bosses.** Pages 5, 10, 15 spawn the boss in place of
-   the stairs. **Margin-Lord** (Dijkstra chase, attack scales by tier),
-   **Frontispiece** (stationary; spawns a drip every three turns;
-   bump-attack damage halved until Erase flips its title), **Colophon**
-   (final boss; defeating it ends the run with the win-state).
-5. **Marginalia + quill variants.** **Marginalia** (item, page 5+) —
-   two-turn buff that drops a random glyph at every non-boss kill.
-   **Fountain Pen** (page 7+, rare) — permanent +2 attack.
-   **Reed Pen** (page 3+) — permanent -1 to every spell's ink cost,
-   floored at 1.
-6. **Procedural bestiary.** A new Bestiary screen reachable from the
-   inventory shows entries for every kind you've slain. Each entry is
-   composed at runtime from a sub-seeded RNG over per-kind paragraph
-   tables in three voice registers (clinical, folkloric, source-quote).
-   Two players on the same seed see the same entries; different seeds
-   see different ones. Bosses get a "defeated on page N, turn T" footer.
+1. **Frame-timed animations.** The strike circle now fades smoothly
+   over a quarter-second instead of blinking off on the next turn.
+   Two new animation types ride the same queue: a **smudge** on
+   every entity death (~500 ms ink-blot) and an **ink drip** when
+   an enemy lands a blow on the player or the Frontispiece bleeds
+   a fresh drip onto the page (~350 ms streak).
+2. **Page-flip transition.** Descending stairs plays a brief sepia
+   sweep across the canvas while the new page is being read in —
+   the book actually turns.
+3. **Procedural audio.** Five short Web Audio tones, no asset files:
+   `hit` (any attack), `pickup` (item or glyph), `descend`
+   (page-flip), `cast` (spell), `death` (player death). The audio
+   context is created lazily and unsuspended on the first key
+   press so the browser autoplay policy is satisfied. Fails silent
+   if the platform doesn't have Web Audio.
+4. **Illuminated title + desktop-only banner.** The title overlay
+   grows an illuminated drop-cap on the first letter, a sepia rule
+   beneath it, and a slow CSS ink-drip loop. On touch devices below
+   900 px, a parchment banner above the board explains that Inkwell
+   is keyboard-only with a "Play anyway" dismiss.
 
-Save format is now **v3**. Old v2 saves are discarded.
+Save format stays **v3** — no schema bumps. Animations and the
+page-flip transition are ephemeral and not persisted.
 
 **Known limits in this PR (intentional, per the phased plan):**
 
-- Daily-seed runs do not save. Closing the tab ends the run.
-- No animations yet — visual polish is PR #5.
-- No audio, no title art, no mobile pass — all PR #5.
-- Desktop keyboard only.
+- Daily-seed runs still do not save (carried from PR #4).
+- No mute UI — audio is procedural and short, so the trade-off was
+  KISS. A toggle can land as a feedback-driven follow-up.
+- Touch controls are explicitly not supported.
 
 ## File layout
 
 ```
 inkwell/
-├── index.html        — scaffold, loads main.js as a module
+├── index.html        — scaffold, loads main.js as a module; mobile banner
 ├── README.md         — this file
 ├── CHANGELOG.md      — shipped changes per PR
-├── css/style.css     — parchment + sepia theme, inventory + slot UI, bestiary
+├── css/style.css     — parchment + sepia theme, illuminated title, banner
 └── js/
-    ├── main.js       — bootstrap, input, rAF loop, mode gating, daily-seed wiring
+    ├── main.js       — bootstrap, input, rAF loop, mode gating, mobile banner
     ├── constants.js  — palette, sizes, KIND, ENEMY_STATS, BOSS_STATS, SPELLS, ITEMS, GLYPHS
-    ├── state.js      — createInitialState(), pushLog()
+    ├── state.js      — createInitialState(), pushLog(), pushAnim()
     ├── rng.js        — Mulberry32, dailySeed(), subRng() for the bestiary
     ├── map.js        — rooms-and-corridors gen; boss-replaces-stairs on tier pages
     ├── entity.js     — uniform Entity factory; flat array with kind discriminator
@@ -108,8 +110,9 @@ inkwell/
     ├── ai.js         — Dijkstra chase; per-kind actBefore hooks; boss-brain dispatch
     ├── turn.js       — scheduler: player → FOV → enemies → cull → FOV; buff decrement
     ├── fov.js        — recursive shadowcasting; visible/seen Uint8Arrays
-    ├── render.js     — canvas paint, three-tier FOV draw, camera, parchment pattern
+    ├── render.js     — canvas paint, three-tier FOV draw, animation fades, page-flip
     ├── save.js       — localStorage round-trip; v3 snapshot (daily mode skips save)
+    ├── audio.js      — lazy Web Audio context; playSfx() five procedural tones
     ├── ui.js         — HUD, log, overlays, inventory + bestiary screens, slot strip
     └── bestiary.js   — per-kind paragraph tables; composeBestiaryEntry(seed, kind)
 ```
@@ -129,7 +132,10 @@ inkwell/
   Colophon), 3 new enemies (Marginalia, Foxing, Erratum), Bind + Erase
   spells, Marginalia item + Fountain Pen / Reed Pen quill variants.
 - **PR #5 — "polish."** Animations (ink drips, smudge-on-death, page-flip),
-  audio, title screen, mobile pass or explicit desktop-only banner.
+  audio, illuminated title, explicit desktop-only banner. _Shipped._
+
+No further roadmap. The book is closed; future work on Inkwell is
+feedback-driven.
 
 ## Design notes
 

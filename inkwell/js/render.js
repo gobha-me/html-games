@@ -57,6 +57,7 @@ export function render(state) {
   drawEntities(ctx, state, camera);
   drawAnimations(ctx, state, camera);
   drawVignette(ctx);
+  drawPageFlip(ctx, state);
 }
 
 function computeCamera(state) {
@@ -142,23 +143,84 @@ function paintGlyph(ctx, e, cam, color) {
 
 function drawAnimations(ctx, state, cam) {
   if (!state.animations.length) return;
+  const now = performance.now();
   const keep = [];
   for (const a of state.animations) {
-    const age = state.turn - a.turn;
-    if (age > 1) continue;
-    if (a.type === 'strike') {
-      const px = (a.x - cam.x) * CELL + CELL / 2;
-      const py = (a.y - cam.y) * CELL + CELL / 2;
-      ctx.fillStyle = PALETTE.blood;
-      ctx.globalAlpha = 0.6;
-      ctx.beginPath();
-      ctx.arc(px, py, CELL * 0.45, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      keep.push(a);
-    }
+    const elapsed = now - a.startMs;
+    if (elapsed >= a.durationMs) continue;
+    const t = elapsed / a.durationMs;
+    if (a.type === 'strike') drawStrikeAnim(ctx, a, t, cam);
+    else if (a.type === 'smudge') drawSmudgeAnim(ctx, a, t, cam);
+    else if (a.type === 'drip') drawDripAnim(ctx, a, t, cam);
+    keep.push(a);
   }
   state.animations = keep;
+  ctx.globalAlpha = 1;
+}
+
+function drawStrikeAnim(ctx, a, t, cam) {
+  const px = (a.x - cam.x) * CELL + CELL / 2;
+  const py = (a.y - cam.y) * CELL + CELL / 2;
+  ctx.fillStyle = PALETTE.blood;
+  ctx.globalAlpha = 0.6 * (1 - t);
+  ctx.beginPath();
+  ctx.arc(px, py, CELL * 0.45, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawSmudgeAnim(ctx, a, t, cam) {
+  const px = (a.x - cam.x) * CELL + CELL / 2;
+  const py = (a.y - cam.y) * CELL + CELL / 2;
+  const r = CELL * (0.3 + t * 0.55);
+  ctx.fillStyle = PALETTE.ink;
+  ctx.globalAlpha = 0.55 * (1 - t);
+  ctx.beginPath();
+  ctx.arc(px, py, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.35 * (1 - t);
+  ctx.beginPath();
+  ctx.arc(px - CELL * 0.18, py + CELL * 0.12, r * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawDripAnim(ctx, a, t, cam) {
+  const px = (a.x - cam.x) * CELL + CELL / 2;
+  const topY = (a.y - cam.y) * CELL + CELL * 0.15;
+  const len = CELL * (0.4 + t * 1.0);
+  ctx.strokeStyle = PALETTE.inkSoft;
+  ctx.globalAlpha = 0.7 * (1 - t * 0.85);
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(px, topY);
+  ctx.lineTo(px, topY + len);
+  ctx.stroke();
+  ctx.fillStyle = PALETTE.inkSoft;
+  ctx.globalAlpha = 0.7 * (1 - t);
+  ctx.beginPath();
+  ctx.arc(px, topY + len, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPageFlip(ctx, state) {
+  const tr = state.transition;
+  if (!tr) return;
+  const elapsed = performance.now() - tr.startMs;
+  if (elapsed >= tr.durationMs) {
+    state.transition = null;
+    return;
+  }
+  const t = elapsed / tr.durationMs;
+  const sweepW = CELL * 4;
+  const x = -sweepW + (CANVAS_W + sweepW * 2) * t;
+  const grad = ctx.createLinearGradient(x - sweepW, 0, x + sweepW, 0);
+  grad.addColorStop(0,    'rgba(40, 28, 12, 0)');
+  grad.addColorStop(0.45, 'rgba(40, 28, 12, 0.78)');
+  grad.addColorStop(0.55, 'rgba(20, 14, 8, 0.85)');
+  grad.addColorStop(1,    'rgba(40, 28, 12, 0)');
+  ctx.fillStyle = grad;
+  ctx.globalAlpha = 1;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 }
 
 function drawVignette(ctx) {

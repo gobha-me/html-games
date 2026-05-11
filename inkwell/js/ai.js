@@ -8,7 +8,7 @@ import {
 import { moveOrAttack } from './actions.js';
 import { isWalkable } from './map.js';
 import { entityAt, isHostile, createDrip } from './entity.js';
-import { pushLog } from './state.js';
+import { pushLog, pushAnim } from './state.js';
 import { isVisible } from './fov.js';
 
 const SIGHT = 8;
@@ -53,6 +53,7 @@ function frontispieceTurn(state, self) {
   if (!tile) return;
   state.entities.push(createDrip(tile.x, tile.y));
   self.dripCooldown = 0;
+  pushAnim(state, { type: 'drip', x: tile.x, y: tile.y, durationMs: 350 });
   if (isVisible(state.fov, self.x, self.y) || isVisible(state.fov, tile.x, tile.y)) {
     pushLog(state, 'The Frontispiece bleeds another drip onto the page.', 'bad');
   }

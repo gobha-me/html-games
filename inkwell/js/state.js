@@ -47,3 +47,7 @@ export function pushLog(state, text, tone = 'plain') {
   state.log.push({ text, tone, turn: state.turn, count: 1 });
   if (state.log.length > 24) state.log.shift();
 }
+
+export function pushAnim(state, anim) {
+  state.animations.push({ ...anim, startMs: performance.now() });
+}

@@ -4,6 +4,69 @@ All notable changes to Inkwell live here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semver is not
 particularly meaningful for a single-page game so we just date the entries.
 
+## [0.5.0] — 2026-05-11
+
+Polish. PR #5 (issue #103) — the final PR on the original 5-PR roadmap.
+
+### Added
+
+- **Frame-timed animation queue.** Animations carry `startMs` +
+  `durationMs` instead of a turn stamp, so the rAF loop can fade
+  them smoothly per-frame instead of blinking the strike circle off
+  on the following turn. `pushAnim(state, anim)` moves from a local
+  helper in `actions.js` to `state.js` next to `pushLog` so all
+  animation push sites (now in `actions.js` and `ai.js`) share one
+  schema.
+- **Smudge-on-death + ink-drip animations.** New animation types
+  alongside the existing strike fade. `smudge` (500 ms) is queued
+  inside `killEntity()` for every enemy/boss death — drawn as an
+  asymmetric ink blot. `drip` (350 ms) is queued in two places: in
+  `attack()` when an enemy hits the player (drip from the player
+  tile), and in `ai.frontispieceTurn()` when the Frontispiece bleeds
+  a fresh drip onto the page (drip from the new drip's tile).
+- **Page-flip transition on descend.** `transitionPage()` sets
+  `state.transition = { startMs, durationMs: 450 }` after wiping the
+  page-local animations array. `render.drawPageFlip()` draws a moving
+  sepia gradient band across the canvas while the transition is
+  active and clears `state.transition` when it expires. The main rAF
+  loop stays dirty while either animations or a transition are
+  in-flight. `state.transition` is ephemeral — never saved.
+- **Procedural audio.** New `js/audio.js` wraps a lazy Web Audio
+  context and exposes `playSfx(name)` for five short tones:
+  `hit` (any attack lands), `pickup` (item or glyph), `descend`
+  (page-flip), `cast` (spell), `death` (player death). Wired at the
+  natural mutation points in `actions.js`. `audio.resume()` is called
+  from `onKey()` in `main.js` so the AudioContext is unsuspended on
+  the first user gesture per browser autoplay policy. Fails silent
+  if `AudioContext` is unavailable.
+- **Illuminated title overlay.** `#overlay`'s card grows a 60px
+  drop-cap on the first letter in blood-red, a thin sepia rule below
+  the title, and a small ink-drop pseudo-element that slowly drips
+  off the rule on a 7s loop. Pure CSS — no canvas. Death overlay
+  reuses the same treatment (it lives in the same overlay surface).
+- **Desktop-only banner.** Boot-time check in `main.js` detects
+  touch capability AND viewport < 900 px wide and reveals a
+  parchment-colored banner above the slots strip explaining
+  Inkwell is keyboard-only; "Play anyway" dismisses it for the rest
+  of the session. Inkwell's bump-to-attack control surface doesn't
+  translate to touch, so this PR opts out of a mobile redesign
+  explicitly.
+
+### Changed
+
+- `dirty` flag in the rAF loop now stays true while a page-flip
+  transition is in-flight, in addition to its existing animations
+  check.
+- Render order grows a `drawPageFlip(ctx, state)` call at the very
+  end of `render()`, after the vignette, so the sweep covers
+  everything else.
+
+### Architecture
+
+- Save format stays **v3.** Animations and `state.transition` are
+  ephemeral and dropped by the existing snapshot whitelist in
+  `save.js`. No load-time migrations.
+
 ## [0.4.0] — 2026-05-11
 
 Distinctiveness. PR #4 (issue #103).

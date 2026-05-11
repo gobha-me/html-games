@@ -5,6 +5,7 @@ import { saveRun, loadRun, clearRun, hasSave } from './save.js';
 import { dailySeed, randomSeed } from './rng.js';
 import * as render from './render.js';
 import * as ui from './ui.js';
+import * as audio from './audio.js';
 
 let state = null;
 let dirty = true;
@@ -29,10 +30,21 @@ document.addEventListener('DOMContentLoaded', () => {
   ui.init();
   ui.onInventoryBestiaryClick(openBestiaryFromInventory);
   ui.onBestiaryCloseClick(closeBestiary);
+  maybeShowMobileBanner();
   bootIntoOverlay();
   window.addEventListener('keydown', onKey);
   requestAnimationFrame(loop);
 });
+
+function maybeShowMobileBanner() {
+  const banner = document.getElementById('mobile-banner');
+  if (!banner) return;
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0;
+  if (!isTouch || window.innerWidth >= 900) return;
+  banner.hidden = false;
+  const dismiss = document.getElementById('mobile-banner-dismiss');
+  if (dismiss) dismiss.addEventListener('click', () => { banner.hidden = true; }, { once: true });
+}
 
 function bootIntoOverlay() {
   const urlSeed = readUrlSeed();
@@ -140,6 +152,7 @@ function updateUrlHash(seed) {
 }
 
 function onKey(ev) {
+  audio.resume();
   if (state.mode === 'gameover') {
     if (RESTART_KEYS.has(ev.code) || ev.code === 'Enter') {
       ev.preventDefault();
@@ -291,7 +304,7 @@ function loop() {
     ui.updateHUD(state);
     ui.renderLog(state);
     ui.renderSlots(state);
-    dirty = state.animations.length > 0;
+    dirty = state.animations.length > 0 || !!state.transition;
   }
   requestAnimationFrame(loop);
 }
