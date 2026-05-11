@@ -127,10 +127,10 @@ inkwell/
   spell slots, 3 spells (Strike, Ward, Sight), 4 items (Inkpot, Blotting
   Cloth, Wax Seal, Quill Nib), inventory UI, FOV with *ink-stain* unexplored
   treatment instead of black fog. _Shipped._
-- **PR #4 (this one) — "distinctiveness."** Daily seed + shareable run codes,
+- **PR #4 — "distinctiveness."** Daily seed + shareable run codes,
   procedural bestiary, milestone bosses (Margin-Lord, Frontispiece,
   Colophon), 3 new enemies (Marginalia, Foxing, Erratum), Bind + Erase
-  spells, Marginalia item + Fountain Pen / Reed Pen quill variants.
+  spells, Marginalia item + Fountain Pen / Reed Pen quill variants. _Shipped._
 - **PR #5 — "polish."** Animations (ink drips, smudge-on-death, page-flip),
   audio, illuminated title, explicit desktop-only banner. _Shipped._
 
