@@ -1,4 +1,5 @@
 import { SPELLS } from './constants.js';
+import { composeBestiaryEntry, knownKinds, displayName, isBossKind } from './bestiary.js';
 
 let _els = null;
 let _inventoryGroups = [];
@@ -15,12 +16,31 @@ export function init() {
     overlayBody: document.getElementById('overlay-body'),
     overlayButton: document.getElementById('overlay-button'),
     overlaySecondButton: document.getElementById('overlay-second-button'),
+    seedRow: document.getElementById('seed-row'),
+    seedInput: document.getElementById('seed-input'),
+    seedToday: document.getElementById('seed-today'),
     hpRow: document.getElementById('hp'),
     inkRow: document.getElementById('ink'),
     inventoryOverlay: document.getElementById('inventory-overlay'),
     inventoryBody: document.getElementById('inventory-body'),
+    inventoryBestiaryButton: document.getElementById('inventory-bestiary'),
+    bestiaryOverlay: document.getElementById('bestiary-overlay'),
+    bestiaryBody: document.getElementById('bestiary-body'),
+    bestiaryClose: document.getElementById('bestiary-close'),
     slotsStrip: document.getElementById('slots-strip'),
   };
+}
+
+export function onInventoryBestiaryClick(handler) {
+  if (_els && _els.inventoryBestiaryButton) {
+    _els.inventoryBestiaryButton.onclick = handler;
+  }
+}
+
+export function onBestiaryCloseClick(handler) {
+  if (_els && _els.bestiaryClose) {
+    _els.bestiaryClose.onclick = handler;
+  }
 }
 
 export function updateHUD(state) {
@@ -46,13 +66,33 @@ export function renderLog(state) {
     .join('');
 }
 
-export function showOverlay({ title, body, primary, secondary }) {
+export function showOverlay({ title, body, primary, secondary, seedInput }) {
   if (!_els) return;
   _els.overlayTitle.textContent = title;
   _els.overlayBody.textContent = body;
   bindButton(_els.overlayButton, primary);
   bindButton(_els.overlaySecondButton, secondary);
+  if (seedInput) {
+    _els.seedInput.value = seedInput.defaultValue != null ? String(seedInput.defaultValue) : '';
+    _els.seedInput.placeholder = seedInput.placeholder || 'random';
+    _els.seedToday.onclick = seedInput.onToday || null;
+    _els.seedRow.hidden = false;
+  } else {
+    _els.seedInput.value = '';
+    _els.seedToday.onclick = null;
+    _els.seedRow.hidden = true;
+  }
   _els.overlay.hidden = false;
+}
+
+export function getOverlaySeedValue() {
+  if (!_els || !_els.seedInput) return '';
+  return _els.seedInput.value.trim();
+}
+
+export function setOverlaySeedValue(v) {
+  if (!_els || !_els.seedInput) return;
+  _els.seedInput.value = v == null ? '' : String(v);
 }
 
 function bindButton(el, opts) {
@@ -132,6 +172,44 @@ export function hideInventory() {
   if (!_els) return;
   _els.inventoryOverlay.hidden = true;
   _inventoryGroups = [];
+}
+
+export function showBestiary(state) {
+  if (!_els) return;
+  const seen = (state.meta && Array.isArray(state.meta.beastsSeen)) ? state.meta.beastsSeen : [];
+  const bossesSlain = (state.meta && Array.isArray(state.meta.bossesSlain)) ? state.meta.bossesSlain : [];
+  const allKinds = knownKinds();
+  let html = '';
+  if (!seen.length) {
+    html = '<p class="bestiary-empty">You have not yet read any margin-creature to its end.</p>';
+  } else {
+    for (const kind of seen) {
+      const bossRecord = isBossKind(kind)
+        ? bossesSlain.find((b) => b.kind === kind)
+        : null;
+      const text = composeBestiaryEntry(state.seed, kind, bossRecord);
+      if (!text) continue;
+      const paragraphs = text.split('\n\n').map(formatParagraph).join('');
+      html += `<article class="bestiary-entry"><h3>${escape(displayName(kind))}</h3>${paragraphs}</article>`;
+    }
+    if (seen.length >= allKinds.length) {
+      html += '<p class="bestiary-complete">All margin-creatures known. The book has nothing new to teach you.</p>';
+    }
+  }
+  _els.bestiaryBody.innerHTML = html;
+  _els.bestiaryBody.scrollTop = 0;
+  _els.bestiaryOverlay.hidden = false;
+}
+
+export function hideBestiary() {
+  if (!_els) return;
+  _els.bestiaryOverlay.hidden = true;
+}
+
+function formatParagraph(p) {
+  const escaped = escape(p);
+  const withEm = escaped.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  return `<p class="bestiary-paragraph">${withEm}</p>`;
 }
 
 export function getInventoryKindAt(letterIdx) {

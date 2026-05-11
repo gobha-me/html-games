@@ -4,6 +4,74 @@ All notable changes to Inkwell live here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semver is not
 particularly meaningful for a single-page game so we just date the entries.
 
+## [0.4.0] — 2026-05-11
+
+Distinctiveness. PR #4 (issue #103).
+
+### Added
+
+- **Daily seed + shareable run codes.** Title overlay gains a seed
+  input and a "Today's page" button. Any numeric seed boots a
+  deterministic run; today's seed is `YYYYMMDD` and switches the run
+  to no-save daily mode. Run URLs share back as `#seed=N`. The death
+  overlay tags the seed onto the flavor line.
+- **Three new enemy kinds.** **Marginalia** (`,`, page 3+), **Foxing**
+  (`f`, page 5+, heals adjacent ink-family enemies via an `actBefore`
+  AI hook), **Erratum** (`!`, page 7+, teleports adjacent to the player
+  every four turns). Each has its own attack-verb, death flavor, and
+  palette entry. `ai.js` now dispatches per-kind `actBefore` callbacks
+  from a small table before the generic Dijkstra step.
+- **Bind + Erase spells.** Bind (cost 4, range 1, 4 turns) sets a target's
+  `boundTurns`; the enemy loop decrements-and-skips at the very top.
+  Erase (cost 5, range 4) auto-aims the nearest visible hostile,
+  reduces both `hp` and `hpMax` permanently, and sets `titleErased`
+  for the Frontispiece interaction. Two new glyphs (`-`, `/`) spawn
+  from page 3+.
+- **Milestone bosses.** Pages 5, 10, 15 spawn a boss at the far-room
+  center *instead of* placing stairs; stairs spawn at the boss tile
+  on death. **Margin-Lord** (Dijkstra chase, +1 attack per tier),
+  **Frontispiece** (stationary; bleeds a drip onto an adjacent tile
+  every 3 turns; bump damage halved until Erase flips `titleErased`),
+  **Colophon** (Dijkstra chase; death triggers the win-state with
+  `state.meta.winFlavor`). Boss deaths append to `meta.bossesSlain`
+  with kind / depth / turn.
+- **Marginalia + quill variants.** Marginalia (item, page 5+) — 2-turn
+  buff that drops a random depth-appropriate glyph on every non-boss
+  kill. Fountain Pen (page 7+, rare) — permanent +2 attack. Reed Pen
+  (page 3+) — permanent -1 to every spell's ink cost, floored at 1.
+- **Procedural bestiary.** New `js/bestiary.js` holds per-kind
+  paragraph tables in three voice registers (clinical, folkloric,
+  source-quote). `composeBestiaryEntry(seed, kind, bossRecord)` uses
+  a sub-seeded RNG (`subRng` in `js/rng.js`) so entries are
+  deterministic per `(seed, kind)` and don't desync the main RNG
+  cursor. A "Bestiary" button on the inventory overlay opens a new
+  modal showing entries for every kind the player has slain; bosses
+  get a "Defeated on page N, turn T" footer. After every kind is
+  read, an italic completion footer appears.
+
+### Changed
+
+- `actions.js` now has a single `killEntity(state, target, attacker,
+  flavorTmpl)` helper. `attack()`, `applyStrike()`, and `applyErase()`
+  all funnel through it. The helper handles death flavor, `beastsSeen`
+  tracking, Marginalia glyph drops, and boss-stairs spawning.
+- `castSpell` applies `actor.inkCostBonus` when computing the spell
+  cost, floored at 1 ink.
+- `state.meta` gains `beastsSeen: []` and `bossesSlain: []` from PR #4
+  commit 1, populated by the kill helpers as the run progresses.
+- `attack()` damage ladder gains a Frontispiece title-shield rung: if
+  the player is attacking a Frontispiece and the title is not erased,
+  damage halves (floored at 1).
+- `ai.runEnemyTurns` decrements `enemy.boundTurns` and short-circuits
+  the affected enemy *before* the per-kind `actBefore` hook or
+  boss-brain dispatch.
+- Save format **v3**. New fields: `meta.beastsSeen`, `meta.bossesSlain`,
+  `meta.dailySeed` (load-bearing), `meta.winFlavor`, and additive
+  enemy fields (`boundTurns`, `titleErased`, `dripCooldown`,
+  `teleportCooldown`, `boss`, `bossBrain`). Old v2 saves are discarded
+  via the existing version check; the welcome-back overlay falls back
+  to the title overlay.
+
 ## [0.3.0] — 2026-05-11
 
 The writing mechanic lands. PR #3 (issue #103).

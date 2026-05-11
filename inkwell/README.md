@@ -16,9 +16,16 @@ permadeath is the natural state of an unfinished sentence.
 - **.** or **Space** or **Numpad 5** — wait one turn (steady your quill)
 - **\>** (Shift+`.`) or **Numpad +** — descend a page (standing on `>`)
 - **i** — open the inventory; press `a`–`d` to use an item, `1`/`2`/`3` to
-  cycle a slot through your known spells, **Esc** or **i** to close
+  cycle a slot through your known spells, **Esc** or **i** to close.
+  From the inventory, click **Bestiary** to read the entries for every
+  margin-creature you've defeated.
 - **1** / **2** / **3** — while playing, cast the spell bound to that slot
 - **R** — restart after death
+
+**Starting a run.** The title overlay accepts a numeric seed (any number),
+or you can click **Today's page** to play today's daily seed. A daily
+run does not save — closing the tab ends it. The seed of the current
+run lives in the URL hash, so a shareable run is just the page link.
 
 **Combat:** bump-to-attack. Step into an ink-blot to strike it with your quill.
 If you stand next to one when its turn comes, it strikes back. Spells let you
@@ -40,28 +47,47 @@ so daily-seed mode will slot in cleanly in a later PR.
 
 ## Status
 
-**PR #3 — "the writing mechanic lands."** The language metaphor turns
-into actual gameplay. Glyph fragments now appear in the world; pick one
-up and the spell burns into your memory. Bind known spells to three
-slots and cast them with `1`/`2`/`3`. Four literary items spawn across
-the pages — Inkpot (restores ink), Blotting Cloth (heals), Wax Seal
-(absorbs the next hit), Quill Nib (permanent +1 attack). A modal
-inventory screen lists what you've gathered and lets you bind spells.
+**PR #4 — "distinctiveness."** The book becomes its own world. Six
+beats land in one PR:
 
-The biggest reshape is the field of view. Where you have not yet read,
-the page is **ink-stained** — solid darkness with the texture of soaked
-parchment. Where you've been but cannot currently see, the page fades
-to a dimmed parchment — visible memory, but enemies that move into the
-dark are no longer drawn. The Sight spell briefly extends how far the
-page is legible.
+1. **Daily seed + shareable run codes.** The title overlay now has a
+   seed input and a "Today's page" button. Any numeric seed boots a
+   deterministic run; today's seed is `YYYYMMDD` and switches the run
+   to a no-save daily mode. Run URLs share back as `#seed=N`. The
+   death overlay shows the seed for share-back.
+2. **Three new enemy kinds.** **Marginalia** (`,`, page 3+) — small,
+   fast, low HP. **Foxing** (`f`, page 5+) — heals adjacent ink-family
+   enemies each turn. **Erratum** (`!`, page 7+) — teleports adjacent
+   to the player every four turns. Total bestiary now six common kinds.
+3. **Bind + Erase spells.** Bind (cost 4, range 1) freezes an adjacent
+   hostile for four enemy-turns. Erase (cost 5, range 4) auto-aims the
+   nearest visible hostile, reducing both current and max HP
+   permanently. The glyphs for both spawn from page 3+.
+4. **Milestone bosses.** Pages 5, 10, 15 spawn the boss in place of
+   the stairs. **Margin-Lord** (Dijkstra chase, attack scales by tier),
+   **Frontispiece** (stationary; spawns a drip every three turns;
+   bump-attack damage halved until Erase flips its title), **Colophon**
+   (final boss; defeating it ends the run with the win-state).
+5. **Marginalia + quill variants.** **Marginalia** (item, page 5+) —
+   two-turn buff that drops a random glyph at every non-boss kill.
+   **Fountain Pen** (page 7+, rare) — permanent +2 attack.
+   **Reed Pen** (page 3+) — permanent -1 to every spell's ink cost,
+   floored at 1.
+6. **Procedural bestiary.** A new Bestiary screen reachable from the
+   inventory shows entries for every kind you've slain. Each entry is
+   composed at runtime from a sub-seeded RNG over per-kind paragraph
+   tables in three voice registers (clinical, folkloric, source-quote).
+   Two players on the same seed see the same entries; different seeds
+   see different ones. Bosses get a "defeated on page N, turn T" footer.
+
+Save format is now **v3**. Old v2 saves are discarded.
 
 **Known limits in this PR (intentional, per the phased plan):**
 
-- Only three of the five planned spells ship here (Strike, Ward, Sight).
-  Bind and Erase land in PR #4 along with status effects and targeting.
-- Marginalia + quill upgrades beyond the basic Nib are PR #4.
-- No daily seed / shareable run codes yet — PR #4
-- Desktop keyboard only — no touch controls (PR #5)
+- Daily-seed runs do not save. Closing the tab ends the run.
+- No animations yet — visual polish is PR #5.
+- No audio, no title art, no mobile pass — all PR #5.
+- Desktop keyboard only.
 
 ## File layout
 
@@ -70,21 +96,22 @@ inkwell/
 ├── index.html        — scaffold, loads main.js as a module
 ├── README.md         — this file
 ├── CHANGELOG.md      — shipped changes per PR
-├── css/style.css     — parchment + sepia theme, inventory + slot UI
+├── css/style.css     — parchment + sepia theme, inventory + slot UI, bestiary
 └── js/
-    ├── main.js       — bootstrap, input, rAF loop, mode gating
-    ├── constants.js  — palette, sizes, tile + kind enums; ITEMS, GLYPHS, SPELLS tables
+    ├── main.js       — bootstrap, input, rAF loop, mode gating, daily-seed wiring
+    ├── constants.js  — palette, sizes, KIND, ENEMY_STATS, BOSS_STATS, SPELLS, ITEMS, GLYPHS
     ├── state.js      — createInitialState(), pushLog()
-    ├── rng.js        — Mulberry32 + helpers (int, pick, chance, getState)
-    ├── map.js        — rooms-and-corridors gen; spawn enemies, items, glyphs
+    ├── rng.js        — Mulberry32, dailySeed(), subRng() for the bestiary
+    ├── map.js        — rooms-and-corridors gen; boss-replaces-stairs on tier pages
     ├── entity.js     — uniform Entity factory; flat array with kind discriminator
     ├── actions.js    — the ONLY mutators: move, attack, pickup, useItem, castSpell, …
-    ├── ai.js         — Dijkstra-map chase for hostiles
+    ├── ai.js         — Dijkstra chase; per-kind actBefore hooks; boss-brain dispatch
     ├── turn.js       — scheduler: player → FOV → enemies → cull → FOV; buff decrement
     ├── fov.js        — recursive shadowcasting; visible/seen Uint8Arrays
     ├── render.js     — canvas paint, three-tier FOV draw, camera, parchment pattern
-    ├── save.js       — localStorage round-trip; versioned snapshot
-    └── ui.js         — HUD, log, overlays, inventory screen, slot strip
+    ├── save.js       — localStorage round-trip; v3 snapshot (daily mode skips save)
+    ├── ui.js         — HUD, log, overlays, inventory + bestiary screens, slot strip
+    └── bestiary.js   — per-kind paragraph tables; composeBestiaryEntry(seed, kind)
 ```
 
 ## Roadmap
@@ -93,14 +120,14 @@ inkwell/
 - **PR #2 — "the run has shape."** Multi-page descent, page-bound ink budget,
   2-3 enemy types (smear, scrawl), message log polish, Dijkstra-map AI,
   localStorage save-mid-run. _Shipped._
-- **PR #3 (this one) — "the writing mechanic lands."** Glyph fragments → 3
+- **PR #3 — "the writing mechanic lands."** Glyph fragments → 3
   spell slots, 3 spells (Strike, Ward, Sight), 4 items (Inkpot, Blotting
   Cloth, Wax Seal, Quill Nib), inventory UI, FOV with *ink-stain* unexplored
-  treatment instead of black fog.
-- **PR #4 — "distinctiveness."** Daily seed + shareable run codes, procedural
-  bestiary entries, milestone bosses every 5 pages (Margin-Lord, Frontispiece,
-  Colophon), 6-8 enemy types, the remaining spells (Bind, Erase) and items
-  (Marginalia, quill upgrades).
+  treatment instead of black fog. _Shipped._
+- **PR #4 (this one) — "distinctiveness."** Daily seed + shareable run codes,
+  procedural bestiary, milestone bosses (Margin-Lord, Frontispiece,
+  Colophon), 3 new enemies (Marginalia, Foxing, Erratum), Bind + Erase
+  spells, Marginalia item + Fountain Pen / Reed Pen quill variants.
 - **PR #5 — "polish."** Animations (ink drips, smudge-on-death, page-flip),
   audio, title screen, mobile pass or explicit desktop-only banner.
 

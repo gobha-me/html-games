@@ -30,6 +30,12 @@
         <div class="overlay-card">
           <h2 id="overlay-title">Inkwell</h2>
           <p id="overlay-body">A scribe descends the pages of a corrupted grimoire.</p>
+          <div id="seed-row" class="seed-row" hidden>
+            <label for="seed-input" class="seed-label">Seed</label>
+            <input id="seed-input" class="seed-input" type="text" inputmode="numeric"
+                   maxlength="11" autocomplete="off" spellcheck="false" placeholder="random" />
+            <button id="seed-today" class="ink-button ghost seed-today" type="button">Today's page</button>
+          </div>
           <p class="overlay-controls">
             <span><b>Arrows</b> / <b>WASD</b> / <b>HJKL</b> — move</span>
             <span><b>.</b> or <b>Space</b> — wait</span>
@@ -48,10 +54,25 @@
         <div class="overlay-card">
           <h2>Inventory</h2>
           <div id="inventory-body" class="inv-list"></div>
+          <div class="inv-footer">
+            <button id="inventory-bestiary" class="ink-button ghost" type="button">Bestiary</button>
+          </div>
           <p class="overlay-controls">
             <span><b>a</b>–<b>d</b> — use item</span>
             <span><b>i</b> or <b>Esc</b> — close</span>
           </p>
+        </div>
+      </div>
+      <div id="bestiary-overlay" class="overlay" hidden>
+        <div class="overlay-card bestiary-card">
+          <h2>Bestiary</h2>
+          <div id="bestiary-body" class="bestiary-body"></div>
+          <p class="overlay-controls">
+            <span><b>Esc</b> — back to play</span>
+          </p>
+          <div class="overlay-buttons">
+            <button id="bestiary-close" class="ink-button" type="button">Close</button>
+          </div>
         </div>
       </div>
     </div>

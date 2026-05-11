@@ -17,9 +17,11 @@ export function processPlayerAction(state, actionFn) {
 
 function decrementBuffs(player) {
   const b = player.buffs;
-  if (!b) return;
-  if (b.wardTurns > 0) b.wardTurns -= 1;
-  if (b.sightTurns > 0) b.sightTurns -= 1;
+  if (b) {
+    if (b.wardTurns > 0) b.wardTurns -= 1;
+    if (b.sightTurns > 0) b.sightTurns -= 1;
+  }
+  if (player.marginaliaTurns > 0) player.marginaliaTurns -= 1;
 }
 
 function cullDead(state) {

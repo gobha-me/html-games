@@ -1,4 +1,4 @@
-import { KIND, PLAYER_START, ENEMY_STATS, ITEMS, GLYPHS } from './constants.js';
+import { KIND, PLAYER_START, ENEMY_STATS, BOSS_STATS, ITEMS, GLYPHS } from './constants.js';
 
 let nextId = 1;
 
@@ -25,13 +25,18 @@ export function createPlayer(x, y) {
     knownSpells: [],
     slots: [null, null, null],
     buffs: { wardTurns: 0, sightTurns: 0 },
+    marginaliaTurns: 0,
+    inkCostBonus: 0,
   });
 }
 
-export function createInkpot(x, y) { return createItem(KIND.ITEM_INKPOT, x, y); }
-export function createCloth(x, y)  { return createItem(KIND.ITEM_CLOTH, x, y); }
-export function createSeal(x, y)   { return createItem(KIND.ITEM_SEAL, x, y); }
-export function createNib(x, y)    { return createItem(KIND.ITEM_NIB, x, y); }
+export function createInkpot(x, y)      { return createItem(KIND.ITEM_INKPOT, x, y); }
+export function createCloth(x, y)       { return createItem(KIND.ITEM_CLOTH, x, y); }
+export function createSeal(x, y)        { return createItem(KIND.ITEM_SEAL, x, y); }
+export function createNib(x, y)         { return createItem(KIND.ITEM_NIB, x, y); }
+export function createMarginaliaItem(x, y) { return createItem(KIND.ITEM_MARGINALIA, x, y); }
+export function createFountainPen(x, y) { return createItem(KIND.ITEM_FOUNTAIN_PEN, x, y); }
+export function createReedPen(x, y)     { return createItem(KIND.ITEM_REED_PEN, x, y); }
 
 function createItem(kind, x, y) {
   const spec = ITEMS[kind];
@@ -46,6 +51,9 @@ const ITEM_KINDS = new Set([
   KIND.ITEM_CLOTH,
   KIND.ITEM_SEAL,
   KIND.ITEM_NIB,
+  KIND.ITEM_MARGINALIA,
+  KIND.ITEM_FOUNTAIN_PEN,
+  KIND.ITEM_REED_PEN,
 ]);
 
 export function isItem(e) {
@@ -55,6 +63,8 @@ export function isItem(e) {
 export function createGlyphStrike(x, y) { return createGlyph(KIND.GLYPH_STRIKE, x, y); }
 export function createGlyphWard(x, y)   { return createGlyph(KIND.GLYPH_WARD, x, y); }
 export function createGlyphSight(x, y)  { return createGlyph(KIND.GLYPH_SIGHT, x, y); }
+export function createGlyphBind(x, y)   { return createGlyph(KIND.GLYPH_BIND, x, y); }
+export function createGlyphErase(x, y)  { return createGlyph(KIND.GLYPH_ERASE, x, y); }
 
 function createGlyph(kind, x, y) {
   const spec = GLYPHS[kind];
@@ -68,6 +78,8 @@ const GLYPH_KINDS = new Set([
   KIND.GLYPH_STRIKE,
   KIND.GLYPH_WARD,
   KIND.GLYPH_SIGHT,
+  KIND.GLYPH_BIND,
+  KIND.GLYPH_ERASE,
 ]);
 
 export function isGlyph(e) {
@@ -86,6 +98,46 @@ export function createScrawl(x, y) {
   return createEnemy(KIND.SCRAWL, x, y, ENEMY_STATS.scrawl);
 }
 
+export function createMarginalia(x, y) {
+  return createEnemy(KIND.MARGINALIA, x, y, ENEMY_STATS.marginalia);
+}
+
+export function createFoxing(x, y) {
+  return createEnemy(KIND.FOXING, x, y, ENEMY_STATS.foxing);
+}
+
+export function createErratum(x, y) {
+  return createEnemy(KIND.ERRATUM, x, y, ENEMY_STATS.erratum, {
+    teleportCooldown: 0,
+  });
+}
+
+export function createMarginLord(x, y, depth) {
+  const stats = BOSS_STATS.boss_margin_lord;
+  const scale = Math.max(0, Math.floor((depth - 5) / 5));
+  return createEnemy(KIND.BOSS_MARGIN_LORD, x, y, stats, {
+    boss: true,
+    bossBrain: 'margin_lord',
+    attack: stats.attack + scale,
+  });
+}
+
+export function createFrontispiece(x, y) {
+  return createEnemy(KIND.BOSS_FRONTISPIECE, x, y, BOSS_STATS.boss_frontispiece, {
+    boss: true,
+    bossBrain: 'frontispiece',
+    titleErased: false,
+    dripCooldown: 0,
+  });
+}
+
+export function createColophon(x, y) {
+  return createEnemy(KIND.BOSS_COLOPHON, x, y, BOSS_STATS.boss_colophon, {
+    boss: true,
+    bossBrain: 'colophon',
+  });
+}
+
 export function createStairs(x, y) {
   return createEntity(KIND.STAIRS, x, y, {
     glyph: '>',
@@ -100,13 +152,14 @@ export function stairsAt(state, x, y) {
   return null;
 }
 
-function createEnemy(kind, x, y, stats) {
+function createEnemy(kind, x, y, stats, extras = {}) {
   return createEntity(kind, x, y, {
     hp: stats.hp,
     hpMax: stats.hpMax,
     attack: stats.attack,
     glyph: stats.glyph,
     name: stats.name,
+    ...extras,
   });
 }
 
@@ -120,7 +173,17 @@ export function entityAt(state, x, y) {
   return null;
 }
 
-const HOSTILE_KINDS = new Set([KIND.DRIP, KIND.SMEAR, KIND.SCRAWL]);
+const HOSTILE_KINDS = new Set([
+  KIND.DRIP,
+  KIND.SMEAR,
+  KIND.SCRAWL,
+  KIND.MARGINALIA,
+  KIND.FOXING,
+  KIND.ERRATUM,
+  KIND.BOSS_MARGIN_LORD,
+  KIND.BOSS_FRONTISPIECE,
+  KIND.BOSS_COLOPHON,
+]);
 
 export function isHostile(e) {
   return !!(e && e.alive && HOSTILE_KINDS.has(e.kind));

@@ -14,14 +14,25 @@ import {
   createDrip,
   createSmear,
   createScrawl,
+  createMarginalia,
+  createFoxing,
+  createErratum,
+  createMarginLord,
+  createFrontispiece,
+  createColophon,
   createStairs,
   createInkpot,
   createCloth,
   createSeal,
   createNib,
+  createMarginaliaItem,
+  createFountainPen,
+  createReedPen,
   createGlyphStrike,
   createGlyphWard,
   createGlyphSight,
+  createGlyphBind,
+  createGlyphErase,
 } from './entity.js';
 
 export function generatePage(rng, depth = 1) {
@@ -53,7 +64,12 @@ export function generatePage(rng, depth = 1) {
   const entities = [];
   const stairsRoom = pickFarthestRoom(rooms, playerStart);
   const stairsPos = centerOf(stairsRoom);
-  entities.push(createStairs(stairsPos.x, stairsPos.y));
+  const boss = bossForDepth(depth, stairsPos.x, stairsPos.y);
+  if (boss) {
+    entities.push(boss);
+  } else {
+    entities.push(createStairs(stairsPos.x, stairsPos.y));
+  }
 
   const enemyCount = rng.int(DRIPS_MIN, DRIPS_MAX);
   let placed = 0;
@@ -79,7 +95,7 @@ export function generatePage(rng, depth = 1) {
     const ix = rng.int(room.x, room.x + room.w - 1);
     const iy = rng.int(room.y, room.y + room.h - 1);
     if (entities.some((e) => e.x === ix && e.y === iy)) continue;
-    entities.push(spawnItem(rng, ix, iy));
+    entities.push(spawnItem(rng, depth, ix, iy));
     itemPlaced++;
   }
 
@@ -93,26 +109,64 @@ export function generatePage(rng, depth = 1) {
     const gx = rng.int(room.x, room.x + room.w - 1);
     const gy = rng.int(room.y, room.y + room.h - 1);
     if (entities.some((e) => e.x === gx && e.y === gy)) continue;
-    entities.push(spawnGlyph(rng, gx, gy));
+    entities.push(spawnGlyph(rng, depth, gx, gy));
     glyphPlaced++;
   }
 
   return { tiles, width: MAP_W, height: MAP_H, rooms, depth, playerStart, entities };
 }
 
-function spawnItem(rng, x, y) {
+function spawnItem(rng, depth, x, y) {
   const roll = rng();
-  if (roll < 0.35) return createInkpot(x, y);
-  if (roll < 0.65) return createCloth(x, y);
-  if (roll < 0.85) return createSeal(x, y);
-  return createNib(x, y);
+  if (depth < 3) {
+    if (roll < 0.35) return createInkpot(x, y);
+    if (roll < 0.65) return createCloth(x, y);
+    if (roll < 0.85) return createSeal(x, y);
+    return createNib(x, y);
+  }
+  if (depth < 5) {
+    if (roll < 0.28) return createInkpot(x, y);
+    if (roll < 0.52) return createCloth(x, y);
+    if (roll < 0.7) return createSeal(x, y);
+    if (roll < 0.83) return createNib(x, y);
+    return createReedPen(x, y);
+  }
+  if (depth < 7) {
+    if (roll < 0.24) return createInkpot(x, y);
+    if (roll < 0.46) return createCloth(x, y);
+    if (roll < 0.6) return createSeal(x, y);
+    if (roll < 0.74) return createNib(x, y);
+    if (roll < 0.86) return createReedPen(x, y);
+    return createMarginaliaItem(x, y);
+  }
+  if (roll < 0.2) return createInkpot(x, y);
+  if (roll < 0.4) return createCloth(x, y);
+  if (roll < 0.54) return createSeal(x, y);
+  if (roll < 0.66) return createNib(x, y);
+  if (roll < 0.78) return createReedPen(x, y);
+  if (roll < 0.9) return createMarginaliaItem(x, y);
+  return createFountainPen(x, y);
 }
 
-function spawnGlyph(rng, x, y) {
+export function spawnGlyph(rng, depth, x, y) {
   const roll = rng();
-  if (roll < 0.34) return createGlyphStrike(x, y);
-  if (roll < 0.67) return createGlyphWard(x, y);
-  return createGlyphSight(x, y);
+  if (depth < 3) {
+    if (roll < 0.34) return createGlyphStrike(x, y);
+    if (roll < 0.67) return createGlyphWard(x, y);
+    return createGlyphSight(x, y);
+  }
+  if (roll < 0.22) return createGlyphStrike(x, y);
+  if (roll < 0.44) return createGlyphWard(x, y);
+  if (roll < 0.62) return createGlyphSight(x, y);
+  if (roll < 0.82) return createGlyphBind(x, y);
+  return createGlyphErase(x, y);
+}
+
+function bossForDepth(depth, x, y) {
+  if (depth === 5) return createMarginLord(x, y, depth);
+  if (depth === 10) return createFrontispiece(x, y);
+  if (depth === 15) return createColophon(x, y);
+  return null;
 }
 
 function spawnEnemy(rng, depth, x, y) {
@@ -122,13 +176,30 @@ function spawnEnemy(rng, depth, x, y) {
     return roll < 0.7 ? createDrip(x, y) : createSmear(x, y);
   }
   if (depth === 3) {
-    if (roll < 0.5) return createDrip(x, y);
-    if (roll < 0.8) return createSmear(x, y);
-    return createScrawl(x, y);
+    if (roll < 0.4) return createDrip(x, y);
+    if (roll < 0.65) return createSmear(x, y);
+    if (roll < 0.85) return createScrawl(x, y);
+    return createMarginalia(x, y);
   }
-  if (roll < 0.4) return createDrip(x, y);
-  if (roll < 0.75) return createSmear(x, y);
-  return createScrawl(x, y);
+  if (depth === 4) {
+    if (roll < 0.3) return createDrip(x, y);
+    if (roll < 0.55) return createSmear(x, y);
+    if (roll < 0.8) return createScrawl(x, y);
+    return createMarginalia(x, y);
+  }
+  if (depth === 5 || depth === 6) {
+    if (roll < 0.22) return createDrip(x, y);
+    if (roll < 0.46) return createSmear(x, y);
+    if (roll < 0.66) return createScrawl(x, y);
+    if (roll < 0.83) return createMarginalia(x, y);
+    return createFoxing(x, y);
+  }
+  if (roll < 0.18) return createDrip(x, y);
+  if (roll < 0.38) return createSmear(x, y);
+  if (roll < 0.58) return createScrawl(x, y);
+  if (roll < 0.75) return createMarginalia(x, y);
+  if (roll < 0.9) return createFoxing(x, y);
+  return createErratum(x, y);
 }
 
 export function tileAt(page, x, y) {

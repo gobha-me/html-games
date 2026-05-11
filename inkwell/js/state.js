@@ -29,6 +29,8 @@ export function createInitialState(seed = randomSeed()) {
       runStart: Date.now(),
       deepestPage: 1,
       dailySeed: false,
+      beastsSeen: [],
+      bossesSlain: [],
     },
   };
   computeFOV(state);

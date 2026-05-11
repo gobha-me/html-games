@@ -178,6 +178,47 @@ canvas#board {
   flex-wrap: wrap;
 }
 
+.seed-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+
+.seed-row[hidden] { display: none; }
+
+.seed-label {
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.seed-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--parchment-deep);
+  border: 1px solid var(--ink-muted);
+  border-radius: 3px;
+  padding: 4px 8px;
+  width: 130px;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.seed-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.ink-button.seed-today {
+  font-size: 13px;
+  padding: 4px 12px;
+}
+
 .ink-button {
   font-family: 'IM Fell English', serif;
   font-size: 18px;
@@ -360,6 +401,78 @@ canvas#board {
   color: var(--muted);
   margin: 6px 0 0 !important;
   text-align: left;
+}
+
+.inv-footer {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 4px;
+}
+
+.bestiary-card {
+  max-width: 560px;
+  text-align: left;
+}
+
+.bestiary-card h2 {
+  text-align: center;
+}
+
+.bestiary-body {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 12px 0;
+  padding-right: 6px;
+}
+
+.bestiary-entry {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  background: rgba(60, 35, 10, 0.06);
+  border: 1px solid var(--ink-muted);
+  border-radius: 3px;
+}
+
+.bestiary-entry h3 {
+  font-family: 'IM Fell English', Georgia, serif;
+  font-style: italic;
+  font-size: 17px;
+  margin: 0 0 6px;
+  color: var(--ink);
+  letter-spacing: 0.03em;
+}
+
+.bestiary-entry .bestiary-paragraph {
+  font-family: 'IM Fell English', Georgia, serif;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+}
+
+.bestiary-entry .bestiary-paragraph em {
+  color: var(--ink);
+  font-style: italic;
+}
+
+.bestiary-entry .bestiary-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.bestiary-empty {
+  font-style: italic;
+  color: var(--muted);
+  text-align: center;
+  margin: 32px 0;
+}
+
+.bestiary-complete {
+  font-family: 'IM Fell English', Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+  margin: 18px 0 4px;
 }
 
 .inv-slots-line {

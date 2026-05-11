@@ -25,3 +25,16 @@ export function dailySeed(date = new Date()) {
 export function randomSeed() {
   return (Math.random() * 0xFFFFFFFF) >>> 0;
 }
+
+export function hashStr(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+export function subRng(seed, salt) {
+  return mulberry32(((seed >>> 0) ^ hashStr(String(salt))) >>> 0);
+}

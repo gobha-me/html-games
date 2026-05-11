@@ -13,11 +13,17 @@ import { tileAt } from './map.js';
 import { isVisible, isSeen } from './fov.js';
 
 const KIND_COLOR = {
-  [KIND.PLAYER]: PALETTE.player,
-  [KIND.DRIP]:   PALETTE.drip,
-  [KIND.SMEAR]:  PALETTE.smear,
-  [KIND.SCRAWL]: PALETTE.scrawl,
-  [KIND.STAIRS]: PALETTE.stairs,
+  [KIND.PLAYER]:            PALETTE.player,
+  [KIND.DRIP]:              PALETTE.drip,
+  [KIND.SMEAR]:             PALETTE.smear,
+  [KIND.SCRAWL]:            PALETTE.scrawl,
+  [KIND.MARGINALIA]:        PALETTE.marginalia,
+  [KIND.FOXING]:            PALETTE.foxing,
+  [KIND.ERRATUM]:           PALETTE.erratum,
+  [KIND.BOSS_MARGIN_LORD]:  PALETTE.bossMarginLord,
+  [KIND.BOSS_FRONTISPIECE]: PALETTE.bossFrontispiece,
+  [KIND.BOSS_COLOPHON]:     PALETTE.bossColophon,
+  [KIND.STAIRS]:            PALETTE.stairs,
 };
 
 function colorForKind(kind) {

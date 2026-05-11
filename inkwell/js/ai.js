@@ -1,7 +1,15 @@
-import { KIND } from './constants.js';
+import {
+  KIND,
+  FOXING_HEAL,
+  ERRATUM_TELEPORT_PERIOD,
+  FRONTISPIECE_DRIP_PERIOD,
+  INK_FAMILY_KINDS,
+} from './constants.js';
 import { moveOrAttack } from './actions.js';
 import { isWalkable } from './map.js';
-import { entityAt, isHostile } from './entity.js';
+import { entityAt, isHostile, createDrip } from './entity.js';
+import { pushLog } from './state.js';
+import { isVisible } from './fov.js';
 
 const SIGHT = 8;
 const MAX_DIST = SIGHT + 2;
@@ -11,13 +19,56 @@ const NEIGHBORS = [
   [1, 1], [1, -1], [-1, 1], [-1, -1],
 ];
 
+const INK_FAMILY = new Set(INK_FAMILY_KINDS);
+
+const ACT_BEFORE = {
+  [KIND.FOXING]: foxingHealAura,
+  [KIND.ERRATUM]: erratumTeleport,
+};
+
 export function runEnemyTurns(state) {
   if (!state.player.alive) return;
   const dist = playerDistanceMap(state);
   for (const e of state.entities) {
     if (!e.alive || e.kind === KIND.PLAYER) continue;
+    if (e.boundTurns > 0) {
+      e.boundTurns -= 1;
+      continue;
+    }
+    if (e.bossBrain === 'frontispiece') {
+      frontispieceTurn(state, e);
+      continue;
+    }
+    const before = ACT_BEFORE[e.kind];
+    if (before) before(state, e);
+    if (!e.alive) continue;
     stepEnemy(state, e, dist);
   }
+}
+
+function frontispieceTurn(state, self) {
+  self.dripCooldown = (self.dripCooldown || 0) + 1;
+  if (self.dripCooldown < FRONTISPIECE_DRIP_PERIOD) return;
+  const tile = findAdjacentEmptyTile(state, self);
+  if (!tile) return;
+  state.entities.push(createDrip(tile.x, tile.y));
+  self.dripCooldown = 0;
+  if (isVisible(state.fov, self.x, self.y) || isVisible(state.fov, tile.x, tile.y)) {
+    pushLog(state, 'The Frontispiece bleeds another drip onto the page.', 'bad');
+  }
+}
+
+function findAdjacentEmptyTile(state, self) {
+  const candidates = [];
+  for (const [dx, dy] of NEIGHBORS) {
+    const nx = self.x + dx;
+    const ny = self.y + dy;
+    if (!isWalkable(state.page, nx, ny)) continue;
+    if (entityAt(state, nx, ny)) continue;
+    candidates.push({ x: nx, y: ny });
+  }
+  if (!candidates.length) return null;
+  return state.rng.pick(candidates);
 }
 
 function stepEnemy(state, enemy, dist) {
@@ -42,6 +93,50 @@ function stepEnemy(state, enemy, dist) {
     if (tryStep(state, enemy, step[0], step[1])) return;
   }
   wander(state, enemy);
+}
+
+function foxingHealAura(state, self) {
+  for (const [dx, dy] of NEIGHBORS) {
+    const target = entityAt(state, self.x + dx, self.y + dy);
+    if (!target || !target.alive) continue;
+    if (!INK_FAMILY.has(target.kind)) continue;
+    if (target.hp >= target.hpMax) continue;
+    target.hp = Math.min(target.hpMax, target.hp + FOXING_HEAL);
+    if (isVisible(state.fov, self.x, self.y) || isVisible(state.fov, target.x, target.y)) {
+      pushLog(state, `The foxing mends the ${target.name}.`, 'bad');
+    }
+  }
+}
+
+function erratumTeleport(state, self) {
+  const player = state.player;
+  const adx = Math.abs(self.x - player.x);
+  const ady = Math.abs(self.y - player.y);
+  if (adx <= 1 && ady <= 1) return;
+  self.teleportCooldown = (self.teleportCooldown || 0) + 1;
+  if (self.teleportCooldown < ERRATUM_TELEPORT_PERIOD) return;
+  const tile = findTeleportTile(state, player);
+  if (!tile) return;
+  self.x = tile.x;
+  self.y = tile.y;
+  self.teleportCooldown = 0;
+  if (isVisible(state.fov, self.x, self.y)) {
+    pushLog(state, 'An erratum slips into the margin beside you.', 'bad');
+  }
+}
+
+function findTeleportTile(state, player) {
+  const candidates = [];
+  for (const [dx, dy] of NEIGHBORS) {
+    const nx = player.x + dx;
+    const ny = player.y + dy;
+    if (nx === player.x && ny === player.y) continue;
+    if (!isWalkable(state.page, nx, ny)) continue;
+    if (entityAt(state, nx, ny)) continue;
+    candidates.push({ x: nx, y: ny });
+  }
+  if (!candidates.length) return null;
+  return state.rng.pick(candidates);
 }
 
 function bestNeighbors(state, enemy, dist, myDist) {

@@ -2,10 +2,11 @@ import { mulberry32 } from './rng.js';
 import { createFovArrays, computeFOV } from './fov.js';
 
 const KEY = 'inkwell.save';
-const VERSION = 2;
+const VERSION = 3;
 
 export function saveRun(state) {
   if (!state || state.mode !== 'playing') return;
+  if (state.meta && state.meta.dailySeed) return;
   try {
     const snapshot = {
       version: VERSION,
@@ -52,6 +53,11 @@ export function loadRun() {
     if (!data.player.knownSpells) data.player.knownSpells = [];
     if (!data.player.slots) data.player.slots = [null, null, null];
     if (!data.player.buffs) data.player.buffs = { wardTurns: 0, sightTurns: 0 };
+    if (data.player.marginaliaTurns == null) data.player.marginaliaTurns = 0;
+    if (data.player.inkCostBonus == null) data.player.inkCostBonus = 0;
+    if (!data.meta) data.meta = {};
+    if (!Array.isArray(data.meta.beastsSeen)) data.meta.beastsSeen = [];
+    if (!Array.isArray(data.meta.bossesSlain)) data.meta.bossesSlain = [];
     const state = {
       seed: data.seed,
       rng,
