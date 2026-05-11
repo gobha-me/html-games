@@ -1,5 +1,5 @@
 import { createInitialState, pushLog } from './state.js';
-import { moveOrAttack, wait, descend } from './actions.js';
+import { moveOrAttack, wait, descend, useItem, castSpell, cycleSlot } from './actions.js';
 import { processPlayerAction } from './turn.js';
 import { saveRun, loadRun, clearRun, hasSave } from './save.js';
 import * as render from './render.js';
@@ -19,6 +19,8 @@ const KEYMAP = {
 
 const WAIT_KEYS = new Set(['Period', 'Space', 'Numpad5']);
 const RESTART_KEYS = new Set(['KeyR']);
+const INVENTORY_LETTERS = ['KeyA', 'KeyB', 'KeyC', 'KeyD'];
+const SLOT_KEYS = ['Digit1', 'Digit2', 'Digit3'];
 
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('board');
@@ -80,7 +82,25 @@ function onKey(ev) {
     }
     return;
   }
+  if (state.mode === 'inventory') {
+    handleInventoryKey(ev);
+    return;
+  }
   if (state.mode !== 'playing') return;
+
+  if (ev.code === 'KeyI') {
+    ev.preventDefault();
+    openInventory();
+    return;
+  }
+
+  const slotIdx = SLOT_KEYS.indexOf(ev.code);
+  if (slotIdx >= 0) {
+    ev.preventDefault();
+    processPlayerAction(state, (s, p) => castSpell(s, p, slotIdx));
+    afterAction();
+    return;
+  }
 
   const move = KEYMAP[ev.code];
   if (move) {
@@ -113,6 +133,45 @@ function isDescendKey(ev) {
   return false;
 }
 
+function openInventory() {
+  state.mode = 'inventory';
+  ui.showInventory(state);
+}
+
+function closeInventory() {
+  if (state.mode !== 'inventory') return;
+  state.mode = 'playing';
+  ui.hideInventory();
+  dirty = true;
+}
+
+function handleInventoryKey(ev) {
+  if (ev.code === 'Escape' || ev.code === 'KeyI') {
+    ev.preventDefault();
+    closeInventory();
+    return;
+  }
+  const letterIdx = INVENTORY_LETTERS.indexOf(ev.code);
+  if (letterIdx >= 0) {
+    ev.preventDefault();
+    const kind = ui.getInventoryKindAt(letterIdx);
+    if (!kind) return;
+    closeInventory();
+    processPlayerAction(state, (s, p) => useItem(s, p, kind));
+    afterAction();
+    return;
+  }
+  const slotIdx = SLOT_KEYS.indexOf(ev.code);
+  if (slotIdx >= 0) {
+    ev.preventDefault();
+    cycleSlot(state, slotIdx);
+    ui.showInventory(state);
+    saveRun(state);
+    dirty = true;
+    return;
+  }
+}
+
 function afterAction() {
   dirty = true;
   if (state.mode === 'gameover') {
@@ -138,6 +197,7 @@ function loop() {
     render.render(state);
     ui.updateHUD(state);
     ui.renderLog(state);
+    ui.renderSlots(state);
     dirty = state.animations.length > 0;
   }
   requestAnimationFrame(loop);

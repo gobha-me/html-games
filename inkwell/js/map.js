@@ -8,8 +8,21 @@ import {
   ROOM_H,
   DRIPS_MIN,
   DRIPS_MAX,
+  ITEMS_PER_PAGE,
 } from './constants.js';
-import { createDrip, createSmear, createScrawl, createStairs } from './entity.js';
+import {
+  createDrip,
+  createSmear,
+  createScrawl,
+  createStairs,
+  createInkpot,
+  createCloth,
+  createSeal,
+  createNib,
+  createGlyphStrike,
+  createGlyphWard,
+  createGlyphSight,
+} from './entity.js';
 
 export function generatePage(rng, depth = 1) {
   const tiles = new Uint8Array(MAP_W * MAP_H);
@@ -56,7 +69,50 @@ export function generatePage(rng, depth = 1) {
     placed++;
   }
 
+  const itemCount = rng.int(ITEMS_PER_PAGE[0], ITEMS_PER_PAGE[1]);
+  let itemPlaced = 0;
+  let itemTries = 0;
+  while (itemPlaced < itemCount && itemTries < 200) {
+    itemTries++;
+    const room = rng.pick(rooms.slice(1));
+    if (!room) break;
+    const ix = rng.int(room.x, room.x + room.w - 1);
+    const iy = rng.int(room.y, room.y + room.h - 1);
+    if (entities.some((e) => e.x === ix && e.y === iy)) continue;
+    entities.push(spawnItem(rng, ix, iy));
+    itemPlaced++;
+  }
+
+  const glyphCount = 1 + (rng.chance(0.25) ? 1 : 0);
+  let glyphPlaced = 0;
+  let glyphTries = 0;
+  while (glyphPlaced < glyphCount && glyphTries < 200) {
+    glyphTries++;
+    const room = rng.pick(rooms.slice(1));
+    if (!room) break;
+    const gx = rng.int(room.x, room.x + room.w - 1);
+    const gy = rng.int(room.y, room.y + room.h - 1);
+    if (entities.some((e) => e.x === gx && e.y === gy)) continue;
+    entities.push(spawnGlyph(rng, gx, gy));
+    glyphPlaced++;
+  }
+
   return { tiles, width: MAP_W, height: MAP_H, rooms, depth, playerStart, entities };
+}
+
+function spawnItem(rng, x, y) {
+  const roll = rng();
+  if (roll < 0.35) return createInkpot(x, y);
+  if (roll < 0.65) return createCloth(x, y);
+  if (roll < 0.85) return createSeal(x, y);
+  return createNib(x, y);
+}
+
+function spawnGlyph(rng, x, y) {
+  const roll = rng();
+  if (roll < 0.34) return createGlyphStrike(x, y);
+  if (roll < 0.67) return createGlyphWard(x, y);
+  return createGlyphSight(x, y);
 }
 
 function spawnEnemy(rng, depth, x, y) {

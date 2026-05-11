@@ -1,13 +1,14 @@
 import { mulberry32, randomSeed } from './rng.js';
 import { generatePage } from './map.js';
 import { createPlayer } from './entity.js';
+import { createFovArrays, computeFOV } from './fov.js';
 
 export function createInitialState(seed = randomSeed()) {
   const rng = mulberry32(seed);
   const page = generatePage(rng, 1);
   const player = createPlayer(page.playerStart.x, page.playerStart.y);
 
-  return {
+  const state = {
     seed,
     rng,
     turn: 0,
@@ -23,12 +24,15 @@ export function createInitialState(seed = randomSeed()) {
     entities: page.entities,
     log: [],
     animations: [],
+    fov: createFovArrays(),
     meta: {
       runStart: Date.now(),
       deepestPage: 1,
       dailySeed: false,
     },
   };
+  computeFOV(state);
+  return state;
 }
 
 export function pushLog(state, text, tone = 'plain') {

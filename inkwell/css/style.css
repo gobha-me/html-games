@@ -243,6 +243,138 @@ canvas#board {
   border-radius: 3px;
 }
 
+.inv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0 4px;
+  text-align: left;
+}
+
+.inv-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 10px;
+  background: rgba(60, 35, 10, 0.06);
+  border: 1px solid var(--ink-muted);
+  border-radius: 3px;
+  font-family: 'IM Fell English', Georgia, serif;
+  font-size: 16px;
+  color: var(--ink-soft);
+}
+
+.inv-row .inv-letter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.inv-row .inv-name {
+  color: var(--ink);
+}
+
+.inv-row .inv-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.inv-empty {
+  font-style: italic;
+  color: var(--muted);
+  margin: 16px 0 8px !important;
+}
+
+.inv-section {
+  font-family: 'IM Fell English', Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  margin: 16px 0 6px;
+  color: var(--ink);
+  letter-spacing: 0.03em;
+  text-align: left;
+}
+
+.inv-spells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.inv-spell {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  background: rgba(59, 52, 120, 0.08);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 2px 8px;
+}
+
+.slots-strip {
+  display: flex;
+  gap: 10px;
+  padding: 6px 14px;
+  background: linear-gradient(180deg, var(--parchment-deep) 0%, var(--parchment) 100%);
+  border: 1px solid var(--ink-muted);
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 13px;
+  color: var(--ink-soft);
+  box-shadow: inset 0 0 8px rgba(120, 80, 30, 0.1);
+}
+
+.slots-strip .slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.02em;
+}
+
+.slots-strip .slot .key {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.slots-strip .slot.empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.slots-strip .slot.bound {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.slots-strip .slot.bound.dim {
+  color: var(--muted);
+}
+
+.inv-bind-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0 0 !important;
+  text-align: left;
+}
+
+.inv-slots-line {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  background: rgba(59, 52, 120, 0.06);
+  border: 1px solid var(--ink-muted);
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin: 4px 0 !important;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
 .back-to-arcade {
   color: var(--parchment);
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);

@@ -16,7 +16,84 @@ export const KIND = {
   SMEAR: 'smear',
   SCRAWL: 'scrawl',
   STAIRS: 'stairs',
+  ITEM_INKPOT: 'item_inkpot',
+  ITEM_CLOTH: 'item_cloth',
+  ITEM_SEAL: 'item_seal',
+  ITEM_NIB: 'item_nib',
+  GLYPH_STRIKE: 'glyph_strike',
+  GLYPH_WARD: 'glyph_ward',
+  GLYPH_SIGHT: 'glyph_sight',
 };
+
+export const SPELLS = {
+  strike: { name: 'Strike', cost: 2, effect: 'damage', power: 6, range: 1 },
+  ward:   { name: 'Ward',   cost: 3, effect: 'buff',   turns: 4 },
+  sight:  { name: 'Sight',  cost: 2, effect: 'fov',    bonus: 6, turns: 6 },
+};
+
+export const GLYPHS = {
+  glyph_strike: {
+    spell: 'strike',
+    glyph: '*',
+    color: '#8a2a22',
+    name: 'glyph of Strike',
+    pickup: 'A glyph of Strike burns into your memory.',
+  },
+  glyph_ward: {
+    spell: 'ward',
+    glyph: '+',
+    color: '#5a4ea0',
+    name: 'glyph of Ward',
+    pickup: 'A glyph of Ward burns into your memory.',
+  },
+  glyph_sight: {
+    spell: 'sight',
+    glyph: '?',
+    color: '#b8923d',
+    name: 'glyph of Sight',
+    pickup: 'A glyph of Sight burns into your memory.',
+  },
+};
+
+export const ITEMS = {
+  item_inkpot: {
+    glyph: 'i',
+    name: 'inkpot',
+    color: '#3b3478',
+    effect: 'ink',
+    amount: 3,
+    pickup: 'You pocket the inkpot.',
+    use: 'You uncork the inkpot — your nib drinks deep.',
+  },
+  item_cloth: {
+    glyph: 'c',
+    name: 'blotting cloth',
+    color: '#8c6a3a',
+    effect: 'heal',
+    amount: 5,
+    pickup: 'You tuck the blotting cloth into your sleeve.',
+    use: 'You press the blotting cloth to your wounds.',
+  },
+  item_seal: {
+    glyph: 'o',
+    name: 'wax seal',
+    color: '#5a1d18',
+    effect: 'seal',
+    pickup: 'A wax seal — heavy in the palm.',
+    use: 'You break the wax seal. Sigils crawl over your skin.',
+  },
+  item_nib: {
+    glyph: 'n',
+    name: 'quill nib',
+    color: '#2a1f14',
+    effect: 'nibUpgrade',
+    amount: 1,
+    pickup: 'A spare nib, finely cut.',
+    use: 'You fit the new nib to your quill — sharper, surer.',
+  },
+};
+
+export const ITEMS_PER_PAGE = [1, 2];
 
 export const PLAYER_START = {
   hp: 20,
@@ -60,3 +137,5 @@ export const ROOMS_MIN = 6;
 export const ROOMS_MAX = 10;
 export const ROOM_W = [4, 9];
 export const ROOM_H = [3, 6];
+
+export const FOV_RADIUS = 8;

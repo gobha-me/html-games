@@ -22,6 +22,7 @@
         <span class="stat" id="turn">Turn&nbsp;<b>0</b></span>
       </div>
     </header>
+    <div class="slots-strip" id="slots-strip" aria-label="Spell slots"></div>
 
     <div class="stage">
       <canvas id="board" width="960" height="600" aria-label="Inkwell game board"></canvas>
@@ -33,12 +34,24 @@
             <span><b>Arrows</b> / <b>WASD</b> / <b>HJKL</b> — move</span>
             <span><b>.</b> or <b>Space</b> — wait</span>
             <span><b>&gt;</b> — descend (on stairs)</span>
+            <span><b>i</b> — open inventory</span>
+            <span><b>1</b>/<b>2</b>/<b>3</b> — cast bound spell</span>
             <span><b>R</b> — restart</span>
           </p>
           <div class="overlay-buttons">
             <button id="overlay-button" class="ink-button" type="button">Open the book</button>
             <button id="overlay-second-button" class="ink-button ghost" type="button" hidden>New run</button>
           </div>
+        </div>
+      </div>
+      <div id="inventory-overlay" class="overlay" hidden>
+        <div class="overlay-card">
+          <h2>Inventory</h2>
+          <div id="inventory-body" class="inv-list"></div>
+          <p class="overlay-controls">
+            <span><b>a</b>–<b>d</b> — use item</span>
+            <span><b>i</b> or <b>Esc</b> — close</span>
+          </p>
         </div>
       </div>
     </div>

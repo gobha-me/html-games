@@ -1,4 +1,7 @@
+import { SPELLS } from './constants.js';
+
 let _els = null;
+let _inventoryGroups = [];
 
 export function init() {
   _els = {
@@ -14,6 +17,9 @@ export function init() {
     overlaySecondButton: document.getElementById('overlay-second-button'),
     hpRow: document.getElementById('hp'),
     inkRow: document.getElementById('ink'),
+    inventoryOverlay: document.getElementById('inventory-overlay'),
+    inventoryBody: document.getElementById('inventory-body'),
+    slotsStrip: document.getElementById('slots-strip'),
   };
 }
 
@@ -63,6 +69,85 @@ function bindButton(el, opts) {
 export function hideOverlay() {
   if (!_els) return;
   _els.overlay.hidden = true;
+}
+
+export function showInventory(state) {
+  if (!_els) return;
+  _inventoryGroups = groupInventory(state.player.inventory);
+  const itemsHtml = _inventoryGroups.length === 0
+    ? '<p class="inv-empty">Your pockets are empty.</p>'
+    : _inventoryGroups
+        .map((g, i) => {
+          const letter = String.fromCharCode(97 + i);
+          const count = g.count > 1
+            ? `<span class="inv-count">×${g.count}</span>`
+            : '<span class="inv-count"></span>';
+          return `<div class="inv-row"><span class="inv-letter">${letter}</span><span class="inv-name">${escape(g.name)}</span>${count}</div>`;
+        })
+        .join('');
+
+  const spells = state.player.knownSpells || [];
+  const slots = state.player.slots || [null, null, null];
+  const slotsLine = slots
+    .map((sp, i) => {
+      const tag = sp ? `${spellLabel(sp)} (${SPELLS[sp].cost})` : '—';
+      return `[${i + 1}: ${tag}]`;
+    })
+    .join('  ');
+  const spellsHtml = `<h3 class="inv-section">Known spells</h3>` + (
+    spells.length === 0
+      ? '<p class="inv-empty">You have not yet learned a glyph.</p>'
+      : `<div class="inv-spells">${spells.map((sp) => `<span class="inv-spell">${escape(spellLabel(sp))}</span>`).join('')}</div>`
+  );
+  const slotsHtml = `<h3 class="inv-section">Slots</h3><pre class="inv-slots-line">${escape(slotsLine)}</pre>` +
+    (spells.length > 0
+      ? '<p class="inv-bind-hint">Press <b>1</b>/<b>2</b>/<b>3</b> here to cycle a slot through your known spells.</p>'
+      : '');
+
+  _els.inventoryBody.innerHTML = itemsHtml + spellsHtml + slotsHtml;
+  _els.inventoryOverlay.hidden = false;
+}
+
+export function renderSlots(state) {
+  if (!_els) return;
+  const slots = (state && state.player && state.player.slots) || [null, null, null];
+  const ink = state && state.player ? state.player.ink : 0;
+  _els.slotsStrip.innerHTML = slots
+    .map((sp, i) => {
+      const key = `<span class="key">${i + 1}</span>`;
+      if (!sp) return `<span class="slot empty">${key} —</span>`;
+      const cost = SPELLS[sp].cost;
+      const name = spellLabel(sp);
+      const dim = ink < cost ? ' dim' : '';
+      return `<span class="slot bound${dim}">${key} ${escape(name)}<span style="opacity:0.7"> (${cost})</span></span>`;
+    })
+    .join('');
+}
+
+function spellLabel(spellId) {
+  return spellId.charAt(0).toUpperCase() + spellId.slice(1);
+}
+
+export function hideInventory() {
+  if (!_els) return;
+  _els.inventoryOverlay.hidden = true;
+  _inventoryGroups = [];
+}
+
+export function getInventoryKindAt(letterIdx) {
+  const g = _inventoryGroups[letterIdx];
+  return g ? g.kind : null;
+}
+
+function groupInventory(inventory) {
+  const map = new Map();
+  for (const item of inventory) {
+    if (!map.has(item.kind)) {
+      map.set(item.kind, { kind: item.kind, name: item.name, count: 0 });
+    }
+    map.get(item.kind).count += 1;
+  }
+  return [...map.values()];
 }
 
 function escape(s) {

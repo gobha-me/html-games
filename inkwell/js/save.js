@@ -1,7 +1,8 @@
 import { mulberry32 } from './rng.js';
+import { createFovArrays, computeFOV } from './fov.js';
 
 const KEY = 'inkwell.save';
-const VERSION = 1;
+const VERSION = 2;
 
 export function saveRun(state) {
   if (!state || state.mode !== 'playing') return;
@@ -22,6 +23,7 @@ export function saveRun(state) {
       },
       entities: state.entities,
       log: state.log,
+      fov: state.fov ? { seen: Array.from(state.fov.seen) } : null,
       meta: state.meta,
     };
     localStorage.setItem(KEY, JSON.stringify(snapshot));
@@ -42,7 +44,15 @@ export function loadRun() {
     const data = JSON.parse(raw);
     if (data.version !== VERSION) return null;
     const rng = mulberry32(data.rngState);
-    return {
+    const fov = createFovArrays();
+    if (data.fov && data.fov.seen) {
+      fov.seen.set(Uint8Array.from(data.fov.seen));
+    }
+    if (!data.player.inventory) data.player.inventory = [];
+    if (!data.player.knownSpells) data.player.knownSpells = [];
+    if (!data.player.slots) data.player.slots = [null, null, null];
+    if (!data.player.buffs) data.player.buffs = { wardTurns: 0, sightTurns: 0 };
+    const state = {
       seed: data.seed,
       rng,
       turn: data.turn,
@@ -58,8 +68,11 @@ export function loadRun() {
       entities: data.entities,
       log: data.log,
       animations: [],
+      fov,
       meta: data.meta,
     };
+    computeFOV(state);
+    return state;
   } catch (e) {
     return null;
   }

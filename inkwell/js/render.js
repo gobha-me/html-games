@@ -6,8 +6,11 @@ import {
   KIND,
   PALETTE,
   FONT_GLYPH,
+  ITEMS,
+  GLYPHS,
 } from './constants.js';
 import { tileAt } from './map.js';
+import { isVisible, isSeen } from './fov.js';
 
 const KIND_COLOR = {
   [KIND.PLAYER]: PALETTE.player,
@@ -18,7 +21,10 @@ const KIND_COLOR = {
 };
 
 function colorForKind(kind) {
-  return KIND_COLOR[kind] || PALETTE.ink;
+  if (KIND_COLOR[kind]) return KIND_COLOR[kind];
+  if (ITEMS[kind]) return ITEMS[kind].color;
+  if (GLYPHS[kind]) return GLYPHS[kind].color;
+  return PALETTE.ink;
 }
 
 let _ctx = null;
@@ -63,6 +69,12 @@ function drawTiles(ctx, state, cam) {
       const t = tileAt(state.page, mx, my);
       const px = col * CELL;
       const py = row * CELL;
+      const visible = isVisible(state.fov, mx, my);
+      const seen = isSeen(state.fov, mx, my);
+      if (!seen) {
+        paintUnseen(ctx, px, py, mx, my);
+        continue;
+      }
       if (t === TILE.FLOOR) {
         const shade = (mx * 7 + my * 13) % 5 === 0;
         ctx.fillStyle = shade ? PALETTE.floorShade : PALETTE.floor;
@@ -78,7 +90,21 @@ function drawTiles(ctx, state, cam) {
         ctx.fillStyle = PALETTE.parchmentDeep;
         ctx.fillRect(px, py, CELL, CELL);
       }
+      if (!visible) {
+        ctx.fillStyle = 'rgba(26, 18, 10, 0.55)';
+        ctx.fillRect(px, py, CELL, CELL);
+      }
     }
+  }
+}
+
+function paintUnseen(ctx, px, py, mx, my) {
+  ctx.fillStyle = PALETTE.ink;
+  ctx.fillRect(px, py, CELL, CELL);
+  const noise = (mx * 11 + my * 17) % 9;
+  if (noise < 3) {
+    ctx.fillStyle = 'rgba(58, 40, 26, 0.45)';
+    ctx.fillRect(px + (noise % 3), py + ((noise + 1) % 3), CELL - 4, CELL - 4);
   }
 }
 
@@ -88,6 +114,7 @@ function drawEntities(ctx, state, cam) {
   ctx.textAlign = 'center';
   for (const e of state.entities) {
     if (!e.alive) continue;
+    if (!isVisible(state.fov, e.x, e.y)) continue;
     paintGlyph(ctx, e, cam, colorForKind(e.kind));
   }
   if (state.player.alive) {

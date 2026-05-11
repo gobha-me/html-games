@@ -15,10 +15,18 @@ permadeath is the natural state of an unfinished sentence.
 - **YUBN** / **Numpad 7 9 1 3** — move diagonally
 - **.** or **Space** or **Numpad 5** — wait one turn (steady your quill)
 - **\>** (Shift+`.`) or **Numpad +** — descend a page (standing on `>`)
+- **i** — open the inventory; press `a`–`d` to use an item, `1`/`2`/`3` to
+  cycle a slot through your known spells, **Esc** or **i** to close
+- **1** / **2** / **3** — while playing, cast the spell bound to that slot
 - **R** — restart after death
 
-**Combat:** bump-to-attack. Step into an ink-drip to strike it with your quill.
-If you stand next to one when its turn comes, it strikes back.
+**Combat:** bump-to-attack. Step into an ink-blot to strike it with your quill.
+If you stand next to one when its turn comes, it strikes back. Spells let you
+strike at range, raise a ward, or read farther into the page.
+
+**Items and glyphs:** walk onto a literary item (Inkpot, Blotting Cloth, Wax
+Seal, Quill Nib) to pocket it. Walk onto a glyph fragment (`*`, `+`, `?`) to
+learn its spell — then bind it to a slot in the inventory screen.
 
 **Win/lose:** there is no win in this PR — only how far you got. Death is
 permanent and the book closes. Press **R** to begin a new run.
@@ -32,20 +40,27 @@ so daily-seed mode will slot in cleanly in a later PR.
 
 ## Status
 
-**PR #2 — "the run has shape."** Multi-page descent via stairs, three
-enemy kinds (ink-drip, ink-smear, ink-scrawl) with depth-weighted spawn
-mix, Dijkstra-map AI that actually routes through corridors, the
-page-bound ink budget exposed in the HUD, dedupe + flavor variety in
-the message log, and a localStorage auto-save so closing the tab no
-longer ends the run. The Continue / New run choice lives on the title
-overlay when a save exists.
+**PR #3 — "the writing mechanic lands."** The language metaphor turns
+into actual gameplay. Glyph fragments now appear in the world; pick one
+up and the spell burns into your memory. Bind known spells to three
+slots and cast them with `1`/`2`/`3`. Four literary items spawn across
+the pages — Inkpot (restores ink), Blotting Cloth (heals), Wax Seal
+(absorbs the next hit), Quill Nib (permanent +1 attack). A modal
+inventory screen lists what you've gathered and lets you bind spells.
+
+The biggest reshape is the field of view. Where you have not yet read,
+the page is **ink-stained** — solid darkness with the texture of soaked
+parchment. Where you've been but cannot currently see, the page fades
+to a dimmed parchment — visible memory, but enemies that move into the
+dark are no longer drawn. The Sight spell briefly extends how far the
+page is legible.
 
 **Known limits in this PR (intentional, per the phased plan):**
 
-- Ink is displayed but no spells consume it yet — that's PR #3
-- No items / inventory yet — PR #3
-- Whole map is always visible; fog of war + ink-stain unexplored
-  treatment is PR #3
+- Only three of the five planned spells ship here (Strike, Ward, Sight).
+  Bind and Erase land in PR #4 along with status effects and targeting.
+- Marginalia + quill upgrades beyond the basic Nib are PR #4.
+- No daily seed / shareable run codes yet — PR #4
 - Desktop keyboard only — no touch controls (PR #5)
 
 ## File layout
@@ -55,34 +70,37 @@ inkwell/
 ├── index.html        — scaffold, loads main.js as a module
 ├── README.md         — this file
 ├── CHANGELOG.md      — shipped changes per PR
-├── css/style.css     — parchment + sepia theme
+├── css/style.css     — parchment + sepia theme, inventory + slot UI
 └── js/
-    ├── main.js       — bootstrap, input, rAF loop
-    ├── constants.js  — palette, sizes, tile + kind enums (NOT state)
+    ├── main.js       — bootstrap, input, rAF loop, mode gating
+    ├── constants.js  — palette, sizes, tile + kind enums; ITEMS, GLYPHS, SPELLS tables
     ├── state.js      — createInitialState(), pushLog()
-    ├── rng.js        — Mulberry32 + helpers (int, pick, chance, dailySeed)
-    ├── map.js        — rooms-and-corridors generation, tileAt, isWalkable
+    ├── rng.js        — Mulberry32 + helpers (int, pick, chance, getState)
+    ├── map.js        — rooms-and-corridors gen; spawn enemies, items, glyphs
     ├── entity.js     — uniform Entity factory; flat array with kind discriminator
-    ├── actions.js    — moveOrAttack, attack, wait (the ONLY mutators)
-    ├── ai.js         — monster-turn dispatch (greedy chase for MVP)
-    ├── turn.js       — scheduler: player → enemies → cull
-    ├── render.js     — canvas paint, camera, parchment pattern, vignette
-    └── ui.js         — HUD, message log, overlay
+    ├── actions.js    — the ONLY mutators: move, attack, pickup, useItem, castSpell, …
+    ├── ai.js         — Dijkstra-map chase for hostiles
+    ├── turn.js       — scheduler: player → FOV → enemies → cull → FOV; buff decrement
+    ├── fov.js        — recursive shadowcasting; visible/seen Uint8Arrays
+    ├── render.js     — canvas paint, three-tier FOV draw, camera, parchment pattern
+    ├── save.js       — localStorage round-trip; versioned snapshot
+    └── ui.js         — HUD, log, overlays, inventory screen, slot strip
 ```
 
 ## Roadmap
 
-- **PR #1 (this one) — MVP.** One page, one enemy, bump-attack, death+restart.
+- **PR #1 — MVP.** One page, one enemy, bump-attack, death+restart. _Shipped._
 - **PR #2 — "the run has shape."** Multi-page descent, page-bound ink budget,
   2-3 enemy types (smear, scrawl), message log polish, Dijkstra-map AI,
-  localStorage save-mid-run.
-- **PR #3 — "the writing mechanic lands."** Glyph fragments → 3 spell slots,
-  3-5 spells (Strike, Ward, Sight, Bind, Erase), items (Inkpot, Blotting
-  Cloth, Wax Seal, Marginalia, quill upgrades), inventory UI, FOV with
-  *ink-stain* unexplored treatment instead of black fog.
+  localStorage save-mid-run. _Shipped._
+- **PR #3 (this one) — "the writing mechanic lands."** Glyph fragments → 3
+  spell slots, 3 spells (Strike, Ward, Sight), 4 items (Inkpot, Blotting
+  Cloth, Wax Seal, Quill Nib), inventory UI, FOV with *ink-stain* unexplored
+  treatment instead of black fog.
 - **PR #4 — "distinctiveness."** Daily seed + shareable run codes, procedural
   bestiary entries, milestone bosses every 5 pages (Margin-Lord, Frontispiece,
-  Colophon), 6-8 enemy types.
+  Colophon), 6-8 enemy types, the remaining spells (Bind, Erase) and items
+  (Marginalia, quill upgrades).
 - **PR #5 — "polish."** Animations (ink drips, smudge-on-death, page-flip),
   audio, title screen, mobile pass or explicit desktop-only banner.
 

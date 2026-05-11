@@ -4,6 +4,58 @@ All notable changes to Inkwell live here. Format is loosely
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); semver is not
 particularly meaningful for a single-page game so we just date the entries.
 
+## [0.3.0] — 2026-05-11
+
+The writing mechanic lands. PR #3 (issue #103).
+
+### Added
+
+- **Field of view with ink-stained unexplored treatment.** New
+  `js/fov.js` runs recursive shadowcasting from the player each turn.
+  Three render tiers: visible (full color), seen-but-not-visible
+  (parchment dimmed behind a soft ink overlay; entities not drawn),
+  unseen (solid `ink` with a low-frequency bleed-noise pattern — the
+  page is still soaked where you haven't read it). Default radius 8.
+- **Four literary items.** **Inkpot** restores +3 ink. **Blotting
+  Cloth** restores +5 HP. **Wax Seal** marks the player; the next
+  hostile blow cracks the seal and deals no damage. **Quill Nib**
+  permanently adds +1 to attack. 1–2 items spawn per page in
+  non-spawn rooms. Walking onto an item picks it up automatically.
+- **Inventory overlay.** Press `i` to open a parchment modal that
+  groups inventory by kind (letters `a`–`d` and ×N count badges),
+  lists known spells, and shows the three slot bindings.
+  Press `a`–`d` to use an item — uses one turn, then closes the
+  overlay. `Esc` or `i` again closes without using.
+- **Glyph fragments and the spell system.** Three glyph entities —
+  Strike (`*`), Ward (`+`), Sight (`?`) — spawn on most pages.
+  Walking onto a glyph adds the spell to `player.knownSpells`. Inside
+  the inventory screen, `1`/`2`/`3` cycles the corresponding slot
+  through `[empty, …knownSpells]`. While playing, `1`/`2`/`3` casts
+  the bound spell, deducting ink:
+  - **Strike** (2 ink, power 6): hits the first hostile in a cardinal
+    neighbour tile.
+  - **Ward** (3 ink, 4 turns): halves incoming damage. Stacks
+    naturally with the Wax Seal (seal triggers first, then ward).
+  - **Sight** (2 ink, 6 turns): extends the FOV radius by 6.
+- **Slot HUD strip.** A persistent strip under the stats shows the
+  three slots and the bound spell's ink cost; bound spells dim when
+  the player can't afford them.
+
+### Changed
+
+- `actions.js` is still the only mutator, now with `pickup`,
+  `useItem`, `castSpell`, and `cycleSlot` alongside the originals.
+- `attack()` now checks `target.sealed` (consumes seal, no damage)
+  and `target.buffs.wardTurns` (halves damage) before applying.
+- `turn.js` recomputes FOV after every player action and again after
+  enemy resolution; it also decrements buff timers each player turn.
+- Save format **v2** persists `fov.seen` so the explored page is
+  preserved across reloads. Inventory, known spells, slots, and
+  buffs are additive — old `v1` saves are discarded by version check;
+  later in-PR fields default safely on load.
+- Constants extended with `ITEMS`, `GLYPHS`, and `SPELLS` tables —
+  pure data, no mechanics in `constants.js`.
+
 ## [0.2.0] — 2026-05-11
 
 The run has shape. PR #2 (issue #103).
