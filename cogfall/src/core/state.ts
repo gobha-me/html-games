@@ -150,6 +150,28 @@
 //     is purely a length bound, not a shape change). G.events is
 //     separately capped at MAX_LOG_ENTRIES=100 in `core/log.ts`, so
 //     each snapshot's embedded event slice is bounded too.
+//
+// 14. Per-faction victory profiles (Phase 3 S7) are pure data on the
+//     `FACTIONS` const (`data/factions.ts`), not a runtime overlay. Unlike
+//     S5's `Faction.behavior` (item 11), which carries closures and must
+//     be re-bound at load, `victoryProfile` is plain scalars + strings
+//     keyed off FactionId — so it's read directly via the
+//     `getVictoryProfile(factionIdx)` accessor at every call site
+//     (turn.ts banner + gold-hegemony, culture.ts cultural-hegemony,
+//     research.ts grand_apparatus cost) and never serialized. The
+//     accessor exists because `FACTIONS as const` narrows each entry
+//     separately, so a plain `FACTIONS[idx].victoryProfile` trips
+//     TS2339 on Cogwright (the entry that intentionally lacks the
+//     field). Cogwright Guild has no profile and is the byte-equal
+//     control for replay parity — every default code path reads
+//     identically to pre-S7. Precedence at threshold call-sites:
+//     `getVictoryProfile(idx)?.X ?? G.X` — the faction override wins
+//     over the mod-mutable / save-persisted global, so a Coin player
+//     always wins economically at 4500 even if a mod has raised
+//     `G.goldHegemonyThreshold` to 8000. Mods still affect the four
+//     factions that don't override that field. Don't bypass the
+//     accessor with a direct const read; the cast lives in one place
+//     and call sites stay strict-typed.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';

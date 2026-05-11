@@ -7,6 +7,7 @@
 
 import { G } from '../core/state';
 import type { Faction, FactionIdx, VictoryType } from '../core/types';
+import { getVictoryProfile } from '../data/factions';
 import { AI_THINKING_LINES } from '../data/personalities';
 import { UNIT_TYPES } from '../data/units';
 import { aiPlayTurn } from '../ai/strategy';
@@ -79,7 +80,11 @@ export function endTurn(): void {
     return;
   }
 
-  if (cur.resources.gold >= G.goldHegemonyThreshold) {
+  // S7: faction-local override beats G.goldHegemonyThreshold even when mods
+  // have rewritten the global. Coin sits at 4500; the others fall through.
+  const goldThreshold =
+    getVictoryProfile(cur.idx)?.goldHegemonyThreshold ?? G.goldHegemonyThreshold;
+  if (cur.resources.gold >= goldThreshold) {
     G.goldHegemonyCounter[cur.idx] = (G.goldHegemonyCounter[cur.idx] || 0) + 1;
     if ((G.goldHegemonyCounter[cur.idx] || 0) >= G.goldHegemonyRequired) {
       triggerVictory(cur.idx, 'hegemony');
@@ -282,10 +287,17 @@ export function triggerVictory(factionIdx: FactionIdx, type: VictoryType): void 
   const isPlayer = G.humanFactionIdxs.includes(factionIdx);
   if (isPlayer) playSfx('victory');
   const m = VICTORY_MESSAGES[type];
-  const flavor = m.flavorTemplate.replace('{name}', fac.name);
+  // S7: faction-flavored title + flavor copy. Each faction declares the
+  // overrides it cares about (e.g. Verdant → cultural, Coin → hegemony);
+  // anything unset falls through to VICTORY_MESSAGES so the default reads
+  // identically to pre-S7 (Cogwright is the byte-equal control).
+  const profile = getVictoryProfile(factionIdx);
+  const title = profile?.titles?.[type] ?? m.title;
+  const flavorTemplate = profile?.flavorTemplates?.[type] ?? m.flavorTemplate;
+  const flavor = flavorTemplate.replace('{name}', fac.name);
   const banner = isPlayer
-    ? `<div class="victory-banner win"><h2 style="color:#99ee99">VICTORY: ${m.title}</h2><p style="margin-top:10px;font-style:italic">${flavor}</p></div>`
-    : `<div class="victory-banner lose"><h2 style="color:var(--danger)">DEFEAT</h2><p style="margin-top:10px">${fac.name} has achieved ${m.title}.</p><p style="margin-top:6px;font-style:italic">${flavor}</p></div>`;
+    ? `<div class="victory-banner win"><h2 style="color:#99ee99">VICTORY: ${title}</h2><p style="margin-top:10px;font-style:italic">${flavor}</p></div>`
+    : `<div class="victory-banner lose"><h2 style="color:var(--danger)">DEFEAT</h2><p style="margin-top:10px">${fac.name} has achieved ${title}.</p><p style="margin-top:6px;font-style:italic">${flavor}</p></div>`;
   const content = document.getElementById(DOM_IDS.GAME_OVER_CONTENT);
   if (content) content.innerHTML = banner + scorecard();
   document.getElementById(DOM_IDS.GAME_OVER_MODAL)?.classList.add('show');

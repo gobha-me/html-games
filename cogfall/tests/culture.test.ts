@@ -819,3 +819,104 @@ describe('Phase 2L: computeCulturalPressureMap', () => {
     expect(mid![0]).toBe(mid![1]); // symmetric
   });
 });
+
+describe('Phase 3 S7: per-faction cultural-hegemony threshold override', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    clearGameState();
+  });
+  afterEach(() => {
+    localStorage.clear();
+    clearGameState();
+  });
+
+  it('declares Verdant override at 0.35 and leaves the four other factions unset', () => {
+    // Direct probe of the data layer — the precondition that turns the
+    // behavioral tests below into meaningful checks.
+    expect(
+      (FACTIONS[3] as { victoryProfile?: { culturalHegemonyThreshold?: number } })
+        .victoryProfile?.culturalHegemonyThreshold
+    ).toBe(0.35);
+    for (const idx of [0, 1, 2, 4]) {
+      expect(
+        (FACTIONS[idx] as { victoryProfile?: { culturalHegemonyThreshold?: number } })
+          .victoryProfile?.culturalHegemonyThreshold
+      ).toBeUndefined();
+    }
+  });
+
+  it("Verdant's override (0.35) beats the mod-mutable global when global is set lower", () => {
+    // Precedence rule (decision-log item 14): faction override wins over
+    // a mod-rewritten global. Set the global low enough that share squeaks
+    // past it; Verdant's 0.35 override still blocks the victory tick.
+    buildSyntheticPlainsMap();
+    // Slot positions must match faction.idx so computeCulturalClaim's
+    // `G.factions[city.factionIdx]` lookup resolves — fill all four slots
+    // up to and including Verdant at idx 3.
+    G.factions = [
+      makeFaction(0, true),
+      makeFaction(1, true),
+      makeFaction(2, true),
+      makeFaction(3, false),
+    ];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 3 as FactionIdx;
+    G.playerFactionIdx = 3 as FactionIdx;
+    G.difficulty = 'medium';
+    G.culturalHegemonyEnabled = true;
+    G.culturalHegemonyThreshold = 0.05; // mod-rewritten low global
+    G.culturalHegemonyRequired = 5;
+    G.culturalHegemonyCounter = {};
+
+    // One culture city for Verdant (idx 3) — share lands just over 0.05.
+    const cV = createCity(3 as FactionIdx, 0, 0, 'Verdant Cap');
+    cV.buildings.add('opera_house');
+    createCity(0 as FactionIdx, 12, 0, 'Cogwright Cap');
+
+    computeCulturalClaim();
+    const share = getCulturalShare(3 as FactionIdx);
+    expect(share).toBeGreaterThanOrEqual(0.05);
+    expect(share).toBeLessThan(0.35); // critical: between global and override
+
+    // Verdant reads the override (0.35) → counter does NOT tick despite
+    // share clearing the global 0.05.
+    const verdantResult = processCulturalHegemony(G.factions[3]);
+    expect(verdantResult.victory).toBe(false);
+    expect(G.culturalHegemonyCounter[3]).toBe(0);
+  });
+
+  it('Cogwright (no override) reads the global threshold — byte-equal to pre-S7', () => {
+    // Mirror of the previous test with Cogwright as the actor. With the same
+    // global = 0.05 and share clearing it, the counter ticks normally.
+    buildSyntheticPlainsMap();
+    G.factions = [makeFaction(0, false), makeFaction(1, true)];
+    G.units = [];
+    G.cities = [];
+    G.turn = 1;
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.currentFactionIdx = 0 as FactionIdx;
+    G.playerFactionIdx = 0 as FactionIdx;
+    G.difficulty = 'medium';
+    G.culturalHegemonyEnabled = true;
+    G.culturalHegemonyThreshold = 0.05;
+    G.culturalHegemonyRequired = 5;
+    G.culturalHegemonyCounter = {};
+
+    const cC = createCity(0 as FactionIdx, 0, 0, 'Cogwright Cap');
+    cC.buildings.add('opera_house');
+    createCity(1 as FactionIdx, 12, 0, 'Aetheric Cap');
+
+    computeCulturalClaim();
+    const share = getCulturalShare(0 as FactionIdx);
+    expect(share).toBeGreaterThanOrEqual(0.05);
+
+    const cogResult = processCulturalHegemony(G.factions[0]);
+    expect(cogResult.victory).toBe(false);
+    expect(G.culturalHegemonyCounter[0]).toBe(1); // ticks, doesn't win yet
+  });
+});

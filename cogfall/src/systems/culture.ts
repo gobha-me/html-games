@@ -15,6 +15,7 @@
 import { hexDistance, hexKey } from '../core/hex';
 import { G } from '../core/state';
 import { TERRAIN_TYPES } from '../data/terrain';
+import { getVictoryProfile } from '../data/factions';
 import { cityYields } from './city';
 import type { Faction, FactionIdx } from '../core/types';
 
@@ -159,7 +160,12 @@ export function processCulturalHegemony(cur: Faction): { victory: boolean } {
     return { victory: false };
   }
   const share = getCulturalShare(cur.idx);
-  if (share >= G.culturalHegemonyThreshold && share > 0) {
+  // S7: faction-local override beats G.culturalHegemonyThreshold even when
+  // mods or save-loaded scenarios have rewritten the global. Verdant Pact
+  // sits at 0.35; the others fall through to the global default (0.40).
+  const threshold =
+    getVictoryProfile(cur.idx)?.culturalHegemonyThreshold ?? G.culturalHegemonyThreshold;
+  if (share >= threshold && share > 0) {
     G.culturalHegemonyCounter[cur.idx] = (G.culturalHegemonyCounter[cur.idx] || 0) + 1;
     if ((G.culturalHegemonyCounter[cur.idx] || 0) >= G.culturalHegemonyRequired) {
       return { victory: true };
