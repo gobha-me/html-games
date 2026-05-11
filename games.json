@@ -125,6 +125,15 @@
       "icon": "🧱",
       "href": "tetris/",
       "theme": "tetris"
+    },
+    {
+      "slug": "inkwell",
+      "title": "Inkwell",
+      "description": "A literary roguelike — a scribe descends the pages of a corrupted grimoire, quill against ink-blot.",
+      "tag": "Roguelike",
+      "icon": "🖋️",
+      "href": "inkwell/",
+      "theme": "inkwell"
     }
   ]
 }

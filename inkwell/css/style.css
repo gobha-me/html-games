@@ -1,0 +1,213 @@
+:root {
+  --parchment: #f3e8c8;
+  --parchment-deep: #e6d5a8;
+  --ink: #1a120a;
+  --ink-soft: #2a1f14;
+  --ink-muted: #5a4530;
+  --accent: #3b3478;
+  --highlight: #b8923d;
+  --blood: #5a1d18;
+  --muted: #6b563a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #1a120a;
+  color: var(--ink);
+  font-family: 'IM Fell English', 'Crimson Pro', Georgia, serif;
+  min-height: 100vh;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, #2a1f14 0%, #1a120a 60%, #0d0805 100%);
+  padding: 20px 16px 64px;
+  display: flex;
+  justify-content: center;
+}
+
+#app {
+  width: 100%;
+  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hud {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 18px;
+  background: linear-gradient(180deg, var(--parchment) 0%, var(--parchment-deep) 100%);
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35), inset 0 0 24px rgba(120, 80, 30, 0.18);
+}
+
+.title {
+  font-family: 'IM Fell English', Georgia, serif;
+  font-style: italic;
+  font-size: 28px;
+  margin: 0;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+.stats {
+  display: flex;
+  gap: 22px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.stat b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.stat#hp.low b {
+  color: var(--blood);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+.stage {
+  position: relative;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.45),
+    inset 0 0 40px rgba(60, 35, 10, 0.3);
+}
+
+canvas#board {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: var(--parchment);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 10, 5, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+  z-index: 5;
+}
+
+.overlay[hidden] { display: none; }
+
+.overlay-card {
+  background: var(--parchment);
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  padding: 28px 32px;
+  max-width: 460px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  position: relative;
+}
+
+.overlay-card::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.overlay-card h2 {
+  font-family: 'IM Fell English', Georgia, serif;
+  font-size: 30px;
+  font-style: italic;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+
+.overlay-card p {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  font-size: 16px;
+}
+
+.overlay-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 14px 0 18px !important;
+}
+
+.overlay-controls b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ink-button {
+  font-family: 'IM Fell English', serif;
+  font-size: 18px;
+  background: var(--ink);
+  color: var(--parchment);
+  border: 1px solid var(--ink);
+  padding: 8px 22px;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ink-button:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.log {
+  background: linear-gradient(180deg, var(--parchment-deep) 0%, var(--parchment) 100%);
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  padding: 10px 16px;
+  min-height: 92px;
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'IM Fell English', Georgia, serif;
+  font-size: 15px;
+  color: var(--ink-soft);
+  box-shadow: inset 0 0 14px rgba(120, 80, 30, 0.12);
+}
+
+.log .line {
+  display: block;
+  padding: 1px 0;
+}
+
+.log .line.tone-good  { color: var(--ink); }
+.log .line.tone-bad   { color: var(--blood); font-style: italic; }
+.log .line.tone-muted { color: var(--muted); }
+
+.back-to-arcade {
+  color: var(--parchment);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}

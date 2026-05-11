@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inkwell — a literary roguelike</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=JetBrains+Mono:wght@400;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="../shared/back-to-arcade.css" />
+</head>
+<body>
+  <main id="app">
+    <header class="hud">
+      <h1 class="title">Inkwell</h1>
+      <div class="stats">
+        <span class="stat" id="hp">HP&nbsp;<b>20</b>/20</span>
+        <span class="stat" id="page">Page&nbsp;<b>1</b></span>
+        <span class="stat" id="turn">Turn&nbsp;<b>0</b></span>
+      </div>
+    </header>
+
+    <div class="stage">
+      <canvas id="board" width="960" height="600" aria-label="Inkwell game board"></canvas>
+      <div id="overlay" class="overlay" hidden>
+        <div class="overlay-card">
+          <h2 id="overlay-title">Inkwell</h2>
+          <p id="overlay-body">A scribe descends the pages of a corrupted grimoire.</p>
+          <p class="overlay-controls">
+            <span><b>Arrows</b> / <b>WASD</b> / <b>HJKL</b> — move</span>
+            <span><b>.</b> or <b>Space</b> — wait</span>
+            <span><b>R</b> — restart</span>
+          </p>
+          <button id="overlay-button" class="ink-button" type="button">Open the book</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="log" id="log" aria-live="polite"></footer>
+  </main>
+
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
