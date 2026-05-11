@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <title>Asteroids — Vector Space Shooter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="../shared/back-to-arcade.css">
+</head>
+<body>
+    <canvas id="game"></canvas>
+
+    <!-- HUD overlay -->
+    <div id="hud">
+        <div class="hud-left">
+            <span id="score-display">0</span>
+            <span class="hud-label">SCORE</span>
+        </div>
+        <div class="hud-center">
+            <span id="level-display">1</span>
+            <span class="hud-label">LEVEL</span>
+        </div>
+        <div class="hud-right">
+            <span id="lives-display">♥♥♥</span>
+            <span class="hud-label">LIVES</span>
+        </div>
+    </div>
+
+    <!-- overlay screens -->
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h1 id="overlay-title">ASTEROIDS</h1>
+            <p id="overlay-sub">Vector Space Shooter</p>
+            <div id="overlay-body"></div>
+            <button id="overlay-btn" class="btn">START GAME</button>
+        </div>
+    </div>
+
+    <!-- back link -->
+    <a href="../" class="back-to-arcade">← Back to Arcade</a>
+
+    <script src="js/game.js"></script>
+</body>
+</html>

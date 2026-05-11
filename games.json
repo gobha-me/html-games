@@ -134,6 +134,15 @@
       "icon": "🖋️",
       "href": "inkwell/",
       "theme": "inkwell"
+    },
+    {
+      "slug": "asteroids",
+      "title": "Asteroids",
+      "description": "Vector-style space shooter. Blast rocks, dodge UFOs, hyperspace if you dare.",
+      "tag": "Arcade Shooter",
+      "icon": "☄️",
+      "href": "asteroids/",
+      "theme": "asteroids"
     }
   ]
 }

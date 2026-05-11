@@ -1,0 +1,196 @@
+:root {
+    --bg: #0a0a1a;
+    --surface: #12122a;
+    --text: #e0e0f0;
+    --muted: #7a7a9a;
+    --accent: #00ff88;
+    --accent-glow: rgba(0, 255, 136, 0.4);
+    --danger: #f43f5e;
+    --success: #10b981;
+    --warning: #f59e0b;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+}
+
+#game {
+    display: block;
+    background: var(--bg);
+    border: 2px solid rgba(0, 255, 136, 0.15);
+    border-radius: 4px;
+    margin-top: 16px;
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.08);
+}
+
+/* HUD */
+#hud {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 900px;
+    max-width: 95vw;
+    padding: 0 16px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.hud-left, .hud-center, .hud-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#score-display, #level-display, #lives-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: 0 0 12px var(--accent-glow);
+}
+
+.hud-label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+}
+
+/* Overlay */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 26, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay-content {
+    text-align: center;
+    max-width: 520px;
+    padding: 40px;
+}
+
+.overlay-content h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: 0 0 30px var(--accent-glow), 0 0 60px rgba(0, 255, 136, 0.2);
+    margin-bottom: 8px;
+}
+
+.overlay-content #overlay-sub {
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+}
+
+#overlay-body {
+    margin-bottom: 32px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+}
+
+#overlay-body .controls {
+    text-align: left;
+    display: inline-block;
+}
+
+#overlay-body .controls dt {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    margin-top: 8px;
+}
+
+#overlay-body .controls dd {
+    color: var(--muted);
+    margin-left: 0;
+    margin-bottom: 4px;
+}
+
+#overlay-body .high-score {
+    font-family: 'Orbitron', monospace;
+    font-size: 18px;
+    color: var(--warning);
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+    margin-top: 16px;
+}
+
+.btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px 40px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 8px var(--accent-glow);
+}
+
+.btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+    text-shadow: none;
+    box-shadow: 0 0 24px var(--accent-glow);
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+/* Controls footer */
+.controls-footer {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    z-index: 10;
+    white-space: nowrap;
+}
+
+kbd {
+    display: inline-block;
+    padding: 2px 7px;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: var(--accent);
+}
