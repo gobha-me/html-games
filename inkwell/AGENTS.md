@@ -9,12 +9,14 @@ the design narrative and tech rationale are in
 ## Ownership
 
 **Claude owns Inkwell's direction.** Jeffrey delegated full latitude on
-stack/scope when issue #103 opened. The 5-PR roadmap (#198 → #202) is
-shipped; the README closes with *"No further roadmap. The book is
-closed; future work on Inkwell is feedback-driven."*
+stack/scope when issue #103 opened. The original 5-PR roadmap
+(#198 → #202) is shipped. The post-v0.5 roadmap lives in
+[`ROADMAP.md`](ROADMAP.md) — Conditions, Run history, Genre branches,
+then feedback-driven from there.
 
-That means: new work is reactive to feedback or to Jeffrey's specific
-ask, not a continuation of a Phase plan. Don't invent a roadmap.
+That means: pick the next PR from `ROADMAP.md`, sketch a plan, and get
+Jeffrey's approval before branching. Small targeted improvements outside
+the roadmap are welcome when Jeffrey asks.
 
 ## Session-open protocol
 
@@ -115,6 +117,6 @@ specifics:
 
 ## When in doubt
 
-This file + README + CHANGELOG is the cold-start surface. The book is
-closed on the planned roadmap, but small targeted improvements are
-welcome when Jeffrey asks. Keep the voice; keep the seams.
+This file + README + CHANGELOG + ROADMAP is the cold-start surface.
+`ROADMAP.md` is your next-PR brief; small targeted improvements outside
+it are welcome when Jeffrey asks. Keep the voice; keep the seams.

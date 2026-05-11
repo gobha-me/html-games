@@ -134,8 +134,9 @@ inkwell/
 - **PR #5 — "polish."** Animations (ink drips, smudge-on-death, page-flip),
   audio, illuminated title, explicit desktop-only banner. _Shipped._
 
-No further roadmap. The book is closed; future work on Inkwell is
-feedback-driven.
+See [`ROADMAP.md`](ROADMAP.md) for planned post-v0.5 PRs (Conditions,
+Run history, Genre branches) and a feedback-driven pool of ideas beyond
+them.
 
 ## Design notes
 
