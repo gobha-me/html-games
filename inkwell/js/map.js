@@ -9,7 +9,7 @@ import {
   DRIPS_MIN,
   DRIPS_MAX,
 } from './constants.js';
-import { createDrip } from './entity.js';
+import { createDrip, createSmear, createScrawl, createStairs } from './entity.js';
 
 export function generatePage(rng, depth = 1) {
   const tiles = new Uint8Array(MAP_W * MAP_H);
@@ -38,21 +38,41 @@ export function generatePage(rng, depth = 1) {
   const playerStart = centerOf(spawnRoom);
 
   const entities = [];
-  const dripCount = rng.int(DRIPS_MIN, DRIPS_MAX);
+  const stairsRoom = pickFarthestRoom(rooms, playerStart);
+  const stairsPos = centerOf(stairsRoom);
+  entities.push(createStairs(stairsPos.x, stairsPos.y));
+
+  const enemyCount = rng.int(DRIPS_MIN, DRIPS_MAX);
   let placed = 0;
   let tries = 0;
-  while (placed < dripCount && tries < 200) {
+  while (placed < enemyCount && tries < 200) {
     tries++;
     const room = rng.pick(rooms.slice(1));
     if (!room) break;
     const dx = rng.int(room.x, room.x + room.w - 1);
     const dy = rng.int(room.y, room.y + room.h - 1);
     if (entities.some((e) => e.x === dx && e.y === dy)) continue;
-    entities.push(createDrip(dx, dy));
+    entities.push(spawnEnemy(rng, depth, dx, dy));
     placed++;
   }
 
   return { tiles, width: MAP_W, height: MAP_H, rooms, depth, playerStart, entities };
+}
+
+function spawnEnemy(rng, depth, x, y) {
+  const roll = rng();
+  if (depth <= 1) return createDrip(x, y);
+  if (depth === 2) {
+    return roll < 0.7 ? createDrip(x, y) : createSmear(x, y);
+  }
+  if (depth === 3) {
+    if (roll < 0.5) return createDrip(x, y);
+    if (roll < 0.8) return createSmear(x, y);
+    return createScrawl(x, y);
+  }
+  if (roll < 0.4) return createDrip(x, y);
+  if (roll < 0.75) return createSmear(x, y);
+  return createScrawl(x, y);
 }
 
 export function tileAt(page, x, y) {
@@ -66,6 +86,20 @@ export function isWalkable(page, x, y) {
 
 function centerOf(room) {
   return { x: room.x + Math.floor(room.w / 2), y: room.y + Math.floor(room.h / 2) };
+}
+
+function pickFarthestRoom(rooms, from) {
+  let best = rooms[rooms.length - 1];
+  let bestDist = -1;
+  for (let i = 1; i < rooms.length; i++) {
+    const c = centerOf(rooms[i]);
+    const d = (c.x - from.x) * (c.x - from.x) + (c.y - from.y) * (c.y - from.y);
+    if (d > bestDist) {
+      bestDist = d;
+      best = rooms[i];
+    }
+  }
+  return best;
 }
 
 function roomsOverlap(a, b, pad = 0) {

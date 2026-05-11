@@ -16,7 +16,8 @@
     <header class="hud">
       <h1 class="title">Inkwell</h1>
       <div class="stats">
-        <span class="stat" id="hp">HP&nbsp;<b>20</b>/20</span>
+        <span class="stat" id="hp">HP&nbsp;<b>20/20</b></span>
+        <span class="stat" id="ink">Ink&nbsp;<b>6/6</b></span>
         <span class="stat" id="page">Page&nbsp;<b>1</b></span>
         <span class="stat" id="turn">Turn&nbsp;<b>0</b></span>
       </div>
@@ -31,9 +32,13 @@
           <p class="overlay-controls">
             <span><b>Arrows</b> / <b>WASD</b> / <b>HJKL</b> — move</span>
             <span><b>.</b> or <b>Space</b> — wait</span>
+            <span><b>&gt;</b> — descend (on stairs)</span>
             <span><b>R</b> — restart</span>
           </p>
-          <button id="overlay-button" class="ink-button" type="button">Open the book</button>
+          <div class="overlay-buttons">
+            <button id="overlay-button" class="ink-button" type="button">Open the book</button>
+            <button id="overlay-second-button" class="ink-button ghost" type="button" hidden>New run</button>
+          </div>
         </div>
       </div>
     </div>

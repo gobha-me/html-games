@@ -32,6 +32,12 @@ export function createInitialState(seed = randomSeed()) {
 }
 
 export function pushLog(state, text, tone = 'plain') {
-  state.log.push({ text, tone, turn: state.turn });
+  const last = state.log[state.log.length - 1];
+  if (last && last.text === text && last.tone === tone) {
+    last.count = (last.count || 1) + 1;
+    last.turn = state.turn;
+    return;
+  }
+  state.log.push({ text, tone, turn: state.turn, count: 1 });
   if (state.log.length > 24) state.log.shift();
 }

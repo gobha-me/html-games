@@ -11,6 +11,7 @@ export function mulberry32(seed) {
   rng.pick = (arr) => arr[Math.floor(rng() * arr.length)];
   rng.chance = (p) => rng() < p;
   rng.seed = a;
+  rng.getState = () => a;
   return rng;
 }
 

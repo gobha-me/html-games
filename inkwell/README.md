@@ -14,6 +14,7 @@ permadeath is the natural state of an unfinished sentence.
 - **Arrow keys** / **WASD** / **HJKL** — move one tile (orthogonal)
 - **YUBN** / **Numpad 7 9 1 3** — move diagonally
 - **.** or **Space** or **Numpad 5** — wait one turn (steady your quill)
+- **\>** (Shift+`.`) or **Numpad +** — descend a page (standing on `>`)
 - **R** — restart after death
 
 **Combat:** bump-to-attack. Step into an ink-drip to strike it with your quill.
@@ -31,19 +32,21 @@ so daily-seed mode will slot in cleanly in a later PR.
 
 ## Status
 
-**Playable MVP (PR #1).** This is the first slice: one procedural page, one
-enemy type (ink-drip), bump-attack, HP, permadeath + restart, parchment
-aesthetic. Future PRs add multi-page descent, the ink resource, glyph spells,
-items, fog-of-war, daily seeds, and bestiary. See the roadmap below.
+**PR #2 — "the run has shape."** Multi-page descent via stairs, three
+enemy kinds (ink-drip, ink-smear, ink-scrawl) with depth-weighted spawn
+mix, Dijkstra-map AI that actually routes through corridors, the
+page-bound ink budget exposed in the HUD, dedupe + flavor variety in
+the message log, and a localStorage auto-save so closing the tab no
+longer ends the run. The Continue / New run choice lives on the title
+overlay when a save exists.
 
-**Known limits in this PR:**
+**Known limits in this PR (intentional, per the phased plan):**
 
-- Single floor (no stairs down yet)
-- Only ink-drip enemies
-- HP is the only resource exposed in the HUD (`ink` field exists in state but
-  has no spells to spend it on yet)
-- Desktop keyboard only — no touch controls
-- Whole map is always visible; FOV/exploration arrives in PR #3
+- Ink is displayed but no spells consume it yet — that's PR #3
+- No items / inventory yet — PR #3
+- Whole map is always visible; fog of war + ink-stain unexplored
+  treatment is PR #3
+- Desktop keyboard only — no touch controls (PR #5)
 
 ## File layout
 

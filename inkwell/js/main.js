@@ -1,6 +1,7 @@
 import { createInitialState, pushLog } from './state.js';
-import { moveOrAttack, wait } from './actions.js';
+import { moveOrAttack, wait, descend } from './actions.js';
 import { processPlayerAction } from './turn.js';
+import { saveRun, loadRun, clearRun, hasSave } from './save.js';
 import * as render from './render.js';
 import * as ui from './ui.js';
 
@@ -23,25 +24,51 @@ document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('board');
   render.init(canvas);
   ui.init();
-  newRun();
-  ui.showOverlay({
-    title: 'Inkwell',
-    body: 'A scribe descends the pages of a corrupted grimoire. Move toward the ink — but mind your page.',
-    button: 'Open the book',
-  });
-  ui.onOverlayButton(() => {
-    ui.hideOverlay();
-    state.mode = 'playing';
-    pushLog(state, `Page ${state.page.depth} opens. The ink stirs.`, 'plain');
-    dirty = true;
-  });
+  bootIntoOverlay();
   window.addEventListener('keydown', onKey);
   requestAnimationFrame(loop);
 });
 
-function newRun() {
+function bootIntoOverlay() {
+  if (hasSave()) {
+    const loaded = loadRun();
+    if (loaded) {
+      state = loaded;
+      dirty = true;
+      ui.showOverlay({
+        title: 'Welcome back.',
+        body: `An unfinished run waits on page ${state.page.depth}. The ink has not yet dried.`,
+        primary: { text: 'Continue', onClick: continueRun },
+        secondary: { text: 'New run', onClick: startNewRun },
+      });
+      return;
+    }
+    clearRun();
+  }
   state = createInitialState();
   pushLog(state, 'You dip your quill into the inkwell.', 'plain');
+  dirty = true;
+  ui.showOverlay({
+    title: 'Inkwell',
+    body: 'A scribe descends the pages of a corrupted grimoire. Move toward the ink — but mind your page.',
+    primary: { text: 'Open the book', onClick: continueRun },
+  });
+}
+
+function continueRun() {
+  ui.hideOverlay();
+  state.mode = 'playing';
+  pushLog(state, `Page ${state.page.depth} opens. The ink stirs.`, 'plain');
+  dirty = true;
+}
+
+function startNewRun() {
+  clearRun();
+  state = createInitialState();
+  pushLog(state, 'You dip your quill into the inkwell.', 'plain');
+  ui.hideOverlay();
+  state.mode = 'playing';
+  pushLog(state, `Page ${state.page.depth} opens. The ink stirs.`, 'plain');
   dirty = true;
 }
 
@@ -62,6 +89,12 @@ function onKey(ev) {
     afterAction();
     return;
   }
+  if (isDescendKey(ev)) {
+    ev.preventDefault();
+    processPlayerAction(state, descend);
+    afterAction();
+    return;
+  }
   if (WAIT_KEYS.has(ev.code)) {
     ev.preventDefault();
     processPlayerAction(state, wait);
@@ -74,25 +107,30 @@ function onKey(ev) {
   }
 }
 
+function isDescendKey(ev) {
+  if (ev.code === 'Period' && ev.shiftKey) return true;
+  if (ev.code === 'NumpadAdd') return true;
+  return false;
+}
+
 function afterAction() {
   dirty = true;
   if (state.mode === 'gameover') {
+    clearRun();
     setTimeout(() => {
       ui.showOverlay({
         title: 'The book closes.',
         body: state.meta.deathFlavor || 'Your run ends here.',
-        button: 'Begin a new run (R)',
+        primary: { text: 'Begin a new run (R)', onClick: startNewRun },
       });
     }, 300);
+    return;
   }
+  saveRun(state);
 }
 
 function restart() {
-  ui.hideOverlay();
-  newRun();
-  state.mode = 'playing';
-  pushLog(state, `Page ${state.page.depth} opens. The ink stirs.`, 'plain');
-  dirty = true;
+  startNewRun();
 }
 
 function loop() {

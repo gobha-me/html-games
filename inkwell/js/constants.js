@@ -13,6 +13,9 @@ export const TILE = {
 export const KIND = {
   PLAYER: 'player',
   DRIP: 'drip',
+  SMEAR: 'smear',
+  SCRAWL: 'scrawl',
+  STAIRS: 'stairs',
 };
 
 export const PLAYER_START = {
@@ -23,7 +26,9 @@ export const PLAYER_START = {
 };
 
 export const ENEMY_STATS = {
-  drip: { hp: 4, hpMax: 4, attack: 2, glyph: '~', name: 'ink-drip' },
+  drip:   { hp: 4, hpMax: 4, attack: 2, glyph: '~', name: 'ink-drip' },
+  smear:  { hp: 9, hpMax: 9, attack: 3, glyph: '&', name: 'ink-smear' },
+  scrawl: { hp: 3, hpMax: 3, attack: 3, glyph: '%', name: 'ink-scrawl' },
 };
 
 export const PALETTE = {
@@ -38,6 +43,9 @@ export const PALETTE = {
   blood: '#5a1d18',
   player: '#1a1208',
   drip: '#3a2018',
+  smear: '#1a0e06',
+  scrawl: '#3b3478',
+  stairs: '#5a3a18',
   accent: '#3b3478',
   highlight: '#b8923d',
 };

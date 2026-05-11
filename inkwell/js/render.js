@@ -3,10 +3,23 @@ import {
   CANVAS_W,
   CANVAS_H,
   TILE,
+  KIND,
   PALETTE,
   FONT_GLYPH,
 } from './constants.js';
 import { tileAt } from './map.js';
+
+const KIND_COLOR = {
+  [KIND.PLAYER]: PALETTE.player,
+  [KIND.DRIP]:   PALETTE.drip,
+  [KIND.SMEAR]:  PALETTE.smear,
+  [KIND.SCRAWL]: PALETTE.scrawl,
+  [KIND.STAIRS]: PALETTE.stairs,
+};
+
+function colorForKind(kind) {
+  return KIND_COLOR[kind] || PALETTE.ink;
+}
 
 let _ctx = null;
 let _bgPattern = null;
@@ -75,7 +88,7 @@ function drawEntities(ctx, state, cam) {
   ctx.textAlign = 'center';
   for (const e of state.entities) {
     if (!e.alive) continue;
-    paintGlyph(ctx, e, cam, PALETTE.drip);
+    paintGlyph(ctx, e, cam, colorForKind(e.kind));
   }
   if (state.player.alive) {
     paintGlyph(ctx, state.player, cam, PALETTE.player);
