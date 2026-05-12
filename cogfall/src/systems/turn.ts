@@ -18,7 +18,8 @@ import { getDiplomacyVoice } from '../data/diplomacyVoice';
 import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
 import { playSfx } from './audio';
-import { recordTelemetry } from './telemetry';
+import { getTelemetryLog, recordTelemetry } from './telemetry';
+import { computeScoreBreakdown, computeRetroStats } from './endgame';
 import { recordReplaySnapshot } from './replay';
 import { emit } from '../render/animations';
 import { DOM_IDS } from '../core/dom';
@@ -267,6 +268,14 @@ export function runAITurn(faction: Faction): void {
   showAIThinking(`${faction.name} ${line}`);
   setTimeout(
     () => {
+      // S10 — if game-over fired (or test teardown wiped G) between the
+      // schedule and now, drop the AI turn. Mirrors the endTurn:70
+      // gameOver short-circuit so the AI think-spinner timer can't run
+      // aiPlayTurn against stale state.
+      if (G.gameOver || !G.factions[faction.idx]) {
+        hideAIThinking();
+        return;
+      }
       const t0 = performance.now();
       // Phase 2n-2: snapshot the log counter so the AI action banner can
       // recover the events emitted by *just this AI* — even if the 100-
@@ -352,7 +361,7 @@ export function triggerVictory(factionIdx: FactionIdx, type: VictoryType): void 
     ? `<div class="victory-banner win"><h2 style="color:#99ee99">VICTORY: ${title}</h2><p style="margin-top:10px;font-style:italic">${flavor}</p></div>`
     : `<div class="victory-banner lose"><h2 style="color:var(--danger)">DEFEAT</h2><p style="margin-top:10px">${fac.name} has achieved ${title}.</p><p style="margin-top:6px;font-style:italic">${flavor}</p></div>`;
   const content = document.getElementById(DOM_IDS.GAME_OVER_CONTENT);
-  if (content) content.innerHTML = banner + scorecard();
+  if (content) content.innerHTML = banner + scorecard() + breakdownAndStats();
   document.getElementById(DOM_IDS.GAME_OVER_MODAL)?.classList.add('show');
 }
 
@@ -360,7 +369,7 @@ export function triggerDefeat(): void {
   G.gameOver = true;
   const banner = `<div class="victory-banner lose"><h2 style="color:var(--danger)">DEFEAT</h2><p style="margin-top:10px;font-style:italic">Your banner has fallen. The Cogfall claims another.</p></div>`;
   const content = document.getElementById(DOM_IDS.GAME_OVER_CONTENT);
-  if (content) content.innerHTML = banner + scorecard();
+  if (content) content.innerHTML = banner + scorecard() + breakdownAndStats();
   document.getElementById(DOM_IDS.GAME_OVER_MODAL)?.classList.add('show');
 }
 
@@ -374,4 +383,64 @@ export function scorecard(): string {
     html += `<div class="row"><span><span style="color:${f.color}">${f.glyph}</span> ${f.name}${status}</span><span>${computeFactionScore(f)}</span></div>`;
   }
   return html;
+}
+
+// Phase 3 S10 — Expanded end-of-game readout. Renders below `scorecard()` in
+// the same #game-over-modal: a per-faction breakdown table (resources /
+// dominion / lore / sum) plus a player-only retro stats panel. Pure HTML
+// composition over endgame.ts helpers; no DOM event wiring.
+export function breakdownAndStats(): string {
+  const sorted = G.factions
+    .slice()
+    .sort((a, b) => computeFactionScore(b) - computeFactionScore(a));
+  const headerRow =
+    '<div style="display:flex;font-size:11px;color:var(--parchment-d);padding:4px 0;border-bottom:1px solid var(--brass-d);margin-bottom:4px">' +
+    '<span style="flex:2">Banner</span>' +
+    '<span style="flex:1;text-align:right">Coin &amp; Aether</span>' +
+    '<span style="flex:1;text-align:right">Banners &amp; Engines</span>' +
+    '<span style="flex:1;text-align:right">Lore</span>' +
+    '<span style="flex:1;text-align:right;color:var(--brass)">Sum</span>' +
+    '</div>';
+  let rows = '';
+  for (const f of sorted) {
+    const bd = computeScoreBreakdown(f);
+    const dim = f.alive ? '' : 'opacity:0.55;';
+    rows +=
+      `<div style="display:flex;font-size:12px;padding:3px 0;${dim}">` +
+      `<span style="flex:2"><span style="color:${f.color}">${f.glyph}</span> ${f.name}</span>` +
+      `<span style="flex:1;text-align:right">${bd.resources}</span>` +
+      `<span style="flex:1;text-align:right">${bd.dominion}</span>` +
+      `<span style="flex:1;text-align:right">${bd.lore}</span>` +
+      `<span style="flex:1;text-align:right;color:var(--brass);font-weight:bold">${bd.total}</span>` +
+      '</div>';
+  }
+  const breakdown =
+    '<h3 style="color:var(--brass);margin:18px 0 8px">The Final Accounting</h3>' +
+    headerRow +
+    rows;
+
+  // Steward's Ledger — only rendered for the local-player faction(s). In
+  // hot-seat the first human faction is shown; single-player collapses to
+  // the only human entry.
+  const playerIdx = G.humanFactionIdxs?.[0] ?? G.playerFactionIdx;
+  const player = G.factions[playerIdx];
+  if (!player) return breakdown;
+  const s = computeRetroStats(player, getTelemetryLog());
+  const stat = (label: string, value: string | number): string =>
+    `<div style="display:flex;justify-content:space-between;padding:2px 0">` +
+    `<span style="color:var(--parchment-d)">${label}</span>` +
+    `<span style="color:var(--brass)">${value}</span>` +
+    `</div>`;
+  const ledger =
+    '<h3 style="color:var(--brass);margin:18px 0 8px">The Steward\u2019s Ledger</h3>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;font-size:12px">' +
+    stat('Turns Spun', s.turnsPlayed) +
+    stat('Lore Mastered', s.techsMastered) +
+    stat('Hearths Held', s.citiesHeld) +
+    stat('Battles Joined', s.battlesJoined) +
+    stat('Banners Afield', s.unitsAfield) +
+    stat('Blows Struck', s.blowsStruck) +
+    stat('Blows Borne', s.blowsBorne) +
+    '</div>';
+  return breakdown + ledger;
 }

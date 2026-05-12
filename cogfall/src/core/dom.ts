@@ -127,6 +127,7 @@ export const DOM_IDS = {
   REPLAY_PLAY: 'replay-play',
   REPLAY_TURN_LABEL: 'replay-turn-label',
   REPLAY_EVENTS: 'replay-events',
+  REPLAY_HIGHLIGHTS: 'replay-highlights',
   REPLAY_CLOSE: 'replay-close',
 } as const;
 

@@ -30,6 +30,7 @@ import {
   type ReplayDump,
 } from '../systems/replay';
 import type { TelemetryEvent } from '../systems/telemetry';
+import { findReplayHighlights } from '../systems/endgame';
 import { closeModal, openModal } from './modals';
 import { render } from '../render/pixi';
 import { updateUI } from './topbar';
@@ -71,6 +72,7 @@ export function openReplayModal(): void {
   }
 
   refreshControls();
+  refreshHighlights();
   refreshEventPanel();
   openModal(DOM_IDS.REPLAY_MODAL);
 }
@@ -87,6 +89,7 @@ function closeAndRestore(): void {
   stash = null;
   currentReplay = null;
   currentIdx = 0;
+  refreshHighlights();
   closeModal(DOM_IDS.REPLAY_MODAL);
 }
 
@@ -157,6 +160,7 @@ function handleFileLoad(file: File): void {
         `Loaded ${replay.turns.length} snapshots · seed ${replay.seed} · faction ${replay.factionName}`
       );
       refreshControls();
+      refreshHighlights();
       refreshEventPanel();
     } catch (err) {
       const reason =
@@ -217,6 +221,43 @@ function refreshControls(): void {
   if (stepPrev) stepPrev.disabled = currentIdx === 0;
   if (stepNext) stepNext.disabled = currentIdx === max;
   if (playBtn) playBtn.disabled = currentIdx === max;
+}
+
+// S10 — render the "Pivots of the Cycle" strip: jump-to-turn buttons for
+// the player's first hearth, the first drum of war, the first new lore,
+// and the moment the banner settled. Hidden when no replay is loaded or
+// when no transitions are detected. Listeners attached directly to the
+// freshly-created buttons (rebuilt each refresh) — no inline onclick.
+function refreshHighlights(): void {
+  const strip = document.getElementById(DOM_IDS.REPLAY_HIGHLIGHTS);
+  if (!strip) return;
+  strip.innerHTML = '';
+  if (!currentReplay) {
+    strip.style.display = 'none';
+    return;
+  }
+  const highlights = findReplayHighlights(currentReplay);
+  if (highlights.length === 0) {
+    strip.style.display = 'none';
+    return;
+  }
+  strip.style.display = 'flex';
+  const header = document.createElement('div');
+  header.style.cssText =
+    'font-size:11px;color:var(--parchment-d);align-self:center;margin-right:4px;font-style:italic';
+  header.textContent = 'Pivots of the Cycle:';
+  strip.appendChild(header);
+  for (const h of highlights) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn small';
+    btn.textContent = h.label;
+    btn.addEventListener('click', () => {
+      stopPlayback();
+      scrubTo(h.snapshotIdx);
+    });
+    strip.appendChild(btn);
+  }
 }
 
 function refreshEventPanel(): void {

@@ -38,19 +38,26 @@ Every Cogfall session, in this order:
 
 ## Phase status
 
-- **Phase 1 + 2 (a–n3) + Phase 3 S1–S8 + S9a: shipped.**
-- **S9b is the next session** — alliances + persistent trade
-  agreements. S9a (one-shot trades + tribute) shipped through
-  `systems/diplomacy.ts` (pure eval/apply functions),
-  `ai/diploAI.ts` (`aiConsiderTrade` / `aiConsiderTribute` after the
-  peace ↔ war pass), `ui/diploModal.ts` (inline trade/tribute
-  action sub-panel), and `data/diplomacyVoice.ts` (per-faction
-  register for all new log lines). S9b introduces the `treaties`
-  array on G with additive serialization (item-8 precedent),
-  alliance breakage on either side suing peace, and alliance-aware
-  war-declaration in `aiDiplomacy`.
-- Then Tier 3 (S10 endgame polish), Tier 4 (S11 balance, S12 perf),
-  optional Tier 5 (eras, more factions, mods).
+- **Phase 1 + 2 (a–n3) + Phase 3 S1–S9 (S9a + S9b) + S10: shipped.**
+- **S11 is the next session** — second balance pass (Tier 4). The
+  candidates listed in `PHASE_3_ROADMAP.md` Session 11: differentiate
+  the gunpowder / aetherics / banking tech costs (all currently 100),
+  pick whether rivers earn movement / defense / yield (touches
+  decision-log item 5 — be careful), retune the S7 per-faction
+  victory thresholds against real playthroughs, and revisit the
+  cultural-vs-gold asymmetry. Use telemetry-driven AI-vs-AI batch
+  runs for fast iteration.
+- S10 (endgame polish) shipped a derivation-only `systems/endgame.ts`
+  module — `computeScoreBreakdown`, `computeRetroStats`,
+  `findReplayHighlights` — plus a "Final Accounting" /
+  "Steward's Ledger" section appended to the game-over modal (via
+  `breakdownAndStats()` alongside `scorecard()` in `systems/turn.ts`)
+  and a "Pivots of the Cycle" jump-button strip in `ui/replayModal.ts`.
+  No new persistent state, no SAVE_VERSION change. Also guarded
+  `runAITurn`'s think-spinner timer against the game-over race
+  (consistent with `endTurn:70`).
+- Then Tier 4 closes with S12 (perf + structural cleanup); optional
+  Tier 5 covers eras, more factions, mods.
 
 For per-session narrative, prefer `git log --oneline cogfall/` over
 re-deriving from any single doc — it's authoritative.

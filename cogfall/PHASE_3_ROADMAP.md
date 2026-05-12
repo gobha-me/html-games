@@ -243,6 +243,24 @@ up alliances + persistent treaties next session.
 
 **Risk:** low. Pure additive UI.
 
+**Shipped as S10:** consolidated into one pure-derivation module
+(`cogfall/src/systems/endgame.ts`) rather than three UI files —
+`computeScoreBreakdown`, `computeRetroStats`, `findReplayHighlights`.
+Wired into the existing `#game-over-modal` via a new
+`breakdownAndStats()` helper alongside `scorecard()` in `systems/turn.ts`
+(renders "The Final Accounting" table + a player-only "Steward's
+Ledger"), and into `ui/replayModal.ts` as a "Pivots of the Cycle"
+jump-button strip between the playback controls and the event panel.
+No new telemetry event kinds — score breakdown / retro stats query
+the live `G`, replay highlights scan `currentReplay.turns[]`
+snapshots; no SAVE_VERSION bump. Also patched a pre-existing AI
+think-spinner timer race so `runAITurn` short-circuits when
+`G.gameOver` (or test-teardown) clears state between schedule and
+callback. Voice copy ("Coin & Aether", "Banners & Engines",
+"Lore Mastered", "Hearths Held", "First Hearth", "The Banner Settles")
+matches the `data/factions.ts` / `data/diplomacyVoice.ts` cadence
+per the AGENTS.md voice discipline.
+
 ---
 
 ## Tier 4 — Quality & balance (Sessions 11–12)
