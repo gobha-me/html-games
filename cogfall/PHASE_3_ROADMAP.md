@@ -216,6 +216,16 @@ Math.random per item-2 carry-forward).
 **Risk:** medium-high. New subsystem, new save fields, new AI surface. May
 deserve splitting across two sessions if scope grows.
 
+**Shipped as S9a (one-shot exchanges):** gold-for-tech trades, gold-for-aether
+trades, and gold-tribute demands all resolve immediately through pure functions
+in `systems/diplomacy.ts`. AI calls them after the existing peace ↔ war pass
+in `diploAI.ts`; player UI calls them from `diploModal.ts`'s inline action
+sub-panel (Offer Trade…, Demand Tribute…). Per-faction voice for every new log
+line lives in `data/diplomacyVoice.ts`. No new persistent state, no
+SAVE_VERSION bump — only durable effect is a grudge bump on refusal. Decision-
+log item 15 in `core/state.ts` covers the contract. See PR for S9a; S9b picks
+up alliances + persistent treaties next session.
+
 ### Session 10 — Endgame polish
 
 **What:**

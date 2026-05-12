@@ -4,21 +4,39 @@
 //   - Score each known relationship and probabilistically transition
 //     peace ↔ war based on grudges, military ratio, personality aggression,
 //     and a cooldown after the last declaration.
+//   - Consider proposing a gold-for-tech trade or demanding tribute, after
+//     the peace/war pass so any war declared this turn rules out a trade.
 //   - Decay grudges by 1 per turn.
 //
 // aiTelegraph() emits a flavor-text warning to the player when the AI is
 // massing military units near them. Phase 2b: war/peace triggers, telegraph
 // trigger, and telegraph line pick all draw from the seeded game rng so a
-// recorded action stream replays identically.
+// recorded action stream replays identically. Phase 3 S9a: AI-initiated
+// trade and tribute draws also go through the seeded rng for the same
+// reason.
 
 import { hexDistance } from '../core/hex';
 import { log } from '../core/log';
 import { G, getCityAt } from '../core/state';
 import { getGameRng } from '../core/rng';
-import type { Faction } from '../core/types';
+import type { Faction, TechId } from '../core/types';
 import { UNIT_TYPES } from '../data/units';
+import { TECHS } from '../data/techs';
 import { AI_THINKING_LINES } from '../data/personalities';
+import { getDiplomacyVoice } from '../data/diplomacyVoice';
 import { aiFactionMilitaryStrength, effectiveAgg } from './strategy';
+import { resolveBehavior } from './behavior';
+import {
+  applyTrade,
+  applyTribute,
+  evaluateTrade,
+  evaluateTribute,
+  suggestedTechPrice,
+  suggestedTribute,
+  TRIBUTE_DEFIANCE_GRUDGE,
+  type TradeOffer,
+  type TributeDemand,
+} from '../systems/diplomacy';
 
 const WAR_DECLARATION_COOLDOWN_TURNS = 8;
 const WAR_DECLARATION_COOLDOWN_PENALTY = 50;
@@ -31,6 +49,15 @@ const TELEGRAPH_NEARBY_RADIUS = 5;
 const TELEGRAPH_REQUIRED_NEARBY = 2;
 const TELEGRAPH_CHANCE = 0.4;
 const TELEGRAPH_MIN_ATK = 4;
+
+// S9a — AI-initiated trade + tribute considerations. Kept rare so the
+// event log doesn't get spammed; the agg scalar weights tribute attempts
+// so Iron Legion demands more often than Verdant Pact.
+const AI_TRADE_CONSIDER_CHANCE = 0.05;
+const AI_TRIBUTE_CONSIDER_CHANCE = 0.06;
+const AI_TRIBUTE_MIN_RATIO = 1.5;
+const AI_MIN_GOLD_TO_OFFER = 300;
+const AI_TARGET_MIN_GOLD_FOR_TRIBUTE = 100;
 
 export function aiDiplomacy(faction: Faction): void {
   const mem = G.aiMemory[faction.idx];
@@ -85,9 +112,106 @@ export function aiDiplomacy(faction: Faction): void {
       }
     }
   }
+  // S9a — after war/peace updates settle, consider one-shot trades and
+  // tribute demands. Iterated separately so a freshly-declared war this
+  // turn rules out the proposal cleanly (the eval refuses 'hostile').
+  for (const other of G.factions) {
+    if (!other.alive || other.idx === faction.idx) continue;
+    aiConsiderTrade(faction, other);
+    aiConsiderTribute(faction, other);
+  }
+
   for (const k of Object.keys(mem.grudges)) {
     const idx = Number(k);
     mem.grudges[idx] = Math.max(0, (mem.grudges[idx] || 0) - 1);
+  }
+}
+
+function aiConsiderTrade(faction: Faction, other: Faction): void {
+  if (faction.diplo[other.idx] !== 'peace') return;
+  if (faction.resources.gold < AI_MIN_GOLD_TO_OFFER) return;
+  const rng = getGameRng();
+  if (rng() >= AI_TRADE_CONSIDER_CHANCE) return;
+
+  const candidates: TechId[] = [];
+  for (const t of other.techs) {
+    if (faction.techs.has(t)) continue;
+    candidates.push(t);
+  }
+  if (candidates.length === 0) return;
+  const techId = candidates[Math.floor(rng() * candidates.length)];
+  const ask = suggestedTechPrice(techId);
+  if (faction.resources.gold < ask) return;
+
+  const proposerStrength = aiFactionMilitaryStrength(faction.idx);
+  const targetStrength = aiFactionMilitaryStrength(other.idx);
+  const offer: TradeOffer = {
+    kind: 'gold_for_tech',
+    proposer: faction.idx,
+    target: other.idx,
+    goldOffered: ask,
+    techId,
+  };
+  const decision = evaluateTrade(
+    offer,
+    faction,
+    other,
+    proposerStrength,
+    targetStrength,
+    G.aiMemory[other.idx],
+    rng
+  );
+  const visible =
+    faction.idx === G.playerFactionIdx || other.idx === G.playerFactionIdx;
+  if (decision.accept) {
+    applyTrade(offer, faction, other);
+    log(getDiplomacyVoice(faction.id).weBought(other.name, TECHS[techId].name, ask), 'diplo', visible);
+  }
+  // Silent on refusal — refused offers happen often enough at the 5%
+  // chance + threshold-band rng that logging each would drown the
+  // other diplomacy events. Tribute refusals, which are louder events,
+  // do log.
+}
+
+function aiConsiderTribute(faction: Faction, other: Faction): void {
+  if (faction.diplo[other.idx] !== 'peace') return;
+  if (other.resources.gold < AI_TARGET_MIN_GOLD_FOR_TRIBUTE) return;
+  const proposerStrength = aiFactionMilitaryStrength(faction.idx);
+  const targetStrength = aiFactionMilitaryStrength(other.idx);
+  if (proposerStrength / Math.max(1, targetStrength) < AI_TRIBUTE_MIN_RATIO) return;
+
+  const beh = resolveBehavior(faction);
+  const rng = getGameRng();
+  // Aggression scales the consider chance — Iron Legion (agg 0.85) hits
+  // ~10% per turn per credible target; Verdant Pact (agg 0.15) ~2%.
+  if (rng() >= AI_TRIBUTE_CONSIDER_CHANCE * beh.agg * 2) return;
+
+  const demanded = suggestedTribute(other);
+  const demand: TributeDemand = {
+    demander: faction.idx,
+    target: other.idx,
+    goldDemanded: demanded,
+  };
+  const decision = evaluateTribute(
+    demand,
+    faction,
+    other,
+    proposerStrength,
+    targetStrength,
+    G.aiMemory[other.idx],
+    rng
+  );
+  const visible =
+    faction.idx === G.playerFactionIdx || other.idx === G.playerFactionIdx;
+  if (decision.accept) {
+    applyTribute(demand, faction, other);
+    log(getDiplomacyVoice(faction.id).weReceivedTribute(other.name, demanded), 'diplo', visible);
+  } else {
+    const memDem = G.aiMemory[faction.idx];
+    if (memDem) {
+      memDem.grudges[other.idx] = (memDem.grudges[other.idx] ?? 0) + TRIBUTE_DEFIANCE_GRUDGE;
+    }
+    log(getDiplomacyVoice(faction.id).ourTributeRefused(other.name), 'diplo', visible);
   }
 }
 

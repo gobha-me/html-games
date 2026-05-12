@@ -31,7 +31,7 @@ npm run lint
 ```
 
 ## Status
-Phase 3 in progress. Sessions S1–S8 shipped: animation event bus, per-faction AI dispatch + variety, scenario scaffold + three named scenarios (Aether Ascendancy, Steamguild Civil War, Coastal Conquest), faction-flavored victory paths, turn-end / tech-pop / unit-death animations. **Next: S9** — diplomacy depth (trade, alliances, tribute). See `PHASE_3_ROADMAP.md` for the full breakdown.
+Phase 3 in progress. Sessions S1–S8 + S9a shipped: animation event bus, per-faction AI dispatch + variety, scenario scaffold + three named scenarios (Aether Ascendancy, Steamguild Civil War, Coastal Conquest), faction-flavored victory paths, turn-end / tech-pop / unit-death animations, and one-shot diplomacy (gold-for-tech trades, gold-for-aether trades, tribute demands) with per-faction voice across every new log line. **Next: S9b** — alliances + persistent trade agreements (the treaty layer the S9a one-shots were a warmup for). See `PHASE_3_ROADMAP.md` for the full breakdown.
 
 ## File layout
 - `index.html` — entry point, game shell (top bar, bottom bar, canvas, SVG overlay, modals)

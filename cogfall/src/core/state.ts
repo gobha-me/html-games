@@ -195,6 +195,32 @@
 //     factions that don't override that field. Don't bypass the
 //     accessor with a direct const read; the cast lives in one place
 //     and call sites stay strict-typed.
+//
+// 15. One-shot diplomacy (Phase 3 S9a) — gold-for-tech trades,
+//     gold-for-aether trades, and gold-tribute demands resolve through
+//     `systems/diplomacy.ts` pure functions. Evaluation is split from
+//     application: `evaluateTrade` / `evaluateTribute` take Faction
+//     refs + strength scalars + an rng and return a `{accept, refusal,
+//     score}` decision; `applyTrade` / `applyTribute` mutate the two
+//     factions when the caller decides to apply. AI callers
+//     (`ai/diploAI.ts`'s `aiConsiderTrade` / `aiConsiderTribute`) pass
+//     `getGameRng()` so AI-initiated rolls stay on the seeded stream;
+//     player callers (`ui/diploModal.ts`) pass `Math.random` because
+//     player-initiated rolls must not consume the seeded RNG (item 2
+//     precedent — converting them breaks replay parity via a
+//     side-channel). The only durable state these mechanics produce is
+//     a grudge bump on refusal — both directions, both magnitudes
+//     exported as constants (`TRADE_REFUSAL_GRUDGE = 5`,
+//     `TRIBUTE_DEFIANCE_GRUDGE = 20`) so the AI ladder back to war
+//     stays observable from tests. **No new persistent state landed
+//     in S9a:** no `treaties` array on G, no SAVE_VERSION bump, no
+//     new Faction field. Per-faction voice for every player-facing log
+//     line lives in `data/diplomacyVoice.ts`, keyed by FactionId with
+//     a `genericVoice` fallback so a future sixth faction stays
+//     readable without a code change. S9b will introduce a `treaties`
+//     array additively (item-8 precedent) for alliances + ongoing
+//     trade agreements — don't pre-allocate the field here without a
+//     consumer; the byte-feel of the save format matters.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';

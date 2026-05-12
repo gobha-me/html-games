@@ -38,12 +38,17 @@ Every Cogfall session, in this order:
 
 ## Phase status
 
-- **Phase 1 + 2 (a–n3) + Phase 3 S1–S8: shipped.**
-- **S9 (diplomacy depth) is the next session** — Tier 3 work: trade
-  agreements (gold↔tech, gold↔resource), alliances, tribute. Extends
-  `ai/diploAI.ts`; new `systems/diplomacy.ts` + `ui/diplomacyPanel.ts`;
-  treaties array on `core/state.ts` (additive serialization). Per the
-  roadmap it may deserve splitting across two sessions if scope grows.
+- **Phase 1 + 2 (a–n3) + Phase 3 S1–S8 + S9a: shipped.**
+- **S9b is the next session** — alliances + persistent trade
+  agreements. S9a (one-shot trades + tribute) shipped through
+  `systems/diplomacy.ts` (pure eval/apply functions),
+  `ai/diploAI.ts` (`aiConsiderTrade` / `aiConsiderTribute` after the
+  peace ↔ war pass), `ui/diploModal.ts` (inline trade/tribute
+  action sub-panel), and `data/diplomacyVoice.ts` (per-faction
+  register for all new log lines). S9b introduces the `treaties`
+  array on G with additive serialization (item-8 precedent),
+  alliance breakage on either side suing peace, and alliance-aware
+  war-declaration in `aiDiplomacy`.
 - Then Tier 3 (S10 endgame polish), Tier 4 (S11 balance, S12 perf),
   optional Tier 5 (eras, more factions, mods).
 
@@ -75,16 +80,20 @@ Anchor phrases from the live game:
 
 **Implications for every content session:**
 
-- **S7 + S8 (shipped):** the chronicle-passage register for victory
-  endings (S7) and the hand-authored scenario prologues (S8) are the
-  reference for any future copy. If you add a new scenario or rewrite
-  a victory message, match the cadence in `data/factions.ts` →
-  `victoryProfile.flavorTemplates` and `data/scenarios.ts` →
-  `SCENARIOS[*].prologue`. Treat those strings as load-bearing.
-- **S9–S10 (next): every new UI surface gets a voice review before
+- **S7 + S8 + S9a (shipped):** the chronicle-passage register for
+  victory endings (S7), the hand-authored scenario prologues (S8),
+  and the per-faction diplomacy voice table (S9a, in
+  `data/diplomacyVoice.ts`) are the reference for any future copy.
+  If you add a new scenario or a new diplomacy event, match the
+  cadence in `data/factions.ts` → `victoryProfile.flavorTemplates`,
+  `data/scenarios.ts` → `SCENARIOS[*].prologue`, and
+  `data/diplomacyVoice.ts`. Treat those strings as load-bearing.
+- **S9b–S10 (next): every new UI surface gets a voice review before
   merge.** Generic placeholders ("Click here", "Trade Agreement #1")
-  break the spell. Diplomacy text especially — each faction's offers
-  and refusals should speak in its register (see below).
+  break the spell. Alliance text especially — each faction's offers,
+  acceptances, and breakages should speak in its register (the S9a
+  voice block is the model; extend it before adding new log
+  surfaces).
 - **Per-faction speech registers in `data/personalities.ts` /
   `data/factionBehaviors.ts`:** Aetheric Order speaks of ratios and
   proofs; Coalition of Coin in ledger terms; Iron Legion in martial

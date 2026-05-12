@@ -461,3 +461,190 @@ describe('personality cunning dim', () => {
     }
   });
 });
+
+describe('S9a — AI considers trade and tribute', () => {
+  let prevMap: GameMap | null;
+
+  function setupTwoFactionsAtPeace(personalityA: PersonalityId, personalityB: PersonalityId): void {
+    prevMap = G.map;
+    G.map = buildPlainsMap();
+    G.units = [];
+    G.cities = [];
+    G.factions = [makeFullFaction(0, personalityA), makeFullFaction(1, personalityB)];
+    G.factions[0].diplo[1] = 'peace';
+    G.factions[1].diplo[0] = 'peace';
+    G.aiMemory = {};
+    initAIMemory(asFactionIdx(0));
+    initAIMemory(asFactionIdx(1));
+    G.nextUnitId = 1;
+    G.nextCityId = 1;
+    G.turn = 30;
+    G.playerFactionIdx = asFactionIdx(0);
+    G.currentFactionIdx = asFactionIdx(0);
+    G.events = [];
+  }
+
+  afterEach(() => {
+    G.map = prevMap;
+  });
+
+  it('AI buys a tech it lacks given a willing seller and enough gold, deterministically', () => {
+    setupTwoFactionsAtPeace('industrial', 'economic');
+    G.factions[0].resources.gold = 2000;
+    G.factions[1].techs.add('metallurgy');
+    initGameRng(7);
+    const startingTechCount = G.factions[0].techs.size;
+    // Run aiDiplomacy for many turns under a single rng stream until a
+    // trade lands; at 5% per turn the expected wait is ~20 turns, well
+    // inside 200.
+    for (let i = 0; i < 200; i++) {
+      aiDiplomacy(G.factions[0]);
+      if (G.factions[0].techs.has('metallurgy')) break;
+    }
+    expect(G.factions[0].techs.has('metallurgy')).toBe(true);
+    expect(G.factions[0].techs.size).toBeGreaterThan(startingTechCount);
+    // Gold moved from buyer to seller.
+    expect(G.factions[0].resources.gold).toBeLessThan(2000);
+    expect(G.factions[1].resources.gold).toBeGreaterThan(0);
+  });
+
+  it('AI tribute eventually fires when ratio favors the demander', () => {
+    // Use 'economic' for the demander so its low agg (0.4) keeps it from
+    // declaring war at the modest military edge we set up. Iron Legion
+    // would jump straight to war at this ratio and skip the tribute path
+    // entirely. Ratio = 30:20 = 1.5, exactly meeting AI_TRIBUTE_MIN_RATIO
+    // and the eval's TRIBUTE_MIN_STRENGTH_RATIO (1.3) comfortably; war
+    // score = 0 + 12 + 25 = 37, well under WAR_THRESHOLD=60.
+    setupTwoFactionsAtPeace('economic', 'economic');
+    for (let i = 0; i < 6; i++) createUnit('COGMAN', asFactionIdx(0), 0, 0);
+    for (let i = 0; i < 4; i++) createUnit('COGMAN', asFactionIdx(1), 0, 0);
+    G.factions[1].resources.gold = 5000;
+    initGameRng(11);
+    let event: 'paid' | 'refused' | null = null;
+    for (let i = 0; i < 400; i++) {
+      const beforeLen = G.events.length;
+      aiDiplomacy(G.factions[0]);
+      const newlyAdded = G.events.length - beforeLen;
+      // log() unshifts — new entries land at indices [0, newlyAdded).
+      for (let k = 0; k < newlyAdded; k++) {
+        const msg = G.events[k].msg.toLowerCase();
+        if (msg.includes('tribute')) {
+          event = msg.includes('refuse') ? 'refused' : 'paid';
+          break;
+        }
+      }
+      if (event) break;
+    }
+    // Either branch is acceptable — the test only asserts the AI
+    // *attempts* tribute under these favorable conditions.
+    expect(event).not.toBeNull();
+  });
+
+  it('same seed + same setup produces identical AI diplomacy outcomes (replay parity)', () => {
+    function trialResult(): { techs: number; gold: number } {
+      setupTwoFactionsAtPeace('industrial', 'economic');
+      G.factions[0].resources.gold = 2000;
+      G.factions[1].techs.add('metallurgy');
+      initGameRng(99);
+      for (let i = 0; i < 80; i++) aiDiplomacy(G.factions[0]);
+      return {
+        techs: G.factions[0].techs.size,
+        gold: G.factions[0].resources.gold,
+      };
+    }
+    const a = trialResult();
+    const b = trialResult();
+    expect(a).toEqual(b);
+  });
+
+  it('AI does not trade with a faction it is at war with', () => {
+    setupTwoFactionsAtPeace('industrial', 'economic');
+    G.factions[0].diplo[1] = 'war';
+    G.factions[1].diplo[0] = 'war';
+    G.factions[0].resources.gold = 2000;
+    G.factions[1].techs.add('metallurgy');
+    initGameRng(3);
+    const startTechs = G.factions[0].techs.size;
+    const startGold = G.factions[0].resources.gold;
+    for (let i = 0; i < 80; i++) aiDiplomacy(G.factions[0]);
+    // Tech doesn't move; gold stays put (war shorts out the consider
+    // helper before any roll).
+    expect(G.factions[0].techs.size).toBe(startTechs);
+    expect(G.factions[0].resources.gold).toBe(startGold);
+  });
+
+  it('aggressive militaristic AI attempts tribute under credible threat', () => {
+    // Detect tribute fire by *state change* rather than substring on the
+    // voiced log line — refused-tribute copy ("refuses the writ", "laughs
+    // in your envoys' faces") doesn't always contain the literal word
+    // "tribute", so the string match is brittle. Gold delta (accept path)
+    // and grudge delta (refusal path) are the durable signals.
+    setupTwoFactionsAtPeace('militaristic', 'economic');
+    for (let i = 0; i < 6; i++) createUnit('COGMAN', asFactionIdx(0), 0, 0);
+    for (let i = 0; i < 4; i++) createUnit('COGMAN', asFactionIdx(1), 0, 0);
+    G.factions[1].resources.gold = 5000;
+    initGameRng(123);
+    const startTargetGold = G.factions[1].resources.gold;
+    const startDemanderGold = G.factions[0].resources.gold;
+    let refusedTributeCount = 0;
+    let lastGrudge = 0;
+    for (let i = 0; i < 50; i++) {
+      aiDiplomacy(G.factions[0]);
+      const grudge = G.aiMemory[0]?.grudges[1] ?? 0;
+      // Refusal bumps grudge by TRIBUTE_DEFIANCE_GRUDGE (20); turn decay
+      // shaves 1/turn, so net +19 the turn it fires.
+      if (grudge > lastGrudge + 10) refusedTributeCount++;
+      lastGrudge = grudge;
+      if (G.factions[0].diplo[1] === 'war') break;
+    }
+    const paidTribute = G.factions[0].resources.gold > startDemanderGold;
+    const targetGoldFell = G.factions[1].resources.gold < startTargetGold;
+    // Either branch is enough to prove the path runs.
+    expect(refusedTributeCount > 0 || paidTribute || targetGoldFell).toBe(true);
+  });
+});
+
+describe('S9a — diplomacy voice coverage', () => {
+  it('every shipped FactionId has a hand-authored voice block', async () => {
+    // Guards against a future faction landing in FACTIONS without a
+    // matching voice entry — the AGENTS.md "voice is the moat" rule
+    // says every player-facing copy site must speak in faction
+    // register, so a missing entry should fail CI.
+    const { FACTIONS } = await import('../src/data/factions');
+    const { getDiplomacyVoice } = await import('../src/data/diplomacyVoice');
+    for (const def of FACTIONS) {
+      const v = getDiplomacyVoice(def.id);
+      // Spot-check that the canned strings interpolate without referencing
+      // the generic fallback (which uses bland phrasing the regex below
+      // catches).
+      const sample = v.weBought('Test', 'Test Tech', 100);
+      expect(sample.length).toBeGreaterThan(30);
+      expect(sample).not.toMatch(/^They acquired /);
+    }
+  });
+
+  it('each faction speaks in a distinguishable register', async () => {
+    // Light fingerprint: each faction's `weBought` line should contain
+    // at least one anchor word from its register. Catches a future
+    // refactor that accidentally collapses all factions to the same
+    // boilerplate copy.
+    const { getDiplomacyVoice } = await import('../src/data/diplomacyVoice');
+    const anchors: Record<string, RegExp> = {
+      aetheric: /vault|proof|ratio|lattice|adept|order/i,
+      coin: /ledger|coalition|counting|contract|coin|column/i,
+      iron: /legion|drum|steel|armour|edict|martial|sword|iron/i,
+      verdant: /pact|moss|root|grove|season|forest|seed/i,
+      cogwright: /guild|gear|ratchet|mechanism|workshop|spring|tool|cog/i,
+    };
+    for (const [id, anchor] of Object.entries(anchors)) {
+      const v = getDiplomacyVoice(id as Parameters<typeof getDiplomacyVoice>[0]);
+      const sample =
+        v.weBought('X', 'Y', 1) +
+        ' ' +
+        v.sellTech('Y', 1) +
+        ' ' +
+        v.refuseTradeTooLow();
+      expect(sample, `Voice for ${id} should reference its register`).toMatch(anchor);
+    }
+  });
+});
