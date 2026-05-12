@@ -38,14 +38,14 @@ Every Cogfall session, in this order:
 
 ## Phase status
 
-- **Phase 1 + 2 (a–n3) + Phase 3 S1–S6: shipped.**
-- **S7 (faction-flavored victory paths) is the next session** — last
-  Tier 2 (distinctiveness) item; builds on the S2 AI behavior resolver
-  and the `victoryOverrides` type stub already in
-  [`src/data/scenarios.ts`](src/data/scenarios.ts).
-- Then Tier 3 (S8 scenarios content, S9 diplomacy depth, S10 endgame
-  polish), Tier 4 (S11 balance, S12 perf), optional Tier 5 (eras, more
-  factions, mods).
+- **Phase 1 + 2 (a–n3) + Phase 3 S1–S8: shipped.**
+- **S9 (diplomacy depth) is the next session** — Tier 3 work: trade
+  agreements (gold↔tech, gold↔resource), alliances, tribute. Extends
+  `ai/diploAI.ts`; new `systems/diplomacy.ts` + `ui/diplomacyPanel.ts`;
+  treaties array on `core/state.ts` (additive serialization). Per the
+  roadmap it may deserve splitting across two sessions if scope grows.
+- Then Tier 3 (S10 endgame polish), Tier 4 (S11 balance, S12 perf),
+  optional Tier 5 (eras, more factions, mods).
 
 For per-session narrative, prefer `git log --oneline cogfall/` over
 re-deriving from any single doc — it's authoritative.
@@ -75,15 +75,16 @@ Anchor phrases from the live game:
 
 **Implications for every content session:**
 
-- **S7 (next): faction-flavored victory copy is high-leverage.** Each
-  ending should read like a chronicle passage, not a banner. "Iron
-  Legion wins by domination" is wrong; write what the chronicler in
-  100 years inscribes about how the Steel Throne was forged.
-- **S8 (scenarios):** hand-author each scenario's opening prologue in
-  the same register as `data/personalities.ts` flavor.
-- **S9–S10:** every new UI surface gets a voice review before merge.
-  Generic placeholders ("Click here", "Trade Agreement #1") break the
-  spell.
+- **S7 + S8 (shipped):** the chronicle-passage register for victory
+  endings (S7) and the hand-authored scenario prologues (S8) are the
+  reference for any future copy. If you add a new scenario or rewrite
+  a victory message, match the cadence in `data/factions.ts` →
+  `victoryProfile.flavorTemplates` and `data/scenarios.ts` →
+  `SCENARIOS[*].prologue`. Treat those strings as load-bearing.
+- **S9–S10 (next): every new UI surface gets a voice review before
+  merge.** Generic placeholders ("Click here", "Trade Agreement #1")
+  break the spell. Diplomacy text especially — each faction's offers
+  and refusals should speak in its register (see below).
 - **Per-faction speech registers in `data/personalities.ts` /
   `data/factionBehaviors.ts`:** Aetheric Order speaks of ratios and
   proofs; Coalition of Coin in ledger terms; Iron Legion in martial
@@ -117,10 +118,15 @@ Highlights:
   emit; render-side subscribes. Pixi-free leaf module.
 - Per-faction AI behavior (item 11) — read scalars via
   `resolveBehavior(faction)`, never `PERSONALITIES[...]` directly.
-- Scenario system (item 12) — registry empty in S3; `startBuildings`
-  and `victoryOverrides` are type-only until S7/S8 wire them.
+- Scenario system (item 12) — three shipped scenarios pin `seed`;
+  cosmetic overrides (`nameOverride`/`colorOverride`/`glyphOverride`)
+  re-skin without changing the underlying FactionDef; `startBuildings`
+  and `victoryOverrides` remain type-only.
 - Replay log cap (item 13) — `MAX_REPLAY_TURNS = 200`; don't remove
   without a fresh memory budget.
+- Per-faction victory profile (item 14) — read via
+  `getVictoryProfile(idx)`, never `FACTIONS[idx].victoryProfile`
+  directly.
 
 When a new "kept on purpose" choice lands, extend the block. Don't
 bypass.

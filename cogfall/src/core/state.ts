@@ -110,28 +110,51 @@
 //     through the resolver so S7 (faction-flavored victories) can plug
 //     in overrides without re-wiring every call site.
 //
-// 12. Scenario system (Phase 3 S3) lives in `data/scenarios.ts`. The
-//     SCENARIOS registry ships *empty* in S3 — only "Random map" appears
-//     in the setup dropdown — so the random-map code path stays in
-//     charge on every code path until Session 8 authors entries.
-//     `getScenario(id)` returns null on null/empty/unknown so the
+// 12. Scenario system (Phase 3 S3 scaffold, S8 content) lives in
+//     `data/scenarios.ts`. S8 populated the registry with three named
+//     scenarios — Aether Ascendancy, Steamguild Civil War, Coastal
+//     Conquest — each with a pinned `seed: number` so hand-picked start
+//     coords stay walkable across machines and replays. The typedef
+//     keeps `seed?` for test fixtures, but every shipped scenario sets
+//     it. `getScenario(id)` returns null on null/empty/unknown so the
 //     setup-flow caller branches uniformly with `if (scenario)`.
 //     `resolveScenarioStarts` is pure (no G access, no RNG draws) and
 //     throws on off-map / unwalkable coords so authoring bugs surface
-//     at setup. `setupGame()` lets `mapGenOverrides` fall through
-//     field-by-field over the form picks, forces controlMode='single',
-//     and validates the player's faction is in scenario.factions BEFORE
-//     any state mutation. Per-faction `startTechs` append to the default
-//     FactionDef techs after createFaction — they don't replace.
-//     `G.scenarioId: string | null` persists additively in
-//     SerializedGameState (precedent: item 8 — pre-S3 v5 saves load
-//     with scenarioId coalesced to null). Two ScenarioDef fields are
-//     intentionally *type-only* in S3: `startBuildings` (S8 wires when
-//     its scenario content needs pre-placed improvements) and
-//     `victoryOverrides` (S7 designs the concrete shape when faction-
-//     flavored victories land). Don't add consumers for either without
-//     a real scenario need — the type stub keeps the shape stable
-//     across S7/S8 without dead code paths.
+//     at setup; a per-scenario test in `tests/scenarios.test.ts` runs
+//     this check across SCENARIOS so a future mapgen drift fails CI
+//     loudly with the scenario id rather than at runtime. `setupGame()`
+//     lets `mapGenOverrides` fall through field-by-field over the form
+//     picks, uses `scenario.seed` over the form seed when present,
+//     forces controlMode='single', and validates the player's faction
+//     is in scenario.factions BEFORE any state mutation. Per-faction
+//     `startTechs` append to the default FactionDef techs after
+//     createFaction — they don't replace. `G.scenarioId: string | null`
+//     persists additively in SerializedGameState (precedent: item 8 —
+//     pre-S3 v5 saves load with scenarioId coalesced to null).
+//
+//     S8 also added three optional cosmetic-overlay fields on
+//     `ScenarioFactionStart` — `nameOverride`, `colorOverride`,
+//     `glyphOverride` — so two entries can share an `idx` while
+//     rendering distinctly. Steamguild Civil War uses this to seat two
+//     Cogwright factions; the underlying FactionDef is unchanged, so
+//     AI behavior, victoryProfile, and base startTechs all flow
+//     through to both. When a scenario seats duplicate FactionIdx
+//     values, the *first* scenario.factions entry whose `idx` matches
+//     the player's pick becomes the human seat; subsequent matches
+//     force AI (deterministic tiebreak — see systems/setup.ts).
+//
+//     `prologue: string` is required on every shipped scenario. It's
+//     emitted via `log(prologue, 'flavor')` before
+//     `recordReplaySnapshot` so the opening narration is captured in
+//     the turn-1 snapshot. A test asserts prologue length ≥ 80 chars
+//     as a cheap voice floor — placeholder one-liners fail.
+//
+//     `startBuildings` and `victoryOverrides` remained type-only
+//     through S8 — S7 routed faction-flavored victory work through
+//     `factions.ts:victoryProfile` instead, and none of the three
+//     scenarios needed pre-placed improvements. Don't add consumers
+//     for either without a real scenario need; the type stubs keep
+//     the shape stable for future work.
 //
 // 13. Replay log cap (post-S3 crash fix). `recordReplaySnapshot` in
 //     `systems/replay.ts` appends a full SerializedGameState every

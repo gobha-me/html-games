@@ -146,20 +146,35 @@ export function setupGame(): void {
   G.attackTargets = [];
 
   // RNG: stamp the seed and initialise the game rng *before* mapgen so the
-  // world is fully reproducible from this seed alone.
-  G.seed = getSetupSeed();
+  // world is fully reproducible from this seed alone. Shipped scenarios
+  // pin their seed so hand-picked start coords resolve to walkable tiles
+  // every time; without a pinned seed (test fixtures), fall through to
+  // the form seed.
+  G.seed = scenario?.seed ?? getSetupSeed();
   initGameRng(G.seed);
 
   G.map = generateMap(mapSize, getGameRng(), { waterLevel, resourceDensity });
 
   if (scenario) {
-    // Scenario roster: factions are pushed in scenario.factions order;
-    // the human is whichever entry matches playerPoolIdx (validated above).
-    // controlMode forced to 'single' — multi-human scenarios are S8's call.
+    // Scenario roster: factions are pushed in scenario.factions order.
+    // Human-seat rule: the *first* entry whose idx matches the player's
+    // pick becomes human; later matches with the same idx force AI.
+    // Deterministic tiebreak so duplicate-idx scenarios (e.g. Steamguild
+    // Civil War's two Cogwright entries) have a single, replay-stable
+    // owner for the human seat. controlMode forced to 'single' —
+    // multi-human scenarios remain out of scope.
+    let humanSeatTaken = false;
     scenario.factions.forEach((s, gameIdx) => {
       const def = FACTIONS[s.idx] as unknown as FactionDef;
-      const isAI = s.idx !== (playerPoolIdx as FactionIdx);
-      const f = createFaction(def, isAI, gameIdx);
+      const claimsHumanSeat = s.idx === (playerPoolIdx as FactionIdx) && !humanSeatTaken;
+      if (claimsHumanSeat) humanSeatTaken = true;
+      const f = createFaction(def, !claimsHumanSeat, gameIdx);
+      // Visual-only overrides: re-skin name/color/glyph without changing
+      // the underlying FactionDef (`idx`) — AI behavior, victoryProfile,
+      // and default startTechs all still resolve through idx.
+      if (s.nameOverride) f.name = s.nameOverride;
+      if (s.colorOverride) f.color = s.colorOverride;
+      if (s.glyphOverride) f.glyph = s.glyphOverride;
       if (s.startTechs) {
         for (const t of s.startTechs) f.techs.add(t as TechId);
       }
@@ -270,6 +285,13 @@ export function setupGame(): void {
   for (const u of G.units.filter((u) => u.factionIdx === G.playerFactionIdx)) {
     u.mp = UNIT_TYPES[u.typeId].mp;
   }
+
+  // Scenario prologue: pushed into G.events *before* the turn-1 replay
+  // snapshot so the opening narration is captured in the snapshot and a
+  // replay scrubbed back to turn 1 still shows the prologue. Standard
+  // "Awakening begins" / "Your goal" messages still emit after the
+  // snapshot for non-scenario games (byte-equal to pre-S8).
+  if (scenario) log(scenario.prologue, 'flavor');
 
   // Phase 2k: turn-1 baseline snapshot. The endTurn hook records every
   // subsequent game-turn boundary, but turn 1 needs an explicit capture
