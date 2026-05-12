@@ -16,6 +16,8 @@ import { killUnit, moveUnit } from './movement';
 import { playSfx } from './audio';
 import { recordTelemetry } from './telemetry';
 import { emit } from '../render/animations';
+import { breakTradeAgreementsOnWar, dissolveTreatiesOnDeath } from './diplomacy';
+import { getDiplomacyVoice } from '../data/diplomacyVoice';
 
 const FORTIFY_DEF_BONUS = 0.3;
 const CITY_DEF_BONUS_BASE = 0.25;
@@ -248,6 +250,18 @@ export function autoDeclare(a: FactionIdx, b: FactionIdx): void {
   if (fa.diplo[b] !== 'war') {
     fa.diplo[b] = 'war';
     fb.diplo[a] = 'war';
+    // S9b: war between trade partners breaks any persistent agreement
+    // between them. Alliances are NOT touched here — the mutual-pact
+    // seam survives war declarations against parties outside the pact.
+    const broken = breakTradeAgreementsOnWar(G, a, b);
+    for (const t of broken) {
+      if (t.kind !== 'trade_agreement') continue;
+      log(
+        getDiplomacyVoice(fa.id).tradeAgreementBroken(fb.name, 'war'),
+        'diplo',
+        a === G.playerFactionIdx || b === G.playerFactionIdx
+      );
+    }
     log(
       `${fa.name} and ${fb.name} are at war!`,
       'warning',
@@ -304,6 +318,49 @@ export function eliminateFaction(factionIdx: FactionIdx): void {
       if (t.unitId != null) {
         const u = G.units.find((uu) => uu.id === t.unitId);
         if (!u) t.unitId = null;
+      }
+    }
+  }
+  // S9b: dissolve every treaty involving the dead faction. Alliances
+  // naming the dead faction as the common enemy collapse too — the pact
+  // is vacuous without the foe. Voice routes through the surviving
+  // party where possible (dead factions cannot speak); when both parties
+  // of an alliance survive (dead faction was the enemy), pick partyA
+  // for the voice — both heard the same news.
+  const dissolved = dissolveTreatiesOnDeath(G, factionIdx);
+  for (const t of dissolved) {
+    if (t.kind === 'alliance') {
+      if (t.enemy === factionIdx) {
+        const a = G.factions[t.partyA];
+        const b = G.factions[t.partyB];
+        if (a && b) {
+          log(
+            getDiplomacyVoice(a.id).allianceBroken(b.name, f.name),
+            'diplo',
+            t.partyA === G.playerFactionIdx || t.partyB === G.playerFactionIdx
+          );
+        }
+      } else {
+        const survivorIdx = t.partyA === factionIdx ? t.partyB : t.partyA;
+        const survivor = G.factions[survivorIdx];
+        const enemy = G.factions[t.enemy];
+        if (survivor && enemy) {
+          log(
+            getDiplomacyVoice(survivor.id).allianceBroken(f.name, enemy.name),
+            'diplo',
+            survivorIdx === G.playerFactionIdx
+          );
+        }
+      }
+    } else {
+      const partnerIdx = t.provider === factionIdx ? t.consumer : t.provider;
+      const partner = G.factions[partnerIdx];
+      if (partner) {
+        log(
+          getDiplomacyVoice(partner.id).tradeAgreementBroken(f.name, 'partner_lost'),
+          'diplo',
+          partnerIdx === G.playerFactionIdx
+        );
       }
     }
   }

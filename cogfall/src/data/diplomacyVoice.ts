@@ -29,6 +29,14 @@
 
 import type { FactionId } from './factions';
 
+export type TradeAgreementBreakReason =
+  | 'completed'
+  | 'failed_to_deliver'
+  | 'failed_to_pay'
+  | 'war'
+  | 'cancelled'
+  | 'partner_lost';
+
 export interface Voice {
   /** AI bought a tech. Speaker = the buyer (this faction). */
   weBought: (sellerName: string, techName: string, gold: number) => string;
@@ -50,6 +58,36 @@ export interface Voice {
   refuseTributeDefiant: () => string;
   /** Player's tribute demand refused — not credibly threatened. */
   refuseTributeUnafraid: () => string;
+  // --- S9b: persistent treaties ----------------------------------------
+  /** AI-initiated alliance formed. Speaker = the proposer (this faction). */
+  proposeAlliance: (partnerName: string, enemyName: string) => string;
+  /** Player proposed an alliance; speaker accepts. Speaker = this faction. */
+  acceptAlliance: (partnerName: string, enemyName: string) => string;
+  /** Player proposed an alliance; speaker refuses. Speaker = this faction. */
+  refuseAlliance: (partnerName: string, enemyName: string) => string;
+  /** Alliance breaks (peace was struck with the named enemy). Speaker =
+   *  the side describing the breakage (the faction that sued peace or
+   *  the partner watching it happen). */
+  allianceBroken: (partnerName: string, enemyName: string) => string;
+  /** AI-initiated trade agreement formed. Speaker = the proposer. */
+  proposeTradeAgreement: (
+    partnerName: string,
+    amount: number,
+    gold: number,
+    turns: number
+  ) => string;
+  /** Player proposed an agreement; speaker accepts. */
+  acceptTradeAgreement: (
+    partnerName: string,
+    amount: number,
+    gold: number,
+    turns: number
+  ) => string;
+  /** Player proposed an agreement; speaker refuses. */
+  refuseTradeAgreement: (partnerName: string) => string;
+  /** A persistent trade agreement ended. Speaker = the faction noting
+   *  the event from its side; reason discriminates the flavor. */
+  tradeAgreementBroken: (partnerName: string, reason: TradeAgreementBreakReason) => string;
 }
 
 const aetheric: Voice = {
@@ -73,6 +111,36 @@ const aetheric: Voice = {
     `The Order weighs the equation and finds defiance sustainable. They pay nothing.`,
   refuseTributeUnafraid: () =>
     `The Order's auguries find no edge in your favour; they ignore the demand.`,
+  proposeAlliance: (partner, enemy) =>
+    `The Aetheric Order proves common ratio with ${partner} against ${enemy} — banners drawn together along the lattice.`,
+  acceptAlliance: (partner, enemy) =>
+    `The Order assents to ${partner}'s proof: with them, against ${enemy}, the equation holds.`,
+  refuseAlliance: (partner, _enemy) =>
+    `The Order reads ${partner}'s proposal and finds the ratios uncertain. They will not bind themselves.`,
+  allianceBroken: (partner, enemy) =>
+    `The pact with ${partner} against ${enemy} fails its proof and unravels.`,
+  proposeTradeAgreement: (partner, amount, gold, turns) =>
+    `The Order opens a steady current from ${partner}: ${amount} aether per turn against ${gold} gold, ${turns} cycles in all.`,
+  acceptTradeAgreement: (partner, amount, gold, turns) =>
+    `The Order assents to ${partner}'s contract: ${amount} aether per turn at ${gold} gold, balanced across ${turns} cycles.`,
+  refuseTradeAgreement: (partner) =>
+    `The Order's calculations leave no room for ${partner}'s proposal.`,
+  tradeAgreementBroken: (partner, reason) => {
+    switch (reason) {
+      case 'completed':
+        return `The Order's contract with ${partner} runs its course — the lattice was balanced, the ledger settled.`;
+      case 'failed_to_deliver':
+        return `The Order's aether stores fall short — the contract with ${partner} dissolves under the strain.`;
+      case 'failed_to_pay':
+        return `${partner}'s gold falters; the Order closes the contract.`;
+      case 'war':
+        return `The Order severs the line to ${partner} under banners drawn.`;
+      case 'cancelled':
+        return `The Order withdraws from its contract with ${partner}.`;
+      case 'partner_lost':
+        return `${partner} is no more; the Order's contract joins the void.`;
+    }
+  },
 };
 
 const coin: Voice = {
@@ -96,6 +164,36 @@ const coin: Voice = {
     `The Coalition's syndics read your demand, laugh, and file it under "vexatious".`,
   refuseTributeUnafraid: () =>
     `The Coalition writes the cost of paying you, and the cost of ignoring you. The columns favour silence.`,
+  proposeAlliance: (partner, enemy) =>
+    `The Coalition strikes a clause with ${partner} against ${enemy} — co-signed and sealed in the great ledger.`,
+  acceptAlliance: (partner, enemy) =>
+    `The Coalition's syndics countersign: with ${partner}, against ${enemy}, the contract holds.`,
+  refuseAlliance: (partner, _enemy) =>
+    `The Coalition reviews ${partner}'s clauses, finds the risk too dear, and declines.`,
+  allianceBroken: (partner, enemy) =>
+    `The clause with ${partner} against ${enemy} is struck through. The ledger remembers.`,
+  proposeTradeAgreement: (partner, amount, gold, turns) =>
+    `The Coalition contracts ${amount} aether per turn from ${partner} at ${gold} gold per turn, ${turns} turns — terms standard.`,
+  acceptTradeAgreement: (partner, amount, gold, turns) =>
+    `The Coalition seals it with ${partner}: ${amount} aether, ${gold} gold, ${turns} turns. Both columns balanced.`,
+  refuseTradeAgreement: (partner) =>
+    `The Coalition's clerks tap the columns — ${partner}'s offer is short. No contract.`,
+  tradeAgreementBroken: (partner, reason) => {
+    switch (reason) {
+      case 'completed':
+        return `The Coalition's contract with ${partner} closes on schedule. Both ledgers reconciled.`;
+      case 'failed_to_deliver':
+        return `The Coalition cannot meet the aether quota — the contract with ${partner} falls void.`;
+      case 'failed_to_pay':
+        return `${partner}'s gold runs dry; the Coalition tears up the contract.`;
+      case 'war':
+        return `War nullifies the Coalition's contract with ${partner}.`;
+      case 'cancelled':
+        return `The Coalition voids its contract with ${partner}.`;
+      case 'partner_lost':
+        return `${partner} is gone; the contract passes into the dead-letter ledger.`;
+    }
+  },
 };
 
 const iron: Voice = {
@@ -119,6 +217,36 @@ const iron: Voice = {
     `The Legion answers your demand by drawing steel. They pay in nothing but warning.`,
   refuseTributeUnafraid: () =>
     `The Legion measures your banners against theirs and finds you small. The drums do not even sound.`,
+  proposeAlliance: (partner, enemy) =>
+    `The Iron Legion forges common steel with ${partner} against ${enemy}. The drums beat together.`,
+  acceptAlliance: (partner, enemy) =>
+    `The Legion takes the oath with ${partner} — the drums of ${enemy} will answer in time.`,
+  refuseAlliance: (partner, _enemy) =>
+    `The Legion's captains will not stoop to ${partner}'s bargain.`,
+  allianceBroken: (partner, enemy) =>
+    `The oath with ${partner} against ${enemy} is shattered. The drums fall silent.`,
+  proposeTradeAgreement: (partner, amount, gold, turns) =>
+    `The Legion will take ${amount} aether per turn from ${partner} at ${gold} gold, ${turns} cycles — bond by oath.`,
+  acceptTradeAgreement: (partner, amount, gold, turns) =>
+    `The Legion sets its mark with ${partner}: ${amount} aether, ${gold} gold, ${turns} turns. Strong steel, fair coin.`,
+  refuseTradeAgreement: (partner) =>
+    `The Legion's quartermasters spit. ${partner}'s terms are unfit for iron.`,
+  tradeAgreementBroken: (partner, reason) => {
+    switch (reason) {
+      case 'completed':
+        return `The Legion's pact with ${partner} reaches its full count. Both kept faith.`;
+      case 'failed_to_deliver':
+        return `The Legion cannot deliver — the bond with ${partner} breaks like brittle iron.`;
+      case 'failed_to_pay':
+        return `${partner}'s coin falters; the Legion withdraws its hand.`;
+      case 'war':
+        return `Steel cuts the Legion's bond with ${partner}. War now.`;
+      case 'cancelled':
+        return `The Legion strikes its own oath with ${partner} — the drum knows.`;
+      case 'partner_lost':
+        return `${partner} falls. The Legion's bond passes into elegy.`;
+    }
+  },
 };
 
 const verdant: Voice = {
@@ -142,6 +270,36 @@ const verdant: Voice = {
     `The Pact stands in the grove and refuses. Take the gold from us if you can — but the roots are old, and they hold.`,
   refuseTributeUnafraid: () =>
     `The Pact watches your banners pass and does not stir. There is no winter in your shadow.`,
+  proposeAlliance: (partner, enemy) =>
+    `The Verdant Pact roots a shared cause with ${partner} against ${enemy} — let the season turn together.`,
+  acceptAlliance: (partner, enemy) =>
+    `The Pact accepts ${partner}'s offering: against ${enemy}, the grove stands.`,
+  refuseAlliance: (partner, _enemy) =>
+    `The Pact's elders bow heads. ${partner}'s alliance is not in season.`,
+  allianceBroken: (partner, enemy) =>
+    `The shared roots with ${partner} against ${enemy} wither and break.`,
+  proposeTradeAgreement: (partner, amount, gold, turns) =>
+    `The Pact tends a steady flow from ${partner} — ${amount} aether per season at ${gold} gold, ${turns} seasons in all.`,
+  acceptTradeAgreement: (partner, amount, gold, turns) =>
+    `The Pact says yes to ${partner}: ${amount} aether, ${gold} gold, ${turns} turns. The grove will sustain it.`,
+  refuseTradeAgreement: (partner) =>
+    `The Pact returns ${partner}'s offering-bowl empty. The terms are barren.`,
+  tradeAgreementBroken: (partner, reason) => {
+    switch (reason) {
+      case 'completed':
+        return `The Pact's seasons with ${partner} complete. The grove rests.`;
+      case 'failed_to_deliver':
+        return `The aether-springs run dry; the Pact's bond with ${partner} withers.`;
+      case 'failed_to_pay':
+        return `${partner}'s coin fails. The Pact lets the agreement return to the moss.`;
+      case 'war':
+        return `War poisons the grove. The Pact severs from ${partner}.`;
+      case 'cancelled':
+        return `The Pact untangles its roots from ${partner}. The season passes.`;
+      case 'partner_lost':
+        return `${partner} fades from the map. The Pact composts the agreement.`;
+    }
+  },
 };
 
 const cogwright: Voice = {
@@ -165,6 +323,36 @@ const cogwright: Voice = {
     `The Guild's wardens turn the demand to scrap and feed it back into the forge.`,
   refuseTributeUnafraid: () =>
     `The Guild reads your strength against the engine's load and finds it under tolerance. The demand is shelved.`,
+  proposeAlliance: (partner, enemy) =>
+    `The Cogwright Guild meshes gears with ${partner} against ${enemy} — pinions locked, advance synchronised.`,
+  acceptAlliance: (partner, enemy) =>
+    `The Guild accepts ${partner}'s spec: with them, against ${enemy}, the engine drives forward.`,
+  refuseAlliance: (partner, _enemy) =>
+    `The Guild's masters lay down the calipers. ${partner}'s alliance does not meet specification.`,
+  allianceBroken: (partner, enemy) =>
+    `The pact with ${partner} against ${enemy} is dismantled. Gears disengage.`,
+  proposeTradeAgreement: (partner, amount, gold, turns) =>
+    `The Guild fabricates a contract: ${amount} aether per turn from ${partner} at ${gold} gold, ${turns} turns — tolerances tight.`,
+  acceptTradeAgreement: (partner, amount, gold, turns) =>
+    `The Guild signs off with ${partner}: ${amount} aether, ${gold} gold, ${turns} turns. All within tolerance.`,
+  refuseTradeAgreement: (partner) =>
+    `The Guild's masters reject the spec. ${partner}'s terms misalign.`,
+  tradeAgreementBroken: (partner, reason) => {
+    switch (reason) {
+      case 'completed':
+        return `The Guild's contract with ${partner} reaches end-of-run. Mechanism honoured.`;
+      case 'failed_to_deliver':
+        return `The Guild's aether vials run dry — the contract with ${partner} seizes.`;
+      case 'failed_to_pay':
+        return `${partner}'s coin jams the mechanism. The Guild halts the contract.`;
+      case 'war':
+        return `War throws the Guild's mechanism out of true with ${partner}.`;
+      case 'cancelled':
+        return `The Guild dismantles the contract with ${partner}.`;
+      case 'partner_lost':
+        return `${partner} is gone. The Guild scraps the contract for parts.`;
+    }
+  },
 };
 
 const VOICE_BY_FACTION: Record<FactionId, Voice> = {
@@ -192,6 +380,34 @@ const genericVoice: Voice = {
   refuseTradeHostile: () => `They will not deal with you.`,
   refuseTributeDefiant: () => `They refuse to pay tribute.`,
   refuseTributeUnafraid: () => `They do not fear you enough to pay tribute.`,
+  proposeAlliance: (partner, enemy) =>
+    `They strike an alliance with ${partner} against ${enemy}.`,
+  acceptAlliance: (partner, enemy) =>
+    `They accept the alliance with ${partner} against ${enemy}.`,
+  refuseAlliance: (partner) => `They refuse ${partner}'s alliance.`,
+  allianceBroken: (partner, enemy) =>
+    `Their alliance with ${partner} against ${enemy} dissolves.`,
+  proposeTradeAgreement: (partner, amount, gold, turns) =>
+    `They negotiate ${amount} aether/turn from ${partner} for ${gold} gold, ${turns} turns.`,
+  acceptTradeAgreement: (partner, amount, gold, turns) =>
+    `They accept ${partner}'s agreement: ${amount} aether, ${gold} gold, ${turns} turns.`,
+  refuseTradeAgreement: (partner) => `They refuse ${partner}'s agreement.`,
+  tradeAgreementBroken: (partner, reason) => {
+    switch (reason) {
+      case 'completed':
+        return `The agreement with ${partner} ends.`;
+      case 'failed_to_deliver':
+        return `They cannot deliver — the agreement with ${partner} fails.`;
+      case 'failed_to_pay':
+        return `${partner} cannot pay — the agreement ends.`;
+      case 'war':
+        return `War ends the agreement with ${partner}.`;
+      case 'cancelled':
+        return `They cancel the agreement with ${partner}.`;
+      case 'partner_lost':
+        return `${partner} is gone — the agreement ends.`;
+    }
+  },
 };
 
 export function getDiplomacyVoice(id: FactionId): Voice {

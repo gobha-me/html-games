@@ -217,10 +217,70 @@
 //     new Faction field. Per-faction voice for every player-facing log
 //     line lives in `data/diplomacyVoice.ts`, keyed by FactionId with
 //     a `genericVoice` fallback so a future sixth faction stays
-//     readable without a code change. S9b will introduce a `treaties`
-//     array additively (item-8 precedent) for alliances + ongoing
-//     trade agreements — don't pre-allocate the field here without a
-//     consumer; the byte-feel of the save format matters.
+//     readable without a code change. S9b lands the `treaties` array
+//     (item 16 below) for alliances + ongoing trade agreements.
+//
+// 16. Persistent diplomacy treaties (Phase 3 S9b) — `G.treaties: Treaty[]`
+//     is a flat array of discriminated-union entries (`alliance` or
+//     `trade_agreement`), each carrying a stable `id` from
+//     `G.nextTreatyId`. Lifecycle lives in `systems/diplomacy.ts`:
+//     `evaluateAlliance` / `applyAlliance` and `evaluateTradeAgreement`
+//     / `applyTradeAgreement` mirror the S9a eval/apply split (item 15).
+//     `tickTreaties(G, faction)` runs once per faction turn in
+//     `systems/turn.ts:endTurn`, immediately after the rotation to
+//     `next` and before MP reset / visibility recompute (the "wake-up"
+//     view). It is the **only** site that mutates faction resources for
+//     trade agreements or decrements `turnsRemaining` — mirroring
+//     item-10's "one bus, one fan-out site" discipline. Provider-side
+//     tick gating (`faction.idx === provider`) prevents a treaty from
+//     firing twice per game-turn when both parties take turns.
+//     Alliances are passive: not ticked, just sit until broken by
+//     peace, war, faction death, or player cancellation.
+//
+//     Three break seams cover every dissolution path:
+//       - `breakAlliancesOnPeace(G, faction, otherIdx)` — called by
+//         every site that flips `diplo[x] = 'peace'` (diploAI.ts
+//         sue-for-peace; diploModal.ts player peace-accept). Removes
+//         alliances where faction is a party AND named-enemy matches.
+//       - `breakTradeAgreementsOnWar(G, a, b)` — called by every site
+//         that flips `diplo[x] = 'war'` (diploAI.ts war-trigger;
+//         combat.ts autoDeclare; diploModal.ts player declareWar).
+//         Removes trade agreements between the two parties. Alliances
+//         survive war declarations against parties OUTSIDE the pact —
+//         the mutual-pact seam is intentional.
+//       - `dissolveTreatiesOnDeath(G, idx)` — called by
+//         combat.ts:eliminateFaction. Removes every treaty involving
+//         the dead faction in any role (alliance partyA/partyB/enemy,
+//         agreement provider/consumer). Vocalised through the
+//         surviving party (or partyA when the dead faction was the
+//         alliance's named enemy and both allies remain).
+//
+//     Alliance is *also* a joint war declaration: `applyAlliance`
+//     flips `proposer.diplo[enemy]` and `target.diplo[enemy]` to 'war'
+//     if either was at peace — matches the roadmap "mutual war"
+//     phrasing — and bumps `enemy.aiMemory.grudges` against both new
+//     allies by `ALLIANCE_FORMATION_GRUDGE` so the enemy's retaliation
+//     scoring updates next turn.
+//
+//     Save format: `treaties?: Treaty[]` and `nextTreatyId?: number`
+//     are additive optional fields on SerializedGameState. Pre-S9b v5
+//     saves load with `treaties = []` and `nextTreatyId = 1`.
+//     SAVE_VERSION stays at 5 — same precedent as mapSeed (2L),
+//     controlMode (2m), scenarioId (S3). Each treaty is shallow-cloned
+//     on serialize/deserialize so caller mutations don't bleed into
+//     replay snapshots.
+//
+//     AI rolls in `aiConsiderAlliance` / `aiConsiderTradeAgreement`
+//     draw `getGameRng()` so replay parity holds; both pre-check their
+//     structural guards (peace state, gold/aether floors, eligible-
+//     enemy search) BEFORE the rng draw so seeded streams that pre-
+//     date S9b stay byte-identical when there's nothing actionable to
+//     consider (this is why the `ai.test.ts` seed-3 / seed-7 cases
+//     still pass — burning rng on dead-end iterations would shift the
+//     cursor under them). Player-initiated rolls
+//     (`submitAllianceProposal` / `submitAgreementProposal` /
+//     `cancelMyTreaty` / `cancelTreaty`) stay on `Math.random`
+//     (item-2 precedent — don't convert them).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { GameState, FactionIdx, Tile, Unit, City } from './types';
@@ -263,6 +323,8 @@ export const G: GameState = {
   aiMemory: {},
   seed: 0,
   scenarioId: null,
+  treaties: [],
+  nextTreatyId: 1,
 };
 
 // Lookup helpers — read-only views into state, used by every system.

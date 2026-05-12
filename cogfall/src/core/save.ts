@@ -32,6 +32,7 @@ import type {
   TechId,
   Tile,
   TileKey,
+  Treaty,
   Unit,
 } from './types';
 
@@ -135,6 +136,12 @@ export interface SerializedGameState {
    * scenarioId coalesced to null (random-map semantics). SAVE_VERSION
    * stays at 5 (mirrors the 2L mapSeed / 2m controlMode precedents). */
   scenarioId?: string | null;
+  /** v5+ (Phase 3 S9b): persistent diplomacy treaties + the monotonic id
+   * source. Additive optional fields — pre-S9b v5 saves load with
+   * `treaties = []` and `nextTreatyId = 1`. SAVE_VERSION stays at 5
+   * (item-8 / item-15 precedent — see decision-log item 16). */
+  treaties?: Treaty[];
+  nextTreatyId?: number;
 }
 
 export interface SaveData {
@@ -194,6 +201,8 @@ export function serializeGameState(): SaveData {
     modHash: mod?.hash,
     modName: mod?.name,
     scenarioId: G.scenarioId,
+    treaties: G.treaties.map((t) => ({ ...t })),
+    nextTreatyId: G.nextTreatyId,
   };
 
   const player = G.factions[G.playerFactionIdx];
@@ -330,6 +339,8 @@ export function applySerializedStateToG(s: SerializedGameState): void {
   G.controlMode = s.controlMode ?? 'single';
   G.humanFactionIdxs = s.humanFactionIdxs ? [...s.humanFactionIdxs] : [s.playerFactionIdx];
   G.scenarioId = s.scenarioId ?? null;
+  G.treaties = s.treaties ? s.treaties.map((t) => ({ ...t })) : [];
+  G.nextTreatyId = s.nextTreatyId ?? 1;
   G.passoverActive = false;
 }
 

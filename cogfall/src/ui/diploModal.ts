@@ -20,15 +20,26 @@ import { getDiplomacyVoice } from '../data/diplomacyVoice';
 import { resolveBehavior } from '../ai/behavior';
 import { aiFactionMilitaryStrength } from '../ai/strategy';
 import {
+  applyAlliance,
   applyTrade,
+  applyTradeAgreement,
   applyTribute,
+  breakAlliancesOnPeace,
+  breakTradeAgreementsOnWar,
+  cancelTreaty,
+  evaluateAlliance,
   evaluateTrade,
+  evaluateTradeAgreement,
   evaluateTribute,
   suggestedAetherPrice,
+  suggestedAgreementGold,
   suggestedTechPrice,
   suggestedTribute,
+  TRADE_AGREEMENT_MAX_DURATION,
   TRADE_REFUSAL_GRUDGE,
   TRIBUTE_DEFIANCE_GRUDGE,
+  type AllianceOffer,
+  type TradeAgreementOffer,
   type TradeOffer,
   type TradeRefusal,
   type TributeDemand,
@@ -39,11 +50,19 @@ import { updateUI } from './topbar';
 const RANDOM_PEACE_ACCEPT_CHANCE = 0.3;
 const PLAYER_DECLARE_WAR_GRUDGE = 30;
 const AETHER_TRADE_LOT = 20;
+const DEFAULT_AGREEMENT_AMOUNT = 5;
+const DEFAULT_AGREEMENT_DURATION = 5;
+/** Grudge bump when the player cancels a treaty unilaterally — small,
+ *  because cancellation is a known social cost but not as offensive as
+ *  a tribute refusal. */
+const PLAYER_CANCEL_GRUDGE = 8;
 
 type ActionPanel =
   | null
   | { kind: 'trade'; factionIdx: FactionIdx }
-  | { kind: 'tribute'; factionIdx: FactionIdx };
+  | { kind: 'tribute'; factionIdx: FactionIdx }
+  | { kind: 'alliance'; factionIdx: FactionIdx }
+  | { kind: 'tradeAgreement'; factionIdx: FactionIdx };
 
 let activePanel: ActionPanel = null;
 
@@ -53,7 +72,7 @@ function escapeHtml(s: string): string {
 
 export function renderDiploScreen(): void {
   const player = G.factions[G.playerFactionIdx];
-  let html = '';
+  let html = renderActivePacts(player.idx);
   for (const f of G.factions) {
     if (f.idx === player.idx || !f.alive) continue;
     const status = player.diplo[f.idx] || 'unmet';
@@ -74,6 +93,14 @@ export function renderDiploScreen(): void {
     html += `<div class="actions">`;
     if (status === 'peace') {
       html += `<button class="btn small" onclick="openTradePanel(${f.idx})">Offer Trade…</button>`;
+      if (f.resources.aether >= DEFAULT_AGREEMENT_AMOUNT * 2) {
+        html += `<button class="btn small" onclick="openAgreementPanel(${f.idx})">Propose Agreement…</button>`;
+      }
+      // Alliance proposal available when the player has at least one
+      // known faction at war — that's the credible common-enemy list.
+      if (listAllianceCandidates(player.idx, f.idx).length > 0) {
+        html += `<button class="btn small" onclick="openAlliancePanel(${f.idx})">Propose Alliance…</button>`;
+      }
       if (myStr > theirStr) {
         html += `<button class="btn small" onclick="openTributePanel(${f.idx})">Demand Tribute…</button>`;
       }
@@ -91,6 +118,60 @@ export function renderDiploScreen(): void {
     html = '<p style="color:var(--parchment-d);font-style:italic">No other banners stand.</p>';
   const content = document.getElementById(DOM_IDS.DIPLO_CONTENT);
   if (content) content.innerHTML = html;
+}
+
+/** Candidate "common enemies" for an alliance proposal: every faction the
+ *  player is at war with, excluding the target. Used both to gate the
+ *  Propose Alliance button and to populate the sub-panel dropdown. */
+function listAllianceCandidates(
+  playerIdx: FactionIdx,
+  targetIdx: FactionIdx
+): FactionIdx[] {
+  const player = G.factions[playerIdx];
+  const out: FactionIdx[] = [];
+  for (const f of G.factions) {
+    if (!f.alive) continue;
+    if (f.idx === playerIdx || f.idx === targetIdx) continue;
+    if (player.diplo[f.idx] === 'war') out.push(f.idx);
+  }
+  return out;
+}
+
+function renderActivePacts(playerIdx: FactionIdx): string {
+  const mine = G.treaties.filter((t) => {
+    if (t.kind === 'alliance') return t.partyA === playerIdx || t.partyB === playerIdx;
+    return t.provider === playerIdx || t.consumer === playerIdx;
+  });
+  if (mine.length === 0) return '';
+  let html = `<div style="margin:0 0 14px 0;padding:8px 10px;border:1px dashed var(--parchment-d);border-radius:4px">`;
+  html += `<div style="font-size:12px;color:var(--parchment-d);margin-bottom:6px">Active Pacts</div>`;
+  for (const t of mine) {
+    if (t.kind === 'alliance') {
+      const partnerIdx = t.partyA === playerIdx ? t.partyB : t.partyA;
+      const partner = G.factions[partnerIdx];
+      const enemy = G.factions[t.enemy];
+      if (!partner || !enemy) continue;
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0">`;
+      html += `<span><strong>Alliance</strong> with <span style="color:${partner.color}">${escapeHtml(
+        partner.name
+      )}</span> against <span style="color:${enemy.color}">${escapeHtml(enemy.name)}</span></span>`;
+      html += `<button class="btn small danger" onclick="cancelMyTreaty(${t.id})">Break</button>`;
+      html += `</div>`;
+    } else {
+      const partnerIdx = t.provider === playerIdx ? t.consumer : t.provider;
+      const partner = G.factions[partnerIdx];
+      if (!partner) continue;
+      const role = t.provider === playerIdx ? 'shipping' : 'receiving';
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0">`;
+      html += `<span><strong>Trade Agreement</strong> ${role} ${t.amountPerTurn} aether / ${t.goldPerTurn} gold per turn with <span style="color:${partner.color}">${escapeHtml(
+        partner.name
+      )}</span> · ${t.turnsRemaining} turn(s) left</span>`;
+      html += `<button class="btn small danger" onclick="cancelMyTreaty(${t.id})">Break</button>`;
+      html += `</div>`;
+    }
+  }
+  html += `</div>`;
+  return html;
 }
 
 function renderActionPanel(idx: FactionIdx): string {
@@ -137,6 +218,12 @@ function renderActionPanel(idx: FactionIdx): string {
     inner += `</div>`;
     return inner;
   }
+  if (activePanel.kind === 'alliance') {
+    return renderAlliancePanel(idx);
+  }
+  if (activePanel.kind === 'tradeAgreement') {
+    return renderAgreementPanel(idx);
+  }
   // Tribute panel
   const suggested = suggestedTribute(target);
   const canPay = target.resources.gold >= suggested;
@@ -154,15 +241,75 @@ function renderActionPanel(idx: FactionIdx): string {
   return inner;
 }
 
+function renderAlliancePanel(idx: FactionIdx): string {
+  const target = G.factions[idx];
+  const candidates = listAllianceCandidates(G.playerFactionIdx, idx);
+  let inner = `<div class="diplo-action-panel" style="margin:6px 0 14px 56px;padding:10px;border:1px dashed var(--parchment-d);border-radius:4px">`;
+  inner += `<div style="font-size:12px;color:var(--parchment-d);margin-bottom:8px">Propose a joint pact with <strong style="color:${target.color}">${escapeHtml(
+    target.name
+  )}</strong> against a common foe — your wars become theirs.</div>`;
+  if (candidates.length === 0) {
+    inner += `<div style="font-style:italic;color:var(--parchment-d)">You stand at peace with all your neighbours; there is no enemy to name.</div>`;
+  } else {
+    inner += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+    inner += `<label style="font-size:12px;color:var(--parchment-d)">Against:</label>`;
+    inner += `<select id="alliance-enemy" style="min-width:160px">`;
+    for (const e of candidates) {
+      const enemy = G.factions[e];
+      inner += `<option value="${e}">${escapeHtml(enemy.name)}</option>`;
+    }
+    inner += `</select>`;
+    inner += `<button class="btn small" onclick="submitAllianceProposal(${idx})">Propose</button>`;
+    inner += `<button class="btn small" onclick="closeActionPanel()">Cancel</button>`;
+    inner += `</div>`;
+    inner += `<div style="font-size:11px;color:var(--parchment-d);margin-top:6px">Accepting means immediate joint war with the named foe.</div>`;
+  }
+  inner += `</div>`;
+  return inner;
+}
+
+function renderAgreementPanel(idx: FactionIdx): string {
+  const target = G.factions[idx];
+  const defaultAmount = DEFAULT_AGREEMENT_AMOUNT;
+  const defaultGold = suggestedAgreementGold(defaultAmount);
+  const haveAether = target.resources.aether;
+  const maxDuration = TRADE_AGREEMENT_MAX_DURATION;
+  let inner = `<div class="diplo-action-panel" style="margin:6px 0 14px 56px;padding:10px;border:1px dashed var(--parchment-d);border-radius:4px">`;
+  inner += `<div style="font-size:12px;color:var(--parchment-d);margin-bottom:8px">Strike a standing arrangement with <strong style="color:${target.color}">${escapeHtml(
+    target.name
+  )}</strong>: aether shipped, coin paid, season after season.</div>`;
+  inner += `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px">`;
+  inner += `<label>Aether/turn: <input type="number" id="agreement-amount" value="${defaultAmount}" min="1" max="${haveAether}" step="1" style="width:70px"></label>`;
+  inner += `<label>Gold/turn: <input type="number" id="agreement-gold" value="${defaultGold}" min="1" step="1" style="width:90px"></label>`;
+  inner += `<label>Turns: <input type="number" id="agreement-turns" value="${DEFAULT_AGREEMENT_DURATION}" min="1" max="${maxDuration}" step="1" style="width:70px"></label>`;
+  inner += `<button class="btn small" onclick="submitAgreementProposal(${idx})">Propose</button>`;
+  inner += `<button class="btn small" onclick="closeActionPanel()">Cancel</button>`;
+  inner += `</div>`;
+  inner += `<div style="font-size:11px;color:var(--parchment-d);margin-top:6px">They hold ${haveAether} ✦. Default ${defaultGold}g/turn is one-and-a-quarter market rate.</div>`;
+  inner += `</div>`;
+  return inner;
+}
+
 function declareWar(idx: FactionIdx): void {
   const player = G.factions[G.playerFactionIdx];
+  const target = G.factions[idx];
   player.diplo[idx] = 'war';
-  G.factions[idx].diplo[player.idx] = 'war';
+  target.diplo[player.idx] = 'war';
   const mem = G.aiMemory[idx];
   if (mem) {
     mem.grudges[player.idx] = (mem.grudges[player.idx] || 0) + PLAYER_DECLARE_WAR_GRUDGE;
   }
-  log(`You declared war on ${G.factions[idx].name}!`, 'warning');
+  // S9b: war with a trade partner breaks the agreement immediately.
+  // Target speaks the break line — they reacted to your declaration.
+  const broken = breakTradeAgreementsOnWar(G, player.idx, idx);
+  for (const t of broken) {
+    if (t.kind !== 'trade_agreement') continue;
+    log(
+      getDiplomacyVoice(target.id).tradeAgreementBroken(player.name, 'war'),
+      'diplo'
+    );
+  }
+  log(`You declared war on ${target.name}!`, 'warning');
   activePanel = null;
   renderDiploScreen();
   updateUI();
@@ -180,6 +327,24 @@ function offerPeace(idx: FactionIdx): void {
   if (acceptScore > 0 || Math.random() < RANDOM_PEACE_ACCEPT_CHANCE) {
     player.diplo[idx] = 'peace';
     other.diplo[player.idx] = 'peace';
+    // S9b: alliances whose named enemy was `other` break when peace is
+    // struck with that enemy. Check from both sides — either party in
+    // the alliance might have routed peace through this same `other`.
+    // The partner speaks the break line (they watched the player drop
+    // their part of the pact).
+    const brokenA = breakAlliancesOnPeace(G, player.idx, idx);
+    const brokenB = breakAlliancesOnPeace(G, idx, player.idx);
+    for (const t of [...brokenA, ...brokenB]) {
+      if (t.kind !== 'alliance') continue;
+      const partnerIdx = t.partyA === player.idx ? t.partyB : t.partyA;
+      const partner = G.factions[partnerIdx];
+      if (partner) {
+        log(
+          getDiplomacyVoice(partner.id).allianceBroken(player.name, other.name),
+          'diplo'
+        );
+      }
+    }
     log(`${other.name} accepted your offer of peace.`, 'diplo');
   } else {
     log(`${other.name} rejected your offer of peace. The war drags on.`, 'warning');
@@ -195,6 +360,16 @@ function openTradePanel(idx: FactionIdx): void {
 
 function openTributePanel(idx: FactionIdx): void {
   activePanel = { kind: 'tribute', factionIdx: idx };
+  renderDiploScreen();
+}
+
+function openAlliancePanel(idx: FactionIdx): void {
+  activePanel = { kind: 'alliance', factionIdx: idx };
+  renderDiploScreen();
+}
+
+function openAgreementPanel(idx: FactionIdx): void {
+  activePanel = { kind: 'tradeAgreement', factionIdx: idx };
   renderDiploScreen();
 }
 
@@ -352,22 +527,155 @@ function bumpDefianceGrudge(idx: FactionIdx): void {
   }
 }
 
+function submitAllianceProposal(idx: FactionIdx): void {
+  const select = document.getElementById('alliance-enemy') as HTMLSelectElement | null;
+  if (!select) return;
+  const enemyIdxNum = Number(select.value);
+  if (!Number.isFinite(enemyIdxNum)) return;
+  const player = G.factions[G.playerFactionIdx];
+  const target = G.factions[idx];
+  const enemy = G.factions[enemyIdxNum];
+  if (!enemy || !enemy.alive) return;
+
+  const offer: AllianceOffer = {
+    proposer: player.idx,
+    target: target.idx,
+    enemy: enemy.idx,
+  };
+  const playerStr = aiFactionMilitaryStrength(player.idx);
+  const targetStr = aiFactionMilitaryStrength(target.idx);
+  const enemyStr = aiFactionMilitaryStrength(enemy.idx);
+  const decision = evaluateAlliance(
+    offer,
+    player,
+    target,
+    playerStr + targetStr,
+    enemyStr,
+    G.aiMemory[target.idx],
+    G.treaties,
+    Math.random
+  );
+  if (decision.accept) {
+    applyAlliance(offer, player, target, enemy, G, G.turn);
+    log(getDiplomacyVoice(target.id).acceptAlliance(player.name, enemy.name), 'diplo');
+  } else {
+    bumpRefusalGrudge(idx);
+    log(getDiplomacyVoice(target.id).refuseAlliance(player.name, enemy.name), 'warning');
+  }
+  activePanel = null;
+  renderDiploScreen();
+  updateUI();
+}
+
+function submitAgreementProposal(idx: FactionIdx): void {
+  const amountEl = document.getElementById('agreement-amount') as HTMLInputElement | null;
+  const goldEl = document.getElementById('agreement-gold') as HTMLInputElement | null;
+  const turnsEl = document.getElementById('agreement-turns') as HTMLInputElement | null;
+  const amount = amountEl ? Math.floor(Number(amountEl.value) || 0) : 0;
+  const gold = goldEl ? Math.floor(Number(goldEl.value) || 0) : 0;
+  const turns = turnsEl ? Math.floor(Number(turnsEl.value) || 0) : 0;
+  if (amount <= 0 || gold <= 0 || turns <= 0) return;
+  const player = G.factions[G.playerFactionIdx];
+  const target = G.factions[idx];
+  // Player is the consumer (buying aether from target). The reverse direction
+  // ("player ships aether for gold") isn't surfaced in S9b — UI starts the
+  // shape simple; the eval/apply functions support it for future use.
+  const offer: TradeAgreementOffer = {
+    proposer: player.idx,
+    target: target.idx,
+    provider: target.idx,
+    consumer: player.idx,
+    resource: 'aether',
+    amountPerTurn: amount,
+    goldPerTurn: gold,
+    duration: turns,
+  };
+  const decision = evaluateTradeAgreement(
+    offer,
+    player,
+    target,
+    G.aiMemory[target.idx],
+    G.treaties,
+    Math.random
+  );
+  if (decision.accept) {
+    applyTradeAgreement(offer, G, G.turn);
+    log(
+      getDiplomacyVoice(target.id).acceptTradeAgreement(player.name, amount, gold, turns),
+      'diplo'
+    );
+  } else {
+    bumpRefusalGrudge(idx);
+    log(getDiplomacyVoice(target.id).refuseTradeAgreement(player.name), 'warning');
+  }
+  activePanel = null;
+  renderDiploScreen();
+  updateUI();
+}
+
+function cancelMyTreaty(treatyId: number): void {
+  const player = G.factions[G.playerFactionIdx];
+  // Look up the treaty BEFORE removing it so we can name the partner in
+  // voice + bump the right grudge ledger.
+  const treaty = G.treaties.find((t) => t.id === treatyId);
+  if (!treaty) return;
+  let partnerIdx: FactionIdx | null = null;
+  let enemyName = '';
+  if (treaty.kind === 'alliance') {
+    partnerIdx = treaty.partyA === player.idx ? treaty.partyB : treaty.partyA;
+    const enemy = G.factions[treaty.enemy];
+    enemyName = enemy?.name ?? 'the foe';
+  } else {
+    partnerIdx = treaty.provider === player.idx ? treaty.consumer : treaty.provider;
+  }
+  if (partnerIdx === null) return;
+  const partner = G.factions[partnerIdx];
+  if (!partner) return;
+  cancelTreaty(G, treatyId);
+  // Partner reacts to the cancellation; small grudge bump models the
+  // social cost (smaller than tribute defiance, larger than nothing).
+  const mem = G.aiMemory[partnerIdx];
+  if (mem) {
+    mem.grudges[player.idx] = (mem.grudges[player.idx] ?? 0) + PLAYER_CANCEL_GRUDGE;
+  }
+  if (treaty.kind === 'alliance') {
+    log(getDiplomacyVoice(partner.id).allianceBroken(player.name, enemyName), 'diplo');
+  } else {
+    log(
+      getDiplomacyVoice(partner.id).tradeAgreementBroken(player.name, 'cancelled'),
+      'diplo'
+    );
+  }
+  renderDiploScreen();
+  updateUI();
+}
+
 const w = window as Window &
   typeof globalThis & {
     declareWar: typeof declareWar;
     offerPeace: typeof offerPeace;
     openTradePanel: typeof openTradePanel;
     openTributePanel: typeof openTributePanel;
+    openAlliancePanel: typeof openAlliancePanel;
+    openAgreementPanel: typeof openAgreementPanel;
     closeActionPanel: typeof closeActionPanel;
     proposeTechTrade: typeof proposeTechTrade;
     proposeAetherTrade: typeof proposeAetherTrade;
     submitTributeDemand: typeof submitTributeDemand;
+    submitAllianceProposal: typeof submitAllianceProposal;
+    submitAgreementProposal: typeof submitAgreementProposal;
+    cancelMyTreaty: typeof cancelMyTreaty;
   };
 w.declareWar = declareWar;
 w.offerPeace = offerPeace;
 w.openTradePanel = openTradePanel;
 w.openTributePanel = openTributePanel;
+w.openAlliancePanel = openAlliancePanel;
+w.openAgreementPanel = openAgreementPanel;
 w.closeActionPanel = closeActionPanel;
 w.proposeTechTrade = proposeTechTrade;
 w.proposeAetherTrade = proposeAetherTrade;
 w.submitTributeDemand = submitTributeDemand;
+w.submitAllianceProposal = submitAllianceProposal;
+w.submitAgreementProposal = submitAgreementProposal;
+w.cancelMyTreaty = cancelMyTreaty;

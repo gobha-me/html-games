@@ -141,6 +141,38 @@ export interface Faction {
   behavior?: AIBehavior;
 }
 
+// Phase 3 S9b — persistent diplomacy treaties. Two kinds live in one
+// discriminated union, stored on a flat `G.treaties` array. Alliances are
+// passive (just sit until broken by peace, faction death, or capitulation);
+// trade agreements tick once per faction turn via `tickTreaties`.
+// See decision-log item 16 in core/state.ts for the full contract.
+export type Treaty =
+  | {
+      kind: 'alliance';
+      /** Stable across save round-trips. Issued by `G.nextTreatyId++`. */
+      id: number;
+      partyA: FactionIdx;
+      partyB: FactionIdx;
+      /** The named common enemy. Alliance breaks if either party makes peace
+       *  with this faction (see `breakAlliancesOnPeace` in systems/diplomacy.ts). */
+      enemy: FactionIdx;
+      startTurn: number;
+    }
+  | {
+      kind: 'trade_agreement';
+      id: number;
+      /** Ships `amountPerTurn` of `resource` each tick. */
+      provider: FactionIdx;
+      /** Pays `goldPerTurn` each tick. */
+      consumer: FactionIdx;
+      resource: 'aether';
+      amountPerTurn: number;
+      goldPerTurn: number;
+      startTurn: number;
+      /** Decrements once per provider tick. Hits 0 → break naturally. */
+      turnsRemaining: number;
+    };
+
 export interface AIMemory {
   grudges: Partial<Record<number, number>>;
   strategicPhase: StrategicPhase;
@@ -263,6 +295,15 @@ export interface GameState {
    * through getScenario() in data/scenarios.ts. The registry ships empty
    * in S3 — Session 8 authors the first scenarios. */
   scenarioId: string | null;
+  /** Phase 3 S9b — persistent diplomacy treaties (alliances + trade
+   * agreements). Flat array of discriminated-union entries; lifecycle
+   * lives in systems/diplomacy.ts. Additive serialization (item-8
+   * precedent) — pre-S9b saves load with an empty array and `nextTreatyId`
+   * 1. See decision-log item 16. */
+  treaties: Treaty[];
+  /** Phase 3 S9b — monotonic id source for new treaties. Persisted so
+   * post-load ids stay distinct from pre-save ones. */
+  nextTreatyId: number;
 }
 
 // Helper for exhaustive switch checks.

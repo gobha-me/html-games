@@ -13,6 +13,8 @@ import { UNIT_TYPES } from '../data/units';
 import { aiPlayTurn } from '../ai/strategy';
 import { processCity } from './city';
 import { computeCulturalClaim, processCulturalHegemony } from './culture';
+import { tickTreaties } from './diplomacy';
+import { getDiplomacyVoice } from '../data/diplomacyVoice';
 import { processResearch } from './research';
 import { recomputeVisibility } from './visibility';
 import { playSfx } from './audio';
@@ -20,7 +22,7 @@ import { recordTelemetry } from './telemetry';
 import { recordReplaySnapshot } from './replay';
 import { emit } from '../render/animations';
 import { DOM_IDS } from '../core/dom';
-import { totalLogCount } from '../core/log';
+import { log, totalLogCount } from '../core/log';
 import { saveAuto } from '../core/save';
 import { openPassover } from '../ui/passoverModal';
 import { showAiActionBanner } from '../ui/aiActionBanner';
@@ -119,6 +121,57 @@ export function endTurn(): void {
   if (G.currentFactionIdx === 0) G.turn++;
 
   const next = G.factions[G.currentFactionIdx];
+
+  // S9b: persistent-trade tick. Provider-side gating in tickTreaties
+  // ensures each agreement fires exactly once per game-turn (when its
+  // provider wakes up). Runs before MP reset / visibility so the new
+  // turn's resource state is the "wake-up" view. Decision-log item 16
+  // names tickTreaties as the only site that mutates resources for
+  // trade agreements or decrements turnsRemaining — don't bypass.
+  const treatyEvents = tickTreaties(G, next);
+  for (const ev of treatyEvents) {
+    if (ev.treaty.kind !== 'trade_agreement') continue;
+    const provider = G.factions[ev.treaty.provider];
+    const consumer = G.factions[ev.treaty.consumer];
+    if (!provider || !consumer) continue;
+    const visible =
+      ev.treaty.provider === G.playerFactionIdx ||
+      ev.treaty.consumer === G.playerFactionIdx;
+    if (ev.kind === 'transferred') {
+      // Neutral per-turn line — voice would saturate the log at one
+      // transfer line per treaty per turn.
+      log(
+        `${provider.name} ships ${ev.treaty.amountPerTurn} aether to ${consumer.name} for ${ev.treaty.goldPerTurn} gold.`,
+        'diplo',
+        visible
+      );
+    } else if (ev.reason === 'completed') {
+      log(
+        getDiplomacyVoice(provider.id).tradeAgreementBroken(consumer.name, 'completed'),
+        'diplo',
+        visible
+      );
+    } else if (ev.reason === 'failed_to_deliver') {
+      log(
+        getDiplomacyVoice(provider.id).tradeAgreementBroken(consumer.name, 'failed_to_deliver'),
+        'warning',
+        visible
+      );
+    } else if (ev.reason === 'failed_to_pay') {
+      log(
+        getDiplomacyVoice(consumer.id).tradeAgreementBroken(provider.name, 'failed_to_pay'),
+        'warning',
+        visible
+      );
+    } else if (ev.reason === 'partner_lost') {
+      log(
+        getDiplomacyVoice(provider.id).tradeAgreementBroken(consumer.name, 'partner_lost'),
+        'diplo',
+        visible
+      );
+    }
+  }
+
   for (const u of G.units.filter((u) => u.factionIdx === next.idx)) {
     u.mp = UNIT_TYPES[u.typeId].mp;
   }
