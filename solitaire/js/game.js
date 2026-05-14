@@ -479,11 +479,13 @@
           } else {
             el.addEventListener('click', (e) => {
               e.stopPropagation();
-              // Click on face-down card: flip it if it's the top face-down
-              const firstFaceDown = pile.findIndex(c => !c.faceUp);
-              if (j === firstFaceDown) {
-                // Check if all cards above are already on foundations or moved
-                // Actually, just flip the top face-down card
+              // Click on face-down card: flip it if it's the topmost face-down
+              let lastFaceDown = -1;
+              for (let k = pile.length - 1; k >= 0; k--) {
+                if (!pile[k].faceUp) { lastFaceDown = k; break; }
+              }
+              if (j === lastFaceDown) {
+                saveUndoState();
                 card.faceUp = true;
                 if (state.scoringMode === 'standard') state.score += 5;
                 state.moves++;
