@@ -520,9 +520,10 @@
         render();
         return;
       }
-      // Try to move selected card here
-      if (moveCards(sel.pileType, sel.pileIndex, sel.cardIndex, pileType, pileIndex)) {
-        return;
+      // Try to move selected card here — route through handleDrop for validation + undo
+      handleDrop(pileType, pileIndex);
+      if (!state.selectedCard) {
+        return; // move succeeded (handleDrop cleared selection)
       }
     }
 
