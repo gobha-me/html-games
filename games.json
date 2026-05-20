@@ -143,6 +143,15 @@
       "icon": "☄️",
       "href": "asteroids/",
       "theme": "asteroids"
+    },
+    {
+      "slug": "oregon-trail",
+      "title": "Oregon Trail",
+      "description": "Lead your party from Independence, Missouri to the Willamette Valley. Manage resources, make moral choices, and build your reputation on the trail.",
+      "tag": "Adventure",
+      "icon": "🛤️",
+      "href": "oregon-trail/",
+      "theme": "oregon-trail"
     }
   ]
 }
