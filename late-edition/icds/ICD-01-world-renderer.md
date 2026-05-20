@@ -1,9 +1,9 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.3 (shipped against milestone 0.2 — open questions closed)
+**Status:** v0.4 (shipped against milestone 0.3 — LeadView filter tightened for held-at-building Stories)
 **Band:** strong
 **First caller:** milestone 0.1 (scene, camera, toon pipeline) — shipped in v0.1.0
-**Current caller:** milestone 0.2 (A* pathfinding · Reporter unit · click-to-dispatch) — shipped in v0.2.0
+**Current caller:** milestone 0.3 (lead spawn · pickup · return-to-bureau) — shipped in v0.3.0
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
 
 ## Purpose
@@ -125,10 +125,15 @@ interface LeadView {
 - `age_ms` is **computed sim-side** from `Story.spawned_at_ms` and the sim
   clock. The renderer is renderer-dumb: it consumes a pre-baked elapsed
   duration, not a timestamp it has to subtract against the wall clock.
-- `LeadView` only exists while `Story.state === 'lead'`. Once
-  `picked_up_by: ReporterId` is set on the Story (ICD-05), the lead leaves
-  `frame.leads` and surfaces visually via the carrier's `UnitView.carrying`
-  channel. **Stories in other states never appear in `frame.leads`.**
+- `LeadView` only exists while `Story.state === 'lead'` **AND** the Story
+  is neither picked up nor held by a building (`!picked_up_by &&
+  !held_by_building`, per ICD-05 v0.2). Once `picked_up_by: ReporterId` is
+  set on the Story (ICD-05), the lead leaves `frame.leads` and surfaces
+  visually via the carrier's `UnitView.carrying` channel. Once
+  `held_by_building` is set (drop-at-bureau at 0.3), the lead is dormant
+  inside that building and stays out of `frame.leads` until the next
+  carrier picks it up. **Stories in other states never appear in
+  `frame.leads`.**
 
 ## Notes
 
@@ -173,6 +178,10 @@ matches the WorldFrame field set exactly.
 
 ## Revision history
 
+- **v0.4** (milestone 0.3, 2026-05-20) — Tightened the `LeadView` filter rule
+  to exclude Stories with `held_by_building` set (the resting-state pointer
+  added in ICD-05 v0.2). No field-set change; `LeadView` keys are
+  unchanged. Carrying-folder render path lit up via `UnitView.carrying`.
 - **v0.3** (milestone 0.2, 2026-05-20) — Animation playhead resolved
   (renderer interpolates `pos`/`facing` between fixed 30 Hz sim ticks);
   `Vec3` precision resolved (plain `{x,y,z}` object). WorldFrame

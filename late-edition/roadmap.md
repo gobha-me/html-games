@@ -38,17 +38,21 @@ code-session boundary that hasn't been authored yet.
 
 ## Current status
 
-**0.2 — shipped.** A* pathfinding · Reporter unit · click-to-dispatch all
-landed; the WorldFrame → renderer boundary is now real in code. Sim lives
-under [`js/sim/`](js/sim) and produces a `WorldFrame` per snapshot;
-[`js/render/renderer.js`](js/render/renderer.js) consumes it; [`js/input.js`](js/input.js)
-glues clicks → sim intents via the renderer's `screenToGridCell` projection.
-ICD-01 bumped to v0.3 and ICD-03 to v0.2; all 0.2-decision open questions
-closed in the same PR (Constraint #4).
+**0.3 — shipped.** Lead spawn (single district at tile (2,2)) · pickup ·
+return-to-bureau all landed. `Story` records live on the sim under
+[`js/sim/world-state.js`](js/sim/world-state.js); the Reporter auto-picks
+up on arrival at a `'lead'`-state tile and auto-drops adjacent to the
+Bureau, setting `Story.held_by_building` (ICD-05 v0.2). The renderer
+draws the LeadView marker with flavor tint and toggles a folder mesh over
+the Reporter via `UnitView.carrying`. ICD-05 bumped to v0.2 (added
+`held_by_building` and the `lead → lead` carrier-drop transition row);
+ICD-01 bumped to v0.4 (LeadView filter tightened — no field-set change).
 
-Next: milestone **0.3** — lead spawn in a single district · pickup ·
-return-to-bureau. ICD-05 governs lead state; ICD-01 v0.2 §LeadView and the
-LeadView ↔ UnitView.carrying handoff are already spelled out.
+Next: **paper-only RE-EVAL slot** before any code touches 0.4. Did
+ICDs 01/03/05 survive contact? Promote any medium content tighter? Forward
+ICD presence check for 0.4–0.6 (Photog unit + lead→verified transition +
+Darkroom · print cycle + deadline · resources). **Do not open 0.4 in the
+same session as the re-eval — paper output only.**
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -66,6 +70,11 @@ LeadView ↔ UnitView.carrying handoff are already spelled out.
       WorldFrame boundary materialized; `js/world.js` retired in favour of
       the `js/sim/` ↔ `js/render/` split. Tests under
       [`tests/`](tests) (`node --test`, 19 cases).
+- [x] **Milestone 0.3** — Story records, lead spawn, pickup-on-arrival,
+      drop-at-bureau via `Story.held_by_building`. ICD-05 → v0.2;
+      ICD-01 → v0.4. Tests at 26 cases (new `story-pickup.test.mjs` +
+      LeadView projection checks).
+- [ ] **RE-EVAL after 0.3** — paper-only. Pending.
 
 ## Out of scope until called
 

@@ -1,10 +1,13 @@
 // Late Edition — simulation state.
-// Owns the authoritative grid, buildings, and units. Produces a WorldFrame
-// per snapshot() — the only thing the renderer sees (ICD-01 §Notes).
+// Owns the authoritative grid, buildings, units, and stories. Produces a
+// WorldFrame per snapshot() — the only thing the renderer sees (ICD-01 §Notes).
 //
 // Constants locked in milestone 0.2 plan:
 //   tile = 6 world-units · 10x10 playable grid · world range [-30, +30] on x/z.
 //   Bureau anchors at tile (5, 5); Reporter spawns at tile (5, 4).
+// Milestone 0.3 adds: one 'lead'-state Story spawned at tile (2, 2); pickup
+// on arrival; drop-at-bureau holds the Story via Story.held_by_building
+// (ICD-05 v0.2). The Story id is stable across pickup/drop — ICD-05 Purpose.
 
 import { pathfind } from './pathfinder.js';
 
@@ -13,6 +16,7 @@ export const GRID_W = 10;
 export const GRID_H = 10;
 export const REPORTER_SPEED = 3.5; // world-units / second (overview §Reporter unit core)
 export const PRESS_HP = 90;        // overview §Single fail-state
+export const LEAD_SPAWN_TILE = { x: 2, y: 2 }; // 0.3 "single district" pickup point
 
 export function tileToWorld(cell) {
   return { x: cell.x * TILE - 27, y: 0, z: cell.y * TILE - 27 };
@@ -32,6 +36,7 @@ export class World {
   constructor() {
     nextId = 1;
     this.grid = bakeGrid();
+    this.sim_time_ms = 0;
 
     this.buildings = [{
       id: mkId('b'),
@@ -54,8 +59,24 @@ export class World {
       state: 'idle',
       selected: false,
       carrying: null,
+      carryingStoryId: null,
       path: [],
       pathIdx: 0,
+    }];
+
+    // Milestone 0.3: spawn one Story in 'lead' state at the district tile.
+    // ICD-05 §Shape — district / flavor / tier / truthful / spawned_at_ms.
+    this.stories = [{
+      id: mkId('s'),
+      state: 'lead',
+      district: 'd-default',
+      flavor: 'vice',
+      tier: 'whisper',
+      truthful: true,
+      spawned_at_ms: 0,
+      tile: { ...LEAD_SPAWN_TILE },
+      picked_up_by: null,
+      held_by_building: null,
     }];
 
     this.hud = {
@@ -94,10 +115,54 @@ export class World {
   }
 
   tick(dt) {
+    this.sim_time_ms += dt * 1000;
     for (const u of this.units) {
       if (u.state === 'idle' || u.path.length === 0) continue;
-      stepAlongPath(u, dt);
+      const arrived = stepAlongPath(u, dt);
+      if (arrived) this._handleArrival(u);
     }
+  }
+
+  // Pickup / drop bookkeeping on path completion. Pickup is auto: any reporter
+  // landing on a free 'lead'-state Story claims it (no Intent kind added to
+  // ICD-02 — 0.3 keeps the dispatch surface unchanged). Drop is auto when a
+  // carrying reporter arrives adjacent to a Bureau — the Story stays in
+  // 'lead' state but resides on the building via held_by_building (ICD-05 v0.2).
+  _handleArrival(u) {
+    if (u.kind === 'reporter' && u.carrying === null) {
+      const lead = this.stories.find((s) =>
+        s.state === 'lead' &&
+        !s.picked_up_by &&
+        !s.held_by_building &&
+        s.tile.x === u.tile.x &&
+        s.tile.y === u.tile.y,
+      );
+      if (lead) {
+        lead.picked_up_by = u.id;
+        u.carrying = 'lead';
+        u.carryingStoryId = lead.id;
+      }
+    }
+    if (u.carrying === 'lead') {
+      const bureau = this.buildings.find((b) =>
+        b.kind === 'bureau' &&
+        Math.abs(b.tile.x - u.tile.x) + Math.abs(b.tile.y - u.tile.y) === 1,
+      );
+      if (bureau) {
+        const story = this.stories.find((s) => s.id === u.carryingStoryId);
+        if (story) {
+          story.held_by_building = bureau.id;
+          story.picked_up_by = null;
+        }
+        u.carrying = null;
+        u.carryingStoryId = null;
+      }
+    }
+    // At-rest is 'idle' regardless of carry — 'walking' and 'carrying' are
+    // motion states (ICD-01 §UnitView: "walking with a lead is visually
+    // distinct from walking empty-handed"). The folder mesh keys off the
+    // independent `carrying` field, not `state`.
+    u.state = 'idle';
   }
 
   snapshot() {
@@ -105,7 +170,9 @@ export class World {
       cameraTarget: { x: 0, y: 0, z: 0 },
       buildings: this.buildings.map(buildingView),
       units: this.units.map(unitView),
-      leads: [],
+      leads: this.stories
+        .filter((s) => s.state === 'lead' && !s.picked_up_by && !s.held_by_building)
+        .map((s) => leadView(s, this.sim_time_ms)),
       rain: { intensity: 1 },
       fog: { near: 22, far: 60, color: 0xc8c4bc },
       hud: {
@@ -146,6 +213,18 @@ function unitView(u) {
   };
 }
 
+function leadView(s, simTime) {
+  return {
+    id: s.id,
+    pos: tileToWorld(s.tile),
+    tier: s.tier,
+    flavor: s.flavor,
+    age_ms: simTime - s.spawned_at_ms,
+  };
+}
+
+// Returns true when the unit arrived (path drained this step). World decides
+// what to do with arrival (pickup, drop, state flip) — see _handleArrival.
 function stepAlongPath(u, dt) {
   let remaining = REPORTER_SPEED * dt;
   while (remaining > 0 && u.pathIdx < u.path.length - 1) {
@@ -169,6 +248,7 @@ function stepAlongPath(u, dt) {
   if (u.pathIdx >= u.path.length - 1) {
     u.path = [];
     u.pathIdx = 0;
-    u.state = u.carrying ? 'carrying' : 'idle';
+    return true;
   }
+  return false;
 }

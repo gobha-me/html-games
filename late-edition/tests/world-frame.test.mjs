@@ -9,6 +9,7 @@ import { World } from '../js/sim/world-state.js';
 const FRAME_KEYS = ['cameraTarget', 'buildings', 'units', 'leads', 'rain', 'fog', 'hud', 'effects'];
 const BUILDING_VIEW_KEYS = ['id', 'pos', 'kind', 'hp', 'hp_max', 'tier'];
 const UNIT_VIEW_KEYS = ['id', 'pos', 'facing', 'kind', 'state', 'selected', 'carrying'];
+const LEAD_VIEW_KEYS = ['id', 'pos', 'tier', 'flavor', 'age_ms'];
 
 function keysOf(obj) { return Object.keys(obj).sort(); }
 
@@ -49,7 +50,30 @@ test('snapshot does not expose sim-only fields (path, tile, pathIdx)', () => {
     assert.ok(!('path' in u), 'UnitView leaked sim field `path`');
     assert.ok(!('tile' in u), 'UnitView leaked sim field `tile`');
     assert.ok(!('pathIdx' in u), 'UnitView leaked sim field `pathIdx`');
+    assert.ok(!('carryingStoryId' in u), 'UnitView leaked sim field `carryingStoryId`');
   }
+});
+
+test('LeadView field set matches ICD-01 v0.4 exactly (no leaks)', () => {
+  const w = new World();
+  const f = w.snapshot();
+  assert.ok(f.leads.length > 0, 'expected at least one lead at spawn');
+  for (const l of f.leads) {
+    assert.deepEqual(keysOf(l), [...LEAD_VIEW_KEYS].sort());
+    assert.equal(typeof l.id, 'string');
+    assert.ok(['whisper', 'investigation', 'arc'].includes(l.tier));
+    assert.ok(['vice', 'violence', 'money', 'labor'].includes(l.flavor));
+    assert.equal(typeof l.age_ms, 'number');
+  }
+});
+
+test('frame.leads excludes Stories held by a building', () => {
+  // Simulate the drop-at-bureau end state by mutating the Story directly.
+  const w = new World();
+  const story = w.stories[0];
+  story.held_by_building = w.buildings[0].id;
+  const f = w.snapshot();
+  assert.equal(f.leads.length, 0);
 });
 
 test('effects queue is drained on snapshot (lives one frame)', () => {

@@ -49,6 +49,7 @@ export class Renderer {
 
     this.buildingMeshes = new Map(); // id → THREE.Group
     this.unitMeshes = new Map();     // id → { group, interp:{prev,curr,tickStart,tickDur} }
+    this.leadMeshes = new Map();     // id → THREE.Group  (0.3 LeadView)
 
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this.raycaster = new THREE.Raycaster();
@@ -81,6 +82,7 @@ export class Renderer {
   apply(frame, alpha = 1) {
     this._syncBuildings(frame.buildings);
     this._syncUnits(frame.units, alpha);
+    this._syncLeads(frame.leads);
     this._stepRain();
     this.renderer.render(this.scene, this.camera);
   }
@@ -131,11 +133,39 @@ export class Renderer {
       entry.group.rotation.y = entry.curr.facing;
       const ring = entry.group.getObjectByName('selectRing');
       if (ring) ring.visible = u.selected;
+      // 0.3: UnitView.carrying === 'lead' surfaces as a folder over the sprite.
+      const folder = entry.group.getObjectByName('carryFolder');
+      const wantsFolder = u.carrying === 'lead';
+      if (wantsFolder && !folder) entry.group.add(buildFolderMesh(this.gradient));
+      else if (!wantsFolder && folder) entry.group.remove(folder);
     }
     for (const [id, entry] of this.unitMeshes) {
       if (!seen.has(id)) {
         this.scene.remove(entry.group);
         this.unitMeshes.delete(id);
+      }
+    }
+  }
+
+  // LeadView mesh pool. Add/remove markers as ids enter/leave frame.leads.
+  // Tint is per flavor (vice / violence / money / labor); the renderer never
+  // reads age_ms for 0.3 — that field is plumbed for future decay/pulse FX.
+  _syncLeads(leads) {
+    const seen = new Set();
+    for (const lead of leads) {
+      seen.add(lead.id);
+      let g = this.leadMeshes.get(lead.id);
+      if (!g) {
+        g = buildLeadMesh(this.gradient, lead.flavor);
+        this.leadMeshes.set(lead.id, g);
+        this.scene.add(g);
+      }
+      g.position.set(lead.pos.x, lead.pos.y, lead.pos.z);
+    }
+    for (const [id, g] of this.leadMeshes) {
+      if (!seen.has(id)) {
+        this.scene.remove(g);
+        this.leadMeshes.delete(id);
       }
     }
   }
@@ -269,6 +299,32 @@ function buildBureauMesh(gradient) {
   withOutline(roof);
   group.add(roof);
   return group;
+}
+
+// Muted noir-palette flavor tints — consistent with --paper fog at #c8c4bc.
+const LEAD_FLAVOR_COLOR = {
+  vice:     0x8a3a4a, // wine
+  violence: 0x4a3a3a, // dried blood
+  money:    0x6a7a4a, // tarnished olive
+  labor:    0x4a5a7a, // worker blue
+};
+
+function buildLeadMesh(gradient, flavor) {
+  const group = new THREE.Group();
+  const color = LEAD_FLAVOR_COLOR[flavor] ?? 0x6a6a6a;
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.1, 0.15), toon(gradient, color));
+  slab.position.y = 0.6;
+  withOutline(slab);
+  group.add(slab);
+  return group;
+}
+
+function buildFolderMesh(gradient) {
+  const folder = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.18), toon(gradient, 0xd9c896));
+  folder.position.set(0, 1.35, 0.5);
+  folder.name = 'carryFolder';
+  withOutline(folder);
+  return folder;
 }
 
 function buildReporterMesh(gradient) {

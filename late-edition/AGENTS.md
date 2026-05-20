@@ -50,39 +50,42 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.2.0 — milestone 0.2 shipped.** First dispatch. Sim and renderer are
-now distinct modules with the WorldFrame boundary materialized:
+**v0.3.0 — milestone 0.3 shipped.** First lead. The Story pipeline opens:
+a `'lead'`-state Story spawns at the district tile, a Reporter walks to
+it, auto-picks-up on arrival, returns to a tile adjacent to the Bureau,
+and auto-drops via `Story.held_by_building`.
 
-- [`js/sim/world-state.js`](js/sim/world-state.js) — `World` class owns
-  the grid (10×10), Bureau (tile (5,5), 90/90 HP), Reporter (spawns at
-  (5,4), walks 3.5 u/s). `tick(dt)` advances units; `snapshot()` projects
-  to a `WorldFrame`.
+- [`js/sim/world-state.js`](js/sim/world-state.js) — `World` owns the
+  10×10 grid, Bureau (5,5, 90/90 HP), Reporter (5,4, 3.5 u/s), and now
+  `stories[]` + `sim_time_ms`. One Story spawns at tile `(2, 2)` in
+  state `'lead'` (whisper / vice / truthful). `tick(dt)` advances time,
+  steps units along paths, and on arrival runs `_handleArrival` for
+  pickup-on-lead-tile / drop-adjacent-to-bureau.
 - [`js/sim/pathfinder.js`](js/sim/pathfinder.js) — pure A* matching ICD-03.
 - [`js/render/renderer.js`](js/render/renderer.js) — three.js scene,
-  consumes `WorldFrame` via `apply(frame, alpha)`. Interpolates `pos` /
-  `facing` between sim ticks. Exposes `screenToGridCell()` for input.
-- [`js/input.js`](js/input.js) — click handling. Left = select / deselect;
-  right = dispatch. Per design doc §13 + decision §17.
+  consumes `WorldFrame` via `apply(frame, alpha)`. Now also pools
+  `leadMeshes` (id → group, flavor-tinted slab) and toggles a folder
+  mesh on the unit group when `UnitView.carrying === 'lead'`.
+- [`js/input.js`](js/input.js) — unchanged at 0.3. Pickup is auto on
+  arrival; no new Intent kind added to the dispatch surface (ICD-02
+  untouched).
 - [`js/main.js`](js/main.js) — entry. Fixed-step sim @ 30 Hz with
   renderer interp.
 - [`tests/`](tests) — `node --test` covers pathfinder, unit-step,
-  WorldFrame projection (19 cases).
+  WorldFrame projection, and now story-pickup (26 cases).
 
-ICDs both advanced in the 0.2 PR (Constraint #4):
-[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) → **v0.3**
-(animation playhead + Vec3 precision closed);
-[`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md) → **v0.2**
-(GridCell shape + cost units closed).
+ICDs both advanced in the 0.3 PR (Constraint #4):
+[`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) → **v0.2**
+(added `held_by_building` resting-state pointer and the `lead → lead`
+carrier-drop transition);
+[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) → **v0.4**
+(LeadView filter tightened to exclude held-at-building Stories — no field-set
+change).
 
-**Next milestone: 0.3.** Lead spawn (single district) · pickup ·
-return-to-bureau. Touches **ICD-05** (lead state machine) and the v0.2
-**ICD-01** `LeadView` field set + the `LeadView ↔ UnitView.carrying`
-pickup handoff (both already spelled out). See
-[`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) and
-[`roadmap.md`](roadmap.md).
-
-> 0.3 is legal to open as a code session. After 0.3 the roadmap calls for
-> a re-eval (paper) session before 0.4. Don't skip it.
+**Next: RE-EVAL.** The roadmap calls for a paper-only re-eval slot after
+0.3 — did ICDs 01 / 03 / 05 survive contact? Forward ICD presence check
+for 0.4–0.6 (Photog · Darkroom · Print cycle · Resources). **Do not open
+0.4 in the same session as the re-eval — paper output only.**
 
 ## When you're stuck
 
