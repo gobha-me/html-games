@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 0.4 photog · darkroom · verified</title>
+<title>Late Edition — 0.5 print cycle · deadline · debrief</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -84,6 +84,98 @@
     padding: 6px 10px;
   }
   .back-to-arcade:hover { color: var(--ink); border-color: var(--ink); }
+
+  #hud-ticker {
+    position: fixed;
+    top: 44px;
+    right: 14px;
+    z-index: 10;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--ink);
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 6px 10px;
+    pointer-events: none;
+  }
+
+  #debrief-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 12, 0.55);
+    cursor: pointer;
+  }
+  #debrief-panel[hidden] { display: none; }
+  #debrief-panel .debrief-card {
+    background: var(--paper-2);
+    border: 1px solid var(--ink);
+    padding: 28px 36px;
+    min-width: 360px;
+    max-width: 520px;
+    box-shadow: 0 12px 48px rgba(10, 10, 12, 0.6);
+  }
+  #debrief-panel .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--mid);
+    margin-bottom: 8px;
+  }
+  #debrief-panel .banner {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 32px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  #debrief-panel .story-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px 0;
+  }
+  #debrief-panel .story-row {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  #debrief-panel .story-row:last-child { border-bottom: none; }
+  #debrief-panel .headline {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  #debrief-panel .meta-row {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  #debrief-panel .empty {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--mid);
+    padding: 8px 0;
+  }
+  #debrief-panel .dismiss {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--red);
+    text-align: right;
+  }
 </style>
 </head>
 <body>
@@ -93,10 +185,14 @@
 <header class="masthead">
   <div class="title">Late <span class="ed">Edition</span></div>
   <div class="meta">
-    Milestone 0.4 &middot; left-click select &middot; right-click dispatch &middot;
+    Milestone 0.5 &middot; print cycle &middot; left-click select &middot; right-click dispatch &middot;
     <a href="design/phase-0-roadmap.html">Phase 0 + Roadmap &rarr;</a>
   </div>
 </header>
+
+<div id="hud-ticker">EDITION 1 · 12:00 TO DEADLINE</div>
+
+<div id="debrief-panel" hidden></div>
 
 <a href="../" class="back-to-arcade">&larr; Back to Arcade</a>
 

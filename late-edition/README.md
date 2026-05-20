@@ -8,31 +8,37 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.4.0 — milestone 0.4 (Photog · Darkroom · `lead → verified`).** Two
-carriers now ferry a Story through the first two pipeline stages. The
-Reporter picks up a free lead at the district and drops it on the Bureau;
-the Photog picks it off the Bureau and drops it at the Darkroom, flipping
-the Story state from `'lead'` to `'verified'`. Sim under
-[`js/sim/`](js/sim) (state + A* pathfinder), renderer under
-[`js/render/`](js/render), input glue at [`js/input.js`](js/input.js). 37
-node tests cover the pure sim modules. Next is **PRE-0.5** (paper-only —
-`EditionSummary` + `HudState` ICDs) before milestone **0.5** (print
-cycle). See [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+**v0.5.0 — milestone 0.5 (print cycle · deadline · debrief).** The
+heartbeat is lit. A 12-minute edition clock ticks down inside the sim,
+fires `DEADLINE_WARNING` at T-30s and `DEADLINE_FIRE` at T-0, walks each
+verified-at-Darkroom Story through `verified → plated → printed` in the
+same frame, and surfaces an `EditionSummary` to a click-to-dismiss
+debrief panel. The HUD ticker reads the live deadline countdown via
+[`js/hud.js`](js/hud.js); the debrief overlay lives at
+[`js/debrief-panel.js`](js/debrief-panel.js). Sim still under
+[`js/sim/`](js/sim) (state + A* pathfinder + new `cycle-clock.js`),
+renderer under [`js/render/`](js/render). 45 node tests cover the pure
+sim modules. Next is **milestone 0.6** (Cash + Ink + Heat resources;
+story cash on print). See [`roadmap.md`](roadmap.md) and
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 
 1. Open `index.html` in a browser (or click the **Late Edition** card
    from the arcade launcher). You'll see the cel-shaded world with two
-   buildings (Bureau in the center, Darkroom to the southeast) and two
-   units (Reporter north of the Bureau, Photog south of it). A lead sits
-   at the northwest district tile. **Left-click a unit** to select (a
-   yellow ring appears). **Right-click anywhere on the street grid** to
-   dispatch — the unit walks the A*-shortest path. Left-click empty
-   ground to deselect. The story flow: send the Reporter to the lead (it
-   auto-picks-up), then back to a Bureau-adjacent tile (it auto-drops);
-   then send the Photog to a Bureau-adjacent tile (it picks up the held
-   lead), then to a Darkroom-adjacent tile (it drops with state flip to
-   `'verified'`).
+   buildings (Bureau in the center, Darkroom to the southeast), two
+   units (Reporter north of the Bureau, Photog south of it), a lead at
+   the northwest district tile, and a HUD ticker top-right showing
+   `EDITION 1 · 12:00 TO DEADLINE` counting down. **Left-click a unit**
+   to select (a yellow ring appears). **Right-click anywhere on the
+   street grid** to dispatch — the unit walks the A*-shortest path.
+   Left-click empty ground to deselect. The story flow: Reporter to the
+   lead (auto-pickup), Reporter back to a Bureau-adjacent tile (auto-drop);
+   Photog to a Bureau-adjacent tile (picks up the held lead), Photog to a
+   Darkroom-adjacent tile (drop flips state to `'verified'`). The verified
+   story then waits at the Darkroom; when the 12-minute deadline fires,
+   the debrief panel mounts with the front page. Click anywhere on the
+   panel to dismiss and open the next edition.
 2. The in-page **Phase 0 + Roadmap →** link (top-right of the scene) opens
    the architectural supplement (also reachable directly at
    [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html)).

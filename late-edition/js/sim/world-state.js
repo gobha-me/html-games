@@ -14,6 +14,7 @@
 // remains stable across the verify transition (ICD-05 Purpose still holds).
 
 import { pathfind } from './pathfinder.js';
+import { CycleClock } from './cycle-clock.js';
 
 export const TILE = 6;
 export const GRID_W = 10;
@@ -23,6 +24,14 @@ export const PRESS_HP = 90;        // overview §Single fail-state
 export const LEAD_SPAWN_TILE = { x: 2, y: 2 }; // 0.3 "single district" pickup point
 export const BUREAU_TILE = { x: 5, y: 5 };
 export const DARKROOM_TILE = { x: 7, y: 7 }; // 0.4: symmetric from Bureau (Manhattan 4)
+
+// At 0.5 the print pipeline closes with no Editor unit yet — the verified →
+// plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
+// sentinel below stands in for the real EditorId field on Story.plated_by
+// until the Editor lands (0.6/0.7). Keeping a non-null marker (vs null) lets
+// future code and tests assert "this story passed through the plating step",
+// and the eventual Editor unit just substitutes its UnitId in the same slot.
+export const AUTO_PLATE_SENTINEL = 'auto-plate';
 
 export function tileToWorld(cell) {
   return { x: cell.x * TILE - 27, y: 0, z: cell.y * TILE - 27 };
@@ -39,10 +48,14 @@ let nextId = 1;
 const mkId = (prefix) => `${prefix}-${nextId++}`;
 
 export class World {
-  constructor() {
+  constructor(opts = {}) {
     nextId = 1;
     this.grid = bakeGrid();
     this.sim_time_ms = 0;
+    this.cycle = new CycleClock(opts.cycle ?? {});
+    this.cycle.start(1); // first edition open; subscribers attach post-construction
+    this.cycleSubscribers = [];
+    this.debriefOpen = false;
 
     this.buildings = [
       {
@@ -114,13 +127,19 @@ export class World {
       held_by_building: null,
     }];
 
-    this.hud = {
-      edition: 1,
-      deadline_ms: 0,
-      resources: { leads: 0, stories: 0, ink: 0, cash: 0, heat: 0 },
-    };
-
     this.effects = [];
+  }
+
+  subscribeCycle(fn) {
+    this.cycleSubscribers.push(fn);
+    return () => {
+      const i = this.cycleSubscribers.indexOf(fn);
+      if (i >= 0) this.cycleSubscribers.splice(i, 1);
+    };
+  }
+
+  _emitCycle(ev) {
+    for (const fn of this.cycleSubscribers.slice()) fn(ev);
   }
 
   selectUnit(unitId) {
@@ -150,12 +169,76 @@ export class World {
   }
 
   tick(dt) {
+    // Full sim pause while the debrief panel is open (ICD-06 v0.2
+    // §Pause-during-debrief, milestone-0.5 reading): cycle clock stops and
+    // unit motion stops. The renderer keeps painting the last snapshot; only
+    // ackDebrief() lets the world resume.
+    if (this.debriefOpen) return;
+
     this.sim_time_ms += dt * 1000;
     for (const u of this.units) {
       if (u.state === 'idle' || u.path.length === 0) continue;
       const arrived = stepAlongPath(u, dt);
       if (arrived) this._handleArrival(u);
     }
+
+    const events = this.cycle.advance(dt * 1000);
+    for (const ev of events) {
+      this._emitCycle(ev);
+      if (ev.kind === 'DEADLINE_FIRE') this._fireDebrief();
+    }
+  }
+
+  // Triggered exactly once per edition on DEADLINE_FIRE. Walks each verified
+  // story sitting at the Darkroom through verified → plated → printed in the
+  // same frame (no Editor unit yet — see AUTO_PLATE_SENTINEL above), builds
+  // the EditionSummary, emits EDITION_DEBRIEF_BEGIN, and flips debriefOpen
+  // so subsequent ticks pause the sim until ackDebrief() resolves the panel.
+  _fireDebrief() {
+    const darkroom = this.buildings.find((b) => b.kind === 'darkroom');
+    const printing = darkroom
+      ? this.stories.filter((s) => s.state === 'verified' && s.held_by_building === darkroom.id)
+      : [];
+
+    for (const story of printing) {
+      // verified → plated → printed in one tick. cash_yield / heat_yield are
+      // zero at 0.5 — resource numbers are medium-band per overview line 47
+      // and land at milestone 0.6. ICD-05 §Notes ("computed at plated and
+      // frozen there") still holds: the values just happen to be zero.
+      story.state = 'plated';
+      story.plated_by = AUTO_PLATE_SENTINEL;
+      story.cash_yield = 0;
+      story.heat_yield = 0;
+      story.state = 'printed';
+      story.printed_in = this.cycle.edition;
+    }
+
+    const summary = this._buildEditionSummary(printing);
+    this.debriefOpen = true;
+    this._emitCycle({ kind: 'EDITION_DEBRIEF_BEGIN', edition: this.cycle.edition, summary });
+  }
+
+  // Player-driven exit from the debrief panel. Closes the current edition,
+  // starts the next one, dispatches the resulting CYCLE_BEGIN to subscribers.
+  // No-op when no debrief is open — the panel always calls this through a
+  // user click, so a stale double-click is harmless.
+  ackDebrief() {
+    if (!this.debriefOpen) return;
+    this.debriefOpen = false;
+    this._emitCycle({ kind: 'EDITION_DEBRIEF_END' });
+    const begin = this.cycle.start(this.cycle.edition + 1);
+    this._emitCycle(begin);
+  }
+
+  _buildEditionSummary(printed) {
+    return {
+      edition: this.cycle.edition,
+      stories_printed: printed.map(storyDigest),
+      cash_earned: 0,    // 0.5: resource numbers land at 0.6 (overview line 47)
+      ink_consumed: 0,
+      heat_applied: 0,
+      rival_events: [],  // 0.5: rivals land at 0.7 (ICD-02 first caller)
+    };
   }
 
   // Pickup / drop bookkeeping on path completion. Each unit kind has its own
@@ -261,9 +344,11 @@ export class World {
       rain: { intensity: 1 },
       fog: { near: 22, far: 60, color: 0xc8c4bc },
       hud: {
-        edition: this.hud.edition,
-        deadline_ms: this.hud.deadline_ms,
-        resources: { ...this.hud.resources },
+        edition: this.cycle.edition,
+        deadline_ms: this.cycle.remainingMs,
+        // Resource values stay zero at 0.5 — they light up at milestone 0.6
+        // (overview §"Five resources"). Names + shape locked by ICD-01 v0.5.
+        resources: { leads: 0, stories: 0, ink: 0, cash: 0, heat: 0 },
       },
       effects: this.effects.splice(0),
     };
@@ -305,6 +390,20 @@ function leadView(s, simTime) {
     tier: s.tier,
     flavor: s.flavor,
     age_ms: simTime - s.spawned_at_ms,
+  };
+}
+
+// ICD-06 v0.2 StoryDigest projection. Headline is synthesized from flavor +
+// tier at 0.5 — a real headline-generation pass lands later when the story
+// engine (Design Doc §17) lights up. The text is for player feedback in the
+// debrief panel; the load-bearing data is id / flavor / tier / cash.
+function storyDigest(s) {
+  return {
+    id: s.id,
+    headline: `${s.flavor.toUpperCase()} ${s.tier.toUpperCase()} HITS WIRE`,
+    flavor: s.flavor,
+    tier: s.tier,
+    cash: s.cash_yield ?? 0,
   };
 }
 

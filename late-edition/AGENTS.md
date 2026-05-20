@@ -50,50 +50,58 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.4.1 — PRE-0.5 shipped (paper).** Paper-only architecture session. The
-forward-ICD gap the post-0.3 re-eval flagged
-([`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md) §3
-"Scheduled paper slot — PRE-0.5") is closed. Two ICDs bumped, byte-zero
-diff under [`js/`](js) and [`tests/`](tests) and [`index.html`](index.html).
-Tests stay at 37 / 37.
+**v0.5.0 — milestone 0.5 shipped (code).** The print cycle lights up. The
+12-min edition clock lives at [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js)
+as a pure module; `World` owns the lifecycle and dispatches `CYCLE_BEGIN` /
+`CYCLE_TICK` / `DEADLINE_WARNING` / `DEADLINE_FIRE` /
+`EDITION_DEBRIEF_BEGIN` / `EDITION_DEBRIEF_END` through a new
+`subscribeCycle(fn)` channel. On `DEADLINE_FIRE` each verified-at-Darkroom
+Story walks `verified → plated → printed` in the same frame (with a
+`AUTO_PLATE_SENTINEL` placeholder on `plated_by` until the Editor unit
+lands at 0.6/0.7), the `EditionSummary` is built, the debrief panel mounts,
+and `World.tick()` early-returns until `ackDebrief()` opens the next
+edition. Tests at 45/45 (37 baseline + 8 new in
+[`tests/print-cycle.test.mjs`](tests/print-cycle.test.mjs)).
 
-ICD activity (Constraint #4 — paper-only this round, so no code drift to
-record):
+ICD activity (Constraint #4 — none triggered; all three relevant ICDs were
+used as authored):
 
-- [`icds/ICD-06-print-cycle.md`](icds/ICD-06-print-cycle.md) → **v0.2**.
-  `EditionSummary` shape authored (with `StoryDigest` and
-  `RivalEventDigest` sub-shapes); closes v0.1's deferred open question.
-  Pause-during-debrief default confirmed: `CYCLE_TICK` stops between
-  `EDITION_DEBRIEF_BEGIN` and `EDITION_DEBRIEF_END`. Event vocabulary,
-  cycle timing, and subscriber expectations unchanged.
-- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) →
-  **v0.5**. `HudState` shape authored (`edition`, `deadline_ms`,
-  `resources: { leads, stories, ink, cash, heat }`); render-only
-  projection rule tightened from "this frame" to "within the next-N
-  window" (legitimizes `LeadView.age_ms`); new Implementation notes
-  (0.5) section pins `TILE = 6`, world-space origin offset `−27`, fixed
-  30 Hz sim tick (`TICK_HZ` / `TICK_DT`), and the per-`World` monotonic
-  id-minting convention (`b-`, `u-`, `s-` prefixes). No `WorldFrame`
-  top-level changes; no `BuildingView` / `UnitView` / `LeadView`
-  field-set changes.
+- **ICD-06 v0.2** — used as authored. `CycleEvent` kinds dispatched 1:1;
+  `EditionSummary` produced exactly as defined; pause-during-debrief
+  honoured (sim-wide, per the milestone-0.5 reading).
+- **ICD-01 v0.5** — used as authored. `HudState { edition, deadline_ms,
+  resources }` populated via `snapshot().hud`; the four Implementation
+  notes (0.5) constants observed in code.
+- **ICD-05 v0.3** — used as authored. The `verified → plated → printed`
+  two-step still fires at `DEADLINE_FIRE`; the milestone-0.5 collapse into
+  one frame is allowed by the table's "first milestone" column without
+  changing the transition rows.
 
-Code state (unchanged from v0.4.0 — paper session forbids it):
+Code state (delta from v0.4.0):
 
-- [`js/sim/world-state.js`](js/sim/world-state.js) — `World` owns the
-  10×10 grid, Bureau at (5,5) and Darkroom at (7,7). Two units spawn:
-  Reporter (5,4) and Photog (5,6); both at 3.5 u/s. Story id stable
-  through pickup → drop → verify.
-- [`js/sim/pathfinder.js`](js/sim/pathfinder.js) — pure A* matching ICD-03.
-- [`js/render/renderer.js`](js/render/renderer.js) — three.js scene,
-  consumes `WorldFrame` via `apply(frame, alpha)`.
-- [`js/input.js`](js/input.js), [`js/main.js`](js/main.js) — unchanged.
-- [`tests/`](tests) — 37 cases, unchanged from v0.4.0.
+- [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js) — **NEW.** Pure clock
+  with `{ editionDurationMs, warningOffsetMs }` defaults from ICD-06 v0.2;
+  both tunable via constructor so tests don't burn real time.
+- [`js/sim/world-state.js`](js/sim/world-state.js) — `World(opts)` takes
+  `{ cycle?: {...} }`; new `subscribeCycle` / `ackDebrief` /
+  `_fireDebrief` / `_buildEditionSummary` surface; `tick()` early-returns
+  on `debriefOpen`; exported `AUTO_PLATE_SENTINEL` placeholder.
+- [`js/hud.js`](js/hud.js) — **NEW.** DOM ticker, pure projection of
+  `frame.hud`.
+- [`js/debrief-panel.js`](js/debrief-panel.js) — **NEW.** DOM panel
+  subscribed to cycle events; click-to-dismiss.
+- [`js/main.js`](js/main.js) — instantiates `HudTicker` + `DebriefPanel`
+  alongside the existing wiring; render loop calls `hud.apply(frame)`.
+- [`index.html`](index.html) — `<div id="hud-ticker">` and
+  `<div id="debrief-panel" hidden>` plus CSS; masthead + title rolled to 0.5.
 
-**Next: milestone 0.5 (code).** Print cycle clock, deadline events,
-edition debrief panel. ICD-06 v0.2 supplies the event vocabulary and
-`EditionSummary`; ICD-01 v0.5 supplies the `HudState` projection the HUD
-ticker reads. Constraint #4 applies: any deviation from those shapes during
-implementation must update the owning ICD in the same PR.
+**Next: milestone 0.6 (code).** Cash + Ink + Heat resources; story cash on
+print; ink consumption. The `EditionSummary` `cash_earned` /
+`ink_consumed` / `heat_applied` slots and the `HudState.resources` fields
+are already shaped and zeroed — 0.6 fills them in. Design Doc §06 + §19
+first-pass numbers; values stay medium-band until playtest. ICD-01 v0.5
+and ICD-06 v0.2 already gate it at the contract level; no PRE-0.6 paper
+slot scheduled.
 
 ## When you're stuck
 

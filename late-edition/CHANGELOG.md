@@ -1,5 +1,115 @@
 # Changelog — Late Edition
 
+## v0.5.0 — 2026-05-20 — Milestone 0.5: print cycle · deadline · debrief
+
+The heartbeat lights up. A 12-minute edition clock now ticks down inside the
+sim, fires `DEADLINE_WARNING` at T-30s and `DEADLINE_FIRE` at T-0, walks each
+verified-at-Darkroom Story through `verified → plated → printed` in the same
+deadline frame, and surfaces an `EditionSummary` to a click-to-dismiss debrief
+panel. The HUD ticker reads `frame.hud.{edition, deadline_ms}` every render
+frame for the live countdown. Both ICDs that PRE-0.5 authored were used
+without deviation — no ICD bumps this cycle.
+
+### Added
+
+- [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js) — new pure module owning
+  the 12-min clock. `CycleClock` accepts `{ editionDurationMs,
+  warningOffsetMs }` (defaults `720_000` / `30_000` from ICD-06 v0.2 §Cycle
+  timing; both tunable so tests don't have to chew through real time).
+  `start(edition)` returns the `CYCLE_BEGIN` event for World to dispatch.
+  `advance(dtMs)` returns the events emitted this step (`CYCLE_TICK`,
+  optionally `DEADLINE_WARNING` on first cross of `warningOffsetMs`,
+  optionally `DEADLINE_FIRE` on first cross of zero). After fire the clock
+  idles at zero until `start()` opens the next edition.
+- [`js/hud.js`](js/hud.js) — DOM ticker. Pure projection of
+  `frame.hud.{edition, deadline_ms}` to a `"EDITION N · MM:SS TO DEADLINE"`
+  caption every render frame. No event subscription, no sim reach-back. Lives
+  next to the masthead so milestone 0.9's corkboard layout can grow it without
+  churning `main.js`.
+- [`js/debrief-panel.js`](js/debrief-panel.js) — DOM panel subscribed to
+  `World.subscribeCycle`. Mounts on `EDITION_DEBRIEF_BEGIN` using the
+  `summary` payload (header `EDITION N`, one row per `stories_printed`),
+  dismisses on click via `world.ackDebrief()`, tears down on
+  `EDITION_DEBRIEF_END`. Plain DOM; the full corkboard from Design Doc §13
+  arrives at 0.9.
+- [`tests/print-cycle.test.mjs`](tests/print-cycle.test.mjs) — 8 new cases:
+  fresh-World HudState; 30s advance decrements deadline; `DEADLINE_WARNING`
+  fires exactly once at T-30s crossing; `DEADLINE_FIRE` fires exactly once at
+  T-0; `EDITION_DEBRIEF_BEGIN.summary` carries an `EditionSummary` whose
+  `stories_printed[0].id` matches the original `Story.id` (the load-bearing
+  ICD-05 §Purpose commitment); full sim pause during debrief (cycle clock +
+  unit motion both freeze); `ackDebrief()` emits `EDITION_DEBRIEF_END` then
+  `CYCLE_BEGIN(edition=2)` and printed stories stay out of `frame.leads`;
+  `verified → plated → printed` fires same-frame at `DEADLINE_FIRE`.
+
+### Changed
+
+- [`js/sim/world-state.js`](js/sim/world-state.js) — `World` now owns the
+  `CycleClock`. Constructor accepts `opts = { cycle?: {...} }` (default empty
+  → strong-band defaults). Wires `cycleSubscribers`, `debriefOpen`, the
+  `subscribeCycle(fn)` channel, the `ackDebrief()` exit, the `_fireDebrief()`
+  / `_buildEditionSummary()` close-out path, and the new exported
+  `AUTO_PLATE_SENTINEL` placeholder that stands in for `Story.plated_by`
+  until the Editor unit lands (0.6/0.7). `World.tick()` early-returns when
+  `debriefOpen` is true — that's the full sim pause (cycle + units) the
+  milestone-0.5 reading of ICD-06 §"Pause-during-debrief" commits to.
+  `snapshot().hud` reads live from `cycle` (`edition`, `remainingMs`);
+  resource values stay zero — names + shape locked by ICD-01 v0.5, values
+  land at 0.6.
+- [`js/main.js`](js/main.js) — instantiates `HudTicker` and `DebriefPanel`
+  alongside the existing `Renderer` / `World` / `input` wiring. The render
+  loop now calls `hud.apply(frame)` after `renderer.apply(frame, alpha)`.
+- [`index.html`](index.html) — added `<div id="hud-ticker">` and
+  `<div id="debrief-panel" hidden>` plus the CSS for both. Masthead caption
+  and `<title>` rolled forward from "0.4 photog · darkroom · verified" to
+  "0.5 print cycle · deadline · debrief".
+- [`roadmap.md`](roadmap.md) — milestone 0.5 row ticked; current-status block
+  advanced to point at 0.6 (Cash + Ink + Heat resources).
+- [`README.md`](README.md) — Status block bumped to v0.5.0; "How to navigate"
+  mentions the deadline + debrief.
+- [`AGENTS.md`](AGENTS.md) — "Current state" rewritten to reflect the live
+  cycle; "Next" repoints at milestone 0.6.
+
+### Not changed
+
+- ICDs — **no bumps**. ICD-06 v0.2's event vocabulary and `EditionSummary`
+  shape used as authored. ICD-01 v0.5's `HudState` populated as authored.
+  ICD-05 v0.3's `verified → plated → printed` transitions fired as the table
+  specifies (the `plated_by` sentinel preserves the contract until the
+  Editor unit substitutes a real `EditorId`). No deviation, so Constraint #4
+  doesn't trigger.
+- [`js/render/renderer.js`](js/render/renderer.js), [`js/input.js`](js/input.js),
+  [`js/sim/pathfinder.js`](js/sim/pathfinder.js) — untouched. 0.5 lives
+  entirely in the sim's cycle layer and the renderer-adjacent DOM.
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+
+### ICD activity
+
+- **ICD-06 v0.2** — used as authored. `CycleEvent` kinds dispatched 1:1,
+  `EditionSummary` shape produced exactly as defined, pause-during-debrief
+  default honoured.
+- **ICD-01 v0.5** — used as authored. `HudState { edition, deadline_ms,
+  resources: { leads, stories, ink, cash, heat } }` populated; the four
+  Implementation-notes (0.5) constants (TILE, origin offset, 30 Hz,
+  id-minting) all observed.
+- **ICD-05 v0.3** — used as authored. The `verified → plated → printed`
+  two-step still fires at `DEADLINE_FIRE`; the milestone-0.5 collapse into
+  the same frame is allowed by the ICD's "first milestone" column without
+  changing the transition table.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — 45 / 45 pass. 8 new cases since v0.4.1
+  (37 → 45). The existing `tests/world-frame.test.mjs` `FRAME_KEYS`
+  allowlist still passes — no top-level `WorldFrame` keys added (subscriber
+  channel side-steps the projection so ICD-01 stays at v0.5).
+- Browser smoke: load [`index.html`](index.html). Masthead reads "Milestone
+  0.5 · print cycle". HUD ticker shows `EDITION 1 · 12:00 TO DEADLINE` and
+  counts down. Stage the ferry (reporter → lead → bureau; photog → bureau
+  → darkroom) — verified story rests at the Darkroom. At deadline the
+  debrief panel mounts with a `VICE WHISPER HITS WIRE` row; click anywhere
+  on the panel and the next edition opens at `EDITION 2 · 12:00`.
+
 ## v0.4.1 — 2026-05-20 — PRE-0.5 paper session
 
 Paper-only, no code. The forward-ICD gap the post-0.3 re-eval flagged

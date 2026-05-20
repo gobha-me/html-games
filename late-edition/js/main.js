@@ -5,15 +5,23 @@
 import { Renderer } from './render/renderer.js';
 import { World } from './sim/world-state.js';
 import { attachInput } from './input.js';
+import { HudTicker } from './hud.js';
+import { DebriefPanel } from './debrief-panel.js';
 
 const TICK_HZ = 30;
 const TICK_DT = 1 / TICK_HZ;
 
 const root = document.getElementById('world');
 if (!root) throw new Error('world root not found');
+const hudRoot = document.getElementById('hud-ticker');
+if (!hudRoot) throw new Error('hud-ticker root not found');
+const panelRoot = document.getElementById('debrief-panel');
+if (!panelRoot) throw new Error('debrief-panel root not found');
 
 const renderer = new Renderer(root);
 const world = new World();
+const hud = new HudTicker(hudRoot);
+new DebriefPanel(panelRoot, world);
 attachInput(root, renderer, world);
 
 let lastFrameTime = performance.now();
@@ -37,7 +45,9 @@ function loop() {
   }
 
   const alpha = accumulator / TICK_DT;
-  renderer.apply(world.snapshot(), alpha);
+  const frame = world.snapshot();
+  renderer.apply(frame, alpha);
+  hud.apply(frame);
   requestAnimationFrame(loop);
 }
 
