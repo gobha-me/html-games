@@ -12,9 +12,22 @@
 // (5, 6); photog ferries a held lead Bureau → Darkroom and drops it with
 // state transition 'lead' → 'verified' (ICD-05 v0.2 row 3). The Story id
 // remains stable across the verify transition (ICD-05 Purpose still holds).
+// Milestone 0.6 adds: cash + ink + heat running balances on World. At
+// DEADLINE_FIRE each printed Story's cash_yield / heat_yield / ink_cost is set
+// from js/sim/resources.js (Design Doc §06 + §19 first-pass numbers, medium-
+// band per overview line 44); EditionSummary aggregates them; this.resources
+// accumulates; ackDebrief applies the §19 baseline heat decay. HudState
+// projects the running balances + derived leads/stories counts in snapshot().
 
 import { pathfind } from './pathfinder.js';
 import { CycleClock } from './cycle-clock.js';
+import {
+  STARTING_INK,
+  HEAT_DECAY_PER_EDITION,
+  cashYieldFor,
+  inkCostFor,
+  heatYieldFor,
+} from './resources.js';
 
 export const TILE = 6;
 export const GRID_W = 10;
@@ -56,6 +69,11 @@ export class World {
     this.cycle.start(1); // first edition open; subscribers attach post-construction
     this.cycleSubscribers = [];
     this.debriefOpen = false;
+
+    // Running resource balances (ICD-01 v0.5 §HudState · Design Doc §06).
+    // Ink/cash/heat accumulate across editions; the derived leads/stories counts
+    // live in snapshot(). 0.6 medium-band — values from js/sim/resources.js.
+    this.resources = { ink: STARTING_INK, cash: 0, heat: 0 };
 
     this.buildings = [
       {
@@ -201,19 +219,26 @@ export class World {
       : [];
 
     for (const story of printing) {
-      // verified → plated → printed in one tick. cash_yield / heat_yield are
-      // zero at 0.5 — resource numbers are medium-band per overview line 47
-      // and land at milestone 0.6. ICD-05 §Notes ("computed at plated and
-      // frozen there") still holds: the values just happen to be zero.
+      // verified → plated → printed in one tick. Yields land at the plated step
+      // and freeze there per ICD-05 §Notes. 0.6 fills the values from
+      // js/sim/resources.js (medium-band, single representative per tier/flavor —
+      // overview line 44). story.ink_cost is sim-internal — not on any View.
       story.state = 'plated';
       story.plated_by = AUTO_PLATE_SENTINEL;
-      story.cash_yield = 0;
-      story.heat_yield = 0;
+      story.cash_yield = cashYieldFor(story);
+      story.heat_yield = heatYieldFor(story);
+      story.ink_cost = inkCostFor(story);
       story.state = 'printed';
       story.printed_in = this.cycle.edition;
     }
 
     const summary = this._buildEditionSummary(printing);
+    // Apply the edition deltas to the running balances. Negative ink is allowed
+    // at 0.6 — the "can't print if ink runs out" enforcement is medium-band and
+    // lands at 0.7+. The HUD just surfaces the number.
+    this.resources.cash += summary.cash_earned;
+    this.resources.ink  -= summary.ink_consumed;
+    this.resources.heat += summary.heat_applied;
     this.debriefOpen = true;
     this._emitCycle({ kind: 'EDITION_DEBRIEF_BEGIN', edition: this.cycle.edition, summary });
   }
@@ -225,6 +250,10 @@ export class World {
   ackDebrief() {
     if (!this.debriefOpen) return;
     this.debriefOpen = false;
+    // Edition-boundary heat decay (Design Doc §19 baseline). Clamped at zero.
+    // The "−12 if no controversial stories" and "0 decay if heat>80" nuances
+    // are medium-band balance refinements scheduled for 0.7+.
+    this.resources.heat = Math.max(0, this.resources.heat - HEAT_DECAY_PER_EDITION);
     this._emitCycle({ kind: 'EDITION_DEBRIEF_END' });
     const begin = this.cycle.start(this.cycle.edition + 1);
     this._emitCycle(begin);
@@ -234,9 +263,9 @@ export class World {
     return {
       edition: this.cycle.edition,
       stories_printed: printed.map(storyDigest),
-      cash_earned: 0,    // 0.5: resource numbers land at 0.6 (overview line 47)
-      ink_consumed: 0,
-      heat_applied: 0,
+      cash_earned:  printed.reduce((sum, s) => sum + (s.cash_yield ?? 0), 0),
+      ink_consumed: printed.reduce((sum, s) => sum + (s.ink_cost  ?? 0), 0),
+      heat_applied: printed.reduce((sum, s) => sum + (s.heat_yield ?? 0), 0),
       rival_events: [],  // 0.5: rivals land at 0.7 (ICD-02 first caller)
     };
   }
@@ -334,21 +363,32 @@ export class World {
   }
 
   snapshot() {
+    const leads = this.stories
+      .filter((s) => s.state === 'lead' && !s.picked_up_by && !s.held_by_building)
+      .map((s) => leadView(s, this.sim_time_ms));
+    const storyCount = this.stories.filter(
+      (s) => s.state === 'verified' || s.state === 'plated',
+    ).length;
     return {
       cameraTarget: { x: 0, y: 0, z: 0 },
       buildings: this.buildings.map(buildingView),
       units: this.units.map(unitView),
-      leads: this.stories
-        .filter((s) => s.state === 'lead' && !s.picked_up_by && !s.held_by_building)
-        .map((s) => leadView(s, this.sim_time_ms)),
+      leads,
       rain: { intensity: 1 },
       fog: { near: 22, far: 60, color: 0xc8c4bc },
       hud: {
         edition: this.cycle.edition,
         deadline_ms: this.cycle.remainingMs,
-        // Resource values stay zero at 0.5 — they light up at milestone 0.6
-        // (overview §"Five resources"). Names + shape locked by ICD-01 v0.5.
-        resources: { leads: 0, stories: 0, ink: 0, cash: 0, heat: 0 },
+        // ICD-01 v0.5 §HudState. leads/stories are derived from the live state
+        // (same lead filter as frame.leads; stories = verified+plated count).
+        // ink/cash/heat read from the running balances accumulated at print.
+        resources: {
+          leads: leads.length,
+          stories: storyCount,
+          ink: this.resources.ink,
+          cash: this.resources.cash,
+          heat: this.resources.heat,
+        },
       },
       effects: this.effects.splice(0),
     };

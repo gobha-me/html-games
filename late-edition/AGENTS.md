@@ -50,58 +50,64 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.5.0 — milestone 0.5 shipped (code).** The print cycle lights up. The
-12-min edition clock lives at [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js)
-as a pure module; `World` owns the lifecycle and dispatches `CYCLE_BEGIN` /
-`CYCLE_TICK` / `DEADLINE_WARNING` / `DEADLINE_FIRE` /
-`EDITION_DEBRIEF_BEGIN` / `EDITION_DEBRIEF_END` through a new
-`subscribeCycle(fn)` channel. On `DEADLINE_FIRE` each verified-at-Darkroom
-Story walks `verified → plated → printed` in the same frame (with a
-`AUTO_PLATE_SENTINEL` placeholder on `plated_by` until the Editor unit
-lands at 0.6/0.7), the `EditionSummary` is built, the debrief panel mounts,
-and `World.tick()` early-returns until `ackDebrief()` opens the next
-edition. Tests at 45/45 (37 baseline + 8 new in
-[`tests/print-cycle.test.mjs`](tests/print-cycle.test.mjs)).
+**v0.6.0 — milestone 0.6 shipped (code).** The economy lights up. A new
+pure module [`js/sim/resources.js`](js/sim/resources.js) owns the per-tier
+/ per-flavor yields (Whisper $165 / Investigation $800 / Arc $2000; ink
+Whisper 1 / Investigation 3 / Arc 8; heat Vice 8 / Violence 12 / Money 15 /
+Labor 4) plus the edition-boundary constants (`STARTING_INK = 20`,
+`HEAT_DECAY_PER_EDITION = 8`) — first-pass §19 numbers, medium-band per
+overview line 44. `World._fireDebrief` writes per-story yields at the
+verified→plated step (ICD-05 §Notes — "computed at plated and frozen
+there"); `_buildEditionSummary` aggregates them into `cash_earned` /
+`ink_consumed` / `heat_applied`; `World.resources` accumulates the
+running balances across editions; `ackDebrief()` applies the §19 baseline
+heat decay (clamped non-negative). `HudState.resources` now projects
+derived `leads` / `stories` counts plus live `ink` / `cash` / `heat`
+balances. The HUD ticker grew four segments inside the single masthead
+strip. Tests at 53/53 (45 baseline + 8 new in
+[`tests/resources.test.mjs`](tests/resources.test.mjs)).
 
 ICD activity (Constraint #4 — none triggered; all three relevant ICDs were
 used as authored):
 
-- **ICD-06 v0.2** — used as authored. `CycleEvent` kinds dispatched 1:1;
-  `EditionSummary` produced exactly as defined; pause-during-debrief
-  honoured (sim-wide, per the milestone-0.5 reading).
-- **ICD-01 v0.5** — used as authored. `HudState { edition, deadline_ms,
-  resources }` populated via `snapshot().hud`; the four Implementation
-  notes (0.5) constants observed in code.
-- **ICD-05 v0.3** — used as authored. The `verified → plated → printed`
-  two-step still fires at `DEADLINE_FIRE`; the milestone-0.5 collapse into
-  one frame is allowed by the table's "first milestone" column without
-  changing the transition rows.
+- **ICD-01 v0.5** — used as authored. `HudState.resources` populated with
+  non-zero values from the new module; shape unchanged from PRE-0.5.
+- **ICD-06 v0.2** — used as authored. `EditionSummary.cash_earned` /
+  `ink_consumed` / `heat_applied` now carry non-zero deltas summed from
+  `StoryDigest.cash`; shape unchanged.
+- **ICD-05 v0.3** — used as authored. `Story.cash_yield` and
+  `Story.heat_yield` populated at the plated step (§Notes already
+  permits). `Story.ink_cost` is a new sim-internal field — it touches no
+  View, so no ICD bump warranted.
 
-Code state (delta from v0.4.0):
+Code state (delta from v0.5.0):
 
-- [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js) — **NEW.** Pure clock
-  with `{ editionDurationMs, warningOffsetMs }` defaults from ICD-06 v0.2;
-  both tunable via constructor so tests don't burn real time.
-- [`js/sim/world-state.js`](js/sim/world-state.js) — `World(opts)` takes
-  `{ cycle?: {...} }`; new `subscribeCycle` / `ackDebrief` /
-  `_fireDebrief` / `_buildEditionSummary` surface; `tick()` early-returns
-  on `debriefOpen`; exported `AUTO_PLATE_SENTINEL` placeholder.
-- [`js/hud.js`](js/hud.js) — **NEW.** DOM ticker, pure projection of
-  `frame.hud`.
-- [`js/debrief-panel.js`](js/debrief-panel.js) — **NEW.** DOM panel
-  subscribed to cycle events; click-to-dismiss.
-- [`js/main.js`](js/main.js) — instantiates `HudTicker` + `DebriefPanel`
-  alongside the existing wiring; render loop calls `hud.apply(frame)`.
-- [`index.html`](index.html) — `<div id="hud-ticker">` and
-  `<div id="debrief-panel" hidden>` plus CSS; masthead + title rolled to 0.5.
+- [`js/sim/resources.js`](js/sim/resources.js) — **NEW.** Pure module
+  exporting `STARTING_INK`, `HEAT_DECAY_PER_EDITION`, the three lookup
+  tables, and `cashYieldFor` / `inkCostFor` / `heatYieldFor` helpers.
+  Mirrors the [`cycle-clock.js`](js/sim/cycle-clock.js) pure-module pattern.
+- [`js/sim/world-state.js`](js/sim/world-state.js) — imports the helpers;
+  constructor seeds `this.resources = { ink: STARTING_INK, cash: 0, heat: 0 }`;
+  `_fireDebrief` writes per-story yields + applies summary deltas to the
+  running balances; `_buildEditionSummary` aggregates; `ackDebrief()` applies
+  heat decay; `snapshot()` projects derived counts + live balances.
+- [`js/hud.js`](js/hud.js) — ticker line extended with four resource segments
+  (`X LD · X ST · X INK · $X · X HEAT`). No CSS / DOM / main.js changes.
+- [`index.html`](index.html) — title + masthead caption + initial ticker
+  text rolled forward from "0.5 print cycle · deadline · debrief" to
+  "0.6 cash · ink · heat".
+- [`tests/print-cycle.test.mjs`](tests/print-cycle.test.mjs) — three
+  assertions amended in the same PR (Constraint #4 hygiene): the fresh-HUD
+  resources shape now reads `{ leads: 1, stories: 0, ink: 20, cash: 0, heat: 0 }`,
+  and the print-step yield assertions now expect non-zero. The yield
+  numbers are covered by `tests/resources.test.mjs`.
 
-**Next: milestone 0.6 (code).** Cash + Ink + Heat resources; story cash on
-print; ink consumption. The `EditionSummary` `cash_earned` /
-`ink_consumed` / `heat_applied` slots and the `HudState.resources` fields
-are already shaped and zeroed — 0.6 fills them in. Design Doc §06 + §19
-first-pass numbers; values stay medium-band until playtest. ICD-01 v0.5
-and ICD-06 v0.2 already gate it at the contract level; no PRE-0.6 paper
-slot scheduled.
+**Next: RE-EVAL after 0.6 (paper + code-aware).** The first re-evaluation
+since v0.3.1 (the post-0.3 re-eval). Per the roadmap: does the loop play?
+Promote rival AI contract to strong for 0.7–0.8? Decide tutorial shape.
+Forward ICD presence check for 0.7+ (Goon unit, Evening Star state machine —
+ICD-02 promotion). After re-eval, milestone 0.7: Evening Star SCAVENGE +
+RAID states, Goon unit, Press HP + fail-state.
 
 ## When you're stuck
 

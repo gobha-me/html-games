@@ -1,5 +1,120 @@
 # Changelog — Late Edition
 
+## v0.6.0 — 2026-05-20 — Milestone 0.6: cash · ink · heat
+
+The economy lights up. Each printed Story now carries a `cash_yield` /
+`heat_yield` / `ink_cost` set at the verified→plated step from a new pure
+module [`js/sim/resources.js`](js/sim/resources.js) (Design Doc §06 + §19
+first-pass numbers — Whisper $165 / Investigation $800 / Arc $2000; ink
+Whisper 1 / Investigation 3 / Arc 8; heat Vice 8 / Violence 12 / Money 15 /
+Labor 4). `EditionSummary` aggregates the per-story deltas; `World.resources`
+accumulates `{ ink, cash, heat }` across editions; `ackDebrief()` applies the
+§19 baseline heat decay (`HEAT_DECAY_PER_EDITION = 8`, clamped non-negative).
+`HudState.resources` now projects derived `leads` / `stories` counts plus the
+live running balances. The HUD ticker grew four segments
+(`X LD · X ST · X INK · $X · X HEAT`) inside the single masthead strip so the
+milestone 0.9 corkboard can absorb them without churning `main.js`. Both
+ICDs that PRE-0.5 authored (01 v0.5 + 06 v0.2) were used without deviation —
+no ICD bumps this cycle.
+
+### Added
+
+- [`js/sim/resources.js`](js/sim/resources.js) — **NEW.** Pure module
+  mirroring the [`cycle-clock.js`](js/sim/cycle-clock.js) shape. Exports
+  `STARTING_INK = 20` (matches §19 "$200 per 20 units" Docks purchase
+  scale → first-edition runway) and `HEAT_DECAY_PER_EDITION = 8` (§19
+  baseline — the "−12 if no controversial" and "0 decay if heat>80"
+  nuances are medium-band balance refinements scheduled for 0.7+). Three
+  lookup tables (`CASH_BY_TIER`, `INK_BY_TIER`, `HEAT_BY_FLAVOR`) carry
+  the single-representative midpoints of the §19 ranges; the three
+  helpers `cashYieldFor` / `inkCostFor` / `heatYieldFor` accept a Story
+  and return the lookup. Labor flavor has no §19 entry — assigned `4`
+  (gentlest of the four) as a sane default until §19 expands.
+- [`tests/resources.test.mjs`](tests/resources.test.mjs) — 8 new cases:
+  fresh-World HUD reads `{ leads: 1, stories: 0, ink: 20, cash: 0, heat: 0 }`;
+  picked-up lead leaves `frame.leads` and the count; photog-verified story
+  ticks `stories` to 1; `DEADLINE_FIRE` writes per-story yields from the
+  lookups; `EditionSummary` aggregates them; running balances accumulate;
+  `ackDebrief` applies heat decay clamped at zero; `StoryDigest.cash`
+  carries the non-zero yield to the debrief panel.
+
+### Changed
+
+- [`js/sim/world-state.js`](js/sim/world-state.js) — imports the new
+  helpers; constructor seeds `this.resources = { ink: STARTING_INK, cash: 0, heat: 0 }`;
+  `_fireDebrief` writes `story.cash_yield` / `story.heat_yield` /
+  `story.ink_cost` at the verified→plated step from the lookups (replacing
+  the v0.5 literal zeros) and applies the summary deltas to the running
+  balances; `_buildEditionSummary` aggregates the `printed[]` reductions;
+  `ackDebrief()` applies `HEAT_DECAY_PER_EDITION` clamped non-negative;
+  `snapshot()` projects `hud.resources.leads` from the lead filter,
+  `stories` from the verified+plated count, and `ink` / `cash` / `heat`
+  from the running balances. Negative ink is allowed at 0.6 (HUD surfaces
+  the number; the "can't print if ink runs out" enforcement is medium-band
+  and lands at 0.7+).
+- [`js/hud.js`](js/hud.js) — ticker line extended with four resource
+  segments. Format: `EDITION N · MM:SS · X LD · X ST · X INK · $X · X HEAT`.
+  No subscription, no DOM change, no CSS change.
+- [`index.html`](index.html) — `<title>` and masthead meta caption rolled
+  forward to "0.6 cash · ink · heat"; initial `<div id="hud-ticker">` text
+  updated to match the new ticker format.
+- [`tests/print-cycle.test.mjs`](tests/print-cycle.test.mjs) — three
+  assertions amended in the same PR so the milestone-0.5 zero-state pins
+  don't reject the 0.6 fills: fresh-HUD resources shape now reads
+  `{ leads: 1, stories: 0, ink: 20, cash: 0, heat: 0 }`; the print-step
+  `cash_yield` / `heat_yield` checks now assert "number, > 0" (the exact
+  values are covered by [`tests/resources.test.mjs`](tests/resources.test.mjs)).
+- [`roadmap.md`](roadmap.md) — milestone 0.6 row ticked; current-status
+  block advanced to point at the post-0.6 RE-EVAL slot (first re-eval since
+  v0.3.1).
+- [`README.md`](README.md) — Status block bumped to v0.6.0; "How to
+  navigate" updated to mention the new HUD ticker format and the resource
+  reconciliation at deadline.
+- [`AGENTS.md`](AGENTS.md) — "Current state" rewritten for v0.6.0;
+  "Next" repointed at the post-0.6 RE-EVAL.
+
+### Not changed
+
+- ICDs — **no bumps.** ICD-01 v0.5 `HudState.resources` populated as
+  authored. ICD-06 v0.2 `EditionSummary.cash_earned` / `ink_consumed` /
+  `heat_applied` filled as authored. ICD-05 v0.3 §Notes already permits
+  cash/heat yields to be set at the plated step ("computed at plated and
+  frozen there") — 0.6 just populates non-zero values. `Story.ink_cost` is
+  a new sim-internal field but is not on any View → no ICD touched.
+  Constraint #4 doesn't trigger.
+- [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js),
+  [`js/sim/pathfinder.js`](js/sim/pathfinder.js),
+  [`js/render/renderer.js`](js/render/renderer.js),
+  [`js/input.js`](js/input.js),
+  [`js/main.js`](js/main.js),
+  [`js/debrief-panel.js`](js/debrief-panel.js) — untouched. 0.6 lives
+  entirely in the new `resources.js` module, the World's debrief plumbing,
+  the HUD ticker text, and the two amended tests.
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+
+### ICD activity
+
+- **ICD-01 v0.5** — used as authored. `HudState.resources` filled.
+- **ICD-06 v0.2** — used as authored. `EditionSummary` deltas filled.
+- **ICD-05 v0.3** — used as authored. `Story.cash_yield` / `heat_yield`
+  populated at the plated step per §Notes. New sim-internal
+  `Story.ink_cost` is not a View field.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — **53 / 53 pass.** 8 new cases since
+  v0.5.0 (45 → 53). The existing `tests/world-frame.test.mjs` `FRAME_KEYS`
+  allowlist still passes — no top-level `WorldFrame` keys added.
+- Browser smoke: load [`index.html`](index.html). Masthead reads "Milestone
+  0.6 · cash · ink · heat". HUD ticker shows
+  `EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT` and counts down.
+  Stage the ferry (reporter → lead → bureau; photog → bureau → darkroom).
+  LD ticks to 0 on pickup; ST ticks to 1 on verify. At deadline the debrief
+  panel mounts with a `VICE WHISPER HITS WIRE` row; click anywhere on the
+  panel and the next edition opens at
+  `EDITION 2 · 12:00 · 0 LD · 0 ST · 19 INK · $165 · 0 HEAT` (1 ink
+  consumed, $165 cash earned, 8 heat applied and then decayed back to 0).
+
 ## v0.5.0 — 2026-05-20 — Milestone 0.5: print cycle · deadline · debrief
 
 The heartbeat lights up. A 12-minute edition clock now ticks down inside the

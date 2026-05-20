@@ -59,7 +59,10 @@ test('fresh World — hud.edition === 1, hud.deadline_ms === 720_000', () => {
   const f = w.snapshot();
   assert.equal(f.hud.edition, 1);
   assert.equal(f.hud.deadline_ms, 720_000);
-  assert.deepEqual(f.hud.resources, { leads: 0, stories: 0, ink: 0, cash: 0, heat: 0 });
+  // Milestone 0.6: the seeded lead surfaces in frame.leads → leads count is 1;
+  // ink starts at STARTING_INK (20); cash/heat/stories are zero until print.
+  // Exact yield numbers are covered by tests/resources.test.mjs.
+  assert.deepEqual(f.hud.resources, { leads: 1, stories: 0, ink: 20, cash: 0, heat: 0 });
 });
 
 test('advancing 30 sim-seconds decrements hud.deadline_ms by ~30_000', () => {
@@ -180,6 +183,11 @@ test('verified → plated → printed transitions fire same-frame at DEADLINE_FI
   assert.equal(story.state, 'printed', 'story must end at printed state');
   assert.equal(story.printed_in, 1);
   assert.equal(typeof story.plated_by, 'string', 'plated_by carries a sentinel pre-Editor');
-  assert.equal(story.cash_yield, 0);
-  assert.equal(story.heat_yield, 0);
+  // Milestone 0.6: yields land at the plated step from js/sim/resources.js.
+  // The seeded story is vice-whisper → cash $165, heat 8. tests/resources.test.mjs
+  // owns the per-tier/per-flavor coverage; this asserts the wiring fired.
+  assert.equal(typeof story.cash_yield, 'number');
+  assert.equal(typeof story.heat_yield, 'number');
+  assert.ok(story.cash_yield > 0, 'cash_yield set at plated step');
+  assert.ok(story.heat_yield > 0, 'heat_yield set at plated step');
 });

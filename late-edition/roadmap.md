@@ -22,7 +22,7 @@ definitions.
 | **0.4** | Photog unit · lead→verified transition · Darkroom building — *shipped v0.4.0* | ICD-05 verified state · introduces 2nd unit kind | strong |
 | **PRE-0.5** | Author **ICD-06 v0.2** (`EditionSummary`) + **ICD-01 v0.5** (`HudState` + projection-rule tightening + implementation notes) — *shipped v0.4.1* | Forward-ICD-check output of the post-0.3 re-eval · paper-only · gated milestone 0.5 | strong |
 | **0.5** | Print cycle clock · deadline events · edition debrief panel — *shipped v0.5.0* | ICD-06 · the heartbeat lights up | strong |
-| **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
+| **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption — *shipped v0.6.0* | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
 | **RE-EVAL** | After 0.6 · paper + code-aware | Does the loop play? Promote rival AI contract to strong for 0.7–0.8. Decide tutorial shape. | re-eval |
 | **0.7** | Evening Star SCAVENGE + RAID states · Goon unit · Press HP + fail-state | ICD-02 (subset) · Fixer unit · Bureau defense beat | medium → strong at re-eval |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session | Required before any code touches persistence | strong |
@@ -40,24 +40,27 @@ inserted by the post-0.3 re-eval's forward ICD presence check.
 
 ## Current status
 
-**Milestone 0.5 — shipped (v0.5.0).** The heartbeat is lit. `CycleClock`
-under [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js) owns the 12-min
-edition; `World` dispatches `CYCLE_BEGIN` / `CYCLE_TICK` /
-`DEADLINE_WARNING` / `DEADLINE_FIRE` / `EDITION_DEBRIEF_BEGIN` /
-`EDITION_DEBRIEF_END` through a new `subscribeCycle(fn)` channel. The
-deadline fire walks each verified-at-Darkroom Story through
-`verified → plated → printed` in one frame, builds the `EditionSummary`,
-and pauses the sim until `ackDebrief()` opens the next edition.
-[`js/hud.js`](js/hud.js) renders the deadline ticker;
-[`js/debrief-panel.js`](js/debrief-panel.js) renders the click-to-dismiss
-front page. 45 / 45 tests pass; no ICD bumps (06 v0.2 / 01 v0.5 / 05 v0.3
+**Milestone 0.6 — shipped (v0.6.0).** The economy lights up. Each printed
+Story now carries `cash_yield` / `heat_yield` / `ink_cost` set at the
+plated step from a new pure module
+[`js/sim/resources.js`](js/sim/resources.js) (Design Doc §06 + §19
+first-pass numbers — Whisper $165 / Investigation $800 / Arc $2000;
+ink Whisper 1 / Investigation 3 / Arc 8; heat Vice 8 / Violence 12 /
+Money 15 / Labor 4). `EditionSummary` aggregates the per-story deltas;
+`World.resources` accumulates `{ ink: STARTING_INK, cash, heat }` across
+editions; `ackDebrief()` applies the §19 baseline heat decay
+(`HEAT_DECAY_PER_EDITION = 8`, clamped at zero). `HudState.resources`
+now projects derived `leads` / `stories` counts plus the live running
+balances. The HUD ticker grew four segments
+(`X LD · X ST · X INK · $X · X HEAT`) inside the single masthead strip
+so the milestone 0.9 corkboard can absorb them without churning
+`main.js`. 53 / 53 tests pass; no ICD bumps (06 v0.2 / 01 v0.5 / 05 v0.3
 all used as authored).
 
-Next: **milestone 0.6** (code session). Cash + Ink + Heat resources, story
-cash on print, ink consumption. Design Doc §06 + §19 first-pass numbers;
-balance values stay medium-band until playtest. The `EditionSummary`
-`cash_earned` / `ink_consumed` / `heat_applied` slots and the `HudState`
-resource fields are already shaped and zeroed — 0.6 just fills them in.
+Next: **RE-EVAL after 0.6** (paper + code-aware — the first re-eval
+since v0.3.1). Does the loop play? Promote rival AI contract to strong
+for 0.7–0.8? Decide tutorial shape. Then milestone 0.7 (Evening Star
+SCAVENGE + RAID states, Goon unit, Press HP + fail-state).
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -99,6 +102,13 @@ resource fields are already shaped and zeroed — 0.6 just fills them in.
       placeholder until Editor lands at 0.6/0.7). No ICD bumps — 06 v0.2,
       01 v0.5, 05 v0.3 all used as authored. Tests at 45 cases (new
       `print-cycle.test.mjs`).
+- [x] **Milestone 0.6** — Cash + Ink + Heat resources. New pure module
+      [`js/sim/resources.js`](js/sim/resources.js) owns the per-tier /
+      per-flavor yields + edition-boundary constants. `World.resources`
+      running balances + `ackDebrief()` heat decay. `HudState.resources`
+      projects derived counts + balances; HUD ticker line extends with
+      four segments. No ICD bumps — 01 v0.5 / 06 v0.2 / 05 v0.3 used as
+      authored. Tests at 53 cases (new `resources.test.mjs`).
 
 ## Out of scope until called
 
