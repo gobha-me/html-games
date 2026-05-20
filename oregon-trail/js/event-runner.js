@@ -9,6 +9,8 @@
  * @module event-runner
  */
 
+import TERRAIN_EVENTS from './events/terrain.js';
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** The four factions tracked by the Trail Ledger. */
