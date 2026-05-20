@@ -326,46 +326,203 @@
         })();
     </script>
 
-    <!-- ── games.json loader ─────────────────────────────────────────────────
-         fetch() requires HTTP. To open locally, serve via:
-             python3 -m http.server 8080
-         Opening index.html as a file:// URL will show a graceful error below.
-         ──────────────────────────────────────────────────────────────────── -->
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const grid = document.getElementById('game-grid');
-            try {
-                const res = await fetch('games.json');
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                const { games } = await res.json();
+    <!-- ── games data ─────────────────────────────────────────────────────────
+         Inlined mirror of games.json. Kept in sync by hand when adding a card.
+         Inline (rather than fetch) so the launcher works under file://, local
+         HTTP, and the deployed /games ingress regardless of trailing slash.
+         ────────────────────────────────────────────────────────────────────── -->
+    <script type="application/json" id="games-data">
+{
+  "games": [
+    {
+      "slug": "forge-defense",
+      "title": "Forge Defense",
+      "description": "Defend the forge against waves of enemies in this tactical defense game.",
+      "tag": "Tower Defense",
+      "icon": "⚒️",
+      "href": "forge-defense/",
+      "theme": "forge"
+    },
+    {
+      "slug": "kimi",
+      "title": "Kimi",
+      "description": "Protect the factory core with zoom controls and precision strategy.",
+      "tag": "Core Protector",
+      "icon": "🏭",
+      "href": "kimi/defence.html",
+      "theme": "kimi"
+    },
+    {
+      "slug": "snake",
+      "title": "Snake",
+      "description": "The timeless classic — eat, grow, and don't bite your own tail.",
+      "tag": "Arcade Classic",
+      "icon": "🐍",
+      "href": "snake/",
+      "theme": "snake"
+    },
+    {
+      "slug": "space-invaders",
+      "title": "Space Invaders",
+      "description": "Blast alien waves in this retro arcade shooter. How long can you survive?",
+      "tag": "Arcade Shooter",
+      "icon": "👾",
+      "href": "space-invaders/",
+      "theme": "invaders"
+    },
+    {
+      "slug": "reclamation-wars",
+      "title": "Reclamation Wars",
+      "description": "Lead your forces to reclaim lost territory in this strategic war game.",
+      "tag": "Strategy",
+      "icon": "⚔️",
+      "href": "reclamation-wars/",
+      "theme": "reclamation"
+    },
+    {
+      "slug": "cogfall",
+      "title": "Cogfall",
+      "description": "A steampunk 4X adventure. Explore, expand, exploit, and exterminate.",
+      "tag": "Steampunk 4X",
+      "icon": "⚙️",
+      "href": "cogfall/dist/",
+      "theme": "cogfall"
+    },
+    {
+      "slug": "2048",
+      "title": "2048",
+      "description": "Slide, merge, and explode! Reach 2048 with strategic power-tile combos.",
+      "tag": "Puzzle",
+      "icon": "🔢",
+      "href": "2048/",
+      "theme": "tiles"
+    },
+    {
+      "slug": "breakout",
+      "title": "Breakout",
+      "description": "Smash bricks, collect power-ups, and battle bosses in this brick-breaking arcade classic.",
+      "tag": "Arcade Classic",
+      "icon": "🧱",
+      "href": "breakout/",
+      "theme": "breakout"
+    },
+    {
+      "slug": "pong",
+      "title": "Pong",
+      "description": "The classic arcade battle — challenge the CPU or play locally with a friend!",
+      "tag": "Arcade Classic",
+      "icon": "🏓",
+      "href": "pong/",
+      "theme": "pong"
+    },
+    {
+      "slug": "minesweeper",
+      "title": "Minesweeper",
+      "description": "Clear the minefield without detonating! Flag mines, reveal safe cells, and beat your best time.",
+      "tag": "Puzzle Classic",
+      "icon": "💣",
+      "href": "minesweeper/",
+      "theme": "mines"
+    },
+    {
+      "slug": "typing",
+      "title": "Typing Game",
+      "description": "Type falling words before they hit the ground! Multiple word lists, modes, and live WPM tracking.",
+      "tag": "Skill Builder",
+      "icon": "⌨️",
+      "href": "typing/",
+      "theme": "typing"
+    },
+    {
+      "slug": "sokoban",
+      "title": "Sokoban",
+      "description": "Push crates onto targets in this classic box-pushing puzzle. Think ahead — you can only push, never pull!",
+      "tag": "Puzzle Classic",
+      "icon": "📦",
+      "href": "sokoban/",
+      "theme": "sokoban"
+    },
+    {
+      "slug": "solitaire",
+      "title": "Solitaire",
+      "description": "Classic Klondike with daily deals, Vegas scoring, and auto-complete. Draw-1 or draw-3 — your call.",
+      "tag": "Card Classic",
+      "icon": "🃏",
+      "href": "solitaire/",
+      "theme": "solitaire"
+    },
+    {
+      "slug": "tetris",
+      "title": "Tetris",
+      "description": "Stack, rotate, and clear lines in this neon-arcade take on the falling-block classic.",
+      "tag": "Puzzle Classic",
+      "icon": "🧱",
+      "href": "tetris/",
+      "theme": "tetris"
+    },
+    {
+      "slug": "inkwell",
+      "title": "Inkwell",
+      "description": "A literary roguelike — a scribe descends the pages of a corrupted grimoire, quill against ink-blot.",
+      "tag": "Roguelike",
+      "icon": "🖋️",
+      "href": "inkwell/",
+      "theme": "inkwell"
+    },
+    {
+      "slug": "asteroids",
+      "title": "Asteroids",
+      "description": "Vector-style space shooter. Blast rocks, dodge UFOs, hyperspace if you dare.",
+      "tag": "Arcade Shooter",
+      "icon": "☄️",
+      "href": "asteroids/",
+      "theme": "asteroids"
+    },
+    {
+      "slug": "oregon-trail",
+      "title": "Oregon Trail",
+      "description": "Lead your party from Independence, Missouri to the Willamette Valley. Manage resources, make moral choices, and build your reputation on the trail.",
+      "tag": "Adventure",
+      "icon": "🛤️",
+      "href": "oregon-trail/",
+      "theme": "oregon-trail"
+    },
+    {
+      "slug": "late-edition",
+      "title": "Late Edition",
+      "description": "A 1940s noir RTS — run a newspaper that's a front for an information empire. Currently in Phase 0: architecture banding, ICDs, and roadmap.",
+      "tag": "Strategy (Design Phase)",
+      "icon": "📰",
+      "href": "late-edition/",
+      "theme": "late-edition"
+    }
+  ]
+}
+    </script>
 
-                games.forEach((game, i) => {
-                    const a = document.createElement('a');
-                    a.href = game.href;
-                    a.className = 'card ' + game.theme;
-                    a.style.animationDelay = (0.05 + i * 0.07).toFixed(2) + 's';
-                    a.innerHTML =
-                        '<div class="card-accent" style="background:var(--' + game.theme + ')"></div>' +
-                        '<div class="card-body">' +
-                            '<span class="card-emoji">' + game.icon + '</span>' +
-                            '<h2>' + game.title + '</h2>' +
-                            '<p class="tagline">' + game.description + '</p>' +
-                            '<div class="meta">' +
-                                '<span class="meta-dot" style="background:var(--' + game.theme + ')"></span> ' +
-                                game.tag +
-                            '</div>' +
-                        '</div>';
-                    grid.appendChild(a);
-                });
-            } catch (err) {
-                grid.innerHTML =
-                    '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:40px 0;line-height:2">' +
-                    '\u26a0\ufe0f Could not load the game list.<br>' +
-                    'Serve this page over HTTP \u2014 e.g. ' +
-                    '<code style="font-family:monospace;color:var(--text)">python3 -m http.server 8080</code>' +
-                    '</p>';
-                console.error('[launcher] games.json load failed:', err);
-            }
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const grid = document.getElementById('game-grid');
+            const { games } = JSON.parse(document.getElementById('games-data').textContent);
+
+            games.forEach((game, i) => {
+                const a = document.createElement('a');
+                a.href = game.href;
+                a.className = 'card ' + game.theme;
+                a.style.animationDelay = (0.05 + i * 0.07).toFixed(2) + 's';
+                a.innerHTML =
+                    '<div class="card-accent" style="background:var(--' + game.theme + ')"></div>' +
+                    '<div class="card-body">' +
+                        '<span class="card-emoji">' + game.icon + '</span>' +
+                        '<h2>' + game.title + '</h2>' +
+                        '<p class="tagline">' + game.description + '</p>' +
+                        '<div class="meta">' +
+                            '<span class="meta-dot" style="background:var(--' + game.theme + ')"></span> ' +
+                            game.tag +
+                        '</div>' +
+                    '</div>';
+                grid.appendChild(a);
+            });
         });
     </script>
 

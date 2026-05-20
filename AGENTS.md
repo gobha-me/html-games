@@ -77,7 +77,13 @@ For any non-trivial change:
 - One game per top-level directory: `cogfall/`, `forge-defense/`,
   `kimi/`, `reclamation-wars/`, `snake/`, `space-invaders/`.
 - The launcher is `index.html` at repo root — it links to each game
-  with a relative path. If you add a new game, add a card.
+  with a relative path. If you add a new game, add a card. The card
+  data lives in **two** places that must be kept in sync: `games.json`
+  (canonical manifest, consumed by `scripts/linkcheck.sh`) and the
+  `<script type="application/json" id="games-data">` block inside
+  `index.html` (what the launcher actually reads — inlined to avoid a
+  `fetch()` that breaks under `file://` and under the deployed
+  `/games`-without-trailing-slash URL).
 - `demos/` holds historical artifacts and is **not** linked from the
   launcher. Don't reference it from active games.
 - `LICENSE`, `README.md`, `SPEC.md`, `AGENTS.md`, `Dockerfile`,
