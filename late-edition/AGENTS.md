@@ -50,12 +50,20 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.0.1 — Phase 0 (architecture-only).** Bootstrap landed; no game code yet.
+**v0.1.0 — milestone 0.1 shipped.** World render scaffold lives in
+[`js/world.js`](js/world.js); [`index.html`](index.html) hosts it. Scene,
+camera, toon pipeline, fog, rain, ground grid — no game logic yet.
 
-**Next milestone: 0.1.** Scene, camera, toon pipeline, fog, rain, ground
-grid. Lift from [`js/feel-test.js`](js/feel-test.js). Touches **ICD-01**
-only. See [`roadmap.md`](roadmap.md) and
+**Next milestone: 0.2.** A* pathfinding · Reporter unit · click-to-dispatch.
+Touches **ICD-03** (and the `UnitView` field set in **ICD-01** — that's a
+PRE-0.2 architecture-session deliverable). See [`roadmap.md`](roadmap.md),
+[`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md), and the
+"View structs" open question in
 [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md).
+
+> Before opening a code session for 0.2, run a paper session that updates
+> ICD-01 to v0.2 with the `BuildingView` / `UnitView` / `LeadView` field
+> sets. That's the methodology working as designed.
 
 ## When you're stuck
 

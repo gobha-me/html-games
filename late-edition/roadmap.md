@@ -38,7 +38,9 @@ code-session boundary that hasn't been authored yet.
 
 ## Current status
 
-**PRE-0.1 — in progress.** Phase 0 bootstrap is landing in this PR:
+**0.1 — shipped.** World render scaffold lifted from the feel test: scene,
+camera, toon pipeline, fog, rain, ground grid. No game logic yet. Touches
+ICD-01 only.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -46,10 +48,14 @@ code-session boundary that hasn't been authored yet.
 - [x] Seed `discussion/` with the six files from §02.
 - [x] Write `architecture/00-overview.md`.
 - [x] Write `roadmap.md`.
-- [ ] Open a code session against **milestone 0.1**. *(Next session.)*
+- [x] Open a code session against **milestone 0.1** — lifted into
+      [`js/world.js`](js/world.js); [`index.html`](index.html) hosts the scene;
+      the Phase-0 supplement is now reached via the in-page link to
+      [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html).
+- [ ] PRE-0.2 paper session: sketch `BuildingView` / `UnitView` / `LeadView`
+      field sets into ICD-01 v0.2 before milestone 0.2 opens.
 
 ## Out of scope until called
 
 - **ICD-04** — explicitly deferred to PRE-0.8 by the supplement.
-- **Milestone 0.1+** — first code session, opens after Phase 0 lands and is reviewed.
 - **Tier-1 architecture** — gated behind the Tier-0 → Tier-1 RE-EVAL slot.

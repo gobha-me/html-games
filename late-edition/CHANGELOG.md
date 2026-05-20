@@ -1,5 +1,51 @@
 # Changelog — Late Edition
 
+## v0.1.0 — 2026-05-20 — Milestone 0.1: world render scaffold
+
+First playable code lands. The renderer-only scaffold from
+[`design/phase-0-roadmap.html`](design/phase-0-roadmap.html) §04 row 0.1 is
+now live: scene, camera, toon pipeline, fog, rain, ground grid. No game
+logic. Touches ICD-01 only.
+
+### Added
+
+- [`js/world.js`](js/world.js) — three.js scene host. Orthographic isometric
+  camera, MeshToonMaterial with a 3-step gradient, linear fog 22→60, 120×120
+  ground plane, street grid at 6-unit pitch, 600-segment rain. `withOutline`
+  helper carried forward for buildings/units arriving at 0.2/0.3.
+- New top-level `index.html` — minimal scene host with masthead, footer
+  arcade link, and an in-page link out to the Phase 0 + Roadmap supplement.
+
+### Changed
+
+- `index.html` is now the playable scene. The Phase 0 + Roadmap supplement
+  page (previously the landing) is reached via the in-page link or directly
+  at [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html); the
+  immutable copy in `design/` is unchanged.
+- [`README.md`](README.md) — "How to navigate" updated; status bumped to
+  v0.1.0.
+- [`AGENTS.md`](AGENTS.md) — current state + next milestone re-pointed at
+  0.2 (A* pathfinding, Reporter unit, click-to-dispatch).
+- [`roadmap.md`](roadmap.md) — milestone 0.1 box ticked.
+
+### Removed
+
+- [`js/feel-test.js`](js/feel-test.js) — the lift source for 0.1. Now that
+  the scaffold lives in `world.js`, keeping the feel test would invite drift
+  (its game-logic sketches conflict with future milestones). The immutable
+  design HTMLs in `design/` are the source of truth, not `feel-test.js`.
+
+### ICD activity
+
+- **ICD-01** — no deviation. Strong-band commitments (MeshToonMaterial,
+  3-step gradient, EdgesGeometry @ 25°, linear fog 22→60, orthographic
+  isometric camera) all preserved byte-equal from the feel test. The
+  `WorldFrame → renderer` boundary is *not* materialized at 0.1; without a
+  simulation it would be premature abstraction. Marker comment at the top
+  of `world.js` notes where it lands at 0.2.
+- View-struct field sets (ICD-01 open question) deferred to a PRE-0.2 paper
+  session.
+
 ## v0.0.1 — 2026-05-20 — Phase 0 bootstrap
 
 Phase 0 (architecture-only) lands. No game code yet — this PR executes the

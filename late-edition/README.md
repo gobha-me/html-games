@@ -8,22 +8,27 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.0.1 — Phase 0 (architecture-only).** The game is not yet playable. This PR
-ships the design package, the architecture skeleton, and the first six ICDs.
-First playable milestone is **0.1** (scene + camera + toon pipeline + fog +
-rain + ground grid, lifted from the feel test). See
-[`roadmap.md`](roadmap.md).
+**v0.1.0 — milestone 0.1 (world render scaffold).** First playable code:
+scene, camera, toon pipeline, fog, rain, ground grid. Lifted from the feel
+test, scoped to ICD-01 only. No game logic yet. Next milestone is **0.2**
+(A* pathfinding · Reporter unit · click-to-dispatch). See
+[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 
 1. Open `index.html` in a browser (or click the **Late Edition** card from the
-   arcade launcher). You'll see **Phase 0 + Roadmap** — the supplement that
-   bands every architectural commitment and lays out the Tier-0 roadmap.
-2. Read [`roadmap.md`](roadmap.md) for the milestone list in plain markdown.
-3. Read [`architecture/00-overview.md`](architecture/00-overview.md) for the
+   arcade launcher). You'll see the cel-shaded world scaffold — an empty
+   paper-colored ground with a street grid, falling rain, viewed through an
+   orthographic isometric camera.
+2. The in-page **Phase 0 + Roadmap →** link (top-right of the scene) opens
+   the architectural supplement (also reachable directly at
+   [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html)).
+3. Read [`roadmap.md`](roadmap.md) for the milestone list in plain markdown.
+4. Read [`architecture/00-overview.md`](architecture/00-overview.md) for the
    strong/medium/fuzzy banding in markdown.
-4. Open the [`icds/`](icds) directory for the six interface contracts that
-   gate the next code session.
+5. Open the [`icds/`](icds) directory for the five interface contracts (01,
+   02, 03, 05, 06) that gate the next code sessions; ICD-04 is deferred to
+   PRE-0.8.
 
 ## Tech stack (planned)
 
@@ -41,7 +46,7 @@ city generation — those are post-MVP. See
 
 ```
 late-edition/
-├── index.html              # Phase 0 + Roadmap (pixel-perfect from design)
+├── index.html              # the playable scene host (milestone 0.1+)
 ├── README.md               # this file
 ├── CHANGELOG.md            # version history
 ├── AGENTS.md               # routing doc for future code sessions
@@ -65,11 +70,11 @@ late-edition/
 ├── deferred/               # explicit deferrals (empty until something lands)
 ├── design/                 # the original design package (pixel-perfect)
 │   ├── design-doc.html         # master design doc
-│   ├── phase-0-roadmap.html    # this page, as standalone
+│   ├── phase-0-roadmap.html    # Supplement B (was the landing; now linked)
 │   ├── rival-ai-spec.html      # Supplement A
 │   └── audio-manifest.html     # Supplement C
 └── js/
-    └── feel-test.js        # three.js cel-shaded feel-test (for milestone 0.1)
+    └── world.js            # milestone 0.1 — scene · camera · toon · rain
 ```
 
 ## Design package
