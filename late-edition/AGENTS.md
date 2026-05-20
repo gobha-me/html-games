@@ -50,25 +50,39 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.1.1 — PRE-0.2 paper session done.** Milestone 0.1 shipped in v0.1.0;
-[`js/world.js`](js/world.js) carries the world render scaffold (scene, camera,
-toon pipeline, fog, rain, ground grid) and [`index.html`](index.html) hosts
-it. The PRE-0.2 architecture session has now closed the View-struct open
-question: [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) is
-at **v0.2** with concrete `BuildingView` / `UnitView` / `LeadView` field sets.
+**v0.2.0 — milestone 0.2 shipped.** First dispatch. Sim and renderer are
+now distinct modules with the WorldFrame boundary materialized:
 
-**Next milestone: 0.2.** A* pathfinding · Reporter unit · click-to-dispatch.
-Now legal to open as a code session. Touches **ICD-03** (pathfinder
-request/response) and the v0.2 **ICD-01** `UnitView` / `BuildingView` field
-sets. See [`roadmap.md`](roadmap.md),
-[`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md), and
-[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) §View struct
-field sets.
+- [`js/sim/world-state.js`](js/sim/world-state.js) — `World` class owns
+  the grid (10×10), Bureau (tile (5,5), 90/90 HP), Reporter (spawns at
+  (5,4), walks 3.5 u/s). `tick(dt)` advances units; `snapshot()` projects
+  to a `WorldFrame`.
+- [`js/sim/pathfinder.js`](js/sim/pathfinder.js) — pure A* matching ICD-03.
+- [`js/render/renderer.js`](js/render/renderer.js) — three.js scene,
+  consumes `WorldFrame` via `apply(frame, alpha)`. Interpolates `pos` /
+  `facing` between sim ticks. Exposes `screenToGridCell()` for input.
+- [`js/input.js`](js/input.js) — click handling. Left = select / deselect;
+  right = dispatch. Per design doc §13 + decision §17.
+- [`js/main.js`](js/main.js) — entry. Fixed-step sim @ 30 Hz with
+  renderer interp.
+- [`tests/`](tests) — `node --test` covers pathfinder, unit-step,
+  WorldFrame projection (19 cases).
 
-> When the 0.2 code session opens, the WorldFrame → renderer boundary lands
-> for real (currently the marker in `js/world.js` notes this). The animation
-> playhead and `Vec3` precision questions in ICD-01 v0.2 resolve in-PR per
-> Constraint #4 if 0.2 needs them.
+ICDs both advanced in the 0.2 PR (Constraint #4):
+[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) → **v0.3**
+(animation playhead + Vec3 precision closed);
+[`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md) → **v0.2**
+(GridCell shape + cost units closed).
+
+**Next milestone: 0.3.** Lead spawn (single district) · pickup ·
+return-to-bureau. Touches **ICD-05** (lead state machine) and the v0.2
+**ICD-01** `LeadView` field set + the `LeadView ↔ UnitView.carrying`
+pickup handoff (both already spelled out). See
+[`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) and
+[`roadmap.md`](roadmap.md).
+
+> 0.3 is legal to open as a code session. After 0.3 the roadmap calls for
+> a re-eval (paper) session before 0.4. Don't skip it.
 
 ## When you're stuck
 

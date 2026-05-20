@@ -38,10 +38,17 @@ code-session boundary that hasn't been authored yet.
 
 ## Current status
 
-**0.1 — shipped. PRE-0.2 — closed.** World render scaffold lifted from the
-feel test (scene, camera, toon pipeline, fog, rain, ground grid) and the
-ICD-01 View structs are now spelled out at v0.2. Milestone 0.2 is legal to
-open as a code session.
+**0.2 — shipped.** A* pathfinding · Reporter unit · click-to-dispatch all
+landed; the WorldFrame → renderer boundary is now real in code. Sim lives
+under [`js/sim/`](js/sim) and produces a `WorldFrame` per snapshot;
+[`js/render/renderer.js`](js/render/renderer.js) consumes it; [`js/input.js`](js/input.js)
+glues clicks → sim intents via the renderer's `screenToGridCell` projection.
+ICD-01 bumped to v0.3 and ICD-03 to v0.2; all 0.2-decision open questions
+closed in the same PR (Constraint #4).
+
+Next: milestone **0.3** — lead spawn in a single district · pickup ·
+return-to-bureau. ICD-05 governs lead state; ICD-01 v0.2 §LeadView and the
+LeadView ↔ UnitView.carrying handoff are already spelled out.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -50,12 +57,15 @@ open as a code session.
 - [x] Write `architecture/00-overview.md`.
 - [x] Write `roadmap.md`.
 - [x] Open a code session against **milestone 0.1** — lifted into
-      [`js/world.js`](js/world.js); [`index.html`](index.html) hosts the scene;
-      the Phase-0 supplement is now reached via the in-page link to
-      [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html).
+      `js/world.js`; the Phase-0 supplement is now reached via the in-page
+      link to [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html).
 - [x] PRE-0.2 paper session: `BuildingView` / `UnitView` / `LeadView` field
       sets spelled out in [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md)
       v0.2.
+- [x] **Milestone 0.2** — A* pathfinder, Reporter, click-to-dispatch.
+      WorldFrame boundary materialized; `js/world.js` retired in favour of
+      the `js/sim/` ↔ `js/render/` split. Tests under
+      [`tests/`](tests) (`node --test`, 19 cases).
 
 ## Out of scope until called
 

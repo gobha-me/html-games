@@ -8,18 +8,22 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.1.0 — milestone 0.1 (world render scaffold).** First playable code:
-scene, camera, toon pipeline, fog, rain, ground grid. Lifted from the feel
-test, scoped to ICD-01 only. No game logic yet. Next milestone is **0.2**
-(A* pathfinding · Reporter unit · click-to-dispatch). See
-[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+**v0.2.0 — milestone 0.2 (first dispatch).** A Reporter walks the grid on
+command. The WorldFrame → renderer boundary is materialized: sim under
+[`js/sim/`](js/sim) (state + A* pathfinder), renderer under [`js/render/`](js/render),
+input glue at [`js/input.js`](js/input.js). 19 node tests cover the pure
+sim modules. Next milestone is **0.3** (lead spawn · pickup ·
+return-to-bureau). See [`roadmap.md`](roadmap.md) and
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 
-1. Open `index.html` in a browser (or click the **Late Edition** card from the
-   arcade launcher). You'll see the cel-shaded world scaffold — an empty
-   paper-colored ground with a street grid, falling rain, viewed through an
-   orthographic isometric camera.
+1. Open `index.html` in a browser (or click the **Late Edition** card from
+   the arcade launcher). You'll see the cel-shaded world with a single
+   Reporter standing north of the Bureau. **Left-click the Reporter** to
+   select (a yellow ring appears). **Right-click anywhere on the street
+   grid** to dispatch — the Reporter walks the A*-shortest path. Left-click
+   empty ground to deselect.
 2. The in-page **Phase 0 + Roadmap →** link (top-right of the scene) opens
    the architectural supplement (also reachable directly at
    [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html)).

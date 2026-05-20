@@ -1,9 +1,9 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.2 (PRE-0.2 paper session — View structs spelled out)
+**Status:** v0.3 (shipped against milestone 0.2 — open questions closed)
 **Band:** strong
 **First caller:** milestone 0.1 (scene, camera, toon pipeline) — shipped in v0.1.0
-**Next caller:** milestone 0.2 (A* pathfinding · Reporter unit · click-to-dispatch)
+**Current caller:** milestone 0.2 (A* pathfinding · Reporter unit · click-to-dispatch) — shipped in v0.2.0
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
 
 ## Purpose
@@ -94,10 +94,13 @@ interface UnitView {
   pickup: once a Reporter's path lands on a lead, the Story transitions
   past `'lead'` state (ICD-05) and the lead leaves `frame.leads` — the
   carry becomes visible via this field on the carrying UnitView.
-- **Animation playhead remains deferred.** The v0.1 open question
-  ("interpolate between frames or render discrete positions?") stands —
-  resolved at the first walk-cycle milestone (currently 0.2 or 0.3, decided
-  in-PR per Constraint #4).
+- **Animation playhead — resolved at 0.2: renderer interpolates.** Sim
+  runs at a fixed 30 Hz tick (33 ms). The renderer latches `pos` and
+  `facing` from each tick's snapshot and lerps linearly from the prior
+  tick to the current tick by `alpha = (now − lastTickTime) / tickDuration`,
+  clamped `[0, 1]`. Discrete-position rendering was rejected: visible
+  stepping at typical refresh rates does not serve the noir aesthetic —
+  the toon look comes from cel shading and outlines, not motion judder.
 
 ### LeadView
 
@@ -143,10 +146,8 @@ interface LeadView {
 
 ## Open questions
 
-- Animation state — does the renderer interpolate between frames or render
-  discrete positions? Defer until the first walk cycle is on screen.
-- `Vec3` precision — `Float32Array` packed into a typed-array pool, or plain
-  `{x,y,z}` object? Decide at 0.2 if profiling flags allocation pressure.
+*(All v0.2 open questions closed at 0.2 — see Revision history below. No
+new open questions opened by 0.2.)*
 
 ## Deviation policy
 
@@ -155,8 +156,27 @@ sub-field rename, etc.), update this ICD **in the same PR** that ships the
 deviation (Constraint #4 of the methodology). Adding a fourth View kind is an
 architecture session, not a deviation — stop and run a paper session.
 
+## Implementation notes (0.2)
+
+The 0.2 PR materialized the WorldFrame boundary. Sim lives under
+`js/sim/` and produces a fresh `WorldFrame` each `snapshot()`; the
+renderer under `js/render/renderer.js` consumes it via `apply(frame,
+alpha)` and never reaches into sim state. Input bridges the two
+through `renderer.screenToGridCell(clientX, clientY, gridW, gridH)`,
+which returns a plain `GridCell` — the renderer's scene graph is not
+exposed to either sim or input.
+
+Sim-internal fields (`tile`, `path`, `pathIdx`) live on the Unit
+record but never appear on `UnitView`. The `tests/world-frame.test.mjs`
+suite enforces the projection by asserting `Object.keys(snapshot())`
+matches the WorldFrame field set exactly.
+
 ## Revision history
 
+- **v0.3** (milestone 0.2, 2026-05-20) — Animation playhead resolved
+  (renderer interpolates `pos`/`facing` between fixed 30 Hz sim ticks);
+  `Vec3` precision resolved (plain `{x,y,z}` object). WorldFrame
+  boundary materialized in code under `js/sim/` ↔ `js/render/` split.
 - **v0.2** (PRE-0.2, 2026-05-20) — Spelled out the three View struct field
   sets; documented the LeadView ↔ UnitView.carrying handoff at pickup; added
   the render-only projection rule; closed the v0.1 "View structs" open
