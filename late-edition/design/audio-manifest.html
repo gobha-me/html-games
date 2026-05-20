@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LATE EDITION — Audio Manifest</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #0a0a0c;
+    --mid: #6b6864;
+    --rule: #c8c4bc;
+    --paper: #ece8df;
+    --paper-2: #f4f1ea;
+    --paper-3: #d9d4c8;
+    --red: #c0212a;
+    --serif: 'Bodoni Moda', 'Bodoni 72', 'Didot', serif;
+    --body:  'EB Garamond', Georgia, serif;
+    --mono:  'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--body);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse at 20% 0%, #efebe1 0%, transparent 60%),
+      radial-gradient(ellipse at 90% 80%, #e3decf 0%, transparent 55%),
+      var(--paper);
+    background-attachment: fixed;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 1px 1px, rgba(20,20,20,0.06) 0.6px, transparent 1.2px);
+    background-size: 3px 3px;
+    mix-blend-mode: multiply;
+    z-index: 1;
+  }
+  .page {
+    position: relative;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 56px 120px;
+    z-index: 2;
+  }
+  .masthead {
+    border-top: 6px double var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 22px 0 18px;
+    margin-bottom: 14px;
+  }
+  .masthead-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: end;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .masthead-row .l, .masthead-row .r { color: var(--mid); }
+  .masthead-row .r { text-align: right; }
+  h1.title {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: clamp(48px, 7vw, 96px);
+    line-height: 0.9;
+    margin: 6px 0;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  h1.title .ed { font-style: italic; font-weight: 400; }
+  .subhead {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--mid);
+    padding-top: 8px;
+    border-top: 1px solid var(--ink);
+    margin-top: 4px;
+  }
+  .subhead b { color: var(--ink); }
+
+  h2.section {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 34px;
+    line-height: 1;
+    margin: 60px 0 6px;
+    border-top: 1px solid var(--ink);
+    padding-top: 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    letter-spacing: -0.015em;
+  }
+  h2.section .num {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--red);
+    border: 1px solid var(--red);
+    padding: 4px 8px;
+    line-height: 1;
+    transform: translateY(-6px);
+  }
+  h3 {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 22px;
+    margin: 22px 0 6px;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin: 4px 0 18px;
+  }
+  p { margin: 0 0 10px; max-width: 72ch; }
+  p.lead {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 21px;
+    line-height: 1.35;
+  }
+
+  /* Audio cue card */
+  .cue {
+    border: 1px solid var(--ink);
+    background: var(--paper-2);
+    padding: 16px 18px;
+    margin: 12px 0;
+    box-shadow: 3px 5px 0 -1px rgba(0,0,0,0.08);
+  }
+  .cue .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1px dashed var(--mid);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .cue .id {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--red);
+  }
+  .cue h4 {
+    font-family: var(--serif);
+    font-size: 22px;
+    margin: 0;
+    font-weight: 900;
+  }
+  .cue .meta {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mid);
+    text-align: right;
+  }
+  .cue .use {
+    font-size: 14.5px;
+    color: var(--mid);
+    margin-bottom: 10px;
+  }
+  .cue .use b { color: var(--ink); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .cue .prompt {
+    background: var(--ink);
+    color: #e6e1d4;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    padding: 12px 14px;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .cue .prompt .label {
+    color: #d97757;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 10.5px;
+  }
+
+  /* SFX compact table */
+  table.sfx {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  table.sfx th, table.sfx td {
+    border-top: 1px solid var(--ink);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.sfx th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mid);
+    background: var(--paper-2);
+  }
+  table.sfx tr:last-child td { border-bottom: 1px solid var(--ink); }
+  table.sfx .id {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red);
+    letter-spacing: 0.14em;
+    white-space: nowrap;
+  }
+  table.sfx .len {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--mid);
+    white-space: nowrap;
+    letter-spacing: 0.1em;
+  }
+  table.sfx .prompt {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink);
+    background: var(--paper-3);
+    padding: 6px 8px;
+    border-radius: 1px;
+    display: block;
+    line-height: 1.5;
+  }
+
+  /* VO line table */
+  table.vo {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14.5px;
+  }
+  table.vo th, table.vo td {
+    border-top: 1px solid var(--ink);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.vo th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mid);
+    background: var(--paper-2);
+  }
+  table.vo tr:last-child td { border-bottom: 1px solid var(--ink); }
+  table.vo .id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+    letter-spacing: 0.14em;
+    white-space: nowrap;
+  }
+  table.vo .line {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 15.5px;
+    color: var(--ink);
+  }
+  table.vo .trig {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+
+  .callout {
+    border-left: 3px solid var(--red);
+    background: var(--paper-2);
+    padding: 12px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout b { font-family: var(--serif); font-size: 17px; }
+  .pull {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.3;
+    border-top: 3px double var(--ink);
+    border-bottom: 3px double var(--ink);
+    padding: 16px 0;
+    margin: 24px auto;
+    text-align: center;
+    max-width: 760px;
+  }
+  .pull .by {
+    display: block;
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-top: 8px;
+  }
+
+  .colophon {
+    margin-top: 80px;
+    padding-top: 22px;
+    border-top: 1px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+    display: flex;
+    justify-content: space-between;
+  }
+  .small { font-size: 13.5px; }
+  .muted { color: var(--mid); }
+  code, .code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--paper-3);
+    padding: 1px 6px;
+  }
+
+  /* phase pill */
+  .phase {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border: 1px solid var(--ink);
+    margin-left: 6px;
+    vertical-align: 2px;
+  }
+  .phase.t0 { background: var(--ink); color: var(--paper-2); }
+  .phase.t1 { background: var(--paper-2); color: var(--ink); }
+  .phase.t2 { background: var(--paper-2); color: var(--mid); border-color: var(--mid); }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="masthead-row">
+      <div class="l">SUPPLEMENT · C</div>
+      <div></div>
+      <div class="r">AUDIO MANIFEST · VENICE-READY</div>
+    </div>
+    <h1 class="title">The <span class="ed">Sound</span> of Rain</h1>
+    <div class="subhead"><b>AUDIO PROMPT MANIFEST</b> · BEDS · MUSIC · SFX · VO · GENERATE ON VENICE STUDIO</div>
+    <div class="masthead-row" style="margin-top:14px">
+      <div class="l">6 BEDS · 6 MUSIC STEMS · 24 SFX · 60 VO LINES</div>
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:0.22em;">— BRUSH · PRESS · RAIN · WHISPER —</div>
+      <div class="r">MAY 20, 2026</div>
+    </div>
+  </header>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">01</span> WHAT THIS IS</h2>
+    <div class="kicker">Generation-ready prompts · phased to Tier 0 / 1 / 2 · pasteable into Venice studio</div>
+
+    <p class="lead">Every audio asset Late Edition needs, expressed as a Venice-ready prompt with length, loop behavior, and trigger. Generate as you reach the milestone that needs them; the prompts encode the noir audio direction from §14 of the main design doc so the city sounds like itself even across regen passes.</p>
+
+    <p>Phase pills mark when each asset is needed: <span class="phase t0">T0</span> required for the vertical slice · <span class="phase t1">T1</span> for the playable build · <span class="phase t2">T2</span> shippable polish.</p>
+
+    <h3>Global voice direction</h3>
+    <p>The sound design is <b>diegetic noir</b>, not cinematic noir. Everything you hear should plausibly exist in the world: rain on awnings, a press in the basement, a sad bandstand two streets over. <b>Avoid:</b> orchestral swells, modern percussion (no kick drums, no electronic risers), digital plug-in reverb that doesn't exist in 1948, "epic" bass drops, anything that pushes the player <i>at</i> the screen instead of <i>into</i> the city.</p>
+
+    <div class="pull">
+      "Mono in the streets, stereo in the bureau, silent at the deadline."
+      <span class="by">— mix philosophy</span>
+    </div>
+
+    <h3>Mix reference points</h3>
+    <p class="small muted">These are tonal references for prompt-writing, not stylistic copying — never name a specific artist or song in a generation prompt unless Venice allows it: prefer instrument + era + microphone + room descriptions.</p>
+    <ul>
+      <li><b>Music feel:</b> mid-century cool jazz quartet recorded in a small, treated room, ribbon microphones, light tape compression, no reverb beyond the room.</li>
+      <li><b>Ambient feel:</b> field recordings on a Nagra reel-to-reel, slight tape hiss, mono street with stereo interior cuts.</li>
+      <li><b>VO feel:</b> American mid-Atlantic radio voice, 1948, AM-band rolloff (200 Hz–6 kHz), light cabin/booth tone, no breath gating.</li>
+    </ul>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">02</span> AMBIENT BEDS</h2>
+    <div class="kicker">6 loops · designed to sit under everything · seamless loop points</div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">AMB-01 · CITY RAIN BED</div>
+          <h4>City rain on awnings <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">90 s · LOOPING · STEREO</div>
+      </div>
+      <div class="use"><b>Use:</b> bottom of every scene · ducked −6dB during edition debrief · doubles in intensity at T-30s deadline.</div>
+<pre class="prompt"><span class="label">prompt</span>
+Steady, medium-heavy rain falling on canvas awnings and wet pavement in a 1948 American city at 4am. Quiet, no traffic, no people. The rain has texture: occasional fat drops from gutters, a distant drip onto metal. Mono recording feel with subtle stereo room reflections, like a Nagra reel-to-reel field tape from the era. No music, no voices, no thunder, no wind. Should loop seamlessly. Duration 90 seconds.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">AMB-02 · DISTANT STREETCAR</div>
+          <h4>Distant streetcar pass <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">30 s · ONE-SHOT · MONO</div>
+      </div>
+      <div class="use"><b>Use:</b> random spawn every 60–120s underneath the city rain bed.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A single streetcar passing several blocks away on wet rails, with the characteristic 1940s American electric trolley sound: rumble, occasional bell, faint sparking from the overhead wire, and the doppler of distance. Heard from inside a quiet building, with rain still audible. Mono, distant, slightly muffled by walls. No traffic, no horns, no voices. Duration 30 seconds with a clear start, middle, and tail.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">AMB-03 · FOGHORN</div>
+          <h4>Harbor foghorn, far <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">6 s · ONE-SHOT · MONO</div>
+      </div>
+      <div class="use"><b>Use:</b> fired every 90s ± 20s under the rain bed.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A single deep low foghorn from a harbor approximately a mile distant, heard through rain and fog in a 1948 American port city. The horn is mournful, two beats: a long sustained tone with a faint pitched tail. Slightly muffled by atmosphere. Mono, low-mids prominent, no high frequencies. No other sounds. Duration 6 seconds total, including silence before and after for natural placement.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">AMB-04 · PRESS HEARTBEAT</div>
+          <h4>Printing press low loop <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">20 s · LOOPING · MONO</div>
+      </div>
+      <div class="use"><b>Use:</b> always audible inside the bureau · ducks to silence when press is destroyed.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A 1948 newspaper printing press at rest with mechanical heartbeat audible: slow rotational thump from idling rollers, faint hiss of compressed air, occasional metallic creak. Heard from the next room — the sound is muffled through a wooden wall and floor. Mono, low frequencies dominant, very steady, almost meditative. No human voices, no shouting, no urgency. Should loop perfectly. Duration 20 seconds.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">AMB-05 · PRESS RUNNING</div>
+          <h4>Printing press at full run <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">30 s · LOOPING · STEREO</div>
+      </div>
+      <div class="use"><b>Use:</b> swaps in during edition debrief while pages animate onto the corkboard.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A 1948 newspaper printing press running at full speed: rhythmic mechanical pounding, paper being fed and cut, ink rollers turning, sheets folding. Heard from inside the press room, slightly bright, mechanical, percussive but not aggressive. Stereo, with the rhythm centered and small clatter detail in the sides. No music, no voices. Should loop perfectly. Duration 30 seconds.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">AMB-06 · BUREAU INTERIOR</div>
+          <h4>Bureau interior tone <span class="phase t1">T1</span></h4>
+        </div>
+        <div class="meta">60 s · LOOPING · STEREO</div>
+      </div>
+      <div class="use"><b>Use:</b> when camera zooms into Block view of bureau · adds typewriters + phones in distance.</div>
+<pre class="prompt"><span class="label">prompt</span>
+The interior of a 1948 newspaper bureau at 4am: distant typewriter clicks from another room, a phone ringing once far away, occasional footsteps on wood floor, the very faint sound of the press in the basement. Soft and warm, no shouting, no music. Stereo with motion in the room — typewriters slightly left and right, footsteps crossing. Rain still faintly audible through windows. Loops seamlessly. Duration 60 seconds.</pre>
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">03</span> MUSIC STEMS</h2>
+    <div class="kicker">6 stems · adaptive mixing · brushes / bass / trumpet / piano · swells DOWN to deadline</div>
+
+    <p>The score is one quartet, mixed adaptively. Six stems at the same tempo (~76 bpm) and key (likely C minor) so they can be layered or stripped in real time. As deadline approaches, layers drop until only bass and rain remain at T-30s. After the press fires, the full quartet returns for the eight-bar tag.</p>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">MUS-01 · BRUSHES BED</div>
+          <h4>Drum brushes on snare <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">120 s · LOOPING · MONO</div>
+      </div>
+      <div class="use"><b>Use:</b> foundation layer · always on during gameplay until T-30s drop.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A drum kit played with wire brushes, mid-century cool jazz style, 76 bpm, swing feel, in 4/4. Brushed snare with light kick on 2 and 4, occasional ride cymbal pulse, very quiet, very steady. Recorded with a single ribbon microphone in a small treated room, slight tape compression, no reverb. Loops seamlessly across 120 seconds. No melody, no bass, no horns — drums only. The feeling is patient and slightly sad.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">MUS-02 · UPRIGHT BASS</div>
+          <h4>Walking upright bass line <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">120 s · LOOPING · MONO</div>
+      </div>
+      <div class="use"><b>Use:</b> layered with brushes · the last layer to drop · holds alone with rain at T-30s.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A solo acoustic upright double bass playing a slow walking jazz line, 76 bpm, in C minor, with a gentle walking pattern that emphasizes root and fifth. Plucked fingerstyle, warm woody tone, recorded with a ribbon mic on the f-hole and a second mic on the bridge, mid-century cool jazz feel. No drums, no melody. The line is patient and slightly melancholic, never busy. Loops seamlessly across 120 seconds.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">MUS-03 · MUTED TRUMPET</div>
+          <h4>Muted trumpet melody <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">120 s · LOOPING · MONO</div>
+      </div>
+      <div class="use"><b>Use:</b> layered when player has low heat · drops first when heat rises above 60.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A solo Harmon-muted trumpet playing a slow, melancholy melody in C minor at 76 bpm, mid-century cool jazz style. Sparse phrasing — long held notes with breath audible, occasional bluesy bend. Recorded close with a ribbon microphone in a small room, slight tape saturation, no reverb beyond the room. No accompaniment. The feel is lonely, late, contemplative. Loops seamlessly across 120 seconds.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">MUS-04 · PIANO COMP</div>
+          <h4>Piano comping chords <span class="phase t1">T1</span></h4>
+        </div>
+        <div class="meta">120 s · LOOPING · MONO</div>
+      </div>
+      <div class="use"><b>Use:</b> adds depth in mid-edition · drops at T-60s.</div>
+<pre class="prompt"><span class="label">prompt</span>
+An upright piano playing sparse jazz comping chords in C minor, 76 bpm, mid-century cool jazz style. Quiet voicings in the middle register, played with subtle accents on the offbeats, leaving space. Recorded with two condenser microphones inside the lid, with light tape compression, no added reverb. No melody, just supportive chords with rests. Loops seamlessly across 120 seconds.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">MUS-05 · DEADLINE TENSION</div>
+          <h4>T-30s tension bed <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">30 s · ONE-SHOT · STEREO</div>
+      </div>
+      <div class="use"><b>Use:</b> fires at T-30s · replaces everything except bass and rain · ends precisely at deadline.</div>
+<pre class="prompt"><span class="label">prompt</span>
+A 30-second piece of cool jazz tension. Solo upright bass walking in C minor at 76 bpm continues throughout. A muted trumpet enters at 10 seconds with a single sustained note that slowly bends a semitone lower over 15 seconds. The bass walking grows slightly more insistent — same line but more emphasis. At 28 seconds, everything cuts to silence except the final bass note ringing into nothing. No drums, no piano. Stereo, with bass center, trumpet slightly off-center. Mid-century cool jazz, late-night, mortal. Duration exactly 30 seconds.</pre>
+    </div>
+
+    <div class="cue">
+      <div class="head">
+        <div>
+          <div class="id">MUS-06 · DEADLINE TAG</div>
+          <h4>Press-fires celebration tag <span class="phase t0">T0</span></h4>
+        </div>
+        <div class="meta">16 s · ONE-SHOT · STEREO</div>
+      </div>
+      <div class="use"><b>Use:</b> fires the instant the press starts printing the edition · 8-bar tag at 76 bpm.</div>
+<pre class="prompt"><span class="label">prompt</span>
+An 8-bar tag for a cool jazz quartet at 76 bpm in C minor, 16 seconds total. Full quartet enters together: brushed drums, walking upright bass, muted trumpet melody, piano comping. The melody is a satisfied, resolved-sounding phrase — not triumphant, not loud, just confident, like the band exhaling. Recorded in a small treated room with ribbon microphones, mid-century cool jazz feel, slight tape saturation. Ends with a clean stop, no fade. Stereo, the band balanced.</pre>
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">04</span> SOUND EFFECTS</h2>
+    <div class="kicker">24 cues · diegetic · short and quiet · prompts include length</div>
+
+    <table class="sfx">
+      <tr>
+        <th>ID</th>
+        <th>Use</th>
+        <th>Length</th>
+        <th>Prompt</th>
+      </tr>
+      <tr>
+        <td class="id">SFX-01<br/><span class="phase t0">T0</span></td>
+        <td>Reporter dispatched (click confirm)</td>
+        <td class="len">0.4s</td>
+        <td><span class="prompt">A single short typewriter key strike — the carriage return bell omitted. Recorded close, mono. 1948 Royal typewriter. 0.4 seconds, including its mechanical tail.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-02<br/><span class="phase t0">T0</span></td>
+        <td>Lead picked up</td>
+        <td class="len">0.6s</td>
+        <td><span class="prompt">A small folded piece of paper being snatched off a wet table — quick rustle, faint metallic chime like a tiny tag tinkling. Mono, intimate close-mic. 0.6 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-03<br/><span class="phase t0">T0</span></td>
+        <td>Story filed at bureau</td>
+        <td class="len">0.8s</td>
+        <td><span class="prompt">A sheet of paper being slapped onto a pile of papers on a wooden desk, followed by the single bell-ding of a 1948 typewriter carriage return. Mono, close-mic. 0.8 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-04<br/><span class="phase t0">T0</span></td>
+        <td>Reporter footstep loop (wet pavement)</td>
+        <td class="len">1.2s</td>
+        <td><span class="prompt">Two leather-soled men's shoes walking on wet pavement, four steps total, loopable. Wet but not splashy, medium pace, real city sidewalk feel. Mono. 1.2 seconds, perfect loop point.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-05<br/><span class="phase t0">T0</span></td>
+        <td>Photog camera shutter</td>
+        <td class="len">0.5s</td>
+        <td><span class="prompt">A 1940s press camera flashbulb pop followed immediately by a leaf-shutter click. The flash is short and bright; the shutter is a metallic snick. Mono, close-mic. 0.5 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-06<br/><span class="phase t0">T0</span></td>
+        <td>Deadline warning sting (T-30s)</td>
+        <td class="len">1.5s</td>
+        <td><span class="prompt">A single distorted typewriter bell rung slow, decaying into faint tape hiss. Mono, dark, ominous but not loud. No music. 1.5 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-07<br/><span class="phase t0">T0</span></td>
+        <td>Press fires (edition starts printing)</td>
+        <td class="len">2.0s</td>
+        <td><span class="prompt">A 1948 newspaper press starting up from idle: rollers engage, paper begins feeding, mechanical thumping accelerates over 2 seconds to a steady running rhythm. Mono, mechanical, satisfying. 2.0 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-08<br/><span class="phase t0">T0</span></td>
+        <td>Goon footstep loop (heavy, wet)</td>
+        <td class="len">1.4s</td>
+        <td><span class="prompt">Four heavy men's footsteps in heavy work boots on wet city pavement, medium-slow tempo, ominous but not stylized. Loopable. Mono. 1.4 seconds, perfect loop point.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-09<br/><span class="phase t0">T0</span></td>
+        <td>Press takes damage (goon contact)</td>
+        <td class="len">0.7s</td>
+        <td><span class="prompt">A heavy iron bar striking a metal press frame and a glass plate cracking. Single hit. Mono, low-mids prominent, very dry. 0.7 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-10<br/><span class="phase t0">T0</span></td>
+        <td>Goon defeated (fixer wins)</td>
+        <td class="len">0.6s</td>
+        <td><span class="prompt">A short, soft body fall onto wet pavement — no scream, no music. A hat hits the ground a beat after. Mono, close-mic. 0.6 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-11<br/><span class="phase t0">T0</span></td>
+        <td>UI: button hover</td>
+        <td class="len">0.15s</td>
+        <td><span class="prompt">A single very short typewriter key half-press, barely audible. Mono. 0.15 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-12<br/><span class="phase t0">T0</span></td>
+        <td>UI: button click</td>
+        <td class="len">0.2s</td>
+        <td><span class="prompt">A single sharp typewriter key strike, close-mic. Mono. 0.2 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-13<br/><span class="phase t0">T0</span></td>
+        <td>UI: tab switch</td>
+        <td class="len">0.3s</td>
+        <td><span class="prompt">A typewriter carriage return: zip-and-ding. Mono, close-mic, 1940s Royal-style. 0.3 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-14<br/><span class="phase t0">T0</span></td>
+        <td>Edition page slap (debrief animation)</td>
+        <td class="len">0.4s</td>
+        <td><span class="prompt">A freshly-printed newspaper page slapping down onto a wooden table. Single hit, with a faint paper-rustle tail. Mono, close-mic. 0.4 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-15<br/><span class="phase t1">T1</span></td>
+        <td>Phone rings (hot lead notification)</td>
+        <td class="len">2.4s</td>
+        <td><span class="prompt">A 1940s American rotary phone ringing twice in a quiet room. The classic mechanical-bell ring, warm and metallic, heard from across the room. Mono, slight room reverb. 2.4 seconds (two full rings).</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-16<br/><span class="phase t1">T1</span></td>
+        <td>Match struck (cigarette)</td>
+        <td class="len">0.8s</td>
+        <td><span class="prompt">A wooden match struck against a matchbook, igniting on the second attempt. The strike rasps, the flame catches. Mono, close-mic, intimate. 0.8 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-17<br/><span class="phase t1">T1</span></td>
+        <td>Bribe envelope passed</td>
+        <td class="len">0.6s</td>
+        <td><span class="prompt">A folded paper envelope sliding across a wooden bar, followed by the soft tap of a finger on the bar. Mono, close-mic, intimate. 0.6 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-18<br/><span class="phase t1">T1</span></td>
+        <td>Switchboard plug-in (intel)</td>
+        <td class="len">0.5s</td>
+        <td><span class="prompt">A 1940s telephone switchboard plug being inserted into a jack: a soft mechanical click followed by faint line hiss. Mono, close-mic. 0.5 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-19<br/><span class="phase t1">T1</span></td>
+        <td>Story discredited (Observer counter-fires)</td>
+        <td class="len">1.0s</td>
+        <td><span class="prompt">A page of newsprint being torn slowly down the middle, then crumpled into a ball. Mono, close-mic. 1.0 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-20<br/><span class="phase t1">T1</span></td>
+        <td>Press destroyed (run end)</td>
+        <td class="len">2.5s</td>
+        <td><span class="prompt">A 1948 newspaper printing press grinding to a fatal halt: rollers seize, metal screams, then silence with falling debris and a final sheet of paper drifting to the floor. Mono, mechanical, mournful. 2.5 seconds total.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-21<br/><span class="phase t1">T1</span></td>
+        <td>Building placed (construction confirm)</td>
+        <td class="len">0.9s</td>
+        <td><span class="prompt">A heavy oak door closing firmly, followed by a brass key turning in a lock. Mono, close-mic. 0.9 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-22<br/><span class="phase t2">T2</span></td>
+        <td>Lead spoiled (decayed)</td>
+        <td class="len">0.8s</td>
+        <td><span class="prompt">A piece of newspaper being blown away in wind off a wet pavement, then a single distant car horn fading. Mono, slight room. 0.8 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-23<br/><span class="phase t2">T2</span></td>
+        <td>Wire deal accepted</td>
+        <td class="len">1.2s</td>
+        <td><span class="prompt">An old fountain pen scratching a signature on heavy paper, followed by the soft thump of a blotter pressed down. Mono, close-mic, intimate. 1.2 seconds.</span></td>
+      </tr>
+      <tr>
+        <td class="id">SFX-24<br/><span class="phase t2">T2</span></td>
+        <td>Arc trigger ping</td>
+        <td class="len">1.0s</td>
+        <td><span class="prompt">A very short, low Harmon-muted trumpet single note in C minor, sustained for 1 second with a slight bend at the tail. Mono, close-mic. Just one note. 1.0 seconds.</span></td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">05</span> RADIO ANNOUNCER VO</h2>
+    <div class="kicker">The only voice in the game · 60 lines for shipping · phased</div>
+
+    <p>The radio announcer is a character, not a system. His broadcasts comment on yesterday's edition; what you printed yesterday changes what he says tonight. He starts amused and ends afraid. Across a 30-edition run he goes from gentle ribbing to careful avoidance.</p>
+
+    <h3>Character bible</h3>
+    <ul>
+      <li><b>Name (player-facing):</b> "Eddie Marsh, your old friend at WLKE radio, 1290 on your dial."</li>
+      <li><b>Age:</b> late 40s. Smokes. Drinks coffee with his bourbon.</li>
+      <li><b>Voice:</b> American mid-Atlantic, lightly nasal, warm baritone, classic 1948 AM radio delivery — slightly compressed, faintly hissy.</li>
+      <li><b>Arc:</b> Editions 1–10: amused, gossipy, slightly flirtatious with the news. Editions 11–20: notices the player is the same byline a lot. Editions 21–30: visibly nervous. Says less, leaves longer pauses.</li>
+      <li><b>Never:</b> shouts, breaks character, addresses the player directly, says the player's paper's name aloud.</li>
+    </ul>
+
+    <h3>Generation voice prompt (use for all lines)</h3>
+    <div class="cue">
+      <div class="head"><div><div class="id">VO-VOICE</div><h4>Eddie Marsh voice prompt</h4></div><div class="meta">VENICE SPEECH</div></div>
+<pre class="prompt"><span class="label">prompt</span>
+American male voice, mid-Atlantic accent, late 40s, warm baritone, lightly nasal, classic 1948 AM radio announcer delivery. Slightly slow pacing with intentional pauses. Recorded through a ribbon microphone with AM-band character: gentle high rolloff above 6kHz, gentle low rolloff below 200Hz, light room tone, faint tape hiss, slight broadcast compression. The voice is amused, world-weary, and slightly tired. Never shouts. Speaks as if alone in a booth at 2am on a Tuesday.</pre>
+    </div>
+
+    <h3>Tier 0 — 12 lines (vertical slice)</h3>
+    <p class="small muted">These cover the basic edition recap framework. One opener, three reactions, three district fillers, two heat-aware barbs, three signoffs. Generate as a batch.</p>
+    <table class="vo">
+      <tr><th>ID</th><th>Line</th><th>Trigger</th></tr>
+      <tr><td class="id">VO-001</td><td class="line">"Good morning, friends. Eddie Marsh here at WLKE, fourteen-twenty-six in the morning, and the rain's still coming down like it owes the city money."</td><td class="trig">Opener · every edition</td></tr>
+      <tr><td class="id">VO-002</td><td class="line">"Quiet edition this morning. Quiet ones make me nervous."</td><td class="trig">Low-heat edition · &lt; 10 heat</td></tr>
+      <tr><td class="id">VO-003</td><td class="line">"Front page today reads like somebody had a busy afternoon."</td><td class="trig">High-heat edition · &gt; 50 heat</td></tr>
+      <tr><td class="id">VO-004</td><td class="line">"The docks again. Always the docks. You boys ever try writing about anything else?"</td><td class="trig">Player printed 2+ Docks stories this edition</td></tr>
+      <tr><td class="id">VO-005</td><td class="line">"Up on Hillside, they're reading the obituaries first. Can't blame them, lately."</td><td class="trig">Hillside arc active</td></tr>
+      <tr><td class="id">VO-006</td><td class="line">"Diamond Row's gone quiet. Quiet as in nobody answering their phone."</td><td class="trig">Diamond Row story printed</td></tr>
+      <tr><td class="id">VO-007</td><td class="line">"Someone over there sure prints a lot of stories about other people's mistakes."</td><td class="trig">Heat &gt; 60 · first warning</td></tr>
+      <tr><td class="id">VO-008</td><td class="line">"I'm not gonna say who. I'm just gonna say I see the byline."</td><td class="trig">Heat &gt; 80 · second warning</td></tr>
+      <tr><td class="id">VO-009</td><td class="line">"That's the news. Such as it is."</td><td class="trig">Signoff · low-key edition</td></tr>
+      <tr><td class="id">VO-010</td><td class="line">"That's the news. God help us all."</td><td class="trig">Signoff · high-heat edition</td></tr>
+      <tr><td class="id">VO-011</td><td class="line">"Stay dry. Stay quiet."</td><td class="trig">Signoff · run end · default</td></tr>
+      <tr><td class="id">VO-012</td><td class="line">"… that's all from me tonight. Take care of yourselves."</td><td class="trig">Signoff · final edition</td></tr>
+    </table>
+
+    <h3>Tier 1 — additional 24 lines</h3>
+    <p class="small muted">Adds district-specific reactions, rival-paper acknowledgements, and a middle-act crack in his composure.</p>
+    <table class="vo">
+      <tr><th>ID</th><th>Line</th><th>Trigger</th></tr>
+      <tr><td class="id">VO-013</td><td class="line">"Heard the Evening Star printed something this morning that I'm not going to repeat on the air. Out of respect to the dead."</td><td class="trig">Star raid succeeded last edition</td></tr>
+      <tr><td class="id">VO-014</td><td class="line">"Caught a Daily Observer reporter at the diner this morning. He looked like he hadn't slept in a week. Said he was working on something."</td><td class="trig">Observer INVESTIGATE state</td></tr>
+      <tr><td class="id">VO-015</td><td class="line">"The Herald ran an editorial about civic responsibility. The Herald wouldn't know civic responsibility if it bought them dinner."</td><td class="trig">Herald PUNISH state</td></tr>
+      <tr><td class="id">VO-016</td><td class="line">"Radio Row tonight: somebody pulled the licenses on two clubs. No reason given. There's never a reason given."</td><td class="trig">Radio Row arc beat</td></tr>
+      <tr><td class="id">VO-017</td><td class="line">"They asked me to read a public service announcement tonight. I'm not going to."</td><td class="trig">Heat &gt; 70 · mid-game</td></tr>
+      <tr><td class="id">VO-018</td><td class="line">"Quiet on the water tonight. Even the foghorn sounds tired."</td><td class="trig">Docks dispositions: loyal</td></tr>
+      <tr><td class="id">VO-019</td><td class="line">"Word from the docks: another walkout. Third one this month. Somebody's printing the wrong story."</td><td class="trig">Docks dispositions: bitter</td></tr>
+      <tr><td class="id">VO-020</td><td class="line">"Coffee's cold. Rain's not. That's the report."</td><td class="trig">Filler · between editions</td></tr>
+      <tr><td class="id">VO-021</td><td class="line">"You ever wake up at four in the morning and just listen? You can hear the city deciding what kind of day it's gonna be."</td><td class="trig">Filler · low-action edition</td></tr>
+      <tr><td class="id">VO-022</td><td class="line">"Friend of mine ran some numbers last night. They didn't come out the way he wanted."</td><td class="trig">Diamond Row arc active</td></tr>
+      <tr><td class="id">VO-023</td><td class="line">"Up at the cathedral, the bells didn't ring this morning. Nobody's said why."</td><td class="trig">Hand on the Bell arc active</td></tr>
+      <tr><td class="id">VO-024</td><td class="line">"Belmont tonight: the favorite ran last. The favorite always runs last when somebody asks them to."</td><td class="trig">Race at Belmont arc active</td></tr>
+      <tr><td class="id">VO-025</td><td class="line">"Wife of a longshoreman called the station today. Asked me to play her husband's favorite song. I did."</td><td class="trig">Longshoreman Strike arc · ep 2</td></tr>
+      <tr><td class="id">VO-026</td><td class="line">"Singer at the Riviera didn't show up to her set tonight. House sang two numbers without her, then closed early."</td><td class="trig">Vanishing Singer arc · ep 1</td></tr>
+      <tr><td class="id">VO-027</td><td class="line">"Mayor gave a speech this morning. Three reporters asked him questions. None of them got answers."</td><td class="trig">Mayor's Mistress arc · ep 1</td></tr>
+      <tr><td class="id">VO-028</td><td class="line">"Police presence on Hillside tonight. They say it's a parade route. There isn't a parade."</td><td class="trig">Police investigation triggered</td></tr>
+      <tr><td class="id">VO-029</td><td class="line">"I got asked tonight to stop talking about certain bylines. I'm gonna keep talking about certain bylines."</td><td class="trig">Editions 15–20 · defiance beat</td></tr>
+      <tr><td class="id">VO-030</td><td class="line">"… anyway. Music."</td><td class="trig">Filler · when announcer trails off</td></tr>
+      <tr><td class="id">VO-031</td><td class="line">"Phone line rang here at the station today. Picked it up. Nobody on the other end. Just breathing."</td><td class="trig">Editions 18+ · paranoia beat</td></tr>
+      <tr><td class="id">VO-032</td><td class="line">"I keep meaning to take a vacation. Keep finding reasons not to."</td><td class="trig">Editions 18+ · paranoia beat 2</td></tr>
+      <tr><td class="id">VO-033</td><td class="line">"That's the news for tonight. Stay safe. Lock your doors."</td><td class="trig">Signoff · heat &gt; 60</td></tr>
+      <tr><td class="id">VO-034</td><td class="line">"The morning paper's already out. Some of it's even true."</td><td class="trig">Filler · player printed a lie</td></tr>
+      <tr><td class="id">VO-035</td><td class="line">"The Observer ran a story today the rest of us should've been embarrassed not to have."</td><td class="trig">Observer PUBLISH triggered</td></tr>
+      <tr><td class="id">VO-036</td><td class="line">"Anyway. Listen to a song. It's a quiet one."</td><td class="trig">Filler · between segments</td></tr>
+    </table>
+
+    <h3>Tier 2 — additional 24 lines</h3>
+    <p class="small muted">Endgame, branching endings, and "Your Father's Killer" arc references. Generated when Tier 2 content is authored.</p>
+    <table class="vo">
+      <tr><th>ID</th><th>Line</th><th>Trigger</th></tr>
+      <tr><td class="id">VO-037</td><td class="line">"I knew your father, you know. Drank with him once or twice. He told me he wasn't sure who he was working for anymore."</td><td class="trig">Your Father's Killer arc · ep 1</td></tr>
+      <tr><td class="id">VO-038</td><td class="line">"Heard a name today. Not gonna say it on the air. You'll know which one when you hear nothing."</td><td class="trig">Your Father's Killer arc · ep 2</td></tr>
+      <tr><td class="id">VO-039</td><td class="line">"The Herald bought up a smaller paper this morning. The owner cashed the check and disappeared. There's a lesson in there."</td><td class="trig">Establishment ending approach</td></tr>
+      <tr><td class="id">VO-040</td><td class="line">"Three blocks west of here, a building burned last night. Nobody knows whose. That's not how that usually works."</td><td class="trig">Yellow ending approach</td></tr>
+      <tr><td class="id">VO-041</td><td class="line">"… I'm thinking about taking that vacation."</td><td class="trig">Edition 28+ · final stretch</td></tr>
+      <tr><td class="id">VO-042</td><td class="line">"Tomorrow's edition, I'm told, is going to be a big one."</td><td class="trig">Edition 29 · setup</td></tr>
+      <tr><td class="id">VO-043</td><td class="line">"This is Eddie Marsh, WLKE. I'll be off the air for a while."</td><td class="trig">Ending · Yellow path</td></tr>
+      <tr><td class="id">VO-044</td><td class="line">"This is Eddie Marsh, WLKE. They're handing me a new script. I'm gonna read it. Goodnight."</td><td class="trig">Ending · Establishment path</td></tr>
+      <tr><td class="id">VO-045</td><td class="line">"This is Eddie Marsh. I'm not reading the new script. Goodnight."</td><td class="trig">Ending · player burned the system</td></tr>
+      <tr><td class="id">VO-046</td><td class="line">"Quiet edition tonight. They said don't make trouble, so I'm not gonna make trouble."</td><td class="trig">Editions 25+ · Establishment lean</td></tr>
+      <tr><td class="id">VO-047</td><td class="line">"There's a man two blocks from here in a parked car who isn't reading the paper he's holding."</td><td class="trig">Editions 22+ · surveillance beat</td></tr>
+      <tr><td class="id">VO-048</td><td class="line">"You ever notice how the same rain falls on everybody? I think about that sometimes."</td><td class="trig">Filler · philosophical · late game</td></tr>
+      <tr><td class="id">VO-049</td><td class="line">"They tell me to stick to weather. So: it's raining. It's been raining. It is, in fact, going to keep raining."</td><td class="trig">Editions 24+ · sardonic</td></tr>
+      <tr><td class="id">VO-050</td><td class="line">"Long-time listener called in tonight. She said the news used to be different. I told her the news has always been the news."</td><td class="trig">Filler · editions 20+</td></tr>
+      <tr><td class="id">VO-051</td><td class="line">"… that one I can't talk about."</td><td class="trig">Player approached untouchable story</td></tr>
+      <tr><td class="id">VO-052</td><td class="line">"There's a wake at St. Catherine's on Thursday. They asked me to mention it. So I just did."</td><td class="trig">Major NPC death · contextual</td></tr>
+      <tr><td class="id">VO-053</td><td class="line">"I owe a few people money. Just thought I'd say that on the air. In case."</td><td class="trig">Editions 28+ · dread beat</td></tr>
+      <tr><td class="id">VO-054</td><td class="line">"My producer just walked out of the booth. He didn't say where he was going."</td><td class="trig">Editions 28+ · dread beat 2</td></tr>
+      <tr><td class="id">VO-055</td><td class="line">"That's the news. Pick the version you like best."</td><td class="trig">Signoff · cynical · late game</td></tr>
+      <tr><td class="id">VO-056</td><td class="line">"That's the news. The rest of it isn't going to be on the news."</td><td class="trig">Signoff · player ran a major lie</td></tr>
+      <tr><td class="id">VO-057</td><td class="line">"Couple of friends of mine had a quiet conversation tonight. I wasn't there. I just heard about it."</td><td class="trig">Filler · rival inter-action</td></tr>
+      <tr><td class="id">VO-058</td><td class="line">"Music's coming up. Listen close — they keep changing what they let me play."</td><td class="trig">Late game · subtle</td></tr>
+      <tr><td class="id">VO-059</td><td class="line">"This is Eddie Marsh. If you can hear this, the station is still on the air. That's all I can tell you tonight."</td><td class="trig">Penultimate edition · either ending</td></tr>
+      <tr><td class="id">VO-060</td><td class="line">"Goodnight."</td><td class="trig">Final line · all endings</td></tr>
+    </table>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">06</span> GENERATION ORDER</h2>
+    <div class="kicker">What to generate and when · matches the roadmap in Supplement B</div>
+
+    <table class="sfx">
+      <tr>
+        <th>Milestone</th>
+        <th>Audio to generate</th>
+        <th>~ regen budget</th>
+      </tr>
+      <tr>
+        <td class="id">0.1</td>
+        <td>AMB-01 (rain), AMB-03 (foghorn), AMB-02 (streetcar)</td>
+        <td class="len">~30 min</td>
+      </tr>
+      <tr>
+        <td class="id">0.4</td>
+        <td>SFX-01 through SFX-05 · MUS-01 + MUS-02 + MUS-03</td>
+        <td class="len">~60 min</td>
+      </tr>
+      <tr>
+        <td class="id">0.5</td>
+        <td>AMB-04 (press heartbeat), AMB-05 (press running), MUS-05 (T-30s tension), MUS-06 (deadline tag), SFX-06, SFX-07, SFX-14</td>
+        <td class="len">~75 min</td>
+      </tr>
+      <tr>
+        <td class="id">0.7</td>
+        <td>SFX-08 through SFX-10 (goon combat) · SFX-11 through SFX-13 (UI clicks)</td>
+        <td class="len">~45 min</td>
+      </tr>
+      <tr>
+        <td class="id">0.10</td>
+        <td>VO-001 through VO-012 (Tier 0 announcer lines, 12 takes total)</td>
+        <td class="len">~90 min</td>
+      </tr>
+      <tr>
+        <td class="id">1.x</td>
+        <td>AMB-06, MUS-04, SFX-15 through SFX-21, VO-013 through VO-036</td>
+        <td class="len">~3 hours</td>
+      </tr>
+      <tr>
+        <td class="id">2.x</td>
+        <td>SFX-22 through SFX-24, VO-037 through VO-060, any per-arc one-shots</td>
+        <td class="len">~3 hours</td>
+      </tr>
+    </table>
+
+    <div class="callout" style="margin-top:18px">
+      <b>Regen budget.</b> Plan ~2× the listed time on first pass. Generative audio is a casting call, not a render. Many takes will be wrong in subtle ways (too loud, too musical, breaks the "diegetic noir" rule). Keep takes labeled with their seed/prompt-version so you can iterate without losing what worked.
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <div>LATE EDITION · AUDIO MANIFEST · SUPPLEMENT C</div>
+    <div>GENERATE ON VENICE STUDIO · DIEGETIC NOIR · NEVER CINEMATIC</div>
+  </footer>
+
+</div>
+</body>
+</html>

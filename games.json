@@ -152,6 +152,15 @@
       "icon": "🛤️",
       "href": "oregon-trail/",
       "theme": "oregon-trail"
+    },
+    {
+      "slug": "late-edition",
+      "title": "Late Edition",
+      "description": "A 1940s noir RTS — run a newspaper that's a front for an information empire. Currently in Phase 0: architecture banding, ICDs, and roadmap.",
+      "tag": "Strategy (Design Phase)",
+      "icon": "📰",
+      "href": "late-edition/",
+      "theme": "late-edition"
     }
   ]
 }

@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LATE EDITION — Phase 0 + Roadmap</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #0a0a0c;
+    --mid: #6b6864;
+    --rule: #c8c4bc;
+    --paper: #ece8df;
+    --paper-2: #f4f1ea;
+    --paper-3: #d9d4c8;
+    --red: #c0212a;
+    --red-2: #8c1820;
+    --strong: #0a0a0c;
+    --medium: #6b6864;
+    --fuzzy: #b8b2a5;
+    --serif: 'Bodoni Moda', 'Bodoni 72', 'Didot', serif;
+    --body:  'EB Garamond', Georgia, serif;
+    --mono:  'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--body);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse at 20% 0%, #efebe1 0%, transparent 60%),
+      radial-gradient(ellipse at 90% 80%, #e3decf 0%, transparent 55%),
+      var(--paper);
+    background-attachment: fixed;
+    font-size: 16.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 1px 1px, rgba(20,20,20,0.06) 0.6px, transparent 1.2px);
+    background-size: 3px 3px;
+    mix-blend-mode: multiply;
+    z-index: 1;
+  }
+  .page {
+    position: relative;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 56px 120px;
+    z-index: 2;
+  }
+  .masthead {
+    border-top: 6px double var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 22px 0 18px;
+    margin-bottom: 14px;
+  }
+  .masthead-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: end;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .masthead-row .l, .masthead-row .r { color: var(--mid); }
+  .masthead-row .r { text-align: right; }
+  h1.title {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: clamp(48px, 7vw, 96px);
+    line-height: 0.9;
+    margin: 6px 0;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  h1.title .ed { font-style: italic; font-weight: 400; }
+  .subhead {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--mid);
+    padding-top: 8px;
+    border-top: 1px solid var(--ink);
+    margin-top: 4px;
+  }
+  .subhead b { color: var(--ink); }
+
+  h2.section {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 34px;
+    line-height: 1;
+    margin: 60px 0 6px;
+    border-top: 1px solid var(--ink);
+    padding-top: 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    letter-spacing: -0.015em;
+  }
+  h2.section .num {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--red);
+    border: 1px solid var(--red);
+    padding: 4px 8px;
+    line-height: 1;
+    transform: translateY(-6px);
+  }
+  h3 {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 22px;
+    margin: 22px 0 6px;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin: 4px 0 18px;
+  }
+  p { margin: 0 0 10px; max-width: 72ch; }
+  p.lead {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 21px;
+    line-height: 1.35;
+  }
+  code, .code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--paper-3);
+    padding: 1px 6px;
+    border-radius: 1px;
+  }
+  /* band chip */
+  .band {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--ink);
+    line-height: 1;
+    vertical-align: 2px;
+    margin: 0 4px;
+  }
+  .band.strong { background: var(--ink); color: var(--paper-2); border-color: var(--ink); }
+  .band.medium { background: var(--paper-2); color: var(--ink); border-color: var(--ink); }
+  .band.fuzzy  { background: var(--paper-2); color: var(--mid); border-color: var(--fuzzy); }
+  .band.discuss{ background: var(--paper-2); color: var(--red); border-color: var(--red); }
+  .band.reeval { background: var(--red); color: var(--paper-2); border-color: var(--red); }
+
+  table.banding {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    margin: 12px 0;
+  }
+  table.banding th, table.banding td {
+    border-top: 1px solid var(--ink);
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.banding th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mid);
+    background: var(--paper-2);
+    width: 32%;
+  }
+  table.banding tr:last-child td, table.banding tr:last-child th { border-bottom: 1px solid var(--ink); }
+  table.banding td .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--mid); display: block; margin-top: 2px; }
+
+  /* roadmap */
+  .roadmap {
+    background: var(--paper-2);
+    border: 1px solid var(--ink);
+    padding: 22px 26px;
+    margin: 16px 0;
+    box-shadow: 5px 9px 0 -2px rgba(0,0,0,0.10);
+  }
+  .roadmap ol { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+  .roadmap li {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 14px;
+    align-items: baseline;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--rule);
+    font-size: 15px;
+  }
+  .roadmap li:last-child { border-bottom: none; }
+  .roadmap li .ms {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--ink);
+  }
+  .roadmap li.reeval {
+    background: var(--paper-3);
+    padding: 9px 12px;
+    margin: 0 -12px;
+    border-bottom: 1px solid var(--ink);
+    border-top: 1px solid var(--ink);
+  }
+  .roadmap li.reeval .ms { color: var(--red); }
+  .roadmap li .desc { font-family: var(--body); }
+  .roadmap li .desc small { color: var(--mid); display: block; font-size: 12.5px; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+
+  /* ICD card */
+  .icd {
+    border: 1px solid var(--ink);
+    background: var(--paper-2);
+    padding: 18px 20px;
+    margin: 14px 0;
+  }
+  .icd h4 {
+    font-family: var(--serif);
+    font-size: 22px;
+    margin: 0 0 4px;
+  }
+  .icd .tag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 10px;
+  }
+  .icd pre {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.55;
+    background: var(--ink);
+    color: #e6e1d4;
+    padding: 14px 16px;
+    margin: 10px 0 0;
+    overflow-x: auto;
+  }
+  .icd pre .cm { color: #7b766a; font-style: italic; }
+  .icd pre .kw { color: #d97757; }
+  .icd pre .str { color: #95c8a0; }
+
+  .grid { display: grid; gap: 18px; margin: 16px 0; }
+  .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+  .callout {
+    border-left: 3px solid var(--red);
+    background: var(--paper-2);
+    padding: 12px 18px;
+    margin: 18px 0;
+    font-size: 15px;
+  }
+  .callout b { font-family: var(--serif); font-size: 17px; }
+
+  ul.tight { margin: 6px 0 12px; padding-left: 22px; }
+  ul.tight li { padding: 2px 0; font-size: 15px; }
+
+  .colophon {
+    margin-top: 80px;
+    padding-top: 22px;
+    border-top: 1px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+    display: flex;
+    justify-content: space-between;
+  }
+  .small { font-size: 13.5px; }
+  .muted { color: var(--mid); }
+  .pull {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.3;
+    border-top: 3px double var(--ink);
+    border-bottom: 3px double var(--ink);
+    padding: 16px 0;
+    margin: 24px auto;
+    text-align: center;
+    max-width: 760px;
+  }
+  .pull .by {
+    display: block;
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-top: 8px;
+  }
+
+  /* legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    background: var(--paper-2);
+    border: 1px solid var(--ink);
+    padding: 12px 16px;
+    margin: 12px 0 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .legend .label { color: var(--mid); margin-right: 6px; }
+
+  /* arcade integration — not part of the original design */
+  .back-to-arcade {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    z-index: 10;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+    text-decoration: none;
+    border: 1px solid var(--rule);
+    background: var(--paper-2);
+    padding: 6px 10px;
+  }
+  .back-to-arcade:hover { color: var(--ink); border-color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="masthead-row">
+      <div class="l">SUPPLEMENT &middot; B</div>
+      <div></div>
+      <div class="r">PHASE 0 + ROADMAP &middot; DRAFT</div>
+    </div>
+    <h1 class="title">Phase <span class="ed">Zero</span></h1>
+    <div class="subhead"><b>ARCHITECTURE BANDING &middot; ICDS &middot; INITIAL ROADMAP</b> &middot; BUILT TO YOUR LLM-ASSISTED METHODOLOGY</div>
+    <div class="masthead-row" style="margin-top:14px">
+      <div class="l">DESIGN DOC v0.1 &rarr; CODE-READY</div>
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:0.22em;">&mdash; BAND &middot; TIGHTEN &middot; BUILD &middot; RE-EVAL &mdash;</div>
+      <div class="r">MAY 20, 2026</div>
+    </div>
+  </header>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">01</span> WHAT THIS IS</h2>
+    <div class="kicker">A translation &middot; not a re-design</div>
+
+    <p class="lead">Your methodology splits architectural commitments into three bands (strong / medium / fuzzy), routes pre-architecture thinking into <code>discussion/</code>, and demands an ICD on every boundary that crosses a code session. This supplement re-reads the design doc and rival AI spec through that lens, names the ICDs to author before code starts, and proposes a band-labeled roadmap with explicit re-evaluation slots.</p>
+
+    <div class="legend">
+      <span class="label">Band legend:</span>
+      <span class="band strong">strong</span> <span class="muted">load-bearing for next 3 milestones</span>
+      <span class="band medium">medium</span> <span class="muted">directional for milestones 4&ndash;7</span>
+      <span class="band fuzzy">fuzzy</span> <span class="muted">sketch beyond the horizon</span>
+      <span class="band discuss">discussion</span> <span class="muted">pre-architecture &middot; not a commitment</span>
+      <span class="band reeval">re-eval</span> <span class="muted">paper session &middot; no code</span>
+    </div>
+
+    <p>The horizon for Late Edition: <b>N = 3 milestones, M = 7</b> &mdash; small-team / high-cadence defaults from your methodology. Re-eval cadence: <b>every 3 milestones</b>, plus before every band-tier transition.</p>
+
+    <div class="pull">
+      &ldquo;The design doc is what you want. Phase 0 is what you commit to building first.&rdquo;
+      <span class="by">&mdash; working principle</span>
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">02</span> ARCHITECTURE BANDING</h2>
+    <div class="kicker">Every section of the design doc &rarr; its band &middot; default is strong (label what isn't)</div>
+
+    <h3>Strong-band &mdash; load-bearing for vertical slice</h3>
+    <p class="small muted">Code sessions comply as written. Deviation requires an architecture session and a doc update.</p>
+    <table class="banding">
+      <tr><th>The print cycle (12 min/edition)</th><td>The heartbeat. Everything is on the clock. Tested by Milestones 0.1&ndash;0.5.<span class="lbl">DESIGN DOC &sect;05</span></td></tr>
+      <tr><th>Five resources (Leads, Stories, Ink, Cash, Heat)</th><td>Names locked. Heat is reverse currency. Cash is least interesting on purpose.<span class="lbl">DESIGN DOC &sect;06</span></td></tr>
+      <tr><th>Single fail-state &mdash; the Press</th><td>One Bureau, one press, 90 HP. Loss of press = run end. No other terminal conditions.<span class="lbl">DESIGN DOC &sect;10</span></td></tr>
+      <tr><th>Cel-shaded toon pipeline</th><td>MeshToonMaterial &middot; 3-step gradient map &middot; EdgesGeometry outlines @ 25&deg; &middot; linear fog 22&rarr;60. Proved in the feel test.<span class="lbl">DESIGN DOC &sect;03 &middot; &sect;15</span></td></tr>
+      <tr><th>Camera + input model</th><td>Orthographic isometric, WASD pan, click-to-dispatch. Touch is supported, not optimized.<span class="lbl">DESIGN DOC &sect;13 &middot; &sect;17 (decisions locked)</span></td></tr>
+      <tr><th>Reporter unit core</th><td>HP 2, walk 3.5 u/s, carries 1 lead, dispatched by click. Other units inherit this skeleton.<span class="lbl">DESIGN DOC &sect;08 &middot; &sect;19</span></td></tr>
+      <tr><th>Lead &rarr; Story lifecycle</th><td>Lead spawns in district &middot; reporter picks up &middot; returns to bureau &middot; photog verifies &middot; editor plates &middot; prints in next edition. The data model.<span class="lbl">DESIGN DOC &sect;05</span></td></tr>
+      <tr><th>Save = single localStorage JSON</th><td>One blob. Versioned. Migrations defined. MVP only &mdash; no backend.<span class="lbl">DESIGN DOC &sect;17 (locked)</span></td></tr>
+      <tr><th>Browser-only, single-player MVP</th><td>No netcode, no auth, no backend. Architecture must <i>not</i> foreclose later MP.<span class="lbl">DESIGN DOC &sect;17 (locked)</span></td></tr>
+    </table>
+
+    <h3 style="margin-top:34px">Medium-band &mdash; committed direction, wording tightens later</h3>
+    <p class="small muted">Code-aware re-eval tightens these into strong wording as their milestone window approaches.</p>
+    <table class="banding">
+      <tr><th>Full 8-building catalogue</th><td>Only 3 needed for vertical slice (Bureau, Branch, Darkroom). Other 5 tighten as Tier-1 approaches.<span class="lbl">DESIGN DOC &sect;07 &middot; medium until 1.x</span></td></tr>
+      <tr><th>Full 6 unit types</th><td>Only 3 in slice (Reporter, Photog, Fixer). Editor/Tipster/Stringer tighten when needed.<span class="lbl">DESIGN DOC &sect;08 &middot; medium until 1.x</span></td></tr>
+      <tr><th>Rival AI state machines</th><td>Specced in supplement A; pseudocode is illustrative. Each rival's contract goes to strong when its milestone enters the N-window.<span class="lbl">RIVAL AI SPEC &middot; medium</span></td></tr>
+      <tr><th>Story slot grammar</th><td>Shape committed (&sect;18 of design doc); specific verbs/actors tighten per district as content authoring begins.<span class="lbl">DESIGN DOC &sect;18 &middot; medium</span></td></tr>
+      <tr><th>First-pass balancing numbers</th><td>&sect;19 numbers are <i>starting points</i> &mdash; they will move during playtest. Treat as medium, not strong.<span class="lbl">DESIGN DOC &sect;19 &middot; medium</span></td></tr>
+      <tr><th>HUD corkboard layout</th><td>Mockup is committed-direction; pixel-perfect layout tightens when HUD milestone lands.<span class="lbl">DESIGN DOC &sect;13 &middot; medium</span></td></tr>
+      <tr><th>Heat economy thresholds (40/60/80)</th><td>Tiered triggers are committed; specific numbers shift in playtest.<span class="lbl">DESIGN DOC &sect;19 &middot; medium</span></td></tr>
+    </table>
+
+    <h3 style="margin-top:34px">Fuzzy-band &mdash; sketch beyond the horizon</h3>
+    <p class="small muted">Narrative coherence, not authority. Code sessions do not cite these as constraints.</p>
+    <table class="banding">
+      <tr><th>The 18+ districts of the canonical city</th><td>4 in vertical slice, more later. District-as-data shape needs to be strong; district contents are fuzzy.<span class="lbl">DESIGN DOC &sect;04 &middot; fuzzy</span></td></tr>
+      <tr><th>The 8 authored arcs</th><td>Framework is medium (&sect;18 spec); actual arc content (headlines, branches) is fuzzy until late-T1/T2.<span class="lbl">DESIGN DOC &sect;18 &middot; fuzzy content</span></td></tr>
+      <tr><th>Tech tree branches (Yellow / Establishment)</th><td>The branch detection heuristic, ending content, all fuzzy.<span class="lbl">DESIGN DOC &sect;11 &middot; &sect;20 TBD</span></td></tr>
+      <tr><th>Procedural city generation</th><td>Post-MP feature. City-as-data shape must not foreclose it. Implementation is fuzzy.<span class="lbl">&sect;17 locked (decision)</span></td></tr>
+      <tr><th>Multiplayer + accounts + cloud saves</th><td>Future. Architecture's job today is to avoid hardcoded single-player assumptions in authoritative state.<span class="lbl">&sect;17 locked (decision)</span></td></tr>
+      <tr><th>Radio announcer VO</th><td>Hand-written + recorded. No code dependency. Fuzzy until T2.<span class="lbl">DESIGN DOC &sect;14 &middot; fuzzy</span></td></tr>
+      <tr><th>Audio system at large</th><td>Direction is set; asset list and engine selection are unspecified.<span class="lbl">DESIGN DOC &sect;14 &middot; &sect;20 TBD</span></td></tr>
+    </table>
+
+    <h3 style="margin-top:34px">Discussion/ &mdash; pre-architecture &middot; not commitments</h3>
+    <p class="small muted">Seed these as <code>discussion/*.md</code> files at the start of the code project. They cite back to design doc sections but are framed as &ldquo;design space,&rdquo; not commitments.</p>
+    <ul class="tight">
+      <li><code>discussion/observer-violence.md</code> &mdash; should the Observer ever fight back? Open. Recommend partner-fund Tier IV mechanism. <span class="band discuss">discuss</span></li>
+      <li><code>discussion/rival-state-visibility.md</code> &mdash; how much of rival state does the player see directly vs infer? <span class="band discuss">discuss</span></li>
+      <li><code>discussion/difficulty-selector.md</code> &mdash; frequency-scaling vs aggression-scaling. Defer to post-MVP. <span class="band discuss">discuss</span></li>
+      <li><code>discussion/tutorial-first-edition.md</code> &mdash; the diegetic onboarding beat. Needs a paper session before MVP polish. <span class="band discuss">discuss</span></li>
+      <li><code>discussion/accessibility.md</code> &mdash; motion, audio cues, color, deadline non-visual signal. <span class="band discuss">discuss</span></li>
+      <li><code>discussion/yellow-establishment-branch.md</code> &mdash; the cumulative-heat heuristic. <span class="band discuss">discuss</span></li>
+    </ul>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">03</span> ICDS &mdash; INTERFACE CONTRACTS</h2>
+    <div class="kicker">Six contracts to author before any code session opens &middot; cheapest artifact in the pipeline</div>
+
+    <p>Each of these crosses a code-session boundary. Each one must exist <i>before</i> the first code session that touches it. Sketch shapes below &mdash; each gets its own file (<code>icds/ICD-XX.md</code>) before milestone 0.1.</p>
+
+    <div class="icd">
+      <h4>ICD-01 &middot; World &harr; Renderer</h4>
+      <div class="tag">Per-frame contract</div>
+      <p>What the simulation hands the renderer each frame. Keeps simulation pure; keeps renderer dumb.</p>
+<pre><span class="cm">// Per frame</span>
+<span class="kw">interface</span> WorldFrame {
+  cameraTarget: Vec3;
+  buildings: BuildingView[];   <span class="cm">// pos, kind, hp, tier</span>
+  units:     UnitView[];       <span class="cm">// pos, facing, kind, state</span>
+  leads:     LeadView[];       <span class="cm">// pos, tier, age</span>
+  rain:      RainConfig;       <span class="cm">// intensity 0-1</span>
+  fog:       { near, far, color };
+  hud:       HudState;         <span class="cm">// edition, deadline_ms, resources</span>
+  effects:   FxEvent[];        <span class="cm">// flashes, prints, deaths</span>
+}</pre>
+    </div>
+
+    <div class="icd">
+      <h4>ICD-02 &middot; Rival &harr; World</h4>
+      <div class="tag">Per-tick contract &middot; supplement A is the source</div>
+      <p>The <code>tick(world, dt) &rarr; Intent[]</code> contract. Defined in detail in Supplement A &sect;02 and &sect;08. Author as ICD-02 verbatim from there.</p>
+<pre><span class="kw">type</span> Intent =
+  | { kind: <span class="str">'FILE_STORY'</span>, district, tier, source }
+  | { kind: <span class="str">'RAID_BUREAU'</span>, goons: int, eta_ms }
+  | { kind: <span class="str">'BRIBE_REPORTER'</span>, reporterId }
+  | { kind: <span class="str">'POISON_LEAD'</span>, leadId }
+  | { kind: <span class="str">'SCOUT_DISTRICT'</span>, district }
+  | { kind: <span class="str">'OFFER_WIRE_DEAL'</span>, terms }
+  | { kind: <span class="str">'OFFER_BUYOUT'</span>, amount }
+  | { kind: <span class="str">'PARTNER_REQUEST'</span>, district }
+  | { kind: <span class="str">'PASS'</span> };</pre>
+    </div>
+
+    <div class="icd">
+      <h4>ICD-03 &middot; Unit &harr; Pathfinder</h4>
+      <div class="tag">A* over precomputed grid</div>
+      <p>Single request shape across all unit kinds. Grid baked at city-gen time; per-building recompute on placement.</p>
+<pre><span class="kw">interface</span> PathRequest  { from: GridCell, to: GridCell, unitKind: UnitKind }
+<span class="kw">interface</span> PathResponse {
+  found: boolean;
+  cells: GridCell[];          <span class="cm">// empty if !found</span>
+  cost:  number;
+  recomputeOn: BuildingId[];  <span class="cm">// invalidation set</span>
+}</pre>
+    </div>
+
+    <div class="icd">
+      <h4>ICD-04 &middot; Save Schema</h4>
+      <div class="tag">localStorage JSON &middot; versioned &middot; migration-aware</div>
+      <p>Single blob. Versioned. Migrations called on load if version mismatch. <b>Author this before milestone 0.8.</b></p>
+<pre>{
+  <span class="str">"version"</span>: <span class="str">"0.1.0"</span>,
+  <span class="str">"edition"</span>: 23,
+  <span class="str">"cycle_remaining_ms"</span>: 412_000,
+  <span class="str">"bureau"</span>: { pos, hp, tier },
+  <span class="str">"buildings"</span>: [...],
+  <span class="str">"staff"</span>:     [...],
+  <span class="str">"archive"</span>:   [...],
+  <span class="str">"resources"</span>: { leads, stories, ink, cash, heat },
+  <span class="str">"rivals"</span>:    { herald: {...}, star: {...}, observer: {...} },
+  <span class="str">"arcs"</span>:      { active: [...], completed: [...] },
+  <span class="str">"rngSeed"</span>:   42
+}</pre>
+    </div>
+
+    <div class="icd">
+      <h4>ICD-05 &middot; Story Lifecycle Object</h4>
+      <div class="tag">Lead &rarr; Story &rarr; Printed Page</div>
+      <p>One object, three lifecycle states. Field set grows by stage. Critical: the same id flows end-to-end.</p>
+<pre><span class="kw">interface</span> Story {
+  id: string;
+  state: <span class="str">'lead'</span> | <span class="str">'verified'</span> | <span class="str">'plated'</span> | <span class="str">'printed'</span>;
+  district: DistrictId;
+  flavor: <span class="str">'vice'</span>|<span class="str">'violence'</span>|<span class="str">'money'</span>|<span class="str">'labor'</span>;
+  tier: <span class="str">'whisper'</span>|<span class="str">'investigation'</span>|<span class="str">'arc'</span>;
+  truthful: boolean;             <span class="cm">// affects observer trigger</span>
+  spawned_at_ms: number;
+  picked_up_by?: ReporterId;
+  verified_by?:  PhotogId;
+  plated_by?:    EditorId;
+  printed_in?:   EditionId;
+  cash_yield?:   number;
+  heat_yield?:   number;
+}</pre>
+    </div>
+
+    <div class="icd">
+      <h4>ICD-06 &middot; Edition / Print Cycle Events</h4>
+      <div class="tag">The clock event contract</div>
+      <p>The print cycle is the heartbeat &mdash; everything subscribes to it. Strong-band by virtue of touching every subsystem.</p>
+<pre><span class="kw">type</span> CycleEvent =
+  | { kind: <span class="str">'CYCLE_TICK'</span>, dt_ms }
+  | { kind: <span class="str">'DEADLINE_WARNING'</span>, remaining_ms: 30_000 }
+  | { kind: <span class="str">'DEADLINE_FIRE'</span>, edition: number }
+  | { kind: <span class="str">'EDITION_DEBRIEF_BEGIN'</span>, edition: number, summary: EditionSummary }
+  | { kind: <span class="str">'EDITION_DEBRIEF_END'</span> }
+  | { kind: <span class="str">'CYCLE_BEGIN'</span>, edition: number };</pre>
+    </div>
+
+    <div class="callout">
+      <b>Caller-triggered note.</b> ICD-02 commits to the full Intent vocabulary even though the vertical slice only implements RAID_BUREAU and PASS for the Evening Star. The other intents ship as no-ops with the trigger named (specific later milestones). This is the caller-triggered pattern from your methodology &sect;Phase 2 &mdash; the contract is decidable now, the bodies fill in as their callers arrive.
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">04</span> INITIAL ROADMAP</h2>
+    <div class="kicker">Tier 0 vertical slice &middot; band-labeled &middot; re-eval interleaved</div>
+
+    <p>Each milestone is small enough for one code session, testable in isolation, traceable to an ICD or a design-doc section. Bands reflect the weakest-band dependency of each milestone today; re-eval sessions will tighten them.</p>
+
+    <div class="roadmap">
+      <ol>
+        <li>
+          <span class="ms">PRE-0.1</span>
+          <span class="desc">Author <b>ICDs 01&ndash;03 + 05&ndash;06</b> &middot; seed <code>discussion/</code> files<small>Architecture session &middot; no code &middot; output is the contracts above</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li>
+          <span class="ms">0.1</span>
+          <span class="desc">Scene, camera, toon pipeline, fog, rain, ground grid<small>Lift from feel test &middot; ICD-01 &middot; no game logic yet</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li>
+          <span class="ms">0.2</span>
+          <span class="desc">A* pathfinding &middot; Reporter unit &middot; click-to-dispatch<small>ICD-03 &middot; one unit class, one move command</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li>
+          <span class="ms">0.3</span>
+          <span class="desc">Lead spawn (single district) &middot; pickup &middot; return-to-bureau<small>ICD-05 (lead state) &middot; no verification yet</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li class="reeval">
+          <span class="ms">RE-EVAL</span>
+          <span class="desc">After 0.3 &middot; paper session<small>Did ICDs 01/03/05 survive contact? Promote any medium content tighter? Forward ICD presence check for 0.4&ndash;0.6.</small></span>
+          <span class="band reeval">re-eval</span>
+        </li>
+        <li>
+          <span class="ms">0.4</span>
+          <span class="desc">Photog unit &middot; lead&rarr;verified transition &middot; Darkroom building<small>ICD-05 verified state &middot; introduces 2nd unit kind</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li>
+          <span class="ms">0.5</span>
+          <span class="desc">Print cycle clock &middot; deadline events &middot; edition debrief panel<small>ICD-06 &middot; the heartbeat lights up</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li>
+          <span class="ms">0.6</span>
+          <span class="desc">Cash + Ink + Heat resources &middot; story cash on print &middot; ink consumption<small>Design doc &sect;06 &middot; &sect;19 first-pass numbers &middot; medium-band balance values</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li class="reeval">
+          <span class="ms">RE-EVAL</span>
+          <span class="desc">After 0.6 &middot; paper + code-aware<small>Does the loop play? Promote rival AI contract to strong for 0.7&ndash;0.8. Decide tutorial shape.</small></span>
+          <span class="band reeval">re-eval</span>
+        </li>
+        <li>
+          <span class="ms">0.7</span>
+          <span class="desc">Evening Star SCAVENGE + RAID states &middot; Goon unit &middot; Press HP + fail-state<small>ICD-02 (subset) &middot; Fixer unit &middot; Bureau defense beat</small></span>
+          <span class="band medium">medium &rarr; strong at re-eval</span>
+        </li>
+        <li>
+          <span class="ms">PRE-0.8</span>
+          <span class="desc">Author <b>ICD-04</b> (save schema) &middot; single architecture session<small>Required before any code touches persistence</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li>
+          <span class="ms">0.8</span>
+          <span class="desc">Save / load &middot; resume mid-edition &middot; version field<small>ICD-04 &middot; localStorage blob &middot; migration stub</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li>
+          <span class="ms">0.9</span>
+          <span class="desc">HUD corkboard &middot; deadline ticker &middot; selected-unit dossier<small>Design doc &sect;13 &middot; medium-band layout</small></span>
+          <span class="band medium">medium</span>
+        </li>
+        <li class="reeval">
+          <span class="ms">RE-EVAL</span>
+          <span class="desc">After 0.9 &middot; paper + code-aware<small>Code-arch divergence check. Tighten HUD spec. Confirm Tier-0 exit criteria.</small></span>
+          <span class="band reeval">re-eval</span>
+        </li>
+        <li>
+          <span class="ms">0.10</span>
+          <span class="desc">Tier-0 closer &middot; 5-edition arc &middot; run-end summary screen &middot; high-score persistence<small>The first thing a friend can play &middot; verifies the loop reads as a game</small></span>
+          <span class="band strong">strong</span>
+        </li>
+        <li class="reeval">
+          <span class="ms">RE-EVAL</span>
+          <span class="desc">Tier-0 &rarr; Tier-1 gate &middot; full code-aware + paper<small>Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 07+ for branch bureaus, switchboard, archive.</small></span>
+          <span class="band reeval">re-eval</span>
+        </li>
+      </ol>
+    </div>
+
+    <p class="small muted">11 code milestones, 4 re-evaluation slots, 2 architecture-session-only items (PRE-0.1 and PRE-0.8). That's the ratio your methodology asks for: re-eval every ~3 code milestones, architecture sessions wherever a contract crosses a code-session boundary that hasn't been authored yet.</p>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">05</span> PAPER SESSIONS &mdash; INSIDE CODE OR OUTSIDE</h2>
+    <div class="kicker">Which TBDs Claude Code can settle on paper vs which deserve design mode</div>
+
+    <p>Your methodology is explicit that architecture sessions and code sessions are different sessions &mdash; but it doesn't say architecture sessions must happen outside the code IDE. They must happen <i>before</i> code-writing, and produce written outputs. A &ldquo;paper session&rdquo; inside Claude Code is fine for items where the design space is small and the consequences are local.</p>
+
+    <div class="grid cols-2">
+      <div>
+        <h3>Settle inside Claude Code (paper session)</h3>
+        <ul class="tight">
+          <li><b>ICDs 01&ndash;06.</b> The shapes are 90% drafted above. A focused arch session in Code can finalize them.</li>
+          <li><b>Save schema migrations.</b> Mechanical &mdash; version field + a switch on version. Settle when ICD-04 is authored.</li>
+          <li><b>Tutorial first-edition script.</b> Diegetic flow (&ldquo;your old man left notes&rdquo;). Beat sheet only; final copy can be a code session.</li>
+          <li><b>Difficulty selector deferral note.</b> Just a one-page <code>discussion/</code> file saying &ldquo;post-MVP, frequency-scaling only.&rdquo;</li>
+          <li><b>Yellow/Establishment branch heuristic.</b> One line of math; settle when Tier-1 approaches.</li>
+          <li><b>Accessibility first pass.</b> Checklist + non-visual deadline cue (audio sting + HUD shake at T-30s).</li>
+          <li><b>Audio asset manifest.</b> <span class="band strong">done</span> &mdash; see Supplement C. 6 ambient beds + 6 music stems + 24 SFX + 60 VO lines as Venice-ready prompts.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Come back to me (design mode)</h3>
+        <ul class="tight">
+          <li><b>HUD corkboard interactive mock.</b> The design beat is visual &mdash; pinned dossiers, deadline ticker, debrief animation. Worth a hi-fi pass before milestone 0.9.</li>
+          <li><b>Authored arc writing.</b> The 8 arcs need a writer's voice. Headlines, branches, dialogue. Not a code-session output.</li>
+          <li><b>Rival AI behavior trees v2.</b> After playtest reveals where the v1 spec broke down. Re-design pass, not a tightening.</li>
+          <li><b>Tech tree branch endings.</b> The Yellow vs Establishment endings are narrative + UI moments &mdash; design mode.</li>
+          <li><b>Procedural city generation rules.</b> Future feature; design when MP architecture stabilizes.</li>
+          <li><b>Touch polish.</b> If/when tablet becomes a real target, the HUD wants a focused redesign session.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:24px">
+      <b>Rule of thumb.</b> If the question can be answered with text and a table, it's a paper session inside Claude Code. If the question wants visual exploration, a UI mock, or multiple design variants compared side-by-side, come back to design mode.
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">06</span> WHAT TO DO MONDAY</h2>
+    <div class="kicker">Concrete order of operations &middot; architect first &middot; code second</div>
+
+    <ol style="padding-left:22px">
+      <li style="padding:4px 0"><b>Spin up a fresh code project.</b> Drop in: the design doc, supplement A (rival AI spec), this supplement, and the methodology MD as <code>METHODOLOGY.md</code>.</li>
+      <li style="padding:4px 0"><b>Create <code>architecture/</code>, <code>icds/</code>, <code>discussion/</code>, <code>deferred/</code>.</b> Empty directories matter &mdash; they signal the methodology to the next session.</li>
+      <li style="padding:4px 0"><b>Open an architecture session</b> (paper-only) with the design doc as context. Author <code>icds/ICD-01.md</code> through <code>ICD-03.md</code> + <code>ICD-05.md</code> + <code>ICD-06.md</code> using the sketches above as starting points. Save schema (<code>ICD-04</code>) waits until PRE-0.8.</li>
+      <li style="padding:4px 0"><b>Seed the <code>discussion/</code> tree</b> with the six files named in &sect;02. Each one is a paragraph; they're parking spots, not commitments.</li>
+      <li style="padding:4px 0"><b>Write <code>architecture/00-overview.md</code></b> with the strong/medium/fuzzy section list from &sect;02 above. Section headers carry their band; unlabeled is strong.</li>
+      <li style="padding:4px 0"><b>Write <code>roadmap.md</code></b> from &sect;04 above, verbatim. Re-eval slots are first-class entries.</li>
+      <li style="padding:4px 0"><b>Open a code session against milestone 0.1.</b> Read the docs first. Lift the feel-test code as the starting renderer. Land within one session.</li>
+      <li style="padding:4px 0"><b>Test, merge, write back any deviation</b> into the affected ICD <i>in the same PR</i>. Constraint #4 of the methodology.</li>
+      <li style="padding:4px 0"><b>Repeat through 0.3.</b> Then the first re-eval. Then keep going.</li>
+    </ol>
+
+    <p class="small muted" style="margin-top:18px">If a code session opens without an ICD it needs, stop and run an architecture session. That's the methodology working as designed, not a delay.</p>
+  </section>
+
+  <footer class="colophon">
+    <div>LATE EDITION &middot; PHASE 0 + ROADMAP &middot; SUPPLEMENT B</div>
+    <div>READ ALONGSIDE MAIN DOC, RIVAL AI SPEC, METHODOLOGY MD</div>
+  </footer>
+
+</div>
+
+<a href="../" class="back-to-arcade">&larr; Back to Arcade</a>
+
+</body>
+</html>
