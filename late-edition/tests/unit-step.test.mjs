@@ -79,3 +79,17 @@ test('tile-world conversion is consistent for cell (0,0) and (9,9)', () => {
   assert.equal(c2.x, 9 * TILE - 27); // 27
   assert.equal(c2.z, 9 * TILE - 27);
 });
+
+test('Photog dispatch + arrival cycle mirrors Reporter (idle → walking → idle)', () => {
+  const w = new World();
+  const p = w.units.find((u) => u.kind === 'photog');
+  assert.equal(p.state, 'idle');
+  assert.deepEqual(p.tile, { x: 5, y: 6 });
+
+  assert.equal(w.dispatch(p.id, { x: 5, y: 9 }), true);
+  assert.equal(p.state, 'walking');
+
+  for (let i = 0; i < 100; i++) w.tick(0.1);
+  assert.equal(p.state, 'idle');
+  assert.deepEqual(p.tile, { x: 5, y: 9 });
+});

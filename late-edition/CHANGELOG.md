@@ -1,5 +1,90 @@
 # Changelog — Late Edition
 
+## v0.4.0 — 2026-05-20 — Milestone 0.4: Photog · Darkroom · `lead → verified`
+
+The second carrier ships. A Photog unit and a Darkroom building light up
+ICD-05 v0.2's row 3: a held lead at the Bureau is picked up by the Photog,
+ferried Bureau → Darkroom, and dropped with `state: 'lead' → 'verified'`.
+The Story id is stable across the transition (ICD-05 Purpose still holds).
+After 0.4 the verified Story sits dormant at the Darkroom waiting for the
+Editor's 0.5 step.
+
+### Added
+
+- [`js/sim/world-state.js`](js/sim/world-state.js) — new exported
+  `BUREAU_TILE` and `DARKROOM_TILE` constants. `World` constructor seeds two
+  buildings (Bureau at (5,5), Darkroom at (7,7)) and two units (Reporter at
+  (5,4), Photog at (5,6)). `_handleArrival` now dispatches to
+  `_handleReporterArrival` or `_handlePhotogArrival` keyed on `u.kind`.
+- [`js/render/renderer.js`](js/render/renderer.js) — `_syncBuildings()` and
+  `_syncUnits()` route through new `buildBuildingMesh(kind)` /
+  `buildUnitMesh(kind)` factories. Two new mesh builders ship:
+  `buildDarkroomMesh()` (squatter than Bureau, dark-red body, red safelight
+  on the roof) and `buildPhotogMesh()` (brown jacket, flat cap, chest-slung
+  camera box as silhouette signal). Selection-ring construction extracted to
+  `makeSelectRing()` to share between Reporter and Photog.
+- [`tests/photog-verify.test.mjs`](tests/photog-verify.test.mjs) — 7 cases
+  covering the photog ferry: spawn shape, Darkroom presence, Bureau pickup,
+  Darkroom drop with verify transition, verified Story stays out of
+  `frame.leads`, no-op when Bureau is empty, drop is sim-internal (no
+  Intent kind added to ICD-02).
+- [`tests/world-frame.test.mjs`](tests/world-frame.test.mjs) — 3 new
+  cases: `frame.buildings` includes both kinds, `frame.units` includes
+  both kinds, verified Stories are excluded from `frame.leads` via the
+  state filter.
+- [`tests/unit-step.test.mjs`](tests/unit-step.test.mjs) — 1 new case
+  asserting Photog dispatch + arrival cycle mirrors Reporter.
+
+### Changed
+
+- [`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) bumped
+  to **v0.3**. Shape unchanged. §Notes spell out the field deltas the
+  `lead → verified` transition sets (`verified_by`,
+  `held_by_building = darkroom.id`, clear `picked_up_by`) so future readers
+  don't reconstruct from `_handlePhotogArrival`.
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) —
+  "Current caller" line updated to milestone 0.4. **Version not bumped**:
+  BuildingView/UnitView kind enums already listed `'darkroom'`/`'photog'`
+  from v0.2; LeadView filter at v0.4 already excludes verified-state
+  Stories via the `state === 'lead'` clause. No deviation, so Constraint #4
+  doesn't require a bump. v0.5 stays reserved for PRE-0.5.
+- [`index.html`](index.html) — title and masthead caption bumped from "0.3
+  first lead" to "0.4 photog · darkroom · verified".
+- [`roadmap.md`](roadmap.md) — milestone 0.4 checkbox ticked; current-status
+  paragraph advanced to point at PRE-0.5 as the next paper slot.
+- [`AGENTS.md`](AGENTS.md) — "Current state" rewritten to reflect v0.4.0:
+  two carriers, two buildings, the lead → verified transition lit.
+  "Next" still points at PRE-0.5.
+- [`README.md`](README.md) — Status block bumped to v0.4.0; "How to
+  navigate" mentions the Photog and the Bureau → Darkroom ferry.
+
+### Not changed
+
+- [`js/sim/pathfinder.js`](js/sim/pathfinder.js) — A* is generic over
+  `unitKind`; the channel was wired at 0.2 and 0.4 just exercises it with
+  `'photog'`. Per-kind costs still land at 0.7 (ICD-03 v0.2 §Notes).
+- [`js/input.js`](js/input.js) — selection and dispatch are already
+  generic over `UnitView.kind`. Verified by test (Photog cycle case).
+- [`js/main.js`](js/main.js) — entry shape unchanged.
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+
+### ICD activity
+
+- **ICD-05 v0.2 → v0.3** — status text + revision history + §Notes addition
+  for the verify field deltas. Shape and transition table unchanged.
+- **ICD-01** — no bump. Current-caller line updated; the v0.4 contract was
+  already 0.4-ready, so Constraint #4 wasn't triggered. PRE-0.5 will take
+  the v0.5 slot for HudState + projection-rule tightening.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — 37 / 37 pass. 11 new cases since v0.3.0
+  (26 → 37).
+- Browser smoke: load [`index.html`](index.html). Reporter ferries lead
+  from (2,2) to Bureau (5,5) as in 0.3; Photog ferries it from Bureau to
+  Darkroom (7,7); story state flips to `verified` at the Darkroom; no lead
+  mesh visible while held at either building.
+
 ## v0.3.1 — 2026-05-20 — RE-EVAL after 0.3 (paper)
 
 Paper-only, no code. The post-0.3 re-evaluation slot the roadmap called

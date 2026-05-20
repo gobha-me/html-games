@@ -3,7 +3,7 @@
 **Status:** v0.4 (shipped against milestone 0.3 — LeadView filter tightened for held-at-building Stories)
 **Band:** strong
 **First caller:** milestone 0.1 (scene, camera, toon pipeline) — shipped in v0.1.0
-**Current caller:** milestone 0.3 (lead spawn · pickup · return-to-bureau) — shipped in v0.3.0
+**Current caller:** milestone 0.4 (Photog · Darkroom · `lead → verified`) — shipped in v0.4.0 with no ICD bump (BuildingView/UnitView kind enums already listed `'darkroom'`/`'photog'` from v0.2; LeadView filter at v0.4 already excludes verified-state Stories via the `state === 'lead'` clause)
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
 
 ## Purpose

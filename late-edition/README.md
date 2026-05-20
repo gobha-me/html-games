@@ -8,22 +8,31 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.2.0 — milestone 0.2 (first dispatch).** A Reporter walks the grid on
-command. The WorldFrame → renderer boundary is materialized: sim under
-[`js/sim/`](js/sim) (state + A* pathfinder), renderer under [`js/render/`](js/render),
-input glue at [`js/input.js`](js/input.js). 19 node tests cover the pure
-sim modules. Next milestone is **0.3** (lead spawn · pickup ·
-return-to-bureau). See [`roadmap.md`](roadmap.md) and
-[`CHANGELOG.md`](CHANGELOG.md).
+**v0.4.0 — milestone 0.4 (Photog · Darkroom · `lead → verified`).** Two
+carriers now ferry a Story through the first two pipeline stages. The
+Reporter picks up a free lead at the district and drops it on the Bureau;
+the Photog picks it off the Bureau and drops it at the Darkroom, flipping
+the Story state from `'lead'` to `'verified'`. Sim under
+[`js/sim/`](js/sim) (state + A* pathfinder), renderer under
+[`js/render/`](js/render), input glue at [`js/input.js`](js/input.js). 37
+node tests cover the pure sim modules. Next is **PRE-0.5** (paper-only —
+`EditionSummary` + `HudState` ICDs) before milestone **0.5** (print
+cycle). See [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 
-1. Open `index.html` in a browser (or click the **Late Edition** card from
-   the arcade launcher). You'll see the cel-shaded world with a single
-   Reporter standing north of the Bureau. **Left-click the Reporter** to
-   select (a yellow ring appears). **Right-click anywhere on the street
-   grid** to dispatch — the Reporter walks the A*-shortest path. Left-click
-   empty ground to deselect.
+1. Open `index.html` in a browser (or click the **Late Edition** card
+   from the arcade launcher). You'll see the cel-shaded world with two
+   buildings (Bureau in the center, Darkroom to the southeast) and two
+   units (Reporter north of the Bureau, Photog south of it). A lead sits
+   at the northwest district tile. **Left-click a unit** to select (a
+   yellow ring appears). **Right-click anywhere on the street grid** to
+   dispatch — the unit walks the A*-shortest path. Left-click empty
+   ground to deselect. The story flow: send the Reporter to the lead (it
+   auto-picks-up), then back to a Bureau-adjacent tile (it auto-drops);
+   then send the Photog to a Bureau-adjacent tile (it picks up the held
+   lead), then to a Darkroom-adjacent tile (it drops with state flip to
+   `'verified'`).
 2. The in-page **Phase 0 + Roadmap →** link (top-right of the scene) opens
    the architectural supplement (also reachable directly at
    [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html)).

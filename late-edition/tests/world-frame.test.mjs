@@ -31,6 +31,31 @@ test('BuildingView field set matches ICD-01 v0.2 exactly (no leaks)', () => {
   }
 });
 
+test('frame.buildings includes both Bureau and Darkroom (ICD-01 kind enum)', () => {
+  const w = new World();
+  const f = w.snapshot();
+  const kinds = f.buildings.map((b) => b.kind).sort();
+  assert.deepEqual(kinds, ['bureau', 'darkroom']);
+});
+
+test('frame.units includes both Reporter and Photog (ICD-01 kind enum)', () => {
+  const w = new World();
+  const f = w.snapshot();
+  const kinds = f.units.map((u) => u.kind).sort();
+  assert.deepEqual(kinds, ['photog', 'reporter']);
+});
+
+test('frame.leads excludes Stories with state !== lead (verified at Darkroom)', () => {
+  // Simulate the post-verify resting state by mutating Story directly.
+  const w = new World();
+  const story = w.stories[0];
+  const darkroom = w.buildings.find((b) => b.kind === 'darkroom');
+  story.state = 'verified';
+  story.held_by_building = darkroom.id;
+  const f = w.snapshot();
+  assert.equal(f.leads.length, 0);
+});
+
 test('UnitView field set matches ICD-01 v0.2 exactly (no leaks)', () => {
   const w = new World();
   const f = w.snapshot();

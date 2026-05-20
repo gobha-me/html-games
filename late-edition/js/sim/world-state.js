@@ -8,15 +8,21 @@
 // Milestone 0.3 adds: one 'lead'-state Story spawned at tile (2, 2); pickup
 // on arrival; drop-at-bureau holds the Story via Story.held_by_building
 // (ICD-05 v0.2). The Story id is stable across pickup/drop — ICD-05 Purpose.
+// Milestone 0.4 adds: Darkroom building at (7, 7); Photog unit spawning at
+// (5, 6); photog ferries a held lead Bureau → Darkroom and drops it with
+// state transition 'lead' → 'verified' (ICD-05 v0.2 row 3). The Story id
+// remains stable across the verify transition (ICD-05 Purpose still holds).
 
 import { pathfind } from './pathfinder.js';
 
 export const TILE = 6;
 export const GRID_W = 10;
 export const GRID_H = 10;
-export const REPORTER_SPEED = 3.5; // world-units / second (overview §Reporter unit core)
+export const REPORTER_SPEED = 3.5; // world-units / second; shared by all units at 0.4 (ICD-03 per-kind costs land at 0.7)
 export const PRESS_HP = 90;        // overview §Single fail-state
 export const LEAD_SPAWN_TILE = { x: 2, y: 2 }; // 0.3 "single district" pickup point
+export const BUREAU_TILE = { x: 5, y: 5 };
+export const DARKROOM_TILE = { x: 7, y: 7 }; // 0.4: symmetric from Bureau (Manhattan 4)
 
 export function tileToWorld(cell) {
   return { x: cell.x * TILE - 27, y: 0, z: cell.y * TILE - 27 };
@@ -38,31 +44,60 @@ export class World {
     this.grid = bakeGrid();
     this.sim_time_ms = 0;
 
-    this.buildings = [{
-      id: mkId('b'),
-      tile: { x: 5, y: 5 },
-      kind: 'bureau',
-      hp: PRESS_HP,
-      hp_max: PRESS_HP,
-      tier: 1,
-    }];
+    this.buildings = [
+      {
+        id: mkId('b'),
+        tile: { ...BUREAU_TILE },
+        kind: 'bureau',
+        hp: PRESS_HP,
+        hp_max: PRESS_HP,
+        tier: 1,
+      },
+      {
+        // 0.4: Darkroom. HP/tier match Bureau placeholder shape — actual
+        // balance values are medium-band (overview line 47) and arrive at
+        // 0.7+ once a damage source exists. The shape stability matters now.
+        id: mkId('b'),
+        tile: { ...DARKROOM_TILE },
+        kind: 'darkroom',
+        hp: PRESS_HP,
+        hp_max: PRESS_HP,
+        tier: 1,
+      },
+    ];
 
     for (const b of this.buildings) this.grid.walkable[b.tile.y][b.tile.x] = false;
 
     const reporterStart = { x: 5, y: 4 };
-    this.units = [{
-      id: mkId('u'),
-      tile: { ...reporterStart },
-      pos: tileToWorld(reporterStart),
-      facing: 0,
-      kind: 'reporter',
-      state: 'idle',
-      selected: false,
-      carrying: null,
-      carryingStoryId: null,
-      path: [],
-      pathIdx: 0,
-    }];
+    const photogStart = { x: 5, y: 6 }; // 0.4: mirror of reporter, south of Bureau
+    this.units = [
+      {
+        id: mkId('u'),
+        tile: { ...reporterStart },
+        pos: tileToWorld(reporterStart),
+        facing: 0,
+        kind: 'reporter',
+        state: 'idle',
+        selected: false,
+        carrying: null,
+        carryingStoryId: null,
+        path: [],
+        pathIdx: 0,
+      },
+      {
+        id: mkId('u'),
+        tile: { ...photogStart },
+        pos: tileToWorld(photogStart),
+        facing: 0,
+        kind: 'photog',
+        state: 'idle',
+        selected: false,
+        carrying: null,
+        carryingStoryId: null,
+        path: [],
+        pathIdx: 0,
+      },
+    ];
 
     // Milestone 0.3: spawn one Story in 'lead' state at the district tile.
     // ICD-05 §Shape — district / flavor / tier / truthful / spawned_at_ms.
@@ -123,13 +158,28 @@ export class World {
     }
   }
 
-  // Pickup / drop bookkeeping on path completion. Pickup is auto: any reporter
-  // landing on a free 'lead'-state Story claims it (no Intent kind added to
-  // ICD-02 — 0.3 keeps the dispatch surface unchanged). Drop is auto when a
-  // carrying reporter arrives adjacent to a Bureau — the Story stays in
-  // 'lead' state but resides on the building via held_by_building (ICD-05 v0.2).
+  // Pickup / drop bookkeeping on path completion. Each unit kind has its own
+  // arrival contract:
+  //   reporter — picks up a 'lead'-state Story on its tile (0.3); drops at a
+  //     Bureau-adjacent tile, leaving the Story in 'lead' state on the building
+  //     via held_by_building (ICD-05 v0.2 row 2).
+  //   photog   — picks up a Bureau-held 'lead'-state Story (0.4); drops at a
+  //     Darkroom-adjacent tile, flipping the Story to 'verified' (ICD-05 v0.2
+  //     row 3). Story.id remains stable across the transition (ICD-05 Purpose).
+  // ICD-02 (intent kinds) is untouched — pickup/drop are sim-internal
+  // consequences of arrival, not new dispatch verbs.
   _handleArrival(u) {
-    if (u.kind === 'reporter' && u.carrying === null) {
+    if (u.kind === 'reporter') this._handleReporterArrival(u);
+    else if (u.kind === 'photog') this._handlePhotogArrival(u);
+    // At-rest is 'idle' regardless of carry — 'walking' and 'carrying' are
+    // motion states (ICD-01 §UnitView: "walking with a lead is visually
+    // distinct from walking empty-handed"). The folder mesh keys off the
+    // independent `carrying` field, not `state`.
+    u.state = 'idle';
+  }
+
+  _handleReporterArrival(u) {
+    if (u.carrying === null) {
       const lead = this.stories.find((s) =>
         s.state === 'lead' &&
         !s.picked_up_by &&
@@ -142,6 +192,7 @@ export class World {
         u.carrying = 'lead';
         u.carryingStoryId = lead.id;
       }
+      return;
     }
     if (u.carrying === 'lead') {
       const bureau = this.buildings.find((b) =>
@@ -158,11 +209,45 @@ export class World {
         u.carryingStoryId = null;
       }
     }
-    // At-rest is 'idle' regardless of carry — 'walking' and 'carrying' are
-    // motion states (ICD-01 §UnitView: "walking with a lead is visually
-    // distinct from walking empty-handed"). The folder mesh keys off the
-    // independent `carrying` field, not `state`.
-    u.state = 'idle';
+  }
+
+  _handlePhotogArrival(u) {
+    if (u.carrying === null) {
+      const bureau = this.buildings.find((b) =>
+        b.kind === 'bureau' &&
+        Math.abs(b.tile.x - u.tile.x) + Math.abs(b.tile.y - u.tile.y) === 1,
+      );
+      if (!bureau) return;
+      const lead = this.stories.find((s) =>
+        s.state === 'lead' && s.held_by_building === bureau.id,
+      );
+      if (lead) {
+        lead.picked_up_by = u.id;
+        lead.held_by_building = null;
+        u.carrying = 'lead';
+        u.carryingStoryId = lead.id;
+      }
+      return;
+    }
+    if (u.carrying === 'lead') {
+      const darkroom = this.buildings.find((b) =>
+        b.kind === 'darkroom' &&
+        Math.abs(b.tile.x - u.tile.x) + Math.abs(b.tile.y - u.tile.y) === 1,
+      );
+      if (darkroom) {
+        const story = this.stories.find((s) => s.id === u.carryingStoryId);
+        if (story) {
+          // ICD-05 v0.2 row 3: lead → verified. verified_by + held_by_building
+          // set; picked_up_by cleared. State flips on drop.
+          story.state = 'verified';
+          story.verified_by = u.id;
+          story.held_by_building = darkroom.id;
+          story.picked_up_by = null;
+        }
+        u.carrying = null;
+        u.carryingStoryId = null;
+      }
+    }
   }
 
   snapshot() {

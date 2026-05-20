@@ -19,7 +19,7 @@ definitions.
 | **0.2** | A* pathfinding · Reporter unit · click-to-dispatch | ICD-03 · one unit class, one move command | strong |
 | **0.3** | Lead spawn (single district) · pickup · return-to-bureau | ICD-05 (lead state) · no verification yet | strong |
 | **RE-EVAL** | After 0.3 · paper session — *shipped v0.3.1* | Did ICDs 01/03/05 survive contact? Promote any medium content tighter? Forward ICD presence check for 0.4–0.6. See [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md). | re-eval |
-| **0.4** | Photog unit · lead→verified transition · Darkroom building | ICD-05 verified state · introduces 2nd unit kind | strong |
+| **0.4** | Photog unit · lead→verified transition · Darkroom building — *shipped v0.4.0* | ICD-05 verified state · introduces 2nd unit kind | strong |
 | **PRE-0.5** | Author **ICD-06 v0.2** (`EditionSummary`) + **ICD-01 v0.5** (`HudState` + projection-rule tightening + implementation notes) · single architecture session | Forward-ICD-check output of the post-0.3 re-eval · paper-only · gates milestone 0.5 | strong |
 | **0.5** | Print cycle clock · deadline events · edition debrief panel | ICD-06 · the heartbeat lights up | strong |
 | **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
@@ -40,18 +40,19 @@ inserted by the post-0.3 re-eval's forward ICD presence check.
 
 ## Current status
 
-**RE-EVAL after 0.3 — shipped (v0.3.1).** Paper session, no code.
-ICDs 01 / 03 / 05 all survived contact with shipped 0.1–0.3 code (no
-interface drift; Constraint #4 honored in both milestones). No band
-movements warranted. Forward ICD check surfaced one gap: ICD-06 is
-still draft and `HudState` shape is unauthored — scheduled into a new
-**PRE-0.5** paper slot before milestone 0.5 can open. See
-[`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md)
-for the full session output.
+**Milestone 0.4 — shipped (v0.4.0).** Photog unit, Darkroom building, and
+ICD-05 v0.2 row 3 (`lead → verified`) all live. Two carriers now ferry
+Stories through the first two pipeline stages: Reporter picks up a free
+lead at (2,2) and drops it on the Bureau; Photog picks up the held lead
+at the Bureau and drops it at the Darkroom with the state flip to
+`verified`. Story id stable end-to-end. ICD-05 bumped v0.2 → v0.3 (status
++ field-delta note); ICD-01 unchanged (v0.4 kind enums already covered
+`'darkroom'` and `'photog'`).
 
-Next: **milestone 0.4** is unblocked (ICDs 01 v0.4 + 03 v0.2 + 05 v0.2
-cover Photog · Darkroom · `lead → verified` without further paper work).
-Milestone 0.5 waits for **PRE-0.5** (paper-only) before it can open.
+Next: **PRE-0.5** (paper-only). Author ICD-06 v0.2 (`EditionSummary`) +
+ICD-01 v0.5 (`HudState` + projection-rule tightening + implementation
+notes for TILE=6 / origin offset / 30 Hz / id-minting). Gates milestone
+0.5 (print cycle).
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -77,6 +78,10 @@ Milestone 0.5 waits for **PRE-0.5** (paper-only) before it can open.
       contact; no band movements; PRE-0.5 scheduled for ICD-06 v0.2 +
       ICD-01 v0.5. See
       [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md).
+- [x] **Milestone 0.4** — Photog unit, Darkroom building, ICD-05 row 3
+      lit (`lead → verified` on photog drop at Darkroom). ICD-05 → v0.3
+      (status + field-delta note); ICD-01 unchanged. Tests at 37 cases
+      (new `photog-verify.test.mjs` + WorldFrame/UnitStep extensions).
 - [ ] **PRE-0.5** — paper-only. Pending. Author ICD-06 v0.2
       (`EditionSummary`) + ICD-01 v0.5 (`HudState` + projection-rule
       tightening + implementation notes). Gates milestone 0.5.

@@ -50,58 +50,54 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.3.0 — milestone 0.3 shipped.** First lead. The Story pipeline opens:
-a `'lead'`-state Story spawns at the district tile, a Reporter walks to
-it, auto-picks-up on arrival, returns to a tile adjacent to the Bureau,
-and auto-drops via `Story.held_by_building`.
+**v0.4.0 — milestone 0.4 shipped.** Second carrier. The Photog and the
+Darkroom open ICD-05 v0.2's row 3 (`lead → verified`). The Story now
+moves through two pipeline stages on the grid: Reporter picks up a free
+lead at the district tile and drops it on the Bureau via
+`held_by_building`; Photog picks the lead off the Bureau, ferries it
+Bureau → Darkroom, and drops with `state: 'lead' → 'verified'`. The Story
+id is stable end-to-end (ICD-05 Purpose still holds).
 
 - [`js/sim/world-state.js`](js/sim/world-state.js) — `World` owns the
-  10×10 grid, Bureau (5,5, 90/90 HP), Reporter (5,4, 3.5 u/s), and now
-  `stories[]` + `sim_time_ms`. One Story spawns at tile `(2, 2)` in
-  state `'lead'` (whisper / vice / truthful). `tick(dt)` advances time,
-  steps units along paths, and on arrival runs `_handleArrival` for
-  pickup-on-lead-tile / drop-adjacent-to-bureau.
+  10×10 grid, Bureau at (5,5) and Darkroom at (7,7) (both 90/90 HP
+  placeholder, kind enum from ICD-01 v0.4). Two units spawn: Reporter
+  (5,4) and Photog (5,6); both move at 3.5 u/s (per-kind costs land at
+  0.7 per ICD-03 v0.2). `_handleArrival` now dispatches to
+  `_handleReporterArrival` / `_handlePhotogArrival` keyed on `u.kind`.
 - [`js/sim/pathfinder.js`](js/sim/pathfinder.js) — pure A* matching ICD-03.
+  Already generic over `unitKind`; 0.4 just exercises the channel with
+  `'photog'`.
 - [`js/render/renderer.js`](js/render/renderer.js) — three.js scene,
-  consumes `WorldFrame` via `apply(frame, alpha)`. Now also pools
-  `leadMeshes` (id → group, flavor-tinted slab) and toggles a folder
-  mesh on the unit group when `UnitView.carrying === 'lead'`.
-- [`js/input.js`](js/input.js) — unchanged at 0.3. Pickup is auto on
-  arrival; no new Intent kind added to the dispatch surface (ICD-02
-  untouched).
+  consumes `WorldFrame` via `apply(frame, alpha)`. `_syncBuildings` and
+  `_syncUnits` route through `buildBuildingMesh(kind)` /
+  `buildUnitMesh(kind)`. New mesh builders: `buildDarkroomMesh` (squat
+  dark-red body, red safelight on the roof) and `buildPhotogMesh` (brown
+  jacket, flat cap, chest-slung camera box). Selection-ring construction
+  shared via `makeSelectRing()`.
+- [`js/input.js`](js/input.js) — unchanged. Selection and dispatch are
+  generic over `UnitView.kind`; the Photog Just Works through the
+  existing click-to-select / right-click-to-dispatch path. Verified by
+  test in `unit-step.test.mjs`.
 - [`js/main.js`](js/main.js) — entry. Fixed-step sim @ 30 Hz with
-  renderer interp.
+  renderer interp. No awareness of unit/building kinds.
 - [`tests/`](tests) — `node --test` covers pathfinder, unit-step,
-  WorldFrame projection, and now story-pickup (26 cases).
+  WorldFrame projection, story-pickup (0.3), and now photog-verify
+  (0.4). 37 cases.
 
-ICDs both advanced in the 0.3 PR (Constraint #4):
-[`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) → **v0.2**
-(added `held_by_building` resting-state pointer and the `lead → lead`
-carrier-drop transition);
-[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) → **v0.4**
-(LeadView filter tightened to exclude held-at-building Stories — no field-set
-change).
-
-**v0.3.1 — RE-EVAL after 0.3 shipped.** Paper-only, no code. ICDs
-01 / 03 / 05 all survived contact with shipped 0.1–0.3 code; no
-interface drift, Constraint #4 honored in both milestones. No band
-movements in the architecture overview. Forward ICD presence check
-for 0.4–0.6 surfaced one gap: ICD-06 is still draft and `HudState`
-shape is unauthored — both block 0.5/0.6 from being truly code-ready.
-Full session output at
-[`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md).
+ICD activity in the 0.4 PR (Constraint #4):
+[`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) → **v0.3**
+(status + revision history + §Notes addition spelling out the
+`lead → verified` field deltas).
+[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) — **not
+bumped**: the BuildingView/UnitView kind enums already listed
+`'darkroom'`/`'photog'` at v0.4 and the LeadView filter already excludes
+verified-state Stories. v0.5 stays reserved for PRE-0.5.
 
 **Next: PRE-0.5 (paper-only).** Author **ICD-06 v0.2** (`EditionSummary`
 shape) and **ICD-01 v0.5** (`HudState` shape + projection-rule wording
 tightening + implementation notes for `TILE`, world-space origin offset,
 30 Hz tick rate, id-minting). One architecture session, no code. Gates
-milestone 0.5.
-
-**Milestone 0.4 is unblocked from the ICD side.** ICD-01 v0.4 +
-ICD-03 v0.2 + ICD-05 v0.2 cover Photog + Darkroom + `lead → verified`
-without further paper work. A 0.4 code session can open in its own
-session whenever the architect picks it up — it does not depend on
-PRE-0.5 (which gates 0.5, not 0.4).
+milestone 0.5 (print cycle).
 
 ## When you're stuck
 

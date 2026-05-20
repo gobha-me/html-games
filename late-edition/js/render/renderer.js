@@ -102,7 +102,7 @@ export class Renderer {
     for (const b of buildings) {
       let g = this.buildingMeshes.get(b.id);
       if (!g) {
-        g = buildBureauMesh(this.gradient);
+        g = buildBuildingMesh(this.gradient, b.kind);
         this.buildingMeshes.set(b.id, g);
         this.scene.add(g);
       }
@@ -116,7 +116,7 @@ export class Renderer {
       seen.add(u.id);
       let entry = this.unitMeshes.get(u.id);
       if (!entry) {
-        const group = buildReporterMesh(this.gradient);
+        const group = buildUnitMesh(this.gradient, u.kind);
         this.scene.add(group);
         entry = {
           group,
@@ -288,6 +288,11 @@ function withOutline(mesh, color = 0x0a0a0c) {
   return mesh;
 }
 
+function buildBuildingMesh(gradient, kind) {
+  if (kind === 'darkroom') return buildDarkroomMesh(gradient);
+  return buildBureauMesh(gradient);
+}
+
 function buildBureauMesh(gradient) {
   const group = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(4.5, 4, 4.5), toon(gradient, 0x8a8278));
@@ -298,6 +303,27 @@ function buildBureauMesh(gradient) {
   roof.position.y = 4.2;
   withOutline(roof);
   group.add(roof);
+  return group;
+}
+
+// 0.4: Darkroom — squatter than Bureau, dark-red body (developer-chemical
+// stain), darker roof. Reads as "off-bureau workspace" against the paper fog.
+function buildDarkroomMesh(gradient) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.2, 4.2), toon(gradient, 0x6b3a3a));
+  body.position.y = 1.6;
+  withOutline(body);
+  group.add(body);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.35, 4.5), toon(gradient, 0x2a1818));
+  roof.position.y = 3.4;
+  withOutline(roof);
+  group.add(roof);
+  // Safelight: tiny red lamp on the roof — readable visual signature for
+  // "this is the Darkroom" without needing a label.
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), toon(gradient, 0xc0212a));
+  lamp.position.set(1.4, 3.8, 1.4);
+  withOutline(lamp);
+  group.add(lamp);
   return group;
 }
 
@@ -327,6 +353,11 @@ function buildFolderMesh(gradient) {
   return folder;
 }
 
+function buildUnitMesh(gradient, kind) {
+  if (kind === 'photog') return buildPhotogMesh(gradient);
+  return buildReporterMesh(gradient);
+}
+
 function buildReporterMesh(gradient) {
   const group = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.6, 0.8), toon(gradient, 0x3a3a3a));
@@ -341,8 +372,39 @@ function buildReporterMesh(gradient) {
   hat.position.y = 2.5;
   withOutline(hat);
   group.add(hat);
+  group.add(makeSelectRing());
+  return group;
+}
 
-  // Selection ring (toggled via UnitView.selected).
+// 0.4: Photog — same silhouette family as Reporter (read as person), but
+// distinguishable. Brown jacket vs reporter's dark coat; flat cap (shorter
+// brim than the fedora); a slung camera box on the chest as the silhouette
+// signal.
+function buildPhotogMesh(gradient) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.6, 0.8), toon(gradient, 0x5a3f2a));
+  body.position.y = 0.95;
+  withOutline(body);
+  group.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), toon(gradient, 0xd9c8a8));
+  head.position.y = 2.05;
+  withOutline(head);
+  group.add(head);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.18, 0.85), toon(gradient, 0x2a2a2a));
+  cap.position.y = 2.48;
+  withOutline(cap);
+  group.add(cap);
+  // Camera box — chest-slung, dark, small. Visual distinguisher from the
+  // reporter's empty front.
+  const camera = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.4, 0.25), toon(gradient, 0x141414));
+  camera.position.set(0, 1.3, 0.45);
+  withOutline(camera);
+  group.add(camera);
+  group.add(makeSelectRing());
+  return group;
+}
+
+function makeSelectRing() {
   const ringGeo = new THREE.RingGeometry(1.0, 1.3, 24);
   const ringMat = new THREE.MeshBasicMaterial({
     color: 0xfff2c2, side: THREE.DoubleSide, transparent: true, opacity: 0.85,
@@ -352,7 +414,5 @@ function buildReporterMesh(gradient) {
   ring.position.y = 0.02;
   ring.name = 'selectRing';
   ring.visible = false;
-  group.add(ring);
-
-  return group;
+  return ring;
 }

@@ -1,8 +1,8 @@
 # ICD-05 · Story Lifecycle Object
 
-**Status:** v0.2 (shipped against milestone 0.3 — `held_by_building` resting field added)
+**Status:** v0.3 (shipped against milestone 0.4 — `lead → verified` lit up)
 **Band:** strong
-**First caller:** milestone 0.3 (lead spawn · pickup · return-to-bureau) — shipped in v0.3.0
+**First caller:** milestone 0.3 (lead spawn · pickup · return-to-bureau) — shipped in v0.3.0; row 3 (`lead → verified`) lit by milestone 0.4 (Photog · Darkroom) — shipped in v0.4.0
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
 
 ## Purpose
@@ -67,6 +67,12 @@ state — the state didn't move, the one-way rule still holds.
   clears when the next carrier picks the Story up. The pickup site at 0.4
   is the Bureau (where 0.3 drops it); ferrying Bureau → Darkroom is the
   photog's job, opened by 0.4.
+- **`lead → verified` field deltas (0.4)** — the transition fires when a
+  carrying photog arrives adjacent to a Darkroom. On drop, the photog sets:
+  `state = 'verified'`, `verified_by = <photog.id>`,
+  `held_by_building = <darkroom.id>`, `picked_up_by = null`. The Story.id is
+  unchanged (Purpose still holds). The verified Story sits dormant at the
+  Darkroom until the Editor's `verified → plated` step at 0.5.
 
 ## Open questions
 
@@ -80,6 +86,11 @@ ICD **in the same PR**.
 
 ## Revision history
 
+- **v0.3** (milestone 0.4, 2026-05-20) — Row 3 (`lead → verified`) lit up.
+  No shape change; §Notes spell out the field deltas the transition sets
+  (`verified_by`, `held_by_building = darkroom.id`, clear `picked_up_by`)
+  so future readers don't reconstruct from `_handlePhotogArrival`. First
+  caller is the 0.4 Photog · Darkroom code session.
 - **v0.2** (milestone 0.3, 2026-05-20) — Added `held_by_building?: BuildingId`
   to the Story shape and the `lead → lead` self-transition row (reporter
   drop-at-bureau). Documented the resting-state semantic in §Notes. First
