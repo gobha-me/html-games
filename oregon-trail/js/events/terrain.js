@@ -14,8 +14,8 @@
  *
  * @module terrain-events
  */
+export const TERRAIN_EVENTS = [
 
-const TERRAIN_EVENTS = [
   // ─── River Crossings (3 events) ────────────────────────────────────────────
 
   {
@@ -384,4 +384,4 @@ const TERRAIN_EVENTS = [
   }
 ];
 
-export default TERRAIN_EVENTS;
+

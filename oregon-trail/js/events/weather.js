@@ -7,15 +7,15 @@
  *
  * Balance constraints:
  *   - Health deltas: ±10 per member max
- *   - Morale deltas: ±15 max
  *   - Wagon condition deltas: ±12 max
  *   - Food deltas: ±20 max
  *   - No single event is game-ending
  *
+ *
  * @module weather-events
  */
 
-const WEATHER_EVENTS = [
+export const WEATHER_EVENTS = [
   {
     id: "thunderstorm",
     title: "Prairie Thunderstorm",
@@ -196,4 +196,4 @@ const WEATHER_EVENTS = [
   }
 ];
 
-export default WEATHER_EVENTS;
+

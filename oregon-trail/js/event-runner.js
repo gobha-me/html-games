@@ -9,7 +9,10 @@
  * @module event-runner
  */
 
-import TERRAIN_EVENTS from './events/terrain.js';
+import { WEATHER_EVENTS } from './events/weather.js';
+import { ILLNESS_EVENTS } from './events/illness.js';
+import { ENCOUNTER_EVENTS } from './events/encounter.js';
+import { TERRAIN_EVENTS } from './events/terrain.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -50,27 +53,18 @@ const EVENT_CATEGORIES = Object.freeze([
   'moral'
 ]);
 
-// ─── Stub Event Corpora ─────────────────────────────────────────────────────
-// Phase 3 tickets (#227–#232) will populate these arrays with actual events.
+// ─── Event Corpora ───────────────────────────────────────────────────────────
+// Weather, illness, encounter, and terrain events are imported from
+// ./events/*.js (shipped by #227–#230). Opportunity (#231) and moral (#232)
+// corpora remain as local stubs until those tickets land.
+//
 // Each event follows the schema:
 //   { id, title, description, effects: { resources?, reputation? }, choices? }
 
-/** @type {Array<object>} Weather events (Phase 3: #227) */
-const WEATHER_EVENTS = [];
-
-/** @type {Array<object>} Illness events (Phase 3: #228) */
-const ILLNESS_EVENTS = [];
-
-/** @type {Array<object>} Encounter events (Phase 3: #229) */
-const ENCOUNTER_EVENTS = [];
-
-/** @type {Array<object>} Terrain hazard events (Phase 3: #230) */
-const TERRAIN_EVENTS = [];
-
-/** @type {Array<object>} Opportunity events (Phase 3: #231) */
+/** @type {Array<object>} Opportunity events (pending: #231) */
 const OPPORTUNITY_EVENTS = [];
 
-/** @type {Array<object>} Moral choice events (Phase 3: #232) */
+/** @type {Array<object>} Moral choice events (pending: #232) */
 const MORAL_EVENTS = [];
 
 /** Map from category name to its corpus array. */
