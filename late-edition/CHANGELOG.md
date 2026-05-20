@@ -1,5 +1,32 @@
 # Changelog — Late Edition
 
+## v0.1.1 — 2026-05-20 — PRE-0.2 paper session
+
+Paper-only, no code. The methodology gate the v0.1.0 entry flagged
+("View-struct field sets deferred to a PRE-0.2 paper session") is now closed.
+Milestone 0.2 (A* pathfinding · Reporter unit · click-to-dispatch) is legal to
+open as a code session.
+
+### Changed
+
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) bumped to
+  **v0.2**. Concrete `BuildingView` / `UnitView` / `LeadView` field sets
+  authored, with per-field justification tracing each one back to a strong-band
+  commitment or a near-horizon ICD. New "render-only projection rule" added:
+  no field on a View carries information the renderer doesn't use this frame.
+  LeadView ↔ UnitView.carrying handoff documented for the 0.3 pickup case.
+  Animation-playhead open question retained (per its own v0.1 deferral logic);
+  `Vec3` precision flagged as a new 0.2-decided open question.
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next milestone" paragraphs
+  updated: PRE-0.2 done, 0.2 unblocked.
+- [`roadmap.md`](roadmap.md) — PRE-0.2 paper-session checkbox ticked.
+
+### Not changed
+
+- `js/world.js` — paper session, no renderer code touched.
+- `index.html`, `games.json` — unchanged.
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+
 ## v0.1.0 — 2026-05-20 — Milestone 0.1: world render scaffold
 
 First playable code lands. The renderer-only scaffold from

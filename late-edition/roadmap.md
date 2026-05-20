@@ -38,9 +38,10 @@ code-session boundary that hasn't been authored yet.
 
 ## Current status
 
-**0.1 — shipped.** World render scaffold lifted from the feel test: scene,
-camera, toon pipeline, fog, rain, ground grid. No game logic yet. Touches
-ICD-01 only.
+**0.1 — shipped. PRE-0.2 — closed.** World render scaffold lifted from the
+feel test (scene, camera, toon pipeline, fog, rain, ground grid) and the
+ICD-01 View structs are now spelled out at v0.2. Milestone 0.2 is legal to
+open as a code session.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -52,8 +53,9 @@ ICD-01 only.
       [`js/world.js`](js/world.js); [`index.html`](index.html) hosts the scene;
       the Phase-0 supplement is now reached via the in-page link to
       [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html).
-- [ ] PRE-0.2 paper session: sketch `BuildingView` / `UnitView` / `LeadView`
-      field sets into ICD-01 v0.2 before milestone 0.2 opens.
+- [x] PRE-0.2 paper session: `BuildingView` / `UnitView` / `LeadView` field
+      sets spelled out in [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md)
+      v0.2.
 
 ## Out of scope until called
 

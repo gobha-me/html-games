@@ -50,20 +50,25 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.1.0 — milestone 0.1 shipped.** World render scaffold lives in
-[`js/world.js`](js/world.js); [`index.html`](index.html) hosts it. Scene,
-camera, toon pipeline, fog, rain, ground grid — no game logic yet.
+**v0.1.1 — PRE-0.2 paper session done.** Milestone 0.1 shipped in v0.1.0;
+[`js/world.js`](js/world.js) carries the world render scaffold (scene, camera,
+toon pipeline, fog, rain, ground grid) and [`index.html`](index.html) hosts
+it. The PRE-0.2 architecture session has now closed the View-struct open
+question: [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) is
+at **v0.2** with concrete `BuildingView` / `UnitView` / `LeadView` field sets.
 
 **Next milestone: 0.2.** A* pathfinding · Reporter unit · click-to-dispatch.
-Touches **ICD-03** (and the `UnitView` field set in **ICD-01** — that's a
-PRE-0.2 architecture-session deliverable). See [`roadmap.md`](roadmap.md),
-[`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md), and the
-"View structs" open question in
-[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md).
+Now legal to open as a code session. Touches **ICD-03** (pathfinder
+request/response) and the v0.2 **ICD-01** `UnitView` / `BuildingView` field
+sets. See [`roadmap.md`](roadmap.md),
+[`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md), and
+[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) §View struct
+field sets.
 
-> Before opening a code session for 0.2, run a paper session that updates
-> ICD-01 to v0.2 with the `BuildingView` / `UnitView` / `LeadView` field
-> sets. That's the methodology working as designed.
+> When the 0.2 code session opens, the WorldFrame → renderer boundary lands
+> for real (currently the marker in `js/world.js` notes this). The animation
+> playhead and `Vec3` precision questions in ICD-01 v0.2 resolve in-PR per
+> Constraint #4 if 0.2 needs them.
 
 ## When you're stuck
 
