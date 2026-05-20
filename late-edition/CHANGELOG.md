@@ -1,5 +1,82 @@
 # Changelog — Late Edition
 
+## v0.4.1 — 2026-05-20 — PRE-0.5 paper session
+
+Paper-only, no code. The forward-ICD gap the post-0.3 re-eval flagged
+([`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md) §3
+"Scheduled paper slot — PRE-0.5") is now closed. Milestone 0.5 (print cycle
+clock · deadline events · debrief panel) is legal to open as a code session;
+milestone 0.6 (Cash + Ink + Heat resources) is also unblocked at the contract
+level (numbers stay medium-band by design).
+
+This is the third paper-only changelog entry (v0.1.1 was PRE-0.2; v0.3.1 was
+the post-0.3 re-eval). METHODOLOGY §3.2 forbids code in a paper slot —
+verified by the byte-zero diff under [`js/`](js), [`tests/`](tests), and
+[`index.html`](index.html).
+
+Headline outputs:
+
+- **ICD-06 → v0.2.** `EditionSummary` shape authored — `edition`,
+  `stories_printed: StoryDigest[]`, `cash_earned`, `ink_consumed`,
+  `heat_applied`, `rival_events: RivalEventDigest[]`. Closes the open
+  question deferred at v0.1. Pause-during-debrief resolved: `CYCLE_TICK`
+  stops between `EDITION_DEBRIEF_BEGIN` and `EDITION_DEBRIEF_END`.
+- **ICD-01 → v0.5.** `HudState` shape authored — `edition`, `deadline_ms`,
+  `resources: { leads, stories, ink, cash, heat }` (strong-band locked names
+  from [`architecture/00-overview.md`](architecture/00-overview.md)).
+  Render-only projection rule tightened: *"the renderer doesn't use this
+  frame"* → *"within the next-N window"*, with `LeadView.age_ms` as the
+  cited near-horizon example. Implementation notes (0.5) section added,
+  pinning four arch-silent constants the v0.4.0 code already runs on:
+  `TILE = 6`, world-space origin offset `−27`, fixed 30 Hz sim tick, and the
+  per-`World` monotonic id-minting convention.
+
+### Changed
+
+- [`icds/ICD-06-print-cycle.md`](icds/ICD-06-print-cycle.md) bumped to
+  **v0.2**. New `EditionSummary` shape section after Event vocabulary;
+  open-questions block resolved; revision history added.
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) bumped to
+  **v0.5**. New `### HudState (v0.5)` subsection under "View struct field
+  sets"; projection rule rewritten in §Notes; new `## Implementation notes
+  (0.5)` section; v0.5 entry prepended to revision history. The "Open
+  questions" and "Deviation policy" sections were re-worded to be
+  milestone-agnostic; no contract change.
+- [`roadmap.md`](roadmap.md) — PRE-0.5 checklist item ticked; current-status
+  block advanced to point at milestone 0.5 (no longer paper-blocked).
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next" paragraphs rewritten
+  to reflect PRE-0.5 shipped and milestone 0.5 unblocked.
+
+### Not changed
+
+- No file under [`js/`](js), [`tests/`](tests), or
+  [`index.html`](index.html) was touched. METHODOLOGY §3.2 forbids code in
+  a paper slot.
+- [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md),
+  [`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md),
+  [`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) — the
+  post-0.3 re-eval found no drift; no bump warranted in PRE-0.5.
+- [`architecture/00-overview.md`](architecture/00-overview.md) — no band
+  movements (the re-eval already concluded none).
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+
+### ICD activity
+
+- **ICD-06 v0.1 → v0.2** — authored `EditionSummary` + `StoryDigest` +
+  `RivalEventDigest`; resolved pause-during-debrief default. Event
+  vocabulary, cycle timing, and subscriber expectations unchanged.
+- **ICD-01 v0.4 → v0.5** — authored `HudState`; tightened projection rule
+  wording; added Implementation notes (0.5). No `WorldFrame` top-level
+  field changes; no `BuildingView` / `UnitView` / `LeadView` field-set
+  changes.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — 37 / 37 pass (baseline, unchanged).
+- `git diff` touches only `icds/`, `CHANGELOG.md`, `roadmap.md`, and
+  `AGENTS.md`. Zero diff under `js/`, `tests/`, `index.html`, `design/`,
+  `discussion/`, `deferred/`, `architecture/`.
+
 ## v0.4.0 — 2026-05-20 — Milestone 0.4: Photog · Darkroom · `lead → verified`
 
 The second carrier ships. A Photog unit and a Darkroom building light up

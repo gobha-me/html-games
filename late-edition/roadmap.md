@@ -20,7 +20,7 @@ definitions.
 | **0.3** | Lead spawn (single district) · pickup · return-to-bureau | ICD-05 (lead state) · no verification yet | strong |
 | **RE-EVAL** | After 0.3 · paper session — *shipped v0.3.1* | Did ICDs 01/03/05 survive contact? Promote any medium content tighter? Forward ICD presence check for 0.4–0.6. See [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md). | re-eval |
 | **0.4** | Photog unit · lead→verified transition · Darkroom building — *shipped v0.4.0* | ICD-05 verified state · introduces 2nd unit kind | strong |
-| **PRE-0.5** | Author **ICD-06 v0.2** (`EditionSummary`) + **ICD-01 v0.5** (`HudState` + projection-rule tightening + implementation notes) · single architecture session | Forward-ICD-check output of the post-0.3 re-eval · paper-only · gates milestone 0.5 | strong |
+| **PRE-0.5** | Author **ICD-06 v0.2** (`EditionSummary`) + **ICD-01 v0.5** (`HudState` + projection-rule tightening + implementation notes) — *shipped v0.4.1* | Forward-ICD-check output of the post-0.3 re-eval · paper-only · gated milestone 0.5 | strong |
 | **0.5** | Print cycle clock · deadline events · edition debrief panel | ICD-06 · the heartbeat lights up | strong |
 | **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
 | **RE-EVAL** | After 0.6 · paper + code-aware | Does the loop play? Promote rival AI contract to strong for 0.7–0.8. Decide tutorial shape. | re-eval |
@@ -40,19 +40,21 @@ inserted by the post-0.3 re-eval's forward ICD presence check.
 
 ## Current status
 
-**Milestone 0.4 — shipped (v0.4.0).** Photog unit, Darkroom building, and
-ICD-05 v0.2 row 3 (`lead → verified`) all live. Two carriers now ferry
-Stories through the first two pipeline stages: Reporter picks up a free
-lead at (2,2) and drops it on the Bureau; Photog picks up the held lead
-at the Bureau and drops it at the Darkroom with the state flip to
-`verified`. Story id stable end-to-end. ICD-05 bumped v0.2 → v0.3 (status
-+ field-delta note); ICD-01 unchanged (v0.4 kind enums already covered
-`'darkroom'` and `'photog'`).
+**PRE-0.5 — shipped (v0.4.1).** Paper-only architecture session. ICD-06
+bumped v0.1 → **v0.2** with `EditionSummary` + `StoryDigest` +
+`RivalEventDigest` shapes (closes v0.1's open question; pause-during-debrief
+default confirmed). ICD-01 bumped v0.4 → **v0.5** with `HudState` shape
+(`edition`, `deadline_ms`, `resources: { leads, stories, ink, cash, heat }`),
+tightened render-only projection rule (this-frame → next-N window,
+legitimizing `LeadView.age_ms`), and a new Implementation notes (0.5)
+subsection pinning `TILE = 6`, world-space origin offset `−27`, 30 Hz sim
+tick, and the per-`World` monotonic id-minting convention. Byte-zero diff
+under [`js/`](js), [`tests/`](tests), and [`index.html`](index.html).
 
-Next: **PRE-0.5** (paper-only). Author ICD-06 v0.2 (`EditionSummary`) +
-ICD-01 v0.5 (`HudState` + projection-rule tightening + implementation
-notes for TILE=6 / origin offset / 30 Hz / id-minting). Gates milestone
-0.5 (print cycle).
+Next: **milestone 0.5** (code session). Print cycle clock, deadline events,
+edition debrief panel. ICD-06 v0.2 supplies the event vocabulary and
+`EditionSummary`; ICD-01 v0.5 supplies the `HudState` projection the deadline
+ticker reads.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -82,9 +84,11 @@ notes for TILE=6 / origin offset / 30 Hz / id-minting). Gates milestone
       lit (`lead → verified` on photog drop at Darkroom). ICD-05 → v0.3
       (status + field-delta note); ICD-01 unchanged. Tests at 37 cases
       (new `photog-verify.test.mjs` + WorldFrame/UnitStep extensions).
-- [ ] **PRE-0.5** — paper-only. Pending. Author ICD-06 v0.2
-      (`EditionSummary`) + ICD-01 v0.5 (`HudState` + projection-rule
-      tightening + implementation notes). Gates milestone 0.5.
+- [x] **PRE-0.5** — paper-only. Authored ICD-06 v0.2 (`EditionSummary` +
+      `StoryDigest` + `RivalEventDigest`) and ICD-01 v0.5 (`HudState` +
+      tightened projection rule + Implementation notes (0.5) for `TILE`,
+      origin offset, 30 Hz, id-minting). Milestones 0.5 and 0.6 now have
+      every dependency at the level their band claims.
 
 ## Out of scope until called
 

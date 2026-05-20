@@ -50,54 +50,50 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.4.0 — milestone 0.4 shipped.** Second carrier. The Photog and the
-Darkroom open ICD-05 v0.2's row 3 (`lead → verified`). The Story now
-moves through two pipeline stages on the grid: Reporter picks up a free
-lead at the district tile and drops it on the Bureau via
-`held_by_building`; Photog picks the lead off the Bureau, ferries it
-Bureau → Darkroom, and drops with `state: 'lead' → 'verified'`. The Story
-id is stable end-to-end (ICD-05 Purpose still holds).
+**v0.4.1 — PRE-0.5 shipped (paper).** Paper-only architecture session. The
+forward-ICD gap the post-0.3 re-eval flagged
+([`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md) §3
+"Scheduled paper slot — PRE-0.5") is closed. Two ICDs bumped, byte-zero
+diff under [`js/`](js) and [`tests/`](tests) and [`index.html`](index.html).
+Tests stay at 37 / 37.
+
+ICD activity (Constraint #4 — paper-only this round, so no code drift to
+record):
+
+- [`icds/ICD-06-print-cycle.md`](icds/ICD-06-print-cycle.md) → **v0.2**.
+  `EditionSummary` shape authored (with `StoryDigest` and
+  `RivalEventDigest` sub-shapes); closes v0.1's deferred open question.
+  Pause-during-debrief default confirmed: `CYCLE_TICK` stops between
+  `EDITION_DEBRIEF_BEGIN` and `EDITION_DEBRIEF_END`. Event vocabulary,
+  cycle timing, and subscriber expectations unchanged.
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) →
+  **v0.5**. `HudState` shape authored (`edition`, `deadline_ms`,
+  `resources: { leads, stories, ink, cash, heat }`); render-only
+  projection rule tightened from "this frame" to "within the next-N
+  window" (legitimizes `LeadView.age_ms`); new Implementation notes
+  (0.5) section pins `TILE = 6`, world-space origin offset `−27`, fixed
+  30 Hz sim tick (`TICK_HZ` / `TICK_DT`), and the per-`World` monotonic
+  id-minting convention (`b-`, `u-`, `s-` prefixes). No `WorldFrame`
+  top-level changes; no `BuildingView` / `UnitView` / `LeadView`
+  field-set changes.
+
+Code state (unchanged from v0.4.0 — paper session forbids it):
 
 - [`js/sim/world-state.js`](js/sim/world-state.js) — `World` owns the
-  10×10 grid, Bureau at (5,5) and Darkroom at (7,7) (both 90/90 HP
-  placeholder, kind enum from ICD-01 v0.4). Two units spawn: Reporter
-  (5,4) and Photog (5,6); both move at 3.5 u/s (per-kind costs land at
-  0.7 per ICD-03 v0.2). `_handleArrival` now dispatches to
-  `_handleReporterArrival` / `_handlePhotogArrival` keyed on `u.kind`.
+  10×10 grid, Bureau at (5,5) and Darkroom at (7,7). Two units spawn:
+  Reporter (5,4) and Photog (5,6); both at 3.5 u/s. Story id stable
+  through pickup → drop → verify.
 - [`js/sim/pathfinder.js`](js/sim/pathfinder.js) — pure A* matching ICD-03.
-  Already generic over `unitKind`; 0.4 just exercises the channel with
-  `'photog'`.
 - [`js/render/renderer.js`](js/render/renderer.js) — three.js scene,
-  consumes `WorldFrame` via `apply(frame, alpha)`. `_syncBuildings` and
-  `_syncUnits` route through `buildBuildingMesh(kind)` /
-  `buildUnitMesh(kind)`. New mesh builders: `buildDarkroomMesh` (squat
-  dark-red body, red safelight on the roof) and `buildPhotogMesh` (brown
-  jacket, flat cap, chest-slung camera box). Selection-ring construction
-  shared via `makeSelectRing()`.
-- [`js/input.js`](js/input.js) — unchanged. Selection and dispatch are
-  generic over `UnitView.kind`; the Photog Just Works through the
-  existing click-to-select / right-click-to-dispatch path. Verified by
-  test in `unit-step.test.mjs`.
-- [`js/main.js`](js/main.js) — entry. Fixed-step sim @ 30 Hz with
-  renderer interp. No awareness of unit/building kinds.
-- [`tests/`](tests) — `node --test` covers pathfinder, unit-step,
-  WorldFrame projection, story-pickup (0.3), and now photog-verify
-  (0.4). 37 cases.
+  consumes `WorldFrame` via `apply(frame, alpha)`.
+- [`js/input.js`](js/input.js), [`js/main.js`](js/main.js) — unchanged.
+- [`tests/`](tests) — 37 cases, unchanged from v0.4.0.
 
-ICD activity in the 0.4 PR (Constraint #4):
-[`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) → **v0.3**
-(status + revision history + §Notes addition spelling out the
-`lead → verified` field deltas).
-[`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) — **not
-bumped**: the BuildingView/UnitView kind enums already listed
-`'darkroom'`/`'photog'` at v0.4 and the LeadView filter already excludes
-verified-state Stories. v0.5 stays reserved for PRE-0.5.
-
-**Next: PRE-0.5 (paper-only).** Author **ICD-06 v0.2** (`EditionSummary`
-shape) and **ICD-01 v0.5** (`HudState` shape + projection-rule wording
-tightening + implementation notes for `TILE`, world-space origin offset,
-30 Hz tick rate, id-minting). One architecture session, no code. Gates
-milestone 0.5 (print cycle).
+**Next: milestone 0.5 (code).** Print cycle clock, deadline events,
+edition debrief panel. ICD-06 v0.2 supplies the event vocabulary and
+`EditionSummary`; ICD-01 v0.5 supplies the `HudState` projection the HUD
+ticker reads. Constraint #4 applies: any deviation from those shapes during
+implementation must update the owning ICD in the same PR.
 
 ## When you're stuck
 
