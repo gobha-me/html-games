@@ -18,8 +18,9 @@ definitions.
 | **0.1** | Scene, camera, toon pipeline, fog, rain, ground grid | Lift from feel test ([`js/feel-test.js`](js/feel-test.js)) · ICD-01 · no game logic yet | strong |
 | **0.2** | A* pathfinding · Reporter unit · click-to-dispatch | ICD-03 · one unit class, one move command | strong |
 | **0.3** | Lead spawn (single district) · pickup · return-to-bureau | ICD-05 (lead state) · no verification yet | strong |
-| **RE-EVAL** | After 0.3 · paper session | Did ICDs 01/03/05 survive contact? Promote any medium content tighter? Forward ICD presence check for 0.4–0.6. | re-eval |
+| **RE-EVAL** | After 0.3 · paper session — *shipped v0.3.1* | Did ICDs 01/03/05 survive contact? Promote any medium content tighter? Forward ICD presence check for 0.4–0.6. See [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md). | re-eval |
 | **0.4** | Photog unit · lead→verified transition · Darkroom building | ICD-05 verified state · introduces 2nd unit kind | strong |
+| **PRE-0.5** | Author **ICD-06 v0.2** (`EditionSummary`) + **ICD-01 v0.5** (`HudState` + projection-rule tightening + implementation notes) · single architecture session | Forward-ICD-check output of the post-0.3 re-eval · paper-only · gates milestone 0.5 | strong |
 | **0.5** | Print cycle clock · deadline events · edition debrief panel | ICD-06 · the heartbeat lights up | strong |
 | **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
 | **RE-EVAL** | After 0.6 · paper + code-aware | Does the loop play? Promote rival AI contract to strong for 0.7–0.8. Decide tutorial shape. | re-eval |
@@ -31,28 +32,26 @@ definitions.
 | **0.10** | Tier-0 closer · 5-edition arc · run-end summary screen · high-score persistence | The first thing a friend can play · verifies the loop reads as a game | strong |
 | **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 07+ for branch bureaus, switchboard, archive. | re-eval |
 
-11 code milestones, 4 re-evaluation slots, 2 architecture-session-only items
-(PRE-0.1 and PRE-0.8). That's the ratio the methodology asks for: re-eval every
-~3 code milestones, architecture sessions wherever a contract crosses a
-code-session boundary that hasn't been authored yet.
+11 code milestones, 4 re-evaluation slots, 3 architecture-session-only items
+(PRE-0.1, PRE-0.5, and PRE-0.8). That's the ratio the methodology asks for:
+re-eval every ~3 code milestones, architecture sessions wherever a contract
+crosses a code-session boundary that hasn't been authored yet. PRE-0.5 was
+inserted by the post-0.3 re-eval's forward ICD presence check.
 
 ## Current status
 
-**0.3 — shipped.** Lead spawn (single district at tile (2,2)) · pickup ·
-return-to-bureau all landed. `Story` records live on the sim under
-[`js/sim/world-state.js`](js/sim/world-state.js); the Reporter auto-picks
-up on arrival at a `'lead'`-state tile and auto-drops adjacent to the
-Bureau, setting `Story.held_by_building` (ICD-05 v0.2). The renderer
-draws the LeadView marker with flavor tint and toggles a folder mesh over
-the Reporter via `UnitView.carrying`. ICD-05 bumped to v0.2 (added
-`held_by_building` and the `lead → lead` carrier-drop transition row);
-ICD-01 bumped to v0.4 (LeadView filter tightened — no field-set change).
+**RE-EVAL after 0.3 — shipped (v0.3.1).** Paper session, no code.
+ICDs 01 / 03 / 05 all survived contact with shipped 0.1–0.3 code (no
+interface drift; Constraint #4 honored in both milestones). No band
+movements warranted. Forward ICD check surfaced one gap: ICD-06 is
+still draft and `HudState` shape is unauthored — scheduled into a new
+**PRE-0.5** paper slot before milestone 0.5 can open. See
+[`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md)
+for the full session output.
 
-Next: **paper-only RE-EVAL slot** before any code touches 0.4. Did
-ICDs 01/03/05 survive contact? Promote any medium content tighter? Forward
-ICD presence check for 0.4–0.6 (Photog unit + lead→verified transition +
-Darkroom · print cycle + deadline · resources). **Do not open 0.4 in the
-same session as the re-eval — paper output only.**
+Next: **milestone 0.4** is unblocked (ICDs 01 v0.4 + 03 v0.2 + 05 v0.2
+cover Photog · Darkroom · `lead → verified` without further paper work).
+Milestone 0.5 waits for **PRE-0.5** (paper-only) before it can open.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -74,7 +73,13 @@ same session as the re-eval — paper output only.**
       drop-at-bureau via `Story.held_by_building`. ICD-05 → v0.2;
       ICD-01 → v0.4. Tests at 26 cases (new `story-pickup.test.mjs` +
       LeadView projection checks).
-- [ ] **RE-EVAL after 0.3** — paper-only. Pending.
+- [x] **RE-EVAL after 0.3** — paper-only. ICDs 01 / 03 / 05 survived
+      contact; no band movements; PRE-0.5 scheduled for ICD-06 v0.2 +
+      ICD-01 v0.5. See
+      [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md).
+- [ ] **PRE-0.5** — paper-only. Pending. Author ICD-06 v0.2
+      (`EditionSummary`) + ICD-01 v0.5 (`HudState` + projection-rule
+      tightening + implementation notes). Gates milestone 0.5.
 
 ## Out of scope until called
 

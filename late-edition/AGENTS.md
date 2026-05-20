@@ -82,10 +82,26 @@ carrier-drop transition);
 (LeadView filter tightened to exclude held-at-building Stories — no field-set
 change).
 
-**Next: RE-EVAL.** The roadmap calls for a paper-only re-eval slot after
-0.3 — did ICDs 01 / 03 / 05 survive contact? Forward ICD presence check
-for 0.4–0.6 (Photog · Darkroom · Print cycle · Resources). **Do not open
-0.4 in the same session as the re-eval — paper output only.**
+**v0.3.1 — RE-EVAL after 0.3 shipped.** Paper-only, no code. ICDs
+01 / 03 / 05 all survived contact with shipped 0.1–0.3 code; no
+interface drift, Constraint #4 honored in both milestones. No band
+movements in the architecture overview. Forward ICD presence check
+for 0.4–0.6 surfaced one gap: ICD-06 is still draft and `HudState`
+shape is unauthored — both block 0.5/0.6 from being truly code-ready.
+Full session output at
+[`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md).
+
+**Next: PRE-0.5 (paper-only).** Author **ICD-06 v0.2** (`EditionSummary`
+shape) and **ICD-01 v0.5** (`HudState` shape + projection-rule wording
+tightening + implementation notes for `TILE`, world-space origin offset,
+30 Hz tick rate, id-minting). One architecture session, no code. Gates
+milestone 0.5.
+
+**Milestone 0.4 is unblocked from the ICD side.** ICD-01 v0.4 +
+ICD-03 v0.2 + ICD-05 v0.2 cover Photog + Darkroom + `lead → verified`
+without further paper work. A 0.4 code session can open in its own
+session whenever the architect picks it up — it does not depend on
+PRE-0.5 (which gates 0.5, not 0.4).
 
 ## When you're stuck
 

@@ -1,5 +1,61 @@
 # Changelog — Late Edition
 
+## v0.3.1 — 2026-05-20 — RE-EVAL after 0.3 (paper)
+
+Paper-only, no code. The post-0.3 re-evaluation slot the roadmap called
+for (line 21) is now closed. METHODOLOGY §3 both halves ran —
+structural pass + code-aware pass + forward ICD presence check for the
+0.4–0.6 window.
+
+Headline outputs:
+
+- **No interface drift.** ICDs 01 / 03 / 05 all survived contact with
+  shipped 0.1–0.3 code. Constraint #4 was honored in both milestones
+  (0.2 bumped ICD-01 v0.2→v0.3 + ICD-03 draft→v0.2; 0.3 bumped ICD-05
+  v0.1→v0.2 + ICD-01 v0.3→v0.4).
+- **No band movements** in the architecture overview. Three strong-band
+  claims without current test coverage (Press 90 HP, 12-min cycle,
+  5-resource names) are aligned to their respective lighting-up
+  milestone — gap is scheduled, not open.
+- **Forward ICD check surfaced one gap:** ICD-06 is still draft (Phase 0)
+  and ICD-01's `HudState` shape is unauthored. Both blocks milestone 0.5
+  and 0.6 from being truly code-ready.
+- **Milestone 0.4 unblocked.** ICD-01 v0.4 + ICD-03 v0.2 + ICD-05 v0.2
+  cover Photog + Darkroom + `lead → verified` without further paper work.
+
+### Added
+
+- [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md)
+  — the session document. Records what code was read, classifies findings
+  per METHODOLOGY §3.1.1, schedules PRE-0.5 with its specific deliverables
+  (ICD-06 v0.2 + ICD-01 v0.5 in one paper slot), and folds in three minor
+  decision-in-comments / arch-silent observations for PRE-0.5 to absorb.
+
+### Changed
+
+- [`roadmap.md`](roadmap.md) — RE-EVAL after 0.3 row ticked; new **PRE-0.5**
+  row inserted before 0.5 (single architecture session to author ICD-06
+  v0.2 + ICD-01 v0.5); current-status block advanced; checklist updated.
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next" paragraphs
+  rewritten to reflect: re-eval shipped, 0.4 is ICD-ready and unblocks,
+  PRE-0.5 is the next paper slot before 0.5 can open.
+
+### Not changed
+
+- No file under [`js/`](js), [`tests/`](tests), or [`index.html`](index.html)
+  was touched. METHODOLOGY §3.2 forbids code in a re-evaluation session.
+- No ICD was bumped — no drift was found and `EditionSummary` / `HudState`
+  authoring is explicitly **out of scope** for this session (scheduled to
+  PRE-0.5).
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — 26 / 26 pass (baseline, unchanged).
+- `git diff` touches only `architecture/`, `roadmap.md`, `CHANGELOG.md`,
+  and `AGENTS.md`. Zero diff under `js/`, `tests/`, `index.html`,
+  `design/`, `icds/`, `discussion/`, `deferred/`.
+
 ## v0.2.0 — 2026-05-20 — Milestone 0.2: first dispatch
 
 The WorldFrame → renderer boundary materializes. Sim and renderer are now
