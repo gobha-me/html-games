@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 0.9 HUD corkboard</title>
+<title>Late Edition — 0.9.3 PR-A polish</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -328,6 +328,30 @@
     text-transform: uppercase;
     color: var(--ink);
   }
+  /* 0.9.3 (PR-A audit C-03): "Start a new run" button. Noir palette — paper
+     ground, red border + label, ink on hover. The only exit from the terminal
+     overlay — clears the save key and reloads (game-over-overlay.js). */
+  #gameover-overlay .new-run {
+    margin-top: 20px;
+    background: var(--paper);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  #gameover-overlay .new-run:hover {
+    background: var(--red);
+    color: var(--paper);
+  }
+  #gameover-overlay .new-run:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
 </style>
 </head>
 <body>
@@ -335,7 +359,7 @@
 <header class="masthead">
   <div class="title">Late <span class="ed">Edition</span></div>
   <div class="meta">
-    Milestone 0.9 &middot; HUD corkboard &middot; left-click select &middot; right-click dispatch &middot;
+    v0.9.3 &middot; PR-A polish &middot; left-click select &middot; right-click dispatch &middot;
     <a href="design/phase-0-roadmap.html">Phase 0 + Roadmap &rarr;</a>
     &middot;
     <a href="../">&larr; Arcade</a>

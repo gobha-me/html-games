@@ -1,6 +1,6 @@
 # ICD-02 · Rival ↔ World
 
-**Status:** v0.2 (shipped at PRE-0.7 — Evening Star SCAVENGE+RAID state machine, `RAID_BUREAU` shape, `RivalView` + `RivalStatusView` projections)
+**Status:** v0.2.2 (in-PR §Notes addition at 0.9.3 — `RivalEventDigest.kind` vocabulary enumeration to cover `raid_succeeded` + `raid_wiped` emissions)
 **Band:** strong
 **First caller:** milestone 0.7 (Evening Star SCAVENGE + RAID states)
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03 ·
@@ -255,6 +255,16 @@ added without an ICD revision.
   PRE-0.7 promotion *does* stabilize the vocabulary, but ICD-06's v0.2
   shape is intentionally permissive and a future ICD-06 bump can tighten
   it without churning ICD-02 again. No ICD-06 bump at PRE-0.7.
+- **`RivalEventDigest.kind` vocabulary at v0.2.2 (Evening Star scope):**
+  `raid_attempted` (emitted on RAID_BUREAU commit · v0.7.0), `raid_succeeded`
+  (emitted on first damage tick of a raid window · v0.9.3, PR-A audit C-02),
+  `raid_wiped` (emitted on last-goon prune with no damage dealt · v0.9.3,
+  PR-A audit C-02). Vocabulary stays open-ended per ICD-06 v0.2 §EditionSummary;
+  Herald + Observer kinds land at their first-caller milestones (Tier-1).
+  Outcome-event delivery is best-effort across save boundaries — the
+  raid-bookkeeping map is in-memory only (ICD-04 §Notes — cadence vs. raid
+  lifetime), so a save+load mid-raid loses the outcome event but preserves
+  the `raid_attempted` digest already flushed to the prior edition's summary.
 
 ## Open questions
 
@@ -288,6 +298,13 @@ table is an architecture session, not a deviation.
 
 ## Revision history
 
+- **v0.2.2** (milestone 0.9.3, 2026-05-21) — §Notes one-line addition only;
+  no shape change. `RivalEventDigest.kind` vocabulary enumerated for Evening
+  Star scope (`raid_attempted` / `raid_succeeded` / `raid_wiped`) to cover the
+  PR-A audit C-02 emit-site fix in-PR per Constraint #4. ICD-06 v0.2's
+  string-typed `kind` field stays permissive — no union tightening. The
+  audit's verdict at re-eval-after-0.9.md §3.5 Q2 settles this as a value-
+  level bump, not a shape bump.
 - **v0.2.1** (milestone 0.7.0, 2026-05-21) — §Open questions resolutions
   only; no shape change. Multi-edition goon transit settled to the v0.2
   clamp (one-edition raids; multi-edition transit deferred to Tier-1).

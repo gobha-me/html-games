@@ -8,31 +8,40 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.9 — HUD corkboard · deadline ticker · dossier.** The HUD lifts
-from a single-line ticker to the corkboard the design doc §13 always
-called for. Seven pinned index cards along the top (Edition / Deadline
-/ Leads / Stories / Ink / Cash / Heat); a typewriter-ribbon deadline
-strip across the top of the 3D viewport (red at ≤60s, pulsing red at
-≤10s); three dossier panels along the bottom — Selected (kind / state
-/ carrying), Story queue (active leads + tier & flavor histograms +
+**v0.9.3 — PR-A polish (post-0.9 audit).** Seven mechanical fixes
+from the re-eval-after-0.9 PR-A slate, plus a one-line ICD-02 §Notes
+addition (Constraint #4 in-PR). Press HP rebuilds between editions
+(C-01); `raid_succeeded` / `raid_wiped` now emit alongside the existing
+`raid_attempted` digest (C-02 — ICD-02 v0.2.2 §Notes); the game-over
+overlay carries a "Start a new run" button that clears the save and
+reloads (C-03); Photog walks at the §17-spec 2.5 u/s (D-01); Reporter /
+Photog / Editor carry HP fields (D-02 — sim-internal, `UnitView` still
+omits); heat decay obeys the §19 nuances (quiet edition +12, heat > 80
+stalls — D-04); HUD strip turns red at T-30s instead of T-60s, aligned
+with the existing `DEADLINE_WARNING` event (D-06). Tests at 124 cases
+(113 → 124). Behind the polish, the v0.9 corkboard ships unchanged —
+seven pinned index cards along the top (Edition / Deadline / Leads /
+Stories / Ink / Cash / Heat); a typewriter-ribbon deadline strip
+across the top of the 3D viewport (red at ≤30s, pulsing red at ≤10s);
+three dossier panels along the bottom — Selected (kind / state /
+carrying), Story queue (active leads + tier & flavor histograms +
 in-flight count), and Threats (goon count + Press HP). Pure renderer-
 side reorganization on top of the already-locked
 [`HudState`](icds/ICD-01-world-renderer.md) / `UnitView` /
-`BuildingView` / `LeadView` projections. The `<body>` becomes a
-four-row CSS grid; `#world` keeps its full-bleed canvas in the `1fr`
-row because the renderer already reads
-`root.clientWidth/Height`. [`js/hud.js`](js/hud.js) becomes a
-`HudCorkboard` facade with three sibling region projectors
-(`TopCards`, `DeadlineStrip`, `Dossier`) — each diffs its own DOM at
-its natural change cadence. Projection helpers (`pickSelected`,
-`countByKind`, `tierHistogram`, `formatMs`, `formatEdition`) are
-named exports so [`tests/hud.test.mjs`](tests/hud.test.mjs)
-exercises them in node without jsdom. **Zero ICD changes** — every
-field consumed at 0.9 was already projected at v0.8 or earlier.
-ICD-01 bump candidates surfaced by 0.9 (UnitView stat badges,
-LeadView.district, WorldFrame.rivals for raid ETA) are parked for
-the post-0.9 re-eval. Tests at 113 cases (106 → 113). See
-[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+`BuildingView` / `LeadView` projections. The `<body>` is a four-row
+CSS grid; `#world` keeps its full-bleed canvas in the `1fr` row
+because the renderer already reads
+`root.clientWidth/Height`. [`js/hud.js`](js/hud.js) is a `HudCorkboard`
+facade with three sibling region projectors (`TopCards`,
+`DeadlineStrip`, `Dossier`) — each diffs its own DOM at its natural
+change cadence. Projection helpers (`pickSelected`, `countByKind`,
+`tierHistogram`, `formatMs`, `formatEdition`) are named exports so
+[`tests/hud.test.mjs`](tests/hud.test.mjs) exercises them in node
+without jsdom. ICD-01 v0.6 bump candidates (UnitView stat badges,
+LeadView.district, WorldFrame.rivals for raid ETA) and the §19 30s
+minimum debrief animation are deferred to PR-B (PRE-0.10 paper) and
+PR-D (visual feedback). See [`roadmap.md`](roadmap.md) and
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 

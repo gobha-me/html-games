@@ -4,6 +4,8 @@ import { World, BUREAU_TILE, LEAD_SPAWN_TILE } from '../js/sim/world-state.js';
 import {
   STARTING_INK,
   HEAT_DECAY_PER_EDITION,
+  HEAT_DECAY_QUIET_EDITION,
+  HEAT_DECAY_STALL_THRESHOLD,
   CASH_BY_TIER,
   INK_BY_TIER,
   HEAT_BY_FLAVOR,
@@ -149,6 +151,63 @@ test('ackDebrief applies HEAT_DECAY_PER_EDITION, clamped at zero', () => {
   // vice (8) - decay (8) = 0; clamp keeps it non-negative.
   assert.equal(heatAfterAck, Math.max(0, heatBeforeAck - HEAT_DECAY_PER_EDITION));
   assert.ok(heatAfterAck >= 0);
+});
+
+// 0.9.3 (PR-A audit D-04) — §19 heat decay nuances. Three branches:
+//   1. controversial edition (heat_applied > 0)         → baseline decay (8)
+//   2. quiet edition (heat_applied === 0)               → bonus decay (12)
+//   3. heat > 80 pre-decay                              → decay stalls (0)
+test('D-04: quiet edition (no controversial stories) → bonus decay (12)', () => {
+  const w = new World({ cycle: { editionDurationMs: 60_000, warningOffsetMs: 2_000 } });
+  // No verified story → DEADLINE_FIRE prints nothing → heat_applied === 0.
+  w.resources.heat = 20;
+  const remaining = w.snapshot().hud.deadline_ms;
+  advanceSeconds(w, remaining / 1000 + 0.5);
+  assert.equal(w.snapshot().hud.resources.heat, 20, 'no print → no heat applied this edition');
+  w.ackDebrief();
+  assert.equal(
+    w.snapshot().hud.resources.heat,
+    20 - HEAT_DECAY_QUIET_EDITION,
+    'quiet edition → bonus decay',
+  );
+});
+
+test('D-04: controversial edition → baseline decay (8)', () => {
+  const w = new World({ cycle: { editionDurationMs: 60_000, warningOffsetMs: 2_000 } });
+  // Seed pre-edition heat so we have something to decay from.
+  w.resources.heat = 20;
+  stageVerifiedAtDarkroom(w);
+  const remaining = w.snapshot().hud.deadline_ms;
+  advanceSeconds(w, remaining / 1000 + 0.5);
+  const heatAtDebrief = w.snapshot().hud.resources.heat;
+  assert.equal(heatAtDebrief, 20 + HEAT_BY_FLAVOR.vice, 'controversial print added heat_applied');
+  w.ackDebrief();
+  assert.equal(
+    w.snapshot().hud.resources.heat,
+    heatAtDebrief - HEAT_DECAY_PER_EDITION,
+    'controversial edition → baseline decay',
+  );
+});
+
+test('D-04: heat > 80 pre-decay → decay stalls at 0 ("room won\'t cool")', () => {
+  const w = new World({ cycle: { editionDurationMs: 60_000, warningOffsetMs: 2_000 } });
+  // Push heat above the stall threshold. The branch checks heat ≤ 80, so
+  // heat === 81 already stalls.
+  w.resources.heat = 90;
+  const remaining = w.snapshot().hud.deadline_ms;
+  advanceSeconds(w, remaining / 1000 + 0.5);
+  w.ackDebrief();
+  assert.equal(w.snapshot().hud.resources.heat, 90, 'no decay when heat > 80 pre-decay');
+  assert.ok(HEAT_DECAY_STALL_THRESHOLD === 80, 'stall threshold is the §19 number');
+});
+
+test('D-04: decay still clamps at zero (low heat + quiet edition)', () => {
+  const w = new World({ cycle: { editionDurationMs: 60_000, warningOffsetMs: 2_000 } });
+  w.resources.heat = 5; // less than the quiet-edition decay (12)
+  const remaining = w.snapshot().hud.deadline_ms;
+  advanceSeconds(w, remaining / 1000 + 0.5);
+  w.ackDebrief();
+  assert.equal(w.snapshot().hud.resources.heat, 0, 'heat clamps non-negative');
 });
 
 test('StoryDigest.cash carries the non-zero yield to the debrief panel', () => {

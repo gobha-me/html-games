@@ -20,7 +20,10 @@
 // `formatMs`, `formatEdition`) are exported so `tests/hud.test.mjs` can
 // exercise them in node without jsdom.
 
-const WARNING_MS = 60_000;
+// Aligned with cycle-clock's DEADLINE_WARNING fire at T-30s (Design Doc §13 strip-
+// turns-red beat). The optional CRITICAL_MS = 5_000 tighter pulse is deferred —
+// the 10s pulse stays the locked Late Edition tension beat.
+const WARNING_MS = 30_000;
 const CRITICAL_MS = 10_000;
 
 const UNIT_KIND_LABEL = {

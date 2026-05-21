@@ -27,6 +27,8 @@
 // Doc §17); two goons adjacent → fixer dies (Design Doc §rivals "two goons
 // beat one fixer"). Rival event digests (raid_attempted / raid_succeeded /
 // raid_wiped) accrue per-edition and flush to EditionSummary at DEADLINE_FIRE.
+// raid_attempted lands at 0.7.0; raid_succeeded + raid_wiped land at 0.9.3
+// (PR-A audit C-02) on first-damage-tick / last-goon-prune respectively.
 // Milestone 0.7.1 adds: Editor unit (stationary at EDITOR_SPAWN_TILE west of
 // Bureau, speed 0, dispatch-rejected). At DEADLINE_FIRE the plating step
 // substitutes the editor's UnitId for AUTO_PLATE_SENTINEL on Story.plated_by
@@ -34,12 +36,19 @@
 // Ink plate-time hard gate: a verified→plated transition that would leave
 // World.resources.ink negative is rejected — the Story stays 'verified' at
 // the Darkroom and waits for the next edition (ICD-05 v0.4 §Notes).
+// Milestone 0.9.3 (PR-A polish) adds: Press HP repair at edition boundary
+// (C-01); raid_id-tagged goons + raid_succeeded / raid_wiped emission in the
+// damage / prune loop (C-02 — ICD-02 v0.2.2 §Notes); §19 heat-decay nuances
+// (D-04 — quiet edition +12, heat>80 stall); Reporter/Photog/Editor HP fields
+// (D-02 — sim-internal, UnitView untouched).
 
 import { pathfind } from './pathfinder.js';
 import { CycleClock } from './cycle-clock.js';
 import {
   STARTING_INK,
   HEAT_DECAY_PER_EDITION,
+  HEAT_DECAY_QUIET_EDITION,
+  HEAT_DECAY_STALL_THRESHOLD,
   cashYieldFor,
   inkCostFor,
   heatYieldFor,
@@ -56,11 +65,11 @@ export const GRID_W = 10;
 export const GRID_H = 10;
 // Per-kind walk speeds in world-units / second. Lands at 0.7 (ICD-03 v0.2
 // §Notes "per-kind costs land at 0.7"). Design Doc §17 unit stats table:
-// reporter 3.5, photog 2.5 (held at 3.5 by carryover from 0.4 — re-tune at
-// Tier-1 balance pass), goon 2.5, fixer 3.0.
+// reporter 3.5, photog 2.5, goon 2.5, fixer 3.0. Photog re-tuned to spec at
+// PR-A (audit D-01) — the 3.5 carryover from 0.4 was a known drift.
 export const UNIT_SPEED = {
   reporter: 3.5,
-  photog:   3.5,
+  photog:   2.5,
   goon:     2.5,
   fixer:    3.0,
   editor:   0,   // 0.7.1: stationary at Bureau — dispatch is rejected, this is belt-and-braces.
@@ -147,17 +156,22 @@ export class World {
 
     const reporterStart = { x: 5, y: 4 };
     const photogStart = { x: 5, y: 6 }; // 0.4: mirror of reporter, south of Bureau
+    // 0.9.3 (PR-A audit D-02): HP fields ride extras for every unit kind that
+    // can take damage — Reporter 2, Photog 1, Fixer 3, Editor 2 (Design Doc §17
+    // unit stats table). The fields are sim-internal only — UnitView intentionally
+    // omits them at 0.9.3; the stat-badge surface lands at ICD-01 v0.6 in PRE-0.10.
+    // makeUnit threads `extras` straight into the unit object.
     this.units = [
-      makeUnit(mkId('u'), 'reporter', reporterStart),
-      makeUnit(mkId('u'), 'photog',   photogStart),
-      // 0.7.0: Fixer spawns east of Bureau. HP 3, walk 3.0 u/s (Design Doc §17).
+      makeUnit(mkId('u'), 'reporter', reporterStart,            { hp: 2, hp_max: 2 }),
+      makeUnit(mkId('u'), 'photog',   photogStart,              { hp: 1, hp_max: 1 }),
+      // 0.7.0: Fixer spawns east of Bureau. Walk 3.0 u/s (Design Doc §17).
       // One static fixer at 0.7 — hire cost is fuzzy until the economy buys it.
-      makeUnit(mkId('u'), 'fixer',    { ...FIXER_SPAWN_TILE }, { hp: 3, hp_max: 3 }),
+      makeUnit(mkId('u'), 'fixer',    { ...FIXER_SPAWN_TILE },  { hp: 3, hp_max: 3 }),
       // 0.7.1: Editor stationary at Bureau-west (Design Doc §17 "Stationed at the
       // Bureau"). Speed 0 + dispatch reject keeps it pinned to EDITOR_SPAWN_TILE.
       // Its load-bearing role is plating: at DEADLINE_FIRE _fireDebrief substitutes
       // its UnitId for AUTO_PLATE_SENTINEL on Story.plated_by (ICD-05 v0.4 §Notes).
-      makeUnit(mkId('u'), 'editor',   { ...EDITOR_SPAWN_TILE }),
+      makeUnit(mkId('u'), 'editor',   { ...EDITOR_SPAWN_TILE }, { hp: 2, hp_max: 2 }),
     ];
 
     // Milestone 0.3: spawn one Story in 'lead' state at the district tile.
@@ -189,6 +203,17 @@ export class World {
     // 0.7.0: per-edition rival event digest accumulator. Flushed into
     // EditionSummary.rival_events at DEADLINE_FIRE, cleared at CYCLE_BEGIN.
     this._pendingRivalEvents = [];
+
+    // 0.9.3 (PR-A audit C-02): per-raid bookkeeping. Map<raid_id, {rivalId,
+    // damageDealt}>. Populated when _reconcileIntent commits a RAID_BUREAU;
+    // read by _goonDamageTick (first damage tick → emit raid_succeeded) and
+    // by _pruneDeadUnits (last-goon prune with no damage → emit raid_wiped).
+    // Intentionally NOT persisted in the save blob — on restore, in-flight
+    // goons lose their outcome event (the raid_attempted digest already saved
+    // remains the only artifact for that raid). See ICD-04 §Notes — save
+    // cadence is CYCLE_BEGIN + CYCLE_GAME_OVER; raids are short-lived.
+    this._activeRaids = new Map();
+    this._nextRaidId = 1;
 
     // 0.7.0: fail-state flag. World.tick() short-circuits when set (matches the
     // debrief pause pattern). Set when bureau.hp ≤ 0.
@@ -227,6 +252,11 @@ export class World {
     this.rivals = [EveningStar.fromSnap(blob.rivals.evening_star)];
     this.editionHistory = blob.edition_history.slice();
     this._pendingRivalEvents = blob.pending_rival_events.slice();
+    // 0.9.3: raid bookkeeping is ephemeral (see constructor comment). On
+    // restore we start fresh; any in-flight goons keep walking but their
+    // raid_id is lost — outcomes (raid_succeeded / raid_wiped) won't fire.
+    this._activeRaids = new Map();
+    this._nextRaidId = 1;
     this.effects = [];
   }
 
@@ -356,9 +386,14 @@ export class World {
   _reconcileIntent(rival, intent) {
     if (intent.kind === 'PASS') return;
     if (intent.kind === 'RAID_BUREAU') {
+      // 0.9.3 (PR-A audit C-02): mint a raid_id, tag every goon with it,
+      // and register the raid in _activeRaids so the damage tick + prune
+      // step can emit raid_succeeded / raid_wiped against the right window.
+      const raidId = `r-${this._nextRaidId++}`;
+      this._activeRaids.set(raidId, { rivalId: rival.id, damageDealt: false });
       const target = { x: this._bureau().tile.x - 1, y: this._bureau().tile.y };
       for (let i = 0; i < intent.goons; i++) {
-        const goon = makeUnit(mkId('u'), 'goon', { ...GOON_SPAWN_TILE }, { hp: 1, hp_max: 1 });
+        const goon = makeUnit(mkId('u'), 'goon', { ...GOON_SPAWN_TILE }, { hp: 1, hp_max: 1, raid_id: raidId });
         this.units.push(goon);
         const res = pathfind({ from: goon.tile, to: target, unitKind: 'goon' }, this.grid);
         if (res.found && res.cells.length >= 2) {
@@ -381,17 +416,32 @@ export class World {
   // Damage tick: each living goon at Manhattan distance 1 from the Bureau
   // deals GOON_DAMAGE_PER_SECOND × dt. Damage accumulates per-tick; the
   // fail-state check at end-of-tick converts ≤ 0 HP into CYCLE_GAME_OVER.
+  // 0.9.3 (PR-A audit C-02): the first damaging goon of any raid_id flips
+  // its activeRaid record's damageDealt flag and emits raid_succeeded once.
+  // De-dup is single-state (the flag); the second damage tick is a no-op.
   _goonDamageTick(dt) {
     const bureau = this._bureau();
     let total = 0;
+    const succeededRaids = new Set();
     for (const u of this.units) {
       if (u.kind !== 'goon') continue;
       if ((u.hp ?? 0) <= 0) continue;
       const d = Math.abs(u.tile.x - bureau.tile.x) + Math.abs(u.tile.y - bureau.tile.y);
       if (d !== 1) continue;
       total += GOON_DAMAGE_PER_SECOND * dt;
+      if (u.raid_id && this._activeRaids.has(u.raid_id)) succeededRaids.add(u.raid_id);
     }
     if (total > 0) bureau.hp = Math.max(0, bureau.hp - total);
+    for (const raidId of succeededRaids) {
+      const raid = this._activeRaids.get(raidId);
+      if (raid.damageDealt) continue;
+      raid.damageDealt = true;
+      this._pendingRivalEvents.push({
+        rival: raid.rivalId,
+        kind:  'raid_succeeded',
+        text:  `${raid.rivalId.replace('_', ' ').toUpperCase()} BREACHES THE BUREAU`,
+      });
+    }
   }
 
   // Fixer intercept: per-tick, each fixer counts adjacent live goons
@@ -423,6 +473,25 @@ export class World {
       const stillSelected = this.units.some((u) => u.selected);
       if (!stillSelected) {
         for (const u of this.units) u.selected = false;
+      }
+    }
+    // 0.9.3 (PR-A audit C-02): close out any raid whose goons are all gone.
+    // raid_wiped fires only when no damage was dealt — the raid_succeeded path
+    // already emitted otherwise. Either emit retires the raid from the map.
+    if (this._activeRaids.size > 0) {
+      for (const [raidId, raid] of this._activeRaids) {
+        const goonsRemaining = this.units.some(
+          (u) => u.kind === 'goon' && u.raid_id === raidId && (u.hp ?? 0) > 0,
+        );
+        if (goonsRemaining) continue;
+        if (!raid.damageDealt) {
+          this._pendingRivalEvents.push({
+            rival: raid.rivalId,
+            kind:  'raid_wiped',
+            text:  `${raid.rivalId.replace('_', ' ').toUpperCase()} RAID WIPED`,
+          });
+        }
+        this._activeRaids.delete(raidId);
       }
     }
   }
@@ -486,6 +555,9 @@ export class World {
     this.resources.cash += summary.cash_earned;
     this.resources.ink  -= summary.ink_consumed;
     this.resources.heat += summary.heat_applied;
+    // 0.9.3 (PR-A audit D-04): stash the summary for ackDebrief's heat decay
+    // branch — the "no controversial stories" check reads heat_applied.
+    this._lastSummary = summary;
     this.debriefOpen = true;
     this._emitCycle({ kind: 'EDITION_DEBRIEF_BEGIN', edition: this.cycle.edition, summary });
   }
@@ -497,10 +569,26 @@ export class World {
   ackDebrief() {
     if (!this.debriefOpen) return;
     this.debriefOpen = false;
-    // Edition-boundary heat decay (Design Doc §19 baseline). Clamped at zero.
-    // The "−12 if no controversial stories" and "0 decay if heat>80" nuances
-    // are medium-band balance refinements scheduled for 0.7+.
-    this.resources.heat = Math.max(0, this.resources.heat - HEAT_DECAY_PER_EDITION);
+    // 0.9.3 (PR-A audit D-04): full §19 heat decay rules.
+    //   - heat > 80 pre-decay → decay stalls at 0 ("the room won't cool" beat).
+    //   - else if no controversial stories this edition → bonus decay (12).
+    //   - else → baseline decay (8).
+    // Clamped at zero. The pre-decay snapshot lives in this._lastSummary
+    // (set inside _fireDebrief) so we can read heat_applied at edition end.
+    const summary = this._lastSummary;
+    if (this.resources.heat <= HEAT_DECAY_STALL_THRESHOLD) {
+      const decay = summary && summary.heat_applied > 0
+        ? HEAT_DECAY_PER_EDITION
+        : HEAT_DECAY_QUIET_EDITION;
+      this.resources.heat = Math.max(0, this.resources.heat - decay);
+    }
+
+    // 0.9.3 (PR-A audit C-01): repair the Press between editions. The Bureau
+    // rebuilds presses overnight; only a destroyed press (already game-over)
+    // stays dead. Design Doc §17 single-fail-state — the run continues as long
+    // as bureau.hp > 0 on the morning side of the deadline.
+    const bureau = this._bureau();
+    if (bureau && bureau.hp > 0) bureau.hp = bureau.hp_max;
 
     // 0.7.0: rivals tick their edition-boundary state (ICD-02 §Notes
     // "rival manages it from … EDITION_DEBRIEF_END callbacks").

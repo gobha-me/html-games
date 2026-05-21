@@ -62,3 +62,34 @@ test('Bureau HP at 0 is clamped (never goes negative)', () => {
   assert.equal(w.gameOver, true);
   assert.ok(bureau(w).hp >= 0, `bureau.hp should be ≥ 0, got ${bureau(w).hp}`);
 });
+
+// 0.9.3 (PR-A audit C-01): the Bureau rebuilds presses overnight. After
+// EDITION_DEBRIEF_END (ackDebrief()), Bureau HP restores to hp_max provided
+// the run isn't over.
+test('ackDebrief repairs Bureau HP to hp_max when bureau survived the edition', () => {
+  const w = new World({ cycle: { editionDurationMs: 600_000, warningOffsetMs: 30_000 } });
+  const b = bureau(w);
+  assert.equal(b.hp, b.hp_max);
+  // Damage to half. Bypass the raid plumbing — directly mutate hp.
+  b.hp = Math.floor(b.hp_max / 2);
+  // Drive to deadline so a debrief opens.
+  w.cycle.remainingMs = 0;
+  w.tick(0.001); // one tiny tick to consume DEADLINE_FIRE
+  assert.equal(w.debriefOpen, true, 'debrief should be open after deadline');
+  w.ackDebrief();
+  assert.equal(b.hp, b.hp_max, 'Press HP must be repaired between editions');
+});
+
+test('ackDebrief does NOT repair a destroyed Bureau (game over path)', () => {
+  const w = new World({ cycle: { editionDurationMs: 600_000, warningOffsetMs: 30_000 } });
+  w.units = w.units.filter((u) => u.kind !== 'fixer');
+  spawnRaid(w, 3);
+  advanceSeconds(w, 90);
+  assert.equal(w.gameOver, true);
+  const b = bureau(w);
+  assert.equal(b.hp, 0);
+  // Game-over short-circuits ackDebrief — no debrief opens after CYCLE_GAME_OVER.
+  // Calling ackDebrief() on a closed debrief is a documented no-op.
+  w.ackDebrief();
+  assert.equal(b.hp, 0, 'destroyed Bureau must stay at 0 (no resurrection)');
+});

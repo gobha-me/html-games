@@ -1,5 +1,65 @@
 # Changelog — Late Edition
 
+## v0.9.3 — 2026-05-21 — PR-A polish (audit C-01 · C-02 · C-03 · D-01 · D-02 · D-04 · D-06)
+
+Audit-PR-A from the post-0.9 re-eval — seven mechanical fixes plus a one-line
+ICD-02 §Notes vocabulary addition (Constraint #4 in-PR). No new contracts;
+the bumps that PR-B will author at PRE-0.10 stay parked. Ships in parallel to
+PR-B / PR-C ordering.
+
+Headline outputs:
+
+- **C-01 — Press HP repair between editions.** [`World.ackDebrief`](js/sim/world-state.js)
+  rebuilds the Bureau press to `hp_max` after the heat-decay step provided
+  the Bureau survived (`bureau.hp > 0`). A destroyed Bureau stays at 0 —
+  the run is already in game-over. Two new cases in
+  [`tests/press-hp.test.mjs`](tests/press-hp.test.mjs) (repair path, no-resurrection
+  path).
+- **C-02 — `raid_succeeded` / `raid_wiped` emission with ICD-02 §Notes patch.**
+  Every goon spawned by `_reconcileIntent(RAID_BUREAU)` carries a `raid_id`
+  tag (audit-recommended "cheapest" shape from re-eval §3.5 Q2). World gains a
+  short-lived `_activeRaids: Map<raid_id, {rivalId, damageDealt}>` — populated
+  on raid commit, mutated by `_goonDamageTick` (first damage flips
+  `damageDealt` and emits `raid_succeeded` once), drained by `_pruneDeadUnits`
+  (last goon of a raid with no damage → `raid_wiped`). The map is intentionally
+  ephemeral (ICD-04 §Notes — cadence vs. raid lifetime); a save mid-raid loses
+  the outcome event but keeps the `raid_attempted` digest already flushed.
+  [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md) bumps **v0.2.1 → v0.2.2**:
+  one-line §Notes addition enumerating the `RivalEventDigest.kind` vocabulary
+  for Evening Star scope (`raid_attempted` · `raid_succeeded` · `raid_wiped`).
+  Six new test cases in [`tests/goon.test.mjs`](tests/goon.test.mjs)
+  (raid_id share, distinct mints across intents, single-emit on damage,
+  fixer-cleanup → `raid_wiped`, no `raid_wiped` after `raid_succeeded`).
+- **C-03 — "Start a new run" button on the game-over overlay.**
+  [`js/game-over-overlay.js`](js/game-over-overlay.js) gains a single
+  interactive element — a button that clears `SAVE_KEY` from `localStorage`
+  and reloads. Until now, refreshing dropped the player back into the burnt
+  save. Noir-palette CSS lives alongside the existing `.gameover-card` block
+  in [`index.html`](index.html).
+- **D-01 — Photog walk speed 3.5 → 2.5 u/s** (Design Doc §17). The 0.4
+  carryover comment in [`js/sim/world-state.js`](js/sim/world-state.js)
+  flagged this re-tune; PR-A is the re-tune. No test breaks.
+- **D-02 — HP fields on Reporter / Photog / Editor.** Reporter 2, Photog 1,
+  Editor 2 (Fixer was already 3). Sim-internal only — `UnitView` intentionally
+  omits the field at 0.9.3; the stat-badge surface lands at ICD-01 v0.6 in
+  PRE-0.10. Save round-trip already protected (optional fields, no migration).
+- **D-04 — Heat decay §19 nuances.** [`js/sim/resources.js`](js/sim/resources.js)
+  gains two named constants alongside `HEAT_DECAY_PER_EDITION = 8`:
+  `HEAT_DECAY_QUIET_EDITION = 12` (no controversial story this edition →
+  bonus decay) and `HEAT_DECAY_STALL_THRESHOLD = 80` (heat > 80 pre-decay →
+  decay stalls at 0). [`World.ackDebrief`](js/sim/world-state.js) branches on
+  `summary.heat_applied > 0` against the pre-decay heat reading; the decay
+  comment block — previously a "scheduled for 0.7+" deferral — is replaced
+  with a §19 citation. Four new cases in [`tests/resources.test.mjs`](tests/resources.test.mjs).
+- **D-06 — HUD warning threshold T-60s → T-30s.** [`js/hud.js`](js/hud.js)
+  `WARNING_MS` aligns with the `DEADLINE_WARNING` event already firing at
+  T-30s ([`js/sim/cycle-clock.js`](js/sim/cycle-clock.js)). The optional
+  `CRITICAL_MS` tighter pulse stays at 10s — the locked Late Edition tension
+  beat.
+
+Tests at **124 cases** (113 → 124; +11 across press-hp, goon, resources).
+No ICD-04 / ICD-05 / ICD-06 bumps. Closes [#296](https://git.gobha.me/xcaliber/HTML-Games/issues/296).
+
 ## v0.9.1 — 2026-05-21 — webgl-crash fallback (#293)
 
 Production bug fix between 0.9 and the post-0.9 re-eval. When the browser

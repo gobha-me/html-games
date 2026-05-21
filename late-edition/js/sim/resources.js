@@ -7,8 +7,10 @@
 // no lie/front-page multipliers. Those land at 0.7+ when districts and rival AI
 // (ICD-02) materialize.
 
-export const STARTING_INK = 20;            // §19 "$200 per 20 units" Docks purchase scale → first-edition runway
-export const HEAT_DECAY_PER_EDITION = 8;   // §19 baseline; the "no controversial" / "heat>80 stall" rules are 0.7+ work
+export const STARTING_INK = 20;             // §19 "$200 per 20 units" Docks purchase scale → first-edition runway
+export const HEAT_DECAY_PER_EDITION  = 8;   // §19 baseline — applied when at least one controversial story plated this edition
+export const HEAT_DECAY_QUIET_EDITION = 12; // §19 bonus — applied when summary.heat_applied === 0 ("no controversial stories" — D-04)
+export const HEAT_DECAY_STALL_THRESHOLD = 80; // §19 — at heat > 80 pre-decay, decay stalls to 0 ("the room won't cool" beat)
 
 // Midpoints of §19 ranges. Whisper $80–250 → 165; Investigation $400–1200 → 800;
 // Arc $2000+ → 2000 (floor, not a range — §19 lists it open-ended).
