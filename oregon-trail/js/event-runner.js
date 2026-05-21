@@ -13,6 +13,8 @@ import { WEATHER_EVENTS } from './events/weather.js';
 import { ILLNESS_EVENTS } from './events/illness.js';
 import { ENCOUNTER_EVENTS } from './events/encounter.js';
 import { TERRAIN_EVENTS } from './events/terrain.js';
+import { OPPORTUNITY_EVENTS } from './events/opportunity.js';
+import MORAL_EVENTS from './events/moral.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -54,18 +56,12 @@ const EVENT_CATEGORIES = Object.freeze([
 ]);
 
 // ─── Event Corpora ───────────────────────────────────────────────────────────
-// Weather, illness, encounter, and terrain events are imported from
-// ./events/*.js (shipped by #227–#230). Opportunity (#231) and moral (#232)
-// corpora remain as local stubs until those tickets land.
+// All six event corpora are imported from ./events/*.js:
+//   weather (#227), illness (#228), encounter (#229), terrain (#230),
+//   opportunity (#231), moral (#232).
 //
 // Each event follows the schema:
 //   { id, title, description, effects: { resources?, reputation? }, choices? }
-
-/** @type {Array<object>} Opportunity events (pending: #231) */
-const OPPORTUNITY_EVENTS = [];
-
-/** @type {Array<object>} Moral choice events (pending: #232) */
-const MORAL_EVENTS = [];
 
 /** Map from category name to its corpus array. */
 const EVENT_CORPORA = Object.freeze({
