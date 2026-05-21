@@ -8,40 +8,44 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.9.3 — PR-A polish (post-0.9 audit).** Seven mechanical fixes
-from the re-eval-after-0.9 PR-A slate, plus a one-line ICD-02 §Notes
-addition (Constraint #4 in-PR). Press HP rebuilds between editions
-(C-01); `raid_succeeded` / `raid_wiped` now emit alongside the existing
-`raid_attempted` digest (C-02 — ICD-02 v0.2.2 §Notes); the game-over
-overlay carries a "Start a new run" button that clears the save and
-reloads (C-03); Photog walks at the §17-spec 2.5 u/s (D-01); Reporter /
-Photog / Editor carry HP fields (D-02 — sim-internal, `UnitView` still
-omits); heat decay obeys the §19 nuances (quiet edition +12, heat > 80
-stalls — D-04); HUD strip turns red at T-30s instead of T-60s, aligned
-with the existing `DEADLINE_WARNING` event (D-06). Tests at 124 cases
-(113 → 124). Behind the polish, the v0.9 corkboard ships unchanged —
-seven pinned index cards along the top (Edition / Deadline / Leads /
-Stories / Ink / Cash / Heat); a typewriter-ribbon deadline strip
-across the top of the 3D viewport (red at ≤30s, pulsing red at ≤10s);
-three dossier panels along the bottom — Selected (kind / state /
-carrying), Story queue (active leads + tier & flavor histograms +
-in-flight count), and Threats (goon count + Press HP). Pure renderer-
-side reorganization on top of the already-locked
-[`HudState`](icds/ICD-01-world-renderer.md) / `UnitView` /
-`BuildingView` / `LeadView` projections. The `<body>` is a four-row
-CSS grid; `#world` keeps its full-bleed canvas in the `1fr` row
-because the renderer already reads
-`root.clientWidth/Height`. [`js/hud.js`](js/hud.js) is a `HudCorkboard`
-facade with three sibling region projectors (`TopCards`,
-`DeadlineStrip`, `Dossier`) — each diffs its own DOM at its natural
-change cadence. Projection helpers (`pickSelected`, `countByKind`,
-`tierHistogram`, `formatMs`, `formatEdition`) are named exports so
-[`tests/hud.test.mjs`](tests/hud.test.mjs) exercises them in node
-without jsdom. ICD-01 v0.6 bump candidates (UnitView stat badges,
-LeadView.district, WorldFrame.rivals for raid ETA) and the §19 30s
-minimum debrief animation are deferred to PR-B (PRE-0.10 paper) and
-PR-D (visual feedback). See [`roadmap.md`](roadmap.md) and
-[`CHANGELOG.md`](CHANGELOG.md).
+**v0.9.4 — PRE-0.10 paper session (post-0.9 audit PR-B).**
+Paper-only architecture session — three ICD edits gate milestone 0.10
+(the Tier-0 closer). **ICD-01 → v0.6** with four field-set additions:
+[`UnitView.stats: {nerve, nose, legs} | undefined`](icds/ICD-01-world-renderer.md)
+for the Reporter trio per Design Doc §08 + §13 HUD mock (audit G-10),
+`LeadView.district: DistrictId` lifted from the sim-layer
+`Story.district` field so the §13 Story-queue dossier can render
+per-district headlines (audit G-11; couples to G-04 districts-as-data
+at PR-C), `WorldFrame.rivals: RivalStatusView[]` as the top-level
+posture surface for the §13 Threats dossier (audit G-12; resolves
+post-0.6 §3.5 Q5 carryover — top-level not nested in `hud`;
+`RivalStatusView` type stays owned by ICD-02 v0.2), and the **`FxEvent`
+union** under `WorldFrame.effects` with six-kind vocabulary `'flash' |
+'print' | 'death' | 'pickup' | 'verify' | 'raid_warning'` and
+drained-queue semantics (audit C-07; producers + consumers wire at
+PR-D / milestone 0.10.x — this PR authors the contract only). **ICD-06
+→ v0.4** with a single §Cycle timing wording edit aligning the
+debrief with Design Doc §19's *"30 s · cannot be skipped · debrief
+animation"* (audit C-05). **ICD-07 → v0.1 (new)** — audio bus
+contract authored from scratch (audit G-08): channels `'ambient' |
+'music' | 'sfx' | 'vo'`, [§Ducking rules](icds/ICD-07-audio-bus.md)
+table lifted from Design Doc §14 (VO ducks music + ambient; SFX
+ducks nothing; music adaptive ramp at T-30s; print-fire tag;
+debrief pull-back), §The press-silence beat as a one-way ambient
+mute on `CYCLE_GAME_OVER`, §FxEvent ↔ SFX cue-table mapping ICD-01
+v0.6's six kinds to Supplement-C cue ids, §Asset reference pointing
+at [`design/audio-manifest.html`](design/audio-manifest.html)
+(96-prompt manifest: 6 beds · 6 stems · 24 SFX · 60 VO lines).
+Same PR carries the **HUD corkboard band promotion (medium →
+strong)** in [`architecture/00-overview.md`](architecture/00-overview.md)
+line 45 — the §13 pixel-honest layout shipping at v0.9 is now
+load-bearing for ICD-01 v0.6's additions. Tests at 124 cases (no
+change — paper-only PR; the count tracks v0.9.3 PR-A). Milestone
+0.10 (Tier-0 closer · PR-C — lead-spawn engine · districts as data
+· Branch Bureau · slot-grammar headlines · run-end summary +
+high-score persistence · diegetic tutorial · minimum control surface)
+is now legal to open as a code session with every required contract
+in hand. See [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 

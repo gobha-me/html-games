@@ -31,7 +31,7 @@ definitions.
 | **0.8** | Save / load · resume mid-edition · version field — *shipped v0.8* | ICD-04 v0.1 lifted verbatim · localStorage blob · migration-chain stub · cadence locked at cycle-begin + game-over | strong |
 | **0.9** | HUD corkboard · deadline ticker · selected-unit dossier — *shipped v0.9* | Design doc §13 · ICD-01 v0.5 §HudState lifted as authored · zero ICD bumps | medium → strong |
 | **RE-EVAL** | After 0.9 · paper + code-aware — *shipped v0.9.2* | Six ICDs survived code-aware re-read with zero interface drift; nine acknowledged drifts + seven criticals + fourteen gaps surfaced at the design-doc-to-code level. HUD corkboard band promoted medium → strong. PRE-0.10 scheduled. Tier-0 exit criteria confirmed: seven-item PR-C scope. See [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md) + supplement [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html). | re-eval |
-| **PRE-0.10** | Author **ICD-01 v0.6** (`UnitView.stats` · `LeadView.district` · `WorldFrame.rivals: RivalStatusView[]` · `FxEvent` union) + **ICD-06 v0.4** (30 s minimum debrief wording per Design Doc §19) + **ICD-07 v0.1** (audio bus, new — channel vocabulary + ducking rules + press-silence beat) | Architecture session · paper-only · gates milestone 0.10 | strong |
+| **PRE-0.10** | Author **ICD-01 v0.6** (`UnitView.stats` · `LeadView.district` · `WorldFrame.rivals: RivalStatusView[]` · `FxEvent` union) + **ICD-06 v0.4** (30 s minimum debrief wording per Design Doc §19) + **ICD-07 v0.1** (audio bus, new — channel vocabulary + ducking rules + press-silence beat) — *shipped v0.9.4* | Architecture session · paper-only · gates milestone 0.10 · also carries the HUD corkboard medium → strong band promotion (overview line 45) | strong |
 | **0.10** | Tier-0 closer · lead-spawn engine (C-04) · districts as data (G-04) · Branch Bureau (G-01) · slot-grammar headlines (G-05) · run-end summary + high-score persistence (G-13) · diegetic tutorial (G-09) · minimum control surface (WASD pan + Block zoom + slow-mo) (G-07) | The first thing a friend can play · verifies the loop reads as a game · split 0.10.0 / 0.10.1 at session open if scope creeps (0.7 precedent) | strong |
 | **0.10.x** | Visual feedback · rain ramp at deadline (C-06) · `WorldFrame.effects` wired end-to-end (C-07) · debrief panel as newspaper pages (D-07) · lit windows + fog-on-deadline (D-09) | Renderer-side polish on `FxEvent` contract from PRE-0.10 · post-0.10 | strong |
 | **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 08+ for branch bureaus, switchboard, archive. | re-eval |
@@ -78,8 +78,30 @@ milestone 0.10. Four Gitea tickets opened for the next code sequence
 visual feedback). See [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md)
 + supplement [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html).
 
-Next: **PRE-0.10** — paper-only architecture session. Authors the four
-ICD edits above. Gates milestone 0.10.
+**PRE-0.10 — shipped (v0.9.4).** Paper-only architecture session. Authored
+**ICD-01 v0.6** (four field-set additions: `UnitView.stats` Reporter trio
+per Design Doc §08 + §13 [audit G-10] · `LeadView.district` lifted from
+sim-layer `Story.district` [audit G-11] · `WorldFrame.rivals:
+RivalStatusView[]` top-level posture surface [audit G-12, closes post-0.6
+§3.5 Q5] · `FxEvent` union under `WorldFrame.effects` with six-kind
+vocabulary `'flash' | 'print' | 'death' | 'pickup' | 'verify' |
+'raid_warning'` and drained-queue semantics [audit C-07]), **ICD-06 v0.4**
+(single-line §Cycle timing edit aligning the debrief wording with Design
+Doc §19's 30 s minimum [audit C-05]), and **ICD-07 v0.1** (new — audio
+bus contract: channels `'ambient' | 'music' | 'sfx' | 'vo'`, ducking
+rules, press-silence beat tied to `CYCLE_GAME_OVER`, `FxEvent` ↔ SFX
+cue-table, reference to Supplement C at `design/audio-manifest.html`
+[audit G-08]). Same PR carries the HUD corkboard band promotion (medium
+→ strong; overview line 45) per the post-0.9 re-eval §2. **Milestone
+0.10 is now code-ready** — every required contract is in hand.
+
+Next: **Milestone 0.10** — the Tier-0 closer. The locked PR-C scope (lead-
+spawn engine · districts as data · Branch Bureau · slot-grammar headlines
+· run-end summary + high-score persistence · diegetic tutorial · minimum
+control surface) opens as a code session against ICD-01 v0.6 + ICD-04 v0.1
++ ICD-06 v0.4. Split into 0.10.0 / 0.10.1 at session open if scope creeps
+(0.7 precedent). PR-D (0.10.x visual feedback) follows, lighting up the
+`FxEvent` producers + consumers authored in this slot.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -236,6 +258,34 @@ ICD edits above. Gates milestone 0.10.
       [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md)
       and supplement
       [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html).
+- [x] **PRE-0.10** — paper-only. Authored **ICD-01 v0.6**
+      ([`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md))
+      — four field-set additions: `UnitView.stats: {nerve, nose, legs} |
+      undefined` (Reporter trio per Design Doc §08 + §13, audit G-10);
+      `LeadView.district: DistrictId` (lifted from sim-layer
+      `Story.district`, audit G-11); `WorldFrame.rivals:
+      RivalStatusView[]` top-level posture surface (audit G-12, closes
+      post-0.6 §3.5 Q5 — top-level not nested in `hud`; `RivalStatusView`
+      type stays owned by ICD-02 v0.2); `FxEvent` union under
+      `WorldFrame.effects` with six-kind vocabulary `'flash' | 'print'
+      | 'death' | 'pickup' | 'verify' | 'raid_warning'` and drained-
+      queue semantics (audit C-07; producers + consumers wire at PR-D
+      / milestone 0.10.x). Authored **ICD-06 v0.4**
+      ([`icds/ICD-06-print-cycle.md`](icds/ICD-06-print-cycle.md)) —
+      single-line §Cycle timing edit aligning the debrief wording with
+      Design Doc §19's 30 s minimum (audit C-05; no shape change, no
+      new event). Authored **ICD-07 v0.1**
+      ([`icds/ICD-07-audio-bus.md`](icds/ICD-07-audio-bus.md)) — new
+      contract: channels `'ambient' | 'music' | 'sfx' | 'vo'`, ducking
+      rules table, press-silence beat tied to `CYCLE_GAME_OVER`,
+      `FxEvent` ↔ SFX cue-table against ICD-01 v0.6's six kinds,
+      reference to Supplement C
+      ([`design/audio-manifest.html`](design/audio-manifest.html)) for
+      the 96-prompt manifest (6 beds · 6 stems · 24 SFX · 60 VO lines).
+      Same PR carries the HUD corkboard band promotion (medium → strong)
+      in [`architecture/00-overview.md`](architecture/00-overview.md)
+      line 45. **Milestone 0.10 is now code-ready** — every required
+      contract is in hand.
 
 ## Out of scope until called
 

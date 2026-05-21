@@ -1,5 +1,124 @@
 # Changelog — Late Edition
 
+## v0.9.4 — 2026-05-21 — PRE-0.10 paper session (ICD-01 v0.6 · ICD-06 v0.4 · ICD-07 v0.1)
+
+PR-B from the post-0.9 re-eval — paper-only architecture session that
+authors the ICD bumps milestone 0.10 needs. ICD-01 lifts to v0.6 with
+four field-set additions, ICD-06 lifts to v0.4 with a single §Cycle
+timing wording change, and ICD-07 lands at v0.1 from scratch as the
+audio bus contract. Same PR carries the HUD corkboard band promotion
+(medium → strong) in [`architecture/00-overview.md`](architecture/00-overview.md)
+line 45 (formally moved in the table; the medium row is struck through
+with a *moved → strong* note for trail-of-edits readability). Milestone
+0.10 (Tier-0 closer · PR-C) is now legal to open as a code session
+with every required contract in hand.
+
+METHODOLOGY §3.2 forbids code in a paper slot — verified by the
+byte-zero diff under [`js/`](js), [`tests/`](tests),
+[`index.html`](index.html), and [`design/`](design).
+
+Headline outputs:
+
+- **ICD-01 → v0.6.** Four field-set additions ahead of milestone 0.10
+  (Tier-0 closer):
+  - **`UnitView.stats: {nerve: number, nose: number, legs: number} |
+    undefined`** (audit G-10). Reporter trio per Design Doc §08
+    (*"three substats: nerve (resists intimidation), nose (lead
+    quality), legs (move speed)"*) and rendered in the §13 HUD mock
+    under Selected · Reporter (*"M. Calloway / Nerve 6 · Nose 8 ·
+    Legs 4"*). The field is `undefined` for every non-Reporter kind
+    at Tier-0 (Photog, Editor, Fixer, Goon) — their stat surfaces
+    are deferred to their own follow-on slots when the §13 mock asks
+    for them. Numbers stay medium-band per overview §"First-pass
+    balancing numbers"; the *projection shape* is locked at v0.6.
+  - **`LeadView.district: DistrictId`** (audit G-11). Lifts the
+    sim-layer `Story.district` field (live since milestone 0.3) into
+    the projection so the §13 Story-queue dossier can render
+    per-district headlines (*"Docks: Strike Threat · Hillside:
+    Mayor's Mistress · Diamond Row: Empty Vault"*) without the HUD
+    reaching back into sim state. Couples to G-04 (districts-as-data,
+    milestone 0.10 / PR-C) — the concrete `DistrictId` union
+    enumerates at PR-C when district records become first-class.
+  - **`WorldFrame.rivals: RivalStatusView[]`** top-level key (audit
+    G-12). Resolves the post-0.6 re-eval §3.5 Q5 carryover: the HUD
+    surface for the `{calm, scheming, hostile}` posture lands as a
+    top-level `WorldFrame` field, not nested inside `hud`. The
+    `RivalStatusView` *type itself* stays owned by ICD-02 v0.2 — this
+    ICD authors only the projection surface (the array on
+    `WorldFrame`). Per-entry shape extensions (raid ETA / goon count
+    / source direction for the §13 mock's *"ETA 02:40 · 3 GOONS ·
+    FROM SW"* substring) live under ICD-02 §Open questions, deferred
+    to milestone 0.10's Threats-dossier surfacing.
+  - **`FxEvent` union** under `WorldFrame.effects` (audit C-07). Six-
+    kind vocabulary: `'flash' | 'print' | 'death' | 'pickup' | 'verify'
+    | 'raid_warning'`. Drained queue — events live for one frame, the
+    renderer consumes them and never sees them again. Every kind
+    carries `at: Vec3`; `verify` and `pickup` carry `story_id` (ICD-05
+    correlate); `raid_warning` carries `rival: RivalId` (ICD-02
+    correlate); `death` carries `unit_kind: UnitKind`; `print` carries
+    `edition: number`. Producers (sim emit sites) and consumers
+    (renderer FX layer + ICD-07 audio bus SFX channel) wire at PR-D /
+    milestone 0.10.x — this slot authors the contract only.
+- **ICD-06 → v0.4.** Single-line wording change in §Cycle timing
+  (audit C-05). Replaced *"Duration is player-controlled (click to
+  dismiss)"* with *"30 s minimum debrief animation; dismissable after
+  the minimum elapses"*, citing Design Doc §19 (*"Between-edition
+  pause: 30s · cannot be skipped · debrief animation"*) and §05
+  (*"The first 30 seconds of every new edition are a debrief"*). No
+  shape change, no new event kind, no `EditionSummary` / `StoryDigest`
+  / `RivalEventDigest` change, no subscriber-table change. The
+  code-side gate (minimum-elapsed clamp on the dismiss handler in
+  the corkboard debrief panel) lands at milestone 0.10 alongside
+  the newspaper-pages debrief render (PR-D scope).
+- **ICD-07 → v0.1 (new).** Audio bus contract authored from scratch
+  (audit G-08). Channel vocabulary locked at four channels:
+  `'ambient'` (city beds, weather, press heartbeat), `'music'` (six
+  cool-jazz stems for adaptive mixing), `'sfx'` (discrete one-shots
+  including the `FxEvent` co-emit channel), `'vo'` (single radio
+  announcer character). §Ducking rules table authored from Design
+  Doc §14 — VO ducks music (−9 dB / 250 ms) and ambient (−3 dB /
+  250 ms); SFX never ducks anything; music adaptive ramp at T-30s
+  thins to bass + rain; print-fire crossfades to the MUS-06 tag;
+  debrief-open ambient pull-back lets the newspaper-page-flip foley
+  sit on top. §The press-silence beat lifts Design Doc §14's *"the
+  first time the press goes silent is the first time the player
+  notices it was there"* commitment as a one-way `−∞ dB` mute on the
+  press-heartbeat bed (AMB-04 / AMB-05) tied to `CYCLE_GAME_OVER`;
+  no re-arm within a run. §FxEvent ↔ SFX cue-table maps ICD-01 v0.6's
+  six `FxEvent` kinds to Supplement-C cue ids (SFX-01 folder rustle,
+  SFX-02 camera shutter, SFX-06 press fire, SFX-08..10 goon combat,
+  SFX-14 klaxon). §Asset reference points at
+  [`design/audio-manifest.html`](design/audio-manifest.html) —
+  96-prompt manifest (6 beds · 6 music stems · 24 SFX · 60 VO
+  lines), phase-tagged T0 / T1 / T2 for the Tier-1 audio milestone
+  to record against. §Subscriber expectations table empty — no
+  caller until the audio milestone enters the N-window (band stays
+  medium until then).
+- **HUD corkboard band promotion — medium → strong.** The §13
+  pixel-honest layout shipped at milestone 0.9 is now load-bearing
+  for ICD-01 v0.6's `UnitView.stats` · `LeadView.district` ·
+  `WorldFrame.rivals` additions (post-0.9 re-eval §2). PRE-0.10
+  carries the [`architecture/00-overview.md`](architecture/00-overview.md)
+  line 45 edit — row moved from §Medium to §Strong; the medium-band
+  row is struck through with a *moved → strong* breadcrumb so the
+  history reads cleanly.
+- **roadmap.md current status + checklist.** PRE-0.10 row marked
+  *shipped v0.9.4*; "Current status" block updated to describe the
+  shipped paper slot and point forward at **Milestone 0.10**; new
+  `- [x] **PRE-0.10**` checklist entry added after the v0.9 re-eval
+  entry, enumerating every ICD edit and the band promotion.
+- **What's NOT in this PR.** No JS / tests / `index.html` / asset
+  changes (paper-only per AGENTS.md §Hard rules + METHODOLOGY §3.2).
+  No `FxEvent` producer or consumer wiring — PR-D / milestone 0.10.x
+  scope. No code-side debrief-minimum gate — lands at PR-C / PR-D
+  code session alongside the newspaper-pages debrief render. No
+  audio engine selection — parked in ICD-07 §Open questions, defers
+  to first caller. No concrete `DistrictId` union — lands at PR-C
+  (G-04 districts-as-data). The four-issue Gitea triage opened at
+  v0.9.2 (#291 prod-slug · #297 PR-B paper [this] · #298 PR-C closer
+  · #299 PR-D visual feedback) carries forward — #297 closes with
+  this PR; #298 and #299 stay open against their gated milestones.
+
 ## v0.9.3 — 2026-05-21 — PR-A polish (audit C-01 · C-02 · C-03 · D-01 · D-02 · D-04 · D-06)
 
 Audit-PR-A from the post-0.9 re-eval — seven mechanical fixes plus a one-line

@@ -1,9 +1,9 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.5 (shipped against PRE-0.5 — `HudState` shape authored, render-only projection rule tightened, implementation notes added for arch-silent constants)
+**Status:** v0.6 (shipped against PRE-0.10 — `UnitView.stats` + `LeadView.district` + `WorldFrame.rivals: RivalStatusView[]` added; `FxEvent` union authored under `WorldFrame.effects`)
 **Band:** strong
 **First caller:** milestone 0.1 (scene, camera, toon pipeline) — shipped in v0.1.0
-**Current caller:** milestone 0.4 (Photog · Darkroom · `lead → verified`) — shipped in v0.4.0 with no ICD bump. PRE-0.5 (v0.4.1) authors `HudState` ahead of milestone 0.5 (print cycle) and milestone 0.6 (resources).
+**Current caller:** milestone 0.9 (HUD corkboard) — shipped in v0.9.0 against v0.5 with no ICD bump; HUD corkboard band promoted medium → strong post-0.9 (overview line 45). PRE-0.10 (v0.9.4) authors the v0.6 additions ahead of milestone 0.10 (Tier-0 closer): `UnitView.stats` for the §13 Selected dossier, `LeadView.district` for the Story queue, `WorldFrame.rivals` for the Threats dossier, `FxEvent` union for the rain-ramp + effects-channel feedback path (producers wire at milestone 0.10.x / PR-D).
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
 
 ## Purpose
@@ -20,10 +20,11 @@ interface WorldFrame {
   buildings: BuildingView[];
   units:     UnitView[];
   leads:     LeadView[];
-  rain:      RainConfig;       // intensity 0-1
+  rivals:    RivalStatusView[]; // posture surface for Threats dossier (v0.6; type owned by ICD-02 v0.2)
+  rain:      RainConfig;        // intensity 0-1
   fog:       { near: number, far: number, color: number };
-  hud:       HudState;         // edition, deadline_ms, resources
-  effects:   FxEvent[];        // flashes, prints, deaths
+  hud:       HudState;          // edition, deadline_ms, resources
+  effects:   FxEvent[];         // drained queue: flash · print · death · pickup · verify · raid_warning (v0.6)
 }
 ```
 
@@ -76,6 +77,7 @@ interface UnitView {
   state:    'idle' | 'walking' | 'carrying';            // visible behaviour states
   selected: boolean;                                    // 0.2 click-to-dispatch selection ring
   carrying: 'lead' | null;                              // visual folder over sprite
+  stats:    { nerve: number, nose: number, legs: number } | undefined; // Reporter trio (v0.6; Design Doc §08 + §13)
 }
 ```
 
@@ -101,6 +103,18 @@ interface UnitView {
   clamped `[0, 1]`. Discrete-position rendering was rejected: visible
   stepping at typical refresh rates does not serve the noir aesthetic —
   the toon look comes from cel shading and outlines, not motion judder.
+- **`stats: {nerve, nose, legs} | undefined` (v0.6)** is the **Reporter
+  trio** per Design Doc §08 (*"three substats: nerve (resists intimidation),
+  nose (lead quality), legs (move speed)"*) and rendered in the §13 HUD
+  mock under Selected · Reporter (*"M. Calloway / Nerve 6 · Nose 8 · Legs
+  4"*). The field is `undefined` for every non-Reporter kind at Tier-0
+  (Photog, Editor, Fixer, Goon) — their stat surfaces are deferred to
+  their own follow-on slots when the §13 mock asks for them. Numbers
+  themselves are medium-band per overview §"First-pass balancing numbers";
+  the *projection shape* is locked at v0.6. The dossier reads this field
+  directly via `pickSelected(frame).stats` (HUD §Selected pane); units
+  with `stats === undefined` render the pane without the mono-numeral
+  line.
 
 ### LeadView
 
@@ -109,11 +123,12 @@ opens cleanly without a second paper session.
 
 ```ts
 interface LeadView {
-  id:     StoryId;                                       // same id as Story (ICD-05) — flows end-to-end
-  pos:    Vec3;                                          // district pickup point
-  tier:   'whisper' | 'investigation' | 'arc';
-  flavor: 'vice' | 'violence' | 'money' | 'labor';      // drives color tint per flavor
-  age_ms: number;                                        // sim-computed from spawned_at_ms
+  id:       StoryId;                                       // same id as Story (ICD-05) — flows end-to-end
+  pos:      Vec3;                                          // district pickup point
+  tier:     'whisper' | 'investigation' | 'arc';
+  flavor:   'vice' | 'violence' | 'money' | 'labor';      // drives color tint per flavor
+  age_ms:   number;                                        // sim-computed from spawned_at_ms
+  district: DistrictId;                                    // sim-layer Story.district lifted into projection (v0.6)
 }
 ```
 
@@ -134,6 +149,15 @@ interface LeadView {
   inside that building and stays out of `frame.leads` until the next
   carrier picks it up. **Stories in other states never appear in
   `frame.leads`.**
+- `district: DistrictId` (v0.6) lifts the sim-layer `Story.district` field
+  (live since milestone 0.3) into the projection so the §13 Story-queue
+  dossier can render per-district headlines (*"Docks: Strike Threat ·
+  Hillside: Mayor's Mistress · Diamond Row: Empty Vault"*) without the
+  HUD reaching back into sim state. Couples to G-04 (districts-as-data,
+  milestone 0.10) — the concrete `DistrictId` union enumerates at PR-C
+  when district records become first-class; the projection edge is locked
+  here. Whisper-tier histograms in the Dossier row read this field via
+  the HUD's bucket helpers.
 
 ### HudState (v0.5)
 
@@ -171,14 +195,93 @@ interface HudState {
   near-horizon consumer don't belong here either — they belong nowhere until
   the consumer is scheduled.
 
+### RivalStatusView surface (v0.6)
+
+`WorldFrame.rivals: RivalStatusView[]` is the player-facing posture surface
+for the §13 Threats dossier (the *"Evening Star raid · ETA 02:40 / 3 GOONS ·
+FROM SW"* tile). The `RivalStatusView` **type itself is owned by
+[ICD-02 v0.2](ICD-02-rival-world.md) §RivalStatusView** (`{rival, posture}`
+with vocabulary `'calm' | 'scheming' | 'hostile'`); this ICD authors only
+the projection surface — the top-level `rivals` array on `WorldFrame`.
+
+- **Why a top-level key and not nested inside `hud`.** Resolves the
+  post-0.6 re-eval §3.5 Q5 carryover (option B selected). Threading
+  posture through `HudState` would re-export ICD-02 vocabulary through
+  ICD-01's `hud` slot; a top-level `WorldFrame.rivals` array keeps the
+  surface owned by the renderer's draw layer where the Threats dossier
+  renders, mirroring how `buildings` / `units` / `leads` live as siblings
+  to `hud`. The HUD reads `frame.rivals` directly, the same way it reads
+  `frame.units` for the Selected pane and `frame.leads` for the Story
+  queue.
+- **Cadence.** One entry per active rival. At Tier-0 the array carries
+  the Evening Star only; Herald + Observer join when their state machines
+  enter the N-window (Tier-1 per overview line 42). The array is empty
+  before any rival's first caller milestone, never `null`.
+- **Per-entry shape evolution.** The §13 mock surfaces detail beyond
+  `{rival, posture}` (*"ETA 02:40 · 3 GOONS · FROM SW"*). Extending
+  `RivalStatusView` to carry raid ETA / goon count / source direction is
+  an ICD-02 §Open questions item, deferred to milestone 0.10's Threats-
+  dossier surfacing (PR-C). The *array declaration* on `WorldFrame` is
+  locked at v0.6; per-entry shape grows under ICD-02's authoritative
+  window.
+
+### FxEvent union (v0.6)
+
+`WorldFrame.effects: FxEvent[]` has existed on the per-frame contract
+since v0.1 as a placeholder; v0.6 authors the actual union the renderer
+drains each frame. Producers + consumers wire at PR-D (milestone 0.10.x
+— visual feedback ramp); v0.6 is the contract authoring only.
+
+```ts
+type FxEvent =
+  | { kind: 'flash',        at: Vec3 }                        // photog verify camera-flash · co-emits with 'verify'
+  | { kind: 'print',        at: Vec3, edition: number }       // press fires at DEADLINE_FIRE
+  | { kind: 'death',        at: Vec3, unit_kind: UnitKind }   // unit HP→0 (Reporter / Photog / Fixer / Goon)
+  | { kind: 'pickup',       at: Vec3, story_id: StoryId }     // Reporter lands on a lead
+  | { kind: 'verify',       at: Vec3, story_id: StoryId }     // Darkroom plate completes
+  | { kind: 'raid_warning', at: Vec3, rival: RivalId };       // Evening Star RAID-entry tick
+```
+
+- **Drained queue.** Events live for one frame. The renderer consumes
+  them and never sees them again; the queue is empty on the next
+  `snapshot()`. No subscriber state lives in the array.
+- **`at: Vec3`** is the world-space position the renderer anchors the
+  FX to (particle spawn, sound 3D-pan, screen-shake epicenter). All six
+  kinds carry this — the vocabulary is intentionally homogeneous on the
+  spatial channel.
+- **Vocabulary scope.** Six kinds, scoped to the Tier-0 feedback
+  surfaces the audit calls out (C-06 rain ramp · C-07 effects channel)
+  plus the four already-load-bearing moments (pickup · verify · print ·
+  death). A seventh `'rain_ramp_intensity'` kind was rejected in favor
+  of the existing `WorldFrame.rain.intensity` channel which the renderer
+  already consumes per-frame — `'raid_warning'` is the discrete trigger
+  that flips the ramp on; `rain.intensity` carries the continuous ramp.
+- **Cross-ICD coupling.** `verify` and `pickup` carry `story_id: StoryId`
+  ([ICD-05](ICD-05-story-lifecycle.md)) so the SFX layer can correlate
+  with the dossier; `raid_warning` carries `rival: RivalId`
+  ([ICD-02](ICD-02-rival-world.md)) so the music bed can crossfade per
+  rival; `death` carries `unit_kind: UnitKind` so the corkboard pin in
+  the next debrief reads the right caption. None of these reach back
+  into sim — the renderer consumes the projected ids only.
+- **Producers + consumers (PR-D wires; this ICD authors only).**
+  Producer-side: sim emits on the relevant state transitions (`pickup`
+  on Reporter path landing a lead per ICD-05 v0.2; `verify` on Darkroom
+  plate per ICD-05 v0.3; `print` on `DEADLINE_FIRE` per
+  [ICD-06](ICD-06-print-cycle.md); `death` on Unit HP→0; `raid_warning`
+  on Evening Star's RAID-entry tick per ICD-02 v0.2; `flash` co-emits
+  with `verify` for the photog camera-flash beat). Consumer-side:
+  renderer FX layer (particles, screen-shake, ground flashes) and
+  [ICD-07 audio bus](ICD-07-audio-bus.md) SFX channel cue-table. Both
+  sides wire at PR-D; this ICD authors only the contract.
+
 ## Notes
 
 - `WorldFrame` is the **only** thing the renderer sees. Anything not on it
   doesn't render.
 - All positions are world-space `Vec3`. The renderer applies the orthographic
   isometric camera transform.
-- `effects: FxEvent[]` is a **drained queue** — events live for one frame, the
-  renderer consumes them and never sees them again.
+- `effects: FxEvent[]` — see §`FxEvent` union (v0.6) for the six-kind
+  vocabulary and drained-queue semantics.
 - `fog.color` matches `--paper` from the design doc (`#c8c4bc` at MVP).
 - **Render-only projection rule (tightened at v0.5).** No field on a View
   carries information the renderer doesn't use **within the next-N window**.
@@ -196,7 +299,12 @@ interface HudState {
 
 *(All v0.2 open questions closed at 0.2 — see Revision history below. PRE-0.5
 opens no new questions: `HudState` shape, projection-rule wording, and the
-implementation-notes constants all ship locked at v0.5.)*
+implementation-notes constants all ship locked at v0.5. PRE-0.10 opens no
+new questions either — the v0.6 additions are pure surface declarations.
+The one remaining shape question — extending per-entry `RivalStatusView`
+to carry raid-ETA / goon-count / source-direction for the §13 Threats mock
+— lives under [ICD-02 §Open questions](ICD-02-rival-world.md) (RivalStatusView
+type is owned there); ICD-01's only commitment is the top-level array.)*
 
 ## Deviation policy
 
@@ -264,6 +372,30 @@ they live here as implementation pins.
 
 ## Revision history
 
+- **v0.6** (PRE-0.10, 2026-05-21) — Four field-set additions ahead of
+  milestone 0.10 (Tier-0 closer). **`UnitView.stats: {nerve: number,
+  nose: number, legs: number} | undefined`** authored for the Reporter
+  trio per Design Doc §08 + §13 HUD mock (audit G-10); the field is
+  `undefined` for every non-Reporter kind at Tier-0. **`LeadView.district:
+  DistrictId`** lifted from the sim-layer `Story.district` field (live
+  since milestone 0.3) into the projection so the §13 Story-queue dossier
+  can render per-district headlines (audit G-11; couples to G-04
+  districts-as-data at PR-C). **`WorldFrame.rivals: RivalStatusView[]`**
+  top-level key authored as the player-facing posture surface for the
+  §13 Threats dossier (audit G-12; resolves post-0.6 §3.5 Q5 carryover —
+  top-level not nested inside `hud`; `RivalStatusView` type stays owned
+  by [ICD-02 v0.2](ICD-02-rival-world.md)). **`FxEvent` union** authored
+  under `WorldFrame.effects` with six-kind vocabulary (`'flash' | 'print'
+  | 'death' | 'pickup' | 'verify' | 'raid_warning'`) and drained-queue
+  semantics (audit C-07; producers + consumers wire at PR-D / milestone
+  0.10.x — this slot authors the contract only). No `WorldFrame` top-
+  level removal; existing fields unchanged. No `HudState` change — posture
+  surface lives on `WorldFrame.rivals`, not on `HudState`. No new
+  Implementation notes — v0.6 is contract authoring, no arch-silent
+  constants surfaced. HUD corkboard band promoted medium → strong
+  (overview line 45) in the same paper slot — see PRE-0.10 supplement to
+  [`../architecture/re-eval-after-0.9.md`](../architecture/re-eval-after-0.9.md)
+  §2.
 - **v0.5** (PRE-0.5, 2026-05-20) — Authored the `HudState` shape (`edition`,
   `deadline_ms`, `resources: { leads, stories, ink, cash, heat }`) referenced
   by the `WorldFrame.hud` slot since v0.2 — gates milestones 0.5 (deadline

@@ -32,6 +32,7 @@ plus before every band-tier transition.
 | **Lead → Story lifecycle** | Lead spawns in district · reporter picks up · returns to bureau · photog verifies · editor plates · prints in next edition. The data model. | Design Doc §05 |
 | **Save = single localStorage JSON** | One blob. Versioned. Migrations defined. MVP only — no backend. | Design Doc §17 (locked) |
 | **Browser-only, single-player MVP** | No netcode, no auth, no backend. Architecture must *not* foreclose later MP. | Design Doc §17 (locked) |
+| **HUD corkboard layout** | §13 pixel-honest layout shipped at milestone 0.9; load-bearing for ICD-01 v0.6's `UnitView.stats` · `LeadView.district` · `WorldFrame.rivals` additions. **Promoted medium → strong at the post-0.9 re-eval.** | Design Doc §13 · promoted post-0.9 |
 
 ## Medium — committed direction, tightens later
 
@@ -42,7 +43,7 @@ plus before every band-tier transition.
 | **Rival AI state machines** | Specced in [`../design/rival-ai-spec.html`](../design/rival-ai-spec.html); pseudocode is illustrative. Each rival's contract goes to strong when its milestone enters the N-window. | Rival AI Spec · medium |
 | **Story slot grammar** | Shape committed (§18 of design doc); specific verbs/actors tighten per district as content authoring begins. | Design Doc §18 · medium |
 | **First-pass balancing numbers** | §19 numbers are *starting points* — they will move during playtest. Treat as medium, not strong. | Design Doc §19 · medium |
-| **HUD corkboard layout** | Mockup is committed-direction; pixel-perfect layout tightens when HUD milestone (0.9) lands. | Design Doc §13 · medium |
+| ~~HUD corkboard layout~~ | *Moved → strong band at the post-0.9 re-eval (PRE-0.10 carries the overview edit). §13 pixel-honest layout shipped at milestone 0.9; load-bearing for ICD-01 v0.6.* | Design Doc §13 · **promoted** |
 | **Heat economy thresholds (40/60/80)** | Tiered triggers are committed; specific numbers shift in playtest. | Design Doc §19 · medium |
 
 ## Fuzzy — sketch beyond the horizon

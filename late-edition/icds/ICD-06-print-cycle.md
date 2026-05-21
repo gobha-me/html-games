@@ -1,6 +1,6 @@
 # ICD-06 · Edition / Print Cycle Events
 
-**Status:** v0.3 (shipped at milestone 0.7.0 — `CYCLE_GAME_OVER` event added to the vocabulary for the Press fail-state)
+**Status:** v0.4 (shipped against PRE-0.10 — §Cycle timing debrief wording aligned with Design Doc §19's 30 s minimum)
 **Band:** strong (touches every subsystem)
 **First caller:** milestone 0.5 (print cycle clock · deadline events · debrief panel)
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
@@ -94,7 +94,14 @@ interface RivalEventDigest {
 - `DEADLINE_FIRE` triggers print: plated stories print, ink/cash/heat
   reconciled, debrief begins.
 - `EDITION_DEBRIEF_BEGIN`/`END` bracket a paused interval where the player
-  reviews the front page. Duration is player-controlled (click to dismiss).
+  reviews the front page. **30 s minimum debrief animation; dismissable
+  after the minimum elapses** ([`../design/design-doc.html`](../design/design-doc.html)
+  §19 — *"Between-edition pause: 30s · cannot be skipped · debrief
+  animation"*; also §05 — *"The first 30 seconds of every new edition are
+  a debrief"*). Before the minimum elapses the dismiss input is ignored;
+  after it elapses the player closes the panel as before. The code-side
+  gate lands at milestone 0.10 alongside the corkboard-newspaper-pages
+  debrief panel (PR-D / audit C-05).
 - `CYCLE_BEGIN` fires immediately after `EDITION_DEBRIEF_END` for the next
   edition.
 
@@ -130,6 +137,16 @@ a paper session.
 
 ## Revision history
 
+- **v0.4** (PRE-0.10, 2026-05-21) — Single-line wording change to §Cycle
+  timing (audit C-05). Replaced *"Duration is player-controlled (click to
+  dismiss)"* with *"30 s minimum debrief animation; dismissable after the
+  minimum elapses"*, citing Design Doc §19 (*"Between-edition pause: 30s ·
+  cannot be skipped · debrief animation"*) and §05 (*"The first 30 seconds
+  of every new edition are a debrief"*). No shape change, no new event
+  kind, no `EditionSummary` / `StoryDigest` / `RivalEventDigest` change,
+  no subscriber-table change. The code-side gate (a minimum-elapsed clamp
+  on the dismiss handler in the corkboard debrief panel) lands at
+  milestone 0.10 alongside the newspaper-pages debrief render (PR-D).
 - **v0.3** (milestone 0.7.0, 2026-05-21) — Added `CYCLE_GAME_OVER` event to
   the vocabulary for the strong-band single-fail-state condition (overview
   §Single fail-state). `GameOverReason` union introduced with a single
