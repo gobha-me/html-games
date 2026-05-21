@@ -121,8 +121,8 @@ export const DESERT_REGION_DATA = Object.freeze({
           "Plain is the hardest country I have ever crossed — no water, " +
           "no grass, nothing but rock and dust and heat. The oxen are " +
           "suffering. We lost a wheel today to the lava beds. But we " +
-          "press on. Oregon is still ahead, and we will reach it or ' +
-          'die trying.'",
+          "press on. Oregon is still ahead, and we will reach it or " +
+          "die trying.",
       }
     },
 

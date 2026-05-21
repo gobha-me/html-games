@@ -15,6 +15,7 @@ import { ENCOUNTER_EVENTS } from './events/encounter.js';
 import { TERRAIN_EVENTS } from './events/terrain.js';
 import { OPPORTUNITY_EVENTS } from './events/opportunity.js';
 import MORAL_EVENTS from './events/moral.js';
+import { PARTY_VOICES } from './events/party-voices.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -327,14 +328,44 @@ function resolveChoice(event, choiceIndex) {
   return choice.effects || {};
 }
 
+// ─── Party Voice Selection ───────────────────────────────────────────────────
+
+/**
+ * Pick a random party-voice quote for the given event category.
+ * Returns { archetype, quote } or null if no matching quote exists.
+ *
+ * @param {string} category — One of EVENT_CATEGORIES
+ * @param {function} rng — Seeded RNG function returning [0, 1)
+ * @returns {{ archetype: string, quote: string } | null}
+ */
+function selectVoiceQuote(category, rng) {
+  const archetypeKeys = Object.keys(PARTY_VOICES);
+  // Shuffle archetype order so every archetype gets a fair chance
+  const shuffled = [...archetypeKeys];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  for (const key of shuffled) {
+    const voice = PARTY_VOICES[key];
+    const quotes = voice.quotes && voice.quotes[category];
+    if (quotes && quotes.length > 0) {
+      const idx = Math.floor(rng() * quotes.length);
+      return { archetype: key, quote: quotes[idx] };
+    }
+  }
+  return null;
+}
+
 // ─── Main Dispatcher ─────────────────────────────────────────────────────────
 
 /**
  * Dispatch an event: select from corpus, apply effects, update ledger.
- * 
+ *
  * This is the main entry point. It orchestrates event selection and effect
  * application in one atomic operation.
- * 
+ *
  * @param {string} category — One of EVENT_CATEGORIES
  * @param {object} state — Current game state (must have .resources and .party)
  * @param {object} ledger — Current Trail Ledger
@@ -353,10 +384,16 @@ function dispatchEvent(category, state, ledger, rng) {
   // Apply effects (resources + reputation)
   const { state: newState, ledger: newLedger } = applyEffects(state, ledger, event.effects);
 
+  // Attach a party-voice quote if available
+  const voiceQuote = selectVoiceQuote(category, rng);
+  const enrichedEvent = voiceQuote
+    ? { ...event, voiceQuote }
+    : event;
+
   return {
     state: newState,
     ledger: newLedger,
-    event
+    event: enrichedEvent
   };
 }
 
@@ -374,6 +411,7 @@ export {
   // Event selection
   selectEvent,
   getEventWeights,
+  selectVoiceQuote,
 
   // Effect application
   applyEffects,

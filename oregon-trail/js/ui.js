@@ -30,9 +30,9 @@ import {
 
 import {
   dispatchEvent,
-  createLedger
+  createLedger,
+  selectVoiceQuote
 } from './event-runner.js';
-
 import {
   saveGame,
   loadGame,
@@ -66,6 +66,16 @@ function clampResource(value, type) {
   if (!range) return value;
   return Math.max(range.min, Math.min(range.max, value));
 }
+
+// ─── Party Voice Display Labels ──────────────────────────────────────────────
+
+/** Map PARTY_VOICES archetype keys to human-readable display names. */
+const PARTY_VOICE_LABELS = {
+  pragmatist: 'The Pragmatist',
+  optimist: 'The Optimist',
+  skeptic: 'The Skeptic',
+  tender: 'The Tender'
+};
 
 // ─── Game State ──────────────────────────────────────────────────────────────
 
@@ -232,6 +242,8 @@ function handleNextDay() {
   gameState = { ...result.state, rng: gameState.rng, _turnLog: gameState._turnLog };
   trailLedger = result.ledger;
   currentEvent = result.event;
+
+  render();
 }
 
 /**
@@ -471,12 +483,31 @@ function renderEventDisplay() {
     DOM.eventChoices.innerHTML = '';
     return;
   }
-  
+
   DOM.eventTitle.textContent = currentEvent.title;
-  DOM.eventDescription.textContent = currentEvent.description;
-  
+
+  // Render party voice quote if available
+  if (currentEvent.voiceQuote) {
+    const voiceEl = document.createElement('div');
+    voiceEl.className = 'voice-quote';
+    const archetypeLabel = PARTY_VOICE_LABELS[currentEvent.voiceQuote.archetype]
+      || currentEvent.voiceQuote.archetype;
+    voiceEl.innerHTML =
+      `<span class="voice-archetype">${archetypeLabel}</span>` +
+      `<span class="voice-text">"${currentEvent.voiceQuote.quote}"</span>`;
+    DOM.eventDescription.innerHTML = '';
+    DOM.eventDescription.appendChild(voiceEl);
+    // Append the event description text after the voice quote
+    const descP = document.createElement('p');
+    descP.className = 'event-desc';
+    descP.textContent = currentEvent.description;
+    DOM.eventDescription.appendChild(descP);
+  } else {
+    DOM.eventDescription.textContent = currentEvent.description;
+  }
+
   DOM.eventChoices.innerHTML = '';
-  
+
   if (currentEvent.choices && currentEvent.choices.length > 0) {
     currentEvent.choices.forEach((choice, index) => {
       const btn = document.createElement('button');

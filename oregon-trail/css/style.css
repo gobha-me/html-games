@@ -88,3 +88,39 @@ body {
   color: var(--text-muted);
   margin-top: 1rem;
 }
+
+/* ── Party Voice Quote Display ── */
+
+.voice-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  background: var(--parchment-deep);
+  border-left: 3px solid var(--trail-accent);
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
+}
+
+.voice-archetype {
+  font-size: 0.8rem;
+  font-weight: bold;
+  font-style: normal;
+  color: var(--earth-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.voice-text {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.event-desc {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
