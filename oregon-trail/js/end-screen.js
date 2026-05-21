@@ -282,7 +282,7 @@ function buildLedgerSection(trailLedger) {
   section.appendChild(heading);
 
   for (const factionKey of FACTION_KEYS) {
-    const score = (trailLedger && trailLedger.reputation && trailLedger.reputation[factionKey]) || 0;
+    const score = (trailLedger && trailLedger[factionKey]) || 0;
     const label = getReputationLabel(score);
 
     const row = document.createElement('div');
