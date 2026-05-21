@@ -50,52 +50,49 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.7.0 — milestone 0.7.0 shipped (code).** The adversarial ring closes.
-Roadmap milestone 0.7 was split at session open into 0.7.0 (this PR —
-adversarial ring) and 0.7.1 (Editor + ink plate-time gate, next PR) to
-keep each code session inside one milestone's worth of scope. Both halves
-are ICD-ready: ICD-02 v0.2 and ICD-05 v0.4 cover them as authored at
-PRE-0.7.
+**v0.7.1 — milestone 0.7.1 shipped (code).** The inner three rings
+close. Editor unit lit; ink plate-time hard gate enforced. Both halves
+of the 0.7 split (0.7.0 adversarial ring + 0.7.1 Editor + ink gate)
+are now shipped. Pure code milestone — every ICD shape was already
+authored at the right version going in, and the implementation lifts
+ICD-05 v0.4 §Notes verbatim. No ICD bumps in this PR.
 
 Headline outputs:
 
-- **Evening Star rival lit.** [`js/sim/evening-star.js`](js/sim/evening-star.js)
-  implements ICD-02 v0.2's state machine — SCAVENGE + RAID + PASS bodies
-  (the other four states caller-triggered to Tier-1), 20 s tick cadence,
-  heat-banded `goons = 1/2/3` for `[40,60)/[60,80)/[80,∞)`,
-  `eta_ms ≤ remaining_ms - 1000` clamp. Deterministic via the new
-  [`js/sim/seeded-rng.js`](js/sim/seeded-rng.js) mulberry32 PRNG;
-  same-seed reproducibility is asserted in tests.
-- **Goon + Fixer units land.** Goons spawn at the NW grid edge
-  (`GOON_SPAWN_TILE`) on `RAID_BUREAU` intent reconciliation, walk at
-  2.5 u/s to a Bureau-adjacent tile, damage Press at 1 dmg/s on contact
-  (design doc §17). Fixer (HP 3, 3.0 u/s) spawns east of Bureau,
-  dispatchable via the existing input model; on adjacency 1-hit kills
-  one goon; if 2+ goons adjacent, fixer dies too ("two goons beat one
-  fixer" — design doc §rivals).
-- **Press HP fail-state.** Bureau HP at 0 emits `CYCLE_GAME_OVER`
-  (ICD-06 → v0.3); the new
-  [`js/game-over-overlay.js`](js/game-over-overlay.js) mounts a terminal
-  "THE PRESS BURNS" screen and the World short-circuits subsequent ticks
-  (same shape as the debrief pause).
-- **ICD activity.** ICD-06 v0.2 → v0.3 (CYCLE_GAME_OVER event added to
-  the vocabulary; subscriber expectations table gained Game-over overlay
-  row). ICD-02 v0.2 §Open questions closed in-PR (multi-edition transit
-  deferred to Tier-1, HUD pill deferred to 0.9 corkboard); no shape
-  change — bumped to v0.2.1 in revision history only. ICD-01 v0.5,
-  ICD-03 v0.2, ICD-05 v0.4 — used as authored; no bumps. ICD-04 still
-  deferred to PRE-0.8.
-- **Tests.** 53 → 85 cases. New test files: `evening-star.test.mjs`,
-  `rival-view.test.mjs`, `goon.test.mjs`, `press-hp.test.mjs`,
-  `fixer.test.mjs`. `world-frame.test.mjs` updated to expect the new
-  Fixer at construction.
+- **Editor unit.** [`js/sim/world-state.js`](js/sim/world-state.js)
+  spawns a `kind: 'editor'` unit at `EDITOR_SPAWN_TILE = (4, 5)` —
+  Bureau-adjacent west. Speed 0 in `UNIT_SPEED` + a `dispatch()`
+  reject pin it to its tile (Design Doc §17 "Stationed at the
+  Bureau"). The renderer's `buildEditorMesh` gives it a shirt + dark
+  vest + green eyeshade silhouette with no selection ring (goon
+  precedent for non-player units).
+- **`AUTO_PLATE_SENTINEL` substitution.** At `DEADLINE_FIRE`,
+  `_fireDebrief` looks up the Editor and writes `editor.id` to every
+  printed story's `plated_by` (ICD-05 v0.4 §Notes). The sentinel
+  constant stays exported as the defensive fallback for the no-Editor
+  case (covered by `editor.test.mjs`).
+- **Ink plate-time hard gate.** `_fireDebrief` walks the verified
+  queue against a projected ink budget and admits only stories whose
+  `inkCostFor(story)` keeps `World.resources.ink ≥ 0`. Rejected
+  stories stay `verified` + `held_by_building === darkroom.id`, ready
+  to retry next edition. `EditionSummary.ink_consumed` reflects the
+  admitted set only — the running balance can no longer go negative
+  through plating (other ink delta sources still permitted; ICD-05
+  v0.4 §Notes is precise about this).
+- **ICD activity.** None. ICD-01 v0.5, ICD-02 v0.2, ICD-05 v0.4,
+  ICD-06 v0.3 all used as authored. ICD-04 still deferred to PRE-0.8.
+- **Tests.** 85 → 94 cases. New test files: `editor.test.mjs` (5
+  cases — spawn shape, dispatch reject, frame surfacing, plated_by
+  substitution, sentinel fallback), `ink-gate.test.mjs` (4 cases —
+  insufficient/sufficient ink, partial budget admission, held-over
+  retry on restock). `world-frame.test.mjs` extended construction
+  roster to `[editor, fixer, photog, reporter]`.
 
-**Next: milestone 0.7.1 (code).** Editor unit — stationary at Bureau,
-substitutes `AUTO_PLATE_SENTINEL` with its `UnitId` at the plating step.
-Ink plate-time hard gate per ICD-05 v0.4 §Notes: `verified → plated`
-that would leave ink negative is rejected; the Story stays `verified`.
-All required ICD shapes are already authored at v0.4 — code-only
-milestone.
+**Next: PRE-0.8 (architecture, paper-only).** ICD-04 (save schema) —
+the one ICD explicitly deferred to PRE-0.8 by the supplement. Single
+architecture session, no code, gates milestone 0.8 (save/load · resume
+mid-edition · version field). Do not commit code that touches
+persistence before ICD-04 is authored.
 
 ## When you're stuck
 

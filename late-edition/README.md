@@ -8,56 +8,61 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.7.0 — milestone 0.7.0 (adversarial ring · raid · fixer).** The
-adversarial ring closes. The Evening Star rival
-([`js/sim/evening-star.js`](js/sim/evening-star.js)) ticks every 20 s
-through SCAVENGE + RAID + PASS state bodies (the other four states are
-shape-committed and caller-triggered to Tier-1); deterministic via a
-new seeded PRNG ([`js/sim/seeded-rng.js`](js/sim/seeded-rng.js)). On
-heat > 40 with cooldown clear, the rival emits `RAID_BUREAU` with the
-heat-banded `goons = 1/2/3` count; the world spawns Goon units at the
-NW grid edge walking toward a Bureau-adjacent tile. Adjacent goons
-damage the Press at 1 dmg/s (Design Doc §17). The Fixer unit (HP 3,
-3.0 u/s) is dispatchable via the existing input model; on adjacency it
-1-hit kills the goon; if 2+ goons swarm it, the fixer dies (Design Doc
-§rivals "two goons beat one fixer"). Press HP at 0 emits the new
-`CYCLE_GAME_OVER` event (ICD-06 → v0.3); the "THE PRESS BURNS" overlay
-mounts and the sim freezes. HUD ticker gained an `X HP` segment derived
-from `BuildingView.hp` — no `HudState` shape change. The 0.7 milestone
-was split at session open into 0.7.0 (this ship — adversarial ring) and
-0.7.1 (next ship — Editor unit + ink plate-time hard gate) to keep each
-code session inside one milestone's scope. 85 node tests cover the pure
-sim modules. See [`roadmap.md`](roadmap.md) and
+**v0.7.1 — milestone 0.7.1 (editor · ink hard gate).** The inner three
+rings close. The Editor unit
+([`js/sim/world-state.js`](js/sim/world-state.js), `kind: 'editor'`)
+spawns at `EDITOR_SPAWN_TILE = (4, 5)` — Bureau-adjacent west, the
+remaining cardinal slot after Reporter N, Photog S, Fixer E. It is
+stationary at the Bureau (Design Doc §17 "Stationed at the Bureau"):
+speed 0 in the per-kind table and a `dispatch()` reject pin it to its
+tile. At `DEADLINE_FIRE` the plating step substitutes the Editor's
+`UnitId` for the placeholder `AUTO_PLATE_SENTINEL` on
+`Story.plated_by` per ICD-05 v0.4 §Notes — the sentinel constant
+stays exported as the defensive fallback. The ink plate-time hard gate
+(ICD-05 v0.4 §Notes) walks the verified queue against a projected
+ink budget and admits only stories whose `inkCostFor(story)` keeps
+`World.resources.ink ≥ 0`. Skipped stories stay `verified` at the
+Darkroom and retry next edition; `EditionSummary.ink_consumed`
+reflects the admitted set only. Pure code milestone — no ICD bumps;
+ICD-05 stays at v0.4, ICD-01 at v0.5, ICD-02 at v0.2, ICD-06 at v0.3.
+85 → 94 node tests (new `editor.test.mjs` + `ink-gate.test.mjs`).
+Next slot per the roadmap is **PRE-0.8** — architecture session for
+ICD-04 (save schema). See [`roadmap.md`](roadmap.md) and
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 
 1. Open `index.html` in a browser (or click the **Late Edition** card
    from the arcade launcher). You'll see the cel-shaded world with two
-   buildings (Bureau in the center, Darkroom to the southeast), three
+   buildings (Bureau in the center, Darkroom to the southeast), four
    units (Reporter north of the Bureau, Photog south, Fixer east —
-   distinguishable by trench coat + brim + red kerchief), a lead at the
-   northwest district tile, and a HUD ticker top-right showing
+   distinguishable by trench coat + brim + red kerchief — Editor west
+   in a green visor + dark vest), a lead at the northwest district
+   tile, and a HUD ticker top-right showing
    `EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT · 90 HP`
    counting down. **Left-click a unit** to select (a yellow ring
-   appears). **Right-click anywhere on the street grid** to dispatch —
-   the unit walks the A*-shortest path. Left-click empty ground to
-   deselect. The story flow: Reporter to the lead (auto-pickup; LD
-   drops to 0), Reporter back to a Bureau-adjacent tile (auto-drop);
-   Photog to a Bureau-adjacent tile (picks up the held lead), Photog to
-   a Darkroom-adjacent tile (drop flips state to `'verified'`; ST ticks
-   to 1). The verified story then waits at the Darkroom; when the
-   12-minute deadline fires, the debrief panel mounts with the front
-   page and the resources reconcile (cash earned, ink consumed, heat
-   applied). Click anywhere on the panel to dismiss; heat decays by the
-   §19 baseline and the next edition opens. After the second edition
-   with heat above 40, the Evening Star may fire a `RAID_BUREAU` —
-   look for a Goon (dark coat, no select ring) at the NW grid edge
-   walking toward the Bureau. **Right-click the goon's tile while the
-   Fixer is selected** to intercept — Fixer beats one goon, two goons
-   beat one Fixer. If goons reach the Bureau, the `X HP` segment
-   drains at 1/s; at 0, the "THE PRESS BURNS" overlay mounts and the
-   run ends.
+   appears — the Editor and Goon don't get rings, they're not player
+   controlled). **Right-click anywhere on the street grid** to
+   dispatch — the unit walks the A*-shortest path. Left-click empty
+   ground to deselect. The story flow: Reporter to the lead
+   (auto-pickup; LD drops to 0), Reporter back to a Bureau-adjacent
+   tile (auto-drop); Photog to a Bureau-adjacent tile (picks up the
+   held lead), Photog to a Darkroom-adjacent tile (drop flips state to
+   `'verified'`; ST ticks to 1). The verified story then waits at the
+   Darkroom; when the 12-minute deadline fires, the Editor plates and
+   the debrief panel mounts with the front page and the resources
+   reconcile (cash earned, ink consumed, heat applied). **If
+   `INK` is too low for the story's ink cost, the plating is
+   rejected** — the story stays `verified` at the Darkroom and tries
+   again next edition (ink stays where it was). Click anywhere on the
+   panel to dismiss; heat decays by the §19 baseline and the next
+   edition opens. After the second edition with heat above 40, the
+   Evening Star may fire a `RAID_BUREAU` — look for a Goon (dark coat,
+   no select ring) at the NW grid edge walking toward the Bureau.
+   **Right-click the goon's tile while the Fixer is selected** to
+   intercept — Fixer beats one goon, two goons beat one Fixer. If
+   goons reach the Bureau, the `X HP` segment drains at 1/s; at 0,
+   the "THE PRESS BURNS" overlay mounts and the run ends.
 2. The in-page **Phase 0 + Roadmap →** link (top-right of the scene) opens
    the architectural supplement (also reachable directly at
    [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html)).

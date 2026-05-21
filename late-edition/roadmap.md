@@ -26,7 +26,7 @@ definitions.
 | **RE-EVAL** | After 0.6 · paper + code-aware — *shipped v0.6.1* | Loop plays (inner three rings closed; adversarial ring is 0.7). ICD-02 promoted medium→strong. Tutorial frame locked (diegetic). Difficulty deferred to Tier-1. Partial-dossier rival visibility. Ink plate-time gate at 0.7. See [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md). | re-eval |
 | **PRE-0.7** | Author **ICD-02 v0.2** (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView posture) + **ICD-05 §Notes** (AUTO_PLATE_SENTINEL substitution path + ink plate-time hard gate) — *shipped v0.6.2* | Architecture session · paper-only · gates milestone 0.7 | strong |
 | **0.7.0** | Evening Star SCAVENGE + RAID states · Goon unit · Fixer unit · Press HP + `CYCLE_GAME_OVER` fail-state — *shipped v0.7.0* | ICD-02 v0.2 used as authored; ICD-06 → v0.3 (CYCLE_GAME_OVER); Editor + ink gate split out to **0.7.1** | strong |
-| **0.7.1** | Editor unit (substitutes `AUTO_PLATE_SENTINEL` with `UnitId`) · ink plate-time hard gate (reject `verified → plated` if ink would go negative) | ICD-05 v0.4 §Notes already authored — code-only milestone | strong |
+| **0.7.1** | Editor unit (substitutes `AUTO_PLATE_SENTINEL` with `UnitId`) · ink plate-time hard gate (reject `verified → plated` if ink would go negative) — *shipped v0.7.1* | ICD-05 v0.4 §Notes used as authored — code-only milestone | strong |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session | Required before any code touches persistence | strong |
 | **0.8** | Save / load · resume mid-edition · version field | ICD-04 · localStorage blob · migration stub | strong |
 | **0.9** | HUD corkboard · deadline ticker · selected-unit dossier | Design doc §13 · medium-band layout | medium |
@@ -47,29 +47,29 @@ v0.4 cover them).
 
 ## Current status
 
-**0.7.0 — shipped (v0.7.0).** The adversarial ring closes. Evening Star
-(`js/sim/evening-star.js`) ticks every 20 s through SCAVENGE+RAID state
-bodies using a seeded RNG (`js/sim/seeded-rng.js`), emits `RAID_BUREAU`
-intents on the heat-banded `1/2/3` goon count, and the World reconciler
-spawns Goon units at the NW grid edge pathing toward a Bureau-adjacent
-tile. Adjacent goons damage the Press at 1 dmg/s per design doc §17;
-the bundled Fixer unit (1-hit kill on goon; dies to 2 simultaneous
-goons) is dispatchable via the existing input model. Press HP at 0
-emits the new `CYCLE_GAME_OVER` event (ICD-06 → v0.3); the
-`GameOverOverlay` mounts the terminal "THE PRESS BURNS" screen and the
-sim freezes. HUD ticker gained an `X HP` segment derived from
-`BuildingView.hp` — no `HudState` shape change, ICD-01 stays at v0.5.
-Two ICD-02 §Open questions resolved in-PR: multi-edition goon transit
-deferred to Tier-1 (kept the v0.2 clamp); `RivalStatusView` HUD surface
-deferred to milestone 0.9's corkboard. 53 → 85 node tests (5 new test
-files).
+**0.7.1 — shipped (v0.7.1).** Editor unit lit and the ink plate-time
+hard gate enforced. The Editor (`kind: 'editor'`) spawns at
+`EDITOR_SPAWN_TILE = (4, 5)` — Bureau-adjacent west, the remaining
+cardinal slot after Reporter N, Photog S, Fixer E. Speed 0 in the
+per-kind table plus a `dispatch()`-level reject keeps it pinned to the
+Bureau door (Design Doc §17 "Stationed at the Bureau"). At
+`DEADLINE_FIRE` the `_fireDebrief` plating step substitutes the
+Editor's `UnitId` for `AUTO_PLATE_SENTINEL` on `Story.plated_by` per
+ICD-05 v0.4 §Notes — the sentinel constant stays exported as the
+defensive fallback. The ink hard gate (ICD-05 v0.4 §Notes) walks the
+verified queue in order against a projected ink budget; stories whose
+cost would push `World.resources.ink` below zero stay `verified` at
+the Darkroom and try again next edition. `EditionSummary.ink_consumed`
+reflects the admitted set only, so the running balance stays ≥ 0
+across the print. No ICD bumps — pure code milestone, exactly as
+PRE-0.7 promised. 85 → 94 node tests (`editor.test.mjs` +
+`ink-gate.test.mjs`).
 
-Next: **milestone 0.7.1** — Editor unit + ink plate-time hard gate.
-Editor stationary at Bureau; substitutes `AUTO_PLATE_SENTINEL` with its
-`UnitId` at the plating step. Ink hard gate per ICD-05 v0.4 §Notes:
-plating that would leave ink negative is rejected; the Story stays
-`verified` and waits for the next edition. All required ICD shapes are
-already authored at v0.4 — code-only milestone.
+Next: **PRE-0.8** — author ICD-04 (save schema). Architecture session,
+paper-only, gates milestone 0.8 (save/load · resume mid-edition ·
+version field). ICD-04 was the one ICD explicitly deferred to PRE-0.8
+by the supplement, so this is the next paper slot the methodology
+asks for before code can touch persistence.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -145,6 +145,18 @@ already authored at v0.4 — code-only milestone.
       questions resolved (multi-edition transit deferred to Tier-1,
       HUD pill deferred to 0.9). Tests at 85 cases (53 → 85; new
       evening-star / rival-view / goon / press-hp / fixer test files).
+- [x] **Milestone 0.7.1** — Editor unit (kind `editor`, stationary at
+      `EDITOR_SPAWN_TILE = (4, 5)`, speed 0, dispatch-rejected); at
+      `DEADLINE_FIRE` the plating step substitutes the editor's
+      `UnitId` for `AUTO_PLATE_SENTINEL` on `Story.plated_by` (ICD-05
+      v0.4 §Notes; sentinel kept as defensive fallback). Ink plate-time
+      hard gate (ICD-05 v0.4 §Notes): `_fireDebrief` walks the verified
+      queue against a projected ink budget and admits only stories
+      whose cost fits; rejected stories stay `verified` at the Darkroom
+      and retry next edition; `EditionSummary.ink_consumed` reflects
+      admitted set only. No ICD bumps (01 v0.5, 02 v0.2, 05 v0.4, 06
+      v0.3 all used as authored). Tests at 94 cases (85 → 94; new
+      `editor.test.mjs` + `ink-gate.test.mjs`).
 
 ## Out of scope until called
 

@@ -27,6 +27,13 @@
 // Doc §17); two goons adjacent → fixer dies (Design Doc §rivals "two goons
 // beat one fixer"). Rival event digests (raid_attempted / raid_succeeded /
 // raid_wiped) accrue per-edition and flush to EditionSummary at DEADLINE_FIRE.
+// Milestone 0.7.1 adds: Editor unit (stationary at EDITOR_SPAWN_TILE west of
+// Bureau, speed 0, dispatch-rejected). At DEADLINE_FIRE the plating step
+// substitutes the editor's UnitId for AUTO_PLATE_SENTINEL on Story.plated_by
+// per ICD-05 v0.4 §Notes (sentinel stays as the defensive fallback only).
+// Ink plate-time hard gate: a verified→plated transition that would leave
+// World.resources.ink negative is rejected — the Story stays 'verified' at
+// the Darkroom and waits for the next edition (ICD-05 v0.4 §Notes).
 
 import { pathfind } from './pathfinder.js';
 import { CycleClock } from './cycle-clock.js';
@@ -51,6 +58,7 @@ export const UNIT_SPEED = {
   photog:   3.5,
   goon:     2.5,
   fixer:    3.0,
+  editor:   0,   // 0.7.1: stationary at Bureau — dispatch is rejected, this is belt-and-braces.
 };
 export const REPORTER_SPEED = UNIT_SPEED.reporter; // legacy export — kept stable for tests/unit-step.test.mjs
 export const PRESS_HP = 90;        // overview §Single fail-state
@@ -60,6 +68,7 @@ export const BUREAU_TILE = { x: 5, y: 5 };
 export const DARKROOM_TILE = { x: 7, y: 7 }; // 0.4: symmetric from Bureau (Manhattan 4)
 export const FIXER_SPAWN_TILE = { x: 6, y: 5 }; // 0.7: Bureau-adjacent (east of Bureau)
 export const GOON_SPAWN_TILE = { x: 0, y: 0 }; // 0.7: NW grid edge (placeholder until district edges land)
+export const EDITOR_SPAWN_TILE = { x: 4, y: 5 }; // 0.7.1: Bureau-adjacent (west of Bureau) — Editor is stationary
 
 // At 0.5 the print pipeline closes with no Editor unit yet — the verified →
 // plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
@@ -130,6 +139,11 @@ export class World {
       // 0.7.0: Fixer spawns east of Bureau. HP 3, walk 3.0 u/s (Design Doc §17).
       // One static fixer at 0.7 — hire cost is fuzzy until the economy buys it.
       makeUnit(mkId('u'), 'fixer',    { ...FIXER_SPAWN_TILE }, { hp: 3, hp_max: 3 }),
+      // 0.7.1: Editor stationary at Bureau-west (Design Doc §17 "Stationed at the
+      // Bureau"). Speed 0 + dispatch reject keeps it pinned to EDITOR_SPAWN_TILE.
+      // Its load-bearing role is plating: at DEADLINE_FIRE _fireDebrief substitutes
+      // its UnitId for AUTO_PLATE_SENTINEL on Story.plated_by (ICD-05 v0.4 §Notes).
+      makeUnit(mkId('u'), 'editor',   { ...EDITOR_SPAWN_TILE }),
     ];
 
     // Milestone 0.3: spawn one Story in 'lead' state at the district tile.
@@ -196,6 +210,10 @@ export class World {
   dispatch(unitId, target) {
     const unit = this.units.find((u) => u.id === unitId);
     if (!unit) return false;
+    // 0.7.1: Editor is stationary at the Bureau (Design Doc §17). Reject before
+    // pathfinding so a stray right-click while the editor is somehow selected
+    // is a silent no-op.
+    if (unit.kind === 'editor') return false;
     const res = pathfind(
       { from: unit.tile, to: target, unitKind: unit.kind },
       this.grid,
@@ -373,22 +391,40 @@ export class World {
 
   // Triggered exactly once per edition on DEADLINE_FIRE. Walks each verified
   // story sitting at the Darkroom through verified → plated → printed in the
-  // same frame (no Editor unit yet — see AUTO_PLATE_SENTINEL above), builds
-  // the EditionSummary, emits EDITION_DEBRIEF_BEGIN, and flips debriefOpen
-  // so subsequent ticks pause the sim until ackDebrief() resolves the panel.
+  // same frame. 0.7.1: the plating step substitutes the Editor's UnitId for
+  // AUTO_PLATE_SENTINEL (ICD-05 v0.4 §Notes — the sentinel constant remains
+  // exported as the defensive fallback for a no-Editor world) and applies the
+  // ink hard gate: verified→plated is rejected if it would leave
+  // World.resources.ink negative. Stories that fail the gate stay 'verified'
+  // at the Darkroom and retry next edition. Builds the EditionSummary, emits
+  // EDITION_DEBRIEF_BEGIN, and flips debriefOpen so subsequent ticks pause the
+  // sim until ackDebrief() resolves the panel.
   _fireDebrief() {
     const darkroom = this.buildings.find((b) => b.kind === 'darkroom');
-    const printing = darkroom
+    const editor   = this.units.find((u) => u.kind === 'editor');
+    const platedBy = editor ? editor.id : AUTO_PLATE_SENTINEL;
+    const verifiedStories = darkroom
       ? this.stories.filter((s) => s.state === 'verified' && s.held_by_building === darkroom.id)
       : [];
 
+    // 0.7.1 ink hard gate (ICD-05 v0.4 §Notes). Walk the verified queue in order
+    // and admit only stories whose ink cost fits the projected budget. Skipped
+    // stories stay 'verified' at the Darkroom — untouched — and try again next
+    // edition (where ink may have been restocked).
+    const printing = [];
+    let projectedInk = this.resources.ink;
+    for (const story of verifiedStories) {
+      const cost = inkCostFor(story);
+      if (projectedInk - cost < 0) continue;
+      projectedInk -= cost;
+      printing.push(story);
+    }
+
     for (const story of printing) {
       // verified → plated → printed in one tick. Yields land at the plated step
-      // and freeze there per ICD-05 §Notes. 0.6 fills the values from
-      // js/sim/resources.js (medium-band, single representative per tier/flavor —
-      // overview line 44). story.ink_cost is sim-internal — not on any View.
+      // and freeze there per ICD-05 §Notes.
       story.state = 'plated';
-      story.plated_by = AUTO_PLATE_SENTINEL;
+      story.plated_by = platedBy;
       story.cash_yield = cashYieldFor(story);
       story.heat_yield = heatYieldFor(story);
       story.ink_cost = inkCostFor(story);
@@ -397,9 +433,9 @@ export class World {
     }
 
     const summary = this._buildEditionSummary(printing);
-    // Apply the edition deltas to the running balances. Negative ink is allowed
-    // at 0.6 — the "can't print if ink runs out" enforcement is medium-band and
-    // lands at 0.7+. The HUD just surfaces the number.
+    // Apply the edition deltas to the running balances. With the 0.7.1 gate in
+    // place, summary.ink_consumed is exactly the admitted set's total — so
+    // resources.ink stays ≥ 0 after this subtraction.
     this.resources.cash += summary.cash_earned;
     this.resources.ink  -= summary.ink_consumed;
     this.resources.heat += summary.heat_applied;

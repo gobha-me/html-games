@@ -357,6 +357,7 @@ function buildUnitMesh(gradient, kind) {
   if (kind === 'photog') return buildPhotogMesh(gradient);
   if (kind === 'goon')   return buildGoonMesh(gradient);
   if (kind === 'fixer')  return buildFixerMesh(gradient);
+  if (kind === 'editor') return buildEditorMesh(gradient);
   return buildReporterMesh(gradient);
 }
 
@@ -437,6 +438,35 @@ function buildGoonMesh(gradient) {
   cap.position.y = 2.25;
   withOutline(cap);
   group.add(cap);
+  return group;
+}
+
+// 0.7.1: Editor — newsroom desk worker. Shirt-sleeved (no coat) so the
+// silhouette reads "indoor" against the trench-coated field units; green
+// eyeshade visor on the head as the defining signal (newsroom uniform);
+// dark vest over the shirt. No select ring — Editor is stationary (Design
+// Doc §17 "Stationed at the Bureau") and dispatch is rejected at sim level.
+function buildEditorMesh(gradient) {
+  const group = new THREE.Group();
+  // Shirt body — pale, no coat (distinguishes from coated field units).
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 0.8), toon(gradient, 0xb8b0a0));
+  body.position.y = 0.6;
+  withOutline(body);
+  group.add(body);
+  // Vest — dark, waist-up, sits over the shirt.
+  const vest = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.85, 0.82), toon(gradient, 0x2a2520));
+  vest.position.y = 1.25;
+  withOutline(vest);
+  group.add(vest);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), toon(gradient, 0xd9c8a8));
+  head.position.y = 2.05;
+  withOutline(head);
+  group.add(head);
+  // Eyeshade visor — flat green brim, no crown. The signature.
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.15, 0.6), toon(gradient, 0x3a6a3a));
+  visor.position.set(0, 2.4, 0.15);
+  withOutline(visor);
+  group.add(visor);
   return group;
 }
 

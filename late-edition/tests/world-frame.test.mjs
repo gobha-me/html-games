@@ -38,14 +38,15 @@ test('frame.buildings includes both Bureau and Darkroom (ICD-01 kind enum)', () 
   assert.deepEqual(kinds, ['bureau', 'darkroom']);
 });
 
-test('frame.units includes Reporter, Photog, and Fixer (ICD-01 kind enum)', () => {
+test('frame.units includes Reporter, Photog, Fixer, and Editor (ICD-01 kind enum)', () => {
   // Milestone 0.7.0 adds the Fixer to the construction roster (defensive unit).
+  // Milestone 0.7.1 adds the Editor (stationary at Bureau-west — plating proxy).
   // Goons are spawned by rival RAID_BUREAU intent and only appear once a raid
   // is in flight — they're not part of the construction surface.
   const w = new World();
   const f = w.snapshot();
   const kinds = f.units.map((u) => u.kind).sort();
-  assert.deepEqual(kinds, ['fixer', 'photog', 'reporter']);
+  assert.deepEqual(kinds, ['editor', 'fixer', 'photog', 'reporter']);
 });
 
 test('frame.leads excludes Stories with state !== lead (verified at Darkroom)', () => {

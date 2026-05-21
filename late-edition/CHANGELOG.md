@@ -1,5 +1,109 @@
 # Changelog — Late Edition
 
+## v0.7.1 — 2026-05-21 — Milestone 0.7.1: editor · ink hard gate
+
+The inner three rings (lead → verified → plated → printed) close. The
+roadmap's 0.7.1 row — split out of 0.7 at session open — ships the
+Editor unit and the ink plate-time hard gate that ICD-05 v0.4 §Notes
+authored at PRE-0.7. Both halves of the 0.7 split are now lit;
+milestone 0.7 in aggregate (adversarial ring + Editor + ink gate) is
+complete and the next slot is PRE-0.8 (architecture session for ICD-04
+save schema).
+
+The 0.7.1 slice is **code-only** — every ICD shape it relies on was
+already authored at v0.4 (ICD-05) / v0.5 (ICD-01) / v0.2 (ICD-02) /
+v0.3 (ICD-06). No ICD bumps in this PR; the §Notes paragraphs at
+ICD-05 v0.4 specified the substitution path and the gate rule
+verbatim, and the 0.7.1 implementation lifts both into code without
+deviation.
+
+The Editor (`kind: 'editor'`) spawns at
+`EDITOR_SPAWN_TILE = (4, 5)` — Bureau-adjacent west, the remaining
+cardinal slot after Reporter N, Photog S, Fixer E (Design Doc §17
+"Stationed at the Bureau"). Its load-bearing role is plating: at
+`DEADLINE_FIRE`, `_fireDebrief` substitutes the Editor's `UnitId` for
+the placeholder `AUTO_PLATE_SENTINEL` on `Story.plated_by` (ICD-05
+v0.4 §Notes — sentinel constant stays exported as the defensive
+fallback for the no-Editor case). The Editor is non-controllable: it
+has `speed 0` in the per-kind `UNIT_SPEED` table, the renderer omits
+the selection ring, and `World.dispatch` rejects `kind === 'editor'`
+early so a stray right-click is a silent no-op.
+
+The ink hard gate (ICD-05 v0.4 §Notes) replaces the v0.6.0 medium-band
+permissiveness ("HUD surfaces negative ink") with plate-time
+enforcement: `_fireDebrief` walks the verified queue in order against
+a `projectedInk = World.resources.ink` budget and admits only stories
+whose `inkCostFor(story)` keeps the projection ≥ 0. Stories that fail
+the check stay `state === 'verified'` and `held_by_building ===
+darkroom.id` — untouched, ready to retry the next edition. The
+admitted set then flips `verified → plated → printed` exactly as
+before. `EditionSummary.ink_consumed` reflects the admitted total
+only, so `World.resources.ink -= summary.ink_consumed` lands on a
+non-negative balance every time.
+
+Headline outputs:
+
+- **Editor unit** — new `kind: 'editor'` constructor entry. Stationary
+  at `EDITOR_SPAWN_TILE = (4, 5)`. `UNIT_SPEED.editor = 0` and
+  `World.dispatch` rejects on `kind === 'editor'`. No HP — the Editor
+  isn't a damage target at 0.7.1 (goons damage the Bureau building,
+  not units; Fixer kills goons adjacent). Adding HP at this milestone
+  would be speculative.
+- **Editor mesh** — new `buildEditorMesh` in `js/render/renderer.js`.
+  Shirt body (no coat) + dark vest + green eyeshade visor — the
+  newsroom uniform reads against the trench-coated field units. No
+  selection ring (follows the goon precedent — non-player units don't
+  get rings).
+- **`plated_by` substitution** — `_fireDebrief` looks up the Editor
+  unit once per call and writes `editor.id` to every printed story's
+  `plated_by`. The sentinel fallback covers the defensive case where
+  the Editor is somehow absent (used by the new
+  `editor.test.mjs:Sentinel falls back when no Editor exists` test
+  case to lock the branch).
+- **Ink plate-time hard gate** — the gate sits at the top of
+  `_fireDebrief` and runs before the `verified → plated → printed`
+  loop. Rejected stories are skipped without touching `Story.state`
+  or `Story.plated_by`; `World.resources.ink` stays untouched for the
+  rejected set. The HUD `INK` segment stays ≥ 0 across the print —
+  the v0.6.0 changelog's negative-ink-allowed permissiveness is
+  retired (the field can still go negative through future ink
+  purchase failures or Tier-1+ rival actions per ICD-05 v0.4 §Notes;
+  just not through plating).
+
+### Added
+
+- [`tests/editor.test.mjs`](tests/editor.test.mjs) — 5 new cases:
+  Editor spawns at `EDITOR_SPAWN_TILE` (kind/state/speed); dispatch
+  rejects; Editor appears in `WorldFrame.units`; `plated_by` ===
+  editor's `UnitId` at print; sentinel fallback when no Editor.
+- [`tests/ink-gate.test.mjs`](tests/ink-gate.test.mjs) — 4 new cases:
+  insufficient ink → story stays verified, ink unchanged; sufficient
+  ink → prints, ink decrements; partial budget → first prints, second
+  stays verified; held-over story prints next edition when ink
+  restocked.
+
+### Changed
+
+- [`js/sim/world-state.js`](js/sim/world-state.js) — Per-kind
+  `UNIT_SPEED` gained `editor: 0`. New exported `EDITOR_SPAWN_TILE =
+  { x: 4, y: 5 }`. `World` constructor spawns the Editor alongside
+  Reporter/Photog/Fixer. `dispatch()` rejects `kind === 'editor'`
+  before pathfinding. `_fireDebrief` rewritten: looks up the Editor,
+  walks the verified queue against a projected ink budget admitting
+  only fitting stories, sets `plated_by = editor.id` (or sentinel
+  fallback) on the admitted set. Sentinel constant `AUTO_PLATE_SENTINEL`
+  stays exported as the documented defensive fallback.
+- [`js/render/renderer.js`](js/render/renderer.js) — `buildUnitMesh`
+  dispatcher gained an `editor` branch. New `buildEditorMesh` —
+  shirt + dark vest + green eyeshade visor, no select ring.
+- [`tests/world-frame.test.mjs`](tests/world-frame.test.mjs) —
+  Construction-roster kind assertion extended from `['fixer', 'photog',
+  'reporter']` to `['editor', 'fixer', 'photog', 'reporter']`.
+- [`tests/print-cycle.test.mjs`](tests/print-cycle.test.mjs) —
+  Comment on the `plated_by` assertion updated to reflect that the
+  field carries the Editor's UnitId at 0.7.1+ (still a string —
+  assertion unchanged).
+
 ## v0.7.0 — 2026-05-21 — Milestone 0.7.0: adversarial ring · raid · fixer
 
 The adversarial ring closes. The roadmap's milestone 0.7 row was split at

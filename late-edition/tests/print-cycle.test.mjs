@@ -182,7 +182,7 @@ test('verified → plated → printed transitions fire same-frame at DEADLINE_FI
   const story = w.stories[0];
   assert.equal(story.state, 'printed', 'story must end at printed state');
   assert.equal(story.printed_in, 1);
-  assert.equal(typeof story.plated_by, 'string', 'plated_by carries a sentinel pre-Editor');
+  assert.equal(typeof story.plated_by, 'string', 'plated_by is set at the plating step (Editor UnitId at 0.7.1+)');
   // Milestone 0.6: yields land at the plated step from js/sim/resources.js.
   // The seeded story is vice-whisper → cash $165, heat 8. tests/resources.test.mjs
   // owns the per-tier/per-flavor coverage; this asserts the wiring fired.
