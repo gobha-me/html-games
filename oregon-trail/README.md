@@ -4,7 +4,7 @@ A turn-based journey along the historic Oregon Trail (1848). Lead your party fro
 
 ## Status
 
-**v0.1 — In Progress.** This is the scaffold phase. The game is not yet playable.
+**v0.1 — Playable Core.** Full day-loop, six event corpora (weather/illness/encounter/terrain/opportunity/moral), party voices, Trail Ledger end screen, and auto-save shipped. Known issues: see open tickets. Stretch goals for v0.2: audio hooks (#240), persistent stats panel (#239).
 
 ## How to Run
 
@@ -16,12 +16,32 @@ A turn-based journey along the historic Oregon Trail (1848). Lead your party fro
 
 ```
 oregon-trail/
-├── index.html              # Hello, Trail landing page
+├── index.html              # Game entry point
 ├── css/
-│   └── style.css           # Game styles
-├── js/                     # Game logic (to be implemented)
-│   ├── events/             # Event system (to be implemented)
-│   │   └── regions/        # Regional flavor events (to be implemented)
+│   ├── style.css           # Base styles
+│   ├── game.css            # Game screen styles
+│   └── end-screen.css      # End screen / Trail Ledger styles
+├── js/
+│   ├── turn-loop.js        # Day-loop engine
+│   ├── ui.js               # Decisions panel & HUD
+│   ├── resources.js        # Resource model
+│   ├── party.js            # Party state & voices
+│   ├── save-load.js        # Auto-save / load
+│   ├── event-runner.js     # Event dispatch
+│   ├── region-runner.js    # Regional flavor dispatch
+│   ├── end-screen.js       # Win/Lose/Partial + Trail Ledger
+│   ├── events/
+│   │   ├── weather.js      # Weather event corpus
+│   │   ├── illness.js      # Illness event corpus
+│   │   ├── encounter.js    # Encounter event corpus
+│   │   ├── terrain.js      # Terrain event corpus
+│   │   ├── opportunity.js  # Opportunity event corpus
+│   │   ├── moral.js        # Moral choice event corpus
+│   │   ├── party-voices.js # Party voice archetypes
+│   │   └── regions/
+│   │       ├── plains.js   # Plains regional flavor
+│   │       ├── mountains.js # Mountains regional flavor
+│   │       └── desert.js   # Desert regional flavor
 ├── README.md               # This file
 ├── CHANGELOG.md            # Version history
 ├── DESIGN.md               # Game design document
