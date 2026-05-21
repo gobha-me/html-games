@@ -222,7 +222,10 @@ function handleNextDay() {
   }
 
   const eventCategory = selectEventCategory();
-  currentEvent = dispatchEvent(eventCategory, gameState, trailLedger, gameState.rng);
+  const result = dispatchEvent(eventCategory, gameState, trailLedger, gameState.rng);
+  gameState = { ...result.state, rng: gameState.rng, _turnLog: gameState._turnLog };
+  trailLedger = result.ledger;
+  currentEvent = result.event;
 
   saveGame(gameState);
 
