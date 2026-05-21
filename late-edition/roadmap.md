@@ -23,8 +23,9 @@ definitions.
 | **PRE-0.5** | Author **ICD-06 v0.2** (`EditionSummary`) + **ICD-01 v0.5** (`HudState` + projection-rule tightening + implementation notes) — *shipped v0.4.1* | Forward-ICD-check output of the post-0.3 re-eval · paper-only · gated milestone 0.5 | strong |
 | **0.5** | Print cycle clock · deadline events · edition debrief panel — *shipped v0.5.0* | ICD-06 · the heartbeat lights up | strong |
 | **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption — *shipped v0.6.0* | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
-| **RE-EVAL** | After 0.6 · paper + code-aware | Does the loop play? Promote rival AI contract to strong for 0.7–0.8. Decide tutorial shape. | re-eval |
-| **0.7** | Evening Star SCAVENGE + RAID states · Goon unit · Press HP + fail-state | ICD-02 (subset) · Fixer unit · Bureau defense beat | medium → strong at re-eval |
+| **RE-EVAL** | After 0.6 · paper + code-aware — *shipped v0.6.1* | Loop plays (inner three rings closed; adversarial ring is 0.7). ICD-02 promoted medium→strong. Tutorial frame locked (diegetic). Difficulty deferred to Tier-1. Partial-dossier rival visibility. Ink plate-time gate at 0.7. See [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md). | re-eval |
+| **PRE-0.7** | Author **ICD-02 v0.2** (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView posture) + **ICD-05 §Notes** (AUTO_PLATE_SENTINEL substitution path + ink plate-time hard gate) | Architecture session · paper-only · gates milestone 0.7 | strong |
+| **0.7** | Evening Star SCAVENGE + RAID states · Goon unit · Press HP + fail-state | ICD-02 v0.2 · Fixer unit · Editor unit · Bureau defense beat | strong |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session | Required before any code touches persistence | strong |
 | **0.8** | Save / load · resume mid-edition · version field | ICD-04 · localStorage blob · migration stub | strong |
 | **0.9** | HUD corkboard · deadline ticker · selected-unit dossier | Design doc §13 · medium-band layout | medium |
@@ -32,35 +33,36 @@ definitions.
 | **0.10** | Tier-0 closer · 5-edition arc · run-end summary screen · high-score persistence | The first thing a friend can play · verifies the loop reads as a game | strong |
 | **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 07+ for branch bureaus, switchboard, archive. | re-eval |
 
-11 code milestones, 4 re-evaluation slots, 3 architecture-session-only items
-(PRE-0.1, PRE-0.5, and PRE-0.8). That's the ratio the methodology asks for:
-re-eval every ~3 code milestones, architecture sessions wherever a contract
-crosses a code-session boundary that hasn't been authored yet. PRE-0.5 was
-inserted by the post-0.3 re-eval's forward ICD presence check.
+11 code milestones, 4 re-evaluation slots, 4 architecture-session-only items
+(PRE-0.1, PRE-0.5, PRE-0.7, and PRE-0.8). That's the ratio the methodology
+asks for: re-eval every ~3 code milestones, architecture sessions wherever
+a contract crosses a code-session boundary that hasn't been authored yet.
+PRE-0.5 was inserted by the post-0.3 re-eval's forward ICD presence check;
+PRE-0.7 was inserted by the post-0.6 re-eval's same check.
 
 ## Current status
 
-**Milestone 0.6 — shipped (v0.6.0).** The economy lights up. Each printed
-Story now carries `cash_yield` / `heat_yield` / `ink_cost` set at the
-plated step from a new pure module
-[`js/sim/resources.js`](js/sim/resources.js) (Design Doc §06 + §19
-first-pass numbers — Whisper $165 / Investigation $800 / Arc $2000;
-ink Whisper 1 / Investigation 3 / Arc 8; heat Vice 8 / Violence 12 /
-Money 15 / Labor 4). `EditionSummary` aggregates the per-story deltas;
-`World.resources` accumulates `{ ink: STARTING_INK, cash, heat }` across
-editions; `ackDebrief()` applies the §19 baseline heat decay
-(`HEAT_DECAY_PER_EDITION = 8`, clamped at zero). `HudState.resources`
-now projects derived `leads` / `stories` counts plus the live running
-balances. The HUD ticker grew four segments
-(`X LD · X ST · X INK · $X · X HEAT`) inside the single masthead strip
-so the milestone 0.9 corkboard can absorb them without churning
-`main.js`. 53 / 53 tests pass; no ICD bumps (06 v0.2 / 01 v0.5 / 05 v0.3
-all used as authored).
+**RE-EVAL after 0.6 — shipped (v0.6.1).** Paper + code-aware. Four
+implemented ICDs (01 v0.5, 03 v0.2, 05 v0.3, 06 v0.2) survived contact
+with 0.4–0.6 code — no drift, Constraint #4 honored throughout. The
+inner three rings of the loop are closed (dispatch→pickup→verify→plate
+→print, the 12-min cycle, the cash/ink/heat economy); the adversarial
+ring is entirely a 0.7 concern. ICD-02 promoted medium→strong on the
+N-window rule (overview line 42). One scheduled paper slot inserted —
+PRE-0.7 — to author ICD-02 v0.2 (Evening Star SCAVENGE+RAID state
+machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView
+posture) and an ICD-05 §Notes amendment (`AUTO_PLATE_SENTINEL`
+substitution path + ink plate-time hard gate). Three discussion docs
+settled: tutorial diegetic frame locked (copy at 0.10), difficulty
+selector deferred to Tier-1 (frequency-scaling only), rival-state
+visibility locked to partial-dossier with vocabulary
+`{calm, scheming, hostile}`. No JS / test / index.html changes.
+See [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).
 
-Next: **RE-EVAL after 0.6** (paper + code-aware — the first re-eval
-since v0.3.1). Does the loop play? Promote rival AI contract to strong
-for 0.7–0.8? Decide tutorial shape. Then milestone 0.7 (Evening Star
-SCAVENGE + RAID states, Goon unit, Press HP + fail-state).
+Next: **PRE-0.7** — paper-only architecture session authoring ICD-02
+v0.2 + ICD-05 §Notes amendment. Gates milestone 0.7. Ships at v0.6.2.
+Then milestone 0.7 (Evening Star SCAVENGE + RAID, Goon unit, Editor
+unit, Fixer unit, Press HP + fail-state).
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -109,6 +111,12 @@ SCAVENGE + RAID states, Goon unit, Press HP + fail-state).
       projects derived counts + balances; HUD ticker line extends with
       four segments. No ICD bumps — 01 v0.5 / 06 v0.2 / 05 v0.3 used as
       authored. Tests at 53 cases (new `resources.test.mjs`).
+- [x] **RE-EVAL after 0.6** — paper + code-aware. Four implemented ICDs
+      survived contact with 0.4–0.6 code; no drift. ICD-02 band
+      promoted medium→strong; PRE-0.7 scheduled to author v0.2.
+      Three discussion docs settled (tutorial / difficulty / rival
+      visibility). Ink plate-time hard gate locked; lands at 0.7. See
+      [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).
 
 ## Out of scope until called
 

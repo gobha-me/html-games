@@ -1,5 +1,105 @@
 # Changelog — Late Edition
 
+## v0.6.1 — 2026-05-21 — RE-EVAL after 0.6 (paper + code-aware)
+
+Paper-only, no code. The post-0.6 re-evaluation slot the roadmap called
+for (line 26) is now closed. METHODOLOGY §3 both halves ran — structural
+pass + code-aware pass + forward ICD presence check for the
+0.7 / PRE-0.8 / 0.8 window — plus six open-question resolutions: the
+three the roadmap scheduled (loop plays / ICD-02 promotion / tutorial
+shape) and three folded in at session open (difficulty selector, rival-
+state visibility, ink negative-balance enforcement).
+
+This is the fourth paper-only changelog entry (v0.1.1 was PRE-0.2;
+v0.3.1 was RE-EVAL after 0.3; v0.4.1 was PRE-0.5).
+
+Headline outputs:
+
+- **No interface drift.** ICDs 01 v0.5 / 03 v0.2 / 05 v0.3 / 06 v0.2 all
+  survived contact with shipped 0.4–0.6 code. Constraint #4 honored:
+  0.4 bumped ICD-05 v0.2→v0.3 in-PR; PRE-0.5 (v0.4.1) authored
+  ICD-06 v0.2 + ICD-01 v0.5; 0.5/0.6 used everything as authored. Two
+  strong-band claims (12-min cycle, five-resource names) moved from
+  *aligned* (post-0.3 re-eval) to *tested*.
+- **Loop status:** the inner three rings are closed (dispatch→pickup→
+  verify→plate→print, the 12-minute cycle, the cash/ink/heat economy);
+  the adversarial ring is entirely a 0.7 concern. No demotions
+  warranted.
+- **One band promotion:** ICD-02 medium → strong (overview line 42
+  fires on the N=3-window rule with 0.7 entering scope). Status edited
+  in-PR; v0.2 shape work scheduled to PRE-0.7.
+- **Forward ICD check surfaces one gap, schedules PRE-0.7.**
+  Single architecture session to author ICD-02 v0.2 (Evening Star
+  SCAVENGE+RAID state machine, RAID_BUREAU policy, RivalView past-
+  intents resolution, RivalStatusView posture projection) and the
+  ICD-05 §Notes amendment (`AUTO_PLATE_SENTINEL` substitution path +
+  ink plate-time hard gate rule).
+- **Three discussion docs settled:**
+  - `discussion/tutorial-first-edition.md` — diegetic frame locked;
+    copy lands at 0.10.
+  - `discussion/difficulty-selector.md` — frequency-scaling only;
+    deferred to Tier-1 run-meta layer.
+  - `discussion/rival-state-visibility.md` — partial-dossier locked;
+    posture vocabulary `{calm, scheming, hostile}`; medium-band.
+- **Ink negative-balance enforcement** — locked to **plate-time hard
+  gate**; lands at 0.7 with the Editor unit.
+
+### Added
+
+- [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md)
+  — the session document. Records what code was read, classifies findings
+  per METHODOLOGY §3.1.1, schedules PRE-0.7 with its specific
+  deliverables (ICD-02 v0.2 + ICD-05 §Notes amendment in one paper slot),
+  and pins six open-question verdicts (§3.5 Q1–Q6).
+
+### Changed
+
+- [`roadmap.md`](roadmap.md) — RE-EVAL-after-0.6 row ticked; new
+  **PRE-0.7** row inserted before 0.7 (single architecture session to
+  author ICD-02 v0.2 + ICD-05 §Notes amendment); 0.7's band column
+  bumped `medium → strong at re-eval` → `strong`; current-status block
+  advanced to v0.6.1; checklist updated with the v0.6.1 entry; the
+  ratio paragraph below the table updated (3 → 4 architecture-only
+  items).
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next" paragraphs
+  rewritten to reflect: re-eval shipped, ICD-02 promoted, PRE-0.7
+  scheduled, three discussion docs settled, ink rule pinned.
+- [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md) — **Band
+  line only.** `medium (→ strong at the post-0.6 re-eval, before
+  milestone 0.7)` → `strong (post-0.6 RE-EVAL promotion; v0.2 shape
+  work scheduled to PRE-0.7)`. No shape change — v0.2 lands at PRE-0.7.
+- [`discussion/tutorial-first-edition.md`](discussion/tutorial-first-edition.md)
+  — status line moved from `open · needs a paper session before MVP
+  polish` to `committed-direction · diegetic frame locked (notes from
+  the old man) · copy lands at milestone 0.10`. Body unchanged.
+- [`discussion/difficulty-selector.md`](discussion/difficulty-selector.md)
+  — status line moved from `open · pre-architecture · deferred to
+  post-MVP` to `committed-direction · frequency-scaling only ·
+  deferred to Tier-1 run-meta layer`. Body unchanged.
+- [`discussion/rival-state-visibility.md`](discussion/rival-state-visibility.md)
+  — status line moved from `open · pre-architecture · not a commitment`
+  to `committed-direction · partial dossier locked · posture vocabulary
+  {calm, scheming, hostile}`. Body unchanged.
+
+### Not changed
+
+- No file under [`js/`](js), [`tests/`](tests), or [`index.html`](index.html)
+  was touched. METHODOLOGY §3.2 forbids code in a re-evaluation session.
+- ICD-02 **shape** is unchanged — the band moved, the contract did not.
+  v0.2 shape work is explicitly scheduled to PRE-0.7 per the §3.2
+  surface-and-schedule pattern (the same pattern v0.3.1 used to defer
+  ICD-06 v0.2 + ICD-01 v0.5 authoring to PRE-0.5).
+- No other ICD was bumped — no drift was found.
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — 53 / 53 pass (baseline, unchanged).
+- `git diff` touches only `architecture/`, `roadmap.md`, `CHANGELOG.md`,
+  `AGENTS.md`, `icds/ICD-02-rival-world.md`, and three files under
+  `discussion/`. Zero diff under `js/`, `tests/`, `index.html`,
+  `design/`, the other ICDs, or `deferred/`.
+
 ## v0.6.0 — 2026-05-20 — Milestone 0.6: cash · ink · heat
 
 The economy lights up. Each printed Story now carries a `cash_yield` /

@@ -1,7 +1,7 @@
 # ICD-02 · Rival ↔ World
 
-**Status:** draft (Phase 0 / PRE-0.1)
-**Band:** medium (→ strong at the post-0.6 re-eval, before milestone 0.7)
+**Status:** draft (Phase 0 / PRE-0.1) — band promoted at post-0.6 RE-EVAL; v0.2 shape work scheduled to PRE-0.7
+**Band:** strong (post-0.6 RE-EVAL promotion per overview line 42 N-window rule; v0.1 shape preserved until PRE-0.7 authors v0.2)
 **First caller:** milestone 0.7 (Evening Star SCAVENGE + RAID states)
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03 ·
 [`../design/rival-ai-spec.html`](../design/rival-ai-spec.html) §02 + §08
@@ -56,9 +56,27 @@ new Intent kinds may be added without an ICD revision.
 
 - `WireTerms` shape — defer until first wire-deal milestone.
 - Should rivals see their own past intents in `RivalView`? Probably yes for
-  arc-aware behavior. Settle at the post-0.6 re-eval.
+  arc-aware behavior. **Resolution scheduled to PRE-0.7** — the post-0.6
+  RE-EVAL promoted the band but deferred shape work to the PRE-0.7 paper
+  slot per METHODOLOGY §3.2.
 
 ## Deviation policy
 
 Adding an Intent kind, or changing the shape of `tick`, requires an
 architecture session and a same-PR doc update.
+
+## Revision history
+
+- **band promotion** (post-0.6 RE-EVAL, 2026-05-21) — Band moved
+  medium → strong per overview line 42's N=3-window rule with 0.7
+  entering scope. **No shape change** in this PR — the v0.2 shape work
+  (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU goon-count
+  policy, RivalView past-intents resolution, RivalStatusView posture
+  projection per
+  [`../discussion/rival-state-visibility.md`](../discussion/rival-state-visibility.md))
+  is scheduled to PRE-0.7. See
+  [`../architecture/re-eval-after-0.6.md`](../architecture/re-eval-after-0.6.md)
+  §3.5 Q2 + §3 PRE-0.7.
+- **v0.1** (PRE-0.1, Phase 0 bootstrap) — Draft. Intent vocabulary
+  committed; caller-triggered scope table; v0.1 §Open questions
+  flagged for the post-0.6 re-eval.

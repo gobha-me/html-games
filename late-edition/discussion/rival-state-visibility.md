@@ -1,6 +1,7 @@
 # discussion · rival-state-visibility
 
-**Status:** open · pre-architecture · not a commitment
+**Status:** committed-direction · partial dossier locked · posture vocabulary `{calm, scheming, hostile}` · medium-band
+**Settled:** [`../architecture/re-eval-after-0.6.md`](../architecture/re-eval-after-0.6.md) §3.5 Q5
 **Cites:** Design Doc §10 · §13 (HUD) · Rival AI Spec
 
 How much of rival state does the player see directly vs infer?

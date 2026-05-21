@@ -50,64 +50,46 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.6.0 — milestone 0.6 shipped (code).** The economy lights up. A new
-pure module [`js/sim/resources.js`](js/sim/resources.js) owns the per-tier
-/ per-flavor yields (Whisper $165 / Investigation $800 / Arc $2000; ink
-Whisper 1 / Investigation 3 / Arc 8; heat Vice 8 / Violence 12 / Money 15 /
-Labor 4) plus the edition-boundary constants (`STARTING_INK = 20`,
-`HEAT_DECAY_PER_EDITION = 8`) — first-pass §19 numbers, medium-band per
-overview line 44. `World._fireDebrief` writes per-story yields at the
-verified→plated step (ICD-05 §Notes — "computed at plated and frozen
-there"); `_buildEditionSummary` aggregates them into `cash_earned` /
-`ink_consumed` / `heat_applied`; `World.resources` accumulates the
-running balances across editions; `ackDebrief()` applies the §19 baseline
-heat decay (clamped non-negative). `HudState.resources` now projects
-derived `leads` / `stories` counts plus live `ink` / `cash` / `heat`
-balances. The HUD ticker grew four segments inside the single masthead
-strip. Tests at 53/53 (45 baseline + 8 new in
-[`tests/resources.test.mjs`](tests/resources.test.mjs)).
+**v0.6.1 — RE-EVAL after 0.6 shipped (paper + code-aware).** The first
+re-evaluation since v0.3.1 (the post-0.3 re-eval) and the first one that's
+paper + code-aware. No JS / test / index.html changes — strict paper-only
+per METHODOLOGY §3.2. Outputs:
 
-ICD activity (Constraint #4 — none triggered; all three relevant ICDs were
-used as authored):
+- **Four implemented ICDs survived contact with 0.4–0.6 code.** ICD-01
+  v0.5, ICD-03 v0.2, ICD-05 v0.3, ICD-06 v0.2 — no drift; Constraint #4
+  honored throughout (0.4 bumped ICD-05 v0.2→v0.3 in-PR; PRE-0.5 authored
+  06 v0.2 + 01 v0.5; 0.5/0.6 used everything as authored). Two
+  strong-band claims moved from *aligned* to *tested*: the 12-min cycle
+  (`tests/print-cycle.test.mjs`) and the five-resource names
+  (`tests/resources.test.mjs`).
+- **Loop status:** inner three rings closed (dispatch→pickup→verify→
+  plate→print, the 12-minute cycle, the cash/ink/heat economy). The
+  adversarial ring (rivals + Press HP fail-state) is entirely a 0.7
+  concern — expected per overview line 28.
+- **One band promotion:** ICD-02 medium → strong (overview line 42
+  fires on the N=3-window rule with 0.7 entering scope). Status edited
+  in-PR; v0.2 shape work scheduled to PRE-0.7.
+- **One scheduled paper slot — PRE-0.7** — authors ICD-02 v0.2
+  (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy,
+  RivalView past-intents, RivalStatusView posture) and an ICD-05
+  §Notes amendment (`AUTO_PLATE_SENTINEL` substitution path + ink
+  plate-time hard gate rule). Gates milestone 0.7. Will ship at v0.6.2.
+- **Three discussion docs settled:**
+  - `discussion/tutorial-first-edition.md` — diegetic frame locked
+    ("notes from the old man"); copy lands at milestone 0.10.
+  - `discussion/difficulty-selector.md` — frequency-scaling only;
+    deferred to Tier-1 run-meta layer.
+  - `discussion/rival-state-visibility.md` — partial-dossier locked
+    with posture vocabulary `{calm, scheming, hostile}`; medium-band.
+- **Ink negative-balance enforcement** — locked to **plate-time hard
+  gate**; lands at 0.7 with the Editor unit. ICD-05 §Notes amendment
+  scheduled to PRE-0.7.
 
-- **ICD-01 v0.5** — used as authored. `HudState.resources` populated with
-  non-zero values from the new module; shape unchanged from PRE-0.5.
-- **ICD-06 v0.2** — used as authored. `EditionSummary.cash_earned` /
-  `ink_consumed` / `heat_applied` now carry non-zero deltas summed from
-  `StoryDigest.cash`; shape unchanged.
-- **ICD-05 v0.3** — used as authored. `Story.cash_yield` and
-  `Story.heat_yield` populated at the plated step (§Notes already
-  permits). `Story.ink_cost` is a new sim-internal field — it touches no
-  View, so no ICD bump warranted.
+Full report: [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).
 
-Code state (delta from v0.5.0):
-
-- [`js/sim/resources.js`](js/sim/resources.js) — **NEW.** Pure module
-  exporting `STARTING_INK`, `HEAT_DECAY_PER_EDITION`, the three lookup
-  tables, and `cashYieldFor` / `inkCostFor` / `heatYieldFor` helpers.
-  Mirrors the [`cycle-clock.js`](js/sim/cycle-clock.js) pure-module pattern.
-- [`js/sim/world-state.js`](js/sim/world-state.js) — imports the helpers;
-  constructor seeds `this.resources = { ink: STARTING_INK, cash: 0, heat: 0 }`;
-  `_fireDebrief` writes per-story yields + applies summary deltas to the
-  running balances; `_buildEditionSummary` aggregates; `ackDebrief()` applies
-  heat decay; `snapshot()` projects derived counts + live balances.
-- [`js/hud.js`](js/hud.js) — ticker line extended with four resource segments
-  (`X LD · X ST · X INK · $X · X HEAT`). No CSS / DOM / main.js changes.
-- [`index.html`](index.html) — title + masthead caption + initial ticker
-  text rolled forward from "0.5 print cycle · deadline · debrief" to
-  "0.6 cash · ink · heat".
-- [`tests/print-cycle.test.mjs`](tests/print-cycle.test.mjs) — three
-  assertions amended in the same PR (Constraint #4 hygiene): the fresh-HUD
-  resources shape now reads `{ leads: 1, stories: 0, ink: 20, cash: 0, heat: 0 }`,
-  and the print-step yield assertions now expect non-zero. The yield
-  numbers are covered by `tests/resources.test.mjs`.
-
-**Next: RE-EVAL after 0.6 (paper + code-aware).** The first re-evaluation
-since v0.3.1 (the post-0.3 re-eval). Per the roadmap: does the loop play?
-Promote rival AI contract to strong for 0.7–0.8? Decide tutorial shape.
-Forward ICD presence check for 0.7+ (Goon unit, Evening Star state machine —
-ICD-02 promotion). After re-eval, milestone 0.7: Evening Star SCAVENGE +
-RAID states, Goon unit, Press HP + fail-state.
+**Next: PRE-0.7 (paper).** Architecture session authoring ICD-02 v0.2 +
+ICD-05 §Notes amendment. Gates milestone 0.7 (Evening Star SCAVENGE +
+RAID, Goon unit, Editor unit, Fixer unit, Press HP + fail-state).
 
 ## When you're stuck
 

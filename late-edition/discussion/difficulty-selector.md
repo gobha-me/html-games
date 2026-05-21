@@ -1,6 +1,7 @@
 # discussion · difficulty-selector
 
-**Status:** open · pre-architecture · deferred to post-MVP
+**Status:** committed-direction · frequency-scaling only · deferred to Tier-1 run-meta layer
+**Settled:** [`../architecture/re-eval-after-0.6.md`](../architecture/re-eval-after-0.6.md) §3.5 Q4
 **Cites:** Design Doc §19 · §20 TBD
 
 Frequency-scaling vs aggression-scaling — which knob do we expose?

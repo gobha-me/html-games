@@ -1,6 +1,7 @@
 # discussion · tutorial-first-edition
 
-**Status:** open · needs a paper session before MVP polish
+**Status:** committed-direction · diegetic frame locked (notes from the old man) · copy lands at milestone 0.10
+**Settled:** [`../architecture/re-eval-after-0.6.md`](../architecture/re-eval-after-0.6.md) §3.5 Q3
 **Cites:** Design Doc §05 · §13
 
 The diegetic onboarding beat.
