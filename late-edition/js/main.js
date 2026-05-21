@@ -8,6 +8,7 @@ import { attachInput } from './input.js';
 import { HudTicker } from './hud.js';
 import { DebriefPanel } from './debrief-panel.js';
 import { GameOverOverlay } from './game-over-overlay.js';
+import { loadSave, saveNow } from './sim/save.js';
 
 const TICK_HZ = 30;
 const TICK_DT = 1 / TICK_HZ;
@@ -22,11 +23,34 @@ const gameOverRoot = document.getElementById('gameover-overlay');
 if (!gameOverRoot) throw new Error('gameover-overlay root not found');
 
 const renderer = new Renderer(root);
-const world = new World();
+// 0.8 (ICD-04 v0.1): attempt to restore from localStorage; fall through to
+// a fresh World on no-save / parse-fail / unknown-future-version.
+const world = loadSave() ?? new World();
 const hud = new HudTicker(hudRoot);
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);
 attachInput(root, renderer, world);
+
+// 0.8 save trigger cadence (ICD-04 §Save-trigger-surface settles here —
+// the ICD recommendation is sim-external and may be settled by the 0.8
+// session without an ICD bump):
+//   - on CYCLE_BEGIN       — fires immediately after EDITION_DEBRIEF_END
+//                            inside ackDebrief, capturing the just-started
+//                            edition with a fresh clock. Saving on
+//                            EDITION_DEBRIEF_END itself would capture the
+//                            cycle mid-transition (fire_fired=true,
+//                            remainingMs=0, edition=N before cycle.start
+//                            advances to N+1) and the load would be stuck.
+//                            The constructor-time start(1) is dispatched
+//                            before subscribers attach, so this subscriber
+//                            never fires for the initial edition.
+//   - on CYCLE_GAME_OVER   — terminal round-trip integrity.
+// Autosave-every-N, multi-slot, compression deferred per ICD §Open-questions.
+world.subscribeCycle((ev) => {
+  if (ev.kind === 'CYCLE_BEGIN' || ev.kind === 'CYCLE_GAME_OVER') {
+    saveNow(world);
+  }
+});
 
 let lastFrameTime = performance.now();
 let lastTickTime = lastFrameTime;

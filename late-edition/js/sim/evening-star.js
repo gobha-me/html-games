@@ -54,6 +54,24 @@ export class EveningStar {
     this._tickAccumMs = 0;
   }
 
+  // 0.8 (ICD-04 v0.1) — restore from an EveningStarSnap. Re-creates the rival
+  // and overwrites rng.state + _tickAccumMs so post-load decisions match the
+  // pre-save run (replay determinism, ICD §Notes — Determinism contract).
+  static fromSnap(snap) {
+    const star = new EveningStar({
+      id:           snap.id,
+      bureauId:     snap.bureau_id,
+      tickInterval: snap.tick_interval_ms,
+      seed:         1, // overwritten immediately
+    });
+    star.state = snap.state;
+    star.editionsSinceRaid = snap.editions_since_raid;
+    star.pastIntents = snap.past_intents.slice();
+    star._tickAccumMs = snap.tick_accum_ms;
+    star.rng.state = snap.rng.state;
+    return star;
+  }
+
   // Player-facing posture (ICD-02 §RivalStatusView).
   get posture() {
     return POSTURE_BY_STATE[this.state] ?? 'calm';

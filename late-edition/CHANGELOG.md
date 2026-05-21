@@ -1,5 +1,65 @@
 # Changelog — Late Edition
 
+## v0.8 — 2026-05-21 — save · load · resume mid-edition
+
+Code milestone. Lifts ICD-04 v0.1 verbatim — single versioned
+`localStorage` blob at key `'late-edition.save.v1'`, atomic write,
+migration-chain stub (zero migrations at the floor), per-rival RNG
+state captured for replay determinism, mid-edition resume via continuous
+`pos` + remaining `path` + `CycleClock.remainingMs` with `_warningFired`
+/ `_fireFired` guards. The §Save-trigger-surface Open Q settles: writes
+fire on `CYCLE_BEGIN` (edition just opened with a fresh clock — the
+ICD's recommended `EDITION_DEBRIEF_END` can't be used as-is because
+`cycle.start()` inside `ackDebrief` runs AFTER that emit, so a save
+taken on debrief-end would capture the cycle stuck at `fire_fired=true`
+/ `remainingMs=0`) and on `CYCLE_GAME_OVER` (terminal integrity). The
+trigger surface is sim-external per the ICD itself — no ICD bump.
+The ICD §Open-questions defers autosave-every-N, multi-slot,
+compression, and a pre-`DEADLINE_FIRE` checkpoint to later milestones.
+
+Headline outputs:
+
+- **`js/sim/save.js` (new).** Public surface:
+  `SAVE_KEY` / `CURRENT_VERSION` / `STORY_VERSION` constants,
+  `saveNow(world, storage?)` / `loadSave(storage?)` /
+  `serialize(world)` / `deserialize(blob)` / `runMigrations(raw)`.
+  Dependency-injected `storage` lets Node tests pass an in-memory
+  `Map`-backed stub; browser path defaults to `globalThis.localStorage`.
+  Size guard: `saveNow` `console.warn`s when the serialized blob
+  exceeds 500 KB — surfaces the §Open-questions compression trigger
+  when playtest blobs grow.
+- **`World` restore path.** `new World({ snap })` (or
+  `World.fromSnap(blob)`) skips fresh-construct seeding and rebuilds
+  every authoritative field from the blob. Exported `setIdMint(n)` /
+  `getIdMint()` plug the module-scoped `nextId` counter into both
+  construct paths so post-load `mkId()` doesn't collide with anything
+  in the loaded blob. `Unit.selected` resets on load (ICD §Notes — UI
+  state).
+- **`CycleClock.fromSnap` + `EveningStar.fromSnap`.** Bypass the
+  constructor seeding paths so `_warningFired` / `_fireFired` (clock)
+  and `rng.state` / `_tickAccumMs` / `pastIntents` (rival) survive
+  the round-trip verbatim. Replay determinism: a saved run reloaded
+  produces the same Evening Star decisions the original run would.
+- **`main.js` wire-up.** Boot tries `loadSave()` first, falls through
+  to `new World()` on no-save / parse-fail / unknown-future-version.
+  Subscribes `saveNow(world)` to the two recommended triggers.
+- **`Story.version` field — code side of the ICD-05 v0.4.1 close.**
+  Every `StorySnap` carries `version: 1`; the live in-memory `Story`
+  shape is byte-for-byte identical to v0.4 (no field added, no field
+  removed). The `serialize` / `deserialize` projector is the bridge.
+- **ICD activity.** None. ICD-04 v0.1 lifted verbatim; no deviation
+  required. Constraint #4 (any code deviation updates the ICD in the
+  same PR) is honored by virtue of zero deviation.
+- **Tests.** 94 → 106 (twelve new cases under
+  [`tests/save-load.test.mjs`](tests/save-load.test.mjs)). Coverage:
+  round-trip identity, mid-edition resume (reporter mid-walk), duplicate-
+  event suppression (warning fired pre-save → only fire emits post-load),
+  EveningStar determinism (`rng.state` + `_tickAccumMs` round-trip),
+  `Story.version` lives only on the snap, unknown future version refuses,
+  `id_mint` round-trip, save during debrief pause, save after game over,
+  missing-storage tolerance, blob-level `version` constant, and the
+  size-guard stretch case.
+
 ## v0.7.2 — 2026-05-21 — PRE-0.8 paper session
 
 Paper-only, no code. The last ICD the Phase-0 supplement deferred is

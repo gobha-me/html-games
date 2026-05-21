@@ -46,6 +46,11 @@ import {
 } from './resources.js';
 import { EveningStar, PAST_INTENTS_PROJECTION_CAP } from './evening-star.js';
 
+// 0.8: id-mint module state. Both fresh-construct (constructor) and the
+// snap restore path explicitly call setIdMint — fresh = 1, restore =
+// blob.id_mint.next. Mitigates process-wide pollution when tests build
+// multiple Worlds in the same Node process.
+
 export const TILE = 6;
 export const GRID_W = 10;
 export const GRID_H = 10;
@@ -92,8 +97,17 @@ export function worldToTile(pos) {
 let nextId = 1;
 const mkId = (prefix) => `${prefix}-${nextId++}`;
 
+export function setIdMint(n) { nextId = n; }
+export function getIdMint() { return nextId; }
+
 export class World {
   constructor(opts = {}) {
+    // 0.8 restore path (ICD-04 v0.1). When opts.snap is provided the
+    // constructor skips fresh-construct seeding and rebuilds from the blob.
+    if (opts.snap) {
+      this._loadFromSnap(opts.snap);
+      return;
+    }
     nextId = 1;
     this.grid = bakeGrid();
     this.sim_time_ms = 0;
@@ -180,6 +194,39 @@ export class World {
     // debrief pause pattern). Set when bureau.hp ≤ 0.
     this.gameOver = false;
 
+    this.effects = [];
+  }
+
+  // 0.8 restore path (ICD-04 v0.1). Rebuilds every authoritative field from
+  // a SaveBlobV1 snapshot. The constructor delegates here when opts.snap is
+  // present so the fresh-construct seeding (buildings, units, stories,
+  // rivals) is skipped. The blob's id_mint.next restores the module-scoped
+  // counter so post-load mkId() doesn't collide with anything in the blob.
+  // _warningFired / _fireFired on the restored CycleClock are carried
+  // verbatim so DEADLINE_WARNING / DEADLINE_FIRE don't double-emit on resume.
+  _loadFromSnap(blob) {
+    setIdMint(blob.id_mint.next);
+    this.grid = {
+      width: blob.grid.width,
+      height: blob.grid.height,
+      walkable: blob.grid.walkable.map((row) => row.slice()),
+    };
+    this.sim_time_ms = blob.sim_time_ms;
+    this.cycle = CycleClock.fromSnap(blob.cycle);
+    this.cycleSubscribers = [];
+    this.debriefOpen = blob.debrief_open;
+    this.gameOver = blob.game_over;
+    this.resources = {
+      ink:  blob.resources.ink,
+      cash: blob.resources.cash,
+      heat: blob.resources.heat,
+    };
+    this.buildings = blob.buildings.map(restoreBuilding);
+    this.units = blob.units.map(restoreUnit);
+    this.stories = blob.stories.map(restoreStory);
+    this.rivals = [EveningStar.fromSnap(blob.rivals.evening_star)];
+    this.editionHistory = blob.edition_history.slice();
+    this._pendingRivalEvents = blob.pending_rival_events.slice();
     this.effects = [];
   }
 
@@ -620,9 +667,73 @@ export class World {
   }
 }
 
+// 0.8 (ICD-04 v0.1) — convenience static so save.js can call
+// World.fromSnap(blob) without threading the opts shape.
+World.fromSnap = (blob) => new World({ snap: blob });
+
 function bakeGrid() {
   const walkable = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(true));
   return { width: GRID_W, height: GRID_H, walkable };
+}
+
+// 0.8 (ICD-04 v0.1) — snap → live projectors. Snake_case is the wire
+// convention; the live World uses camelCase. ICD §Notes — Unit.selected
+// resets on load (UI state, not sim state). Story.version is per-record
+// schema metadata on the persisted snap only — the in-memory Story shape
+// is byte-for-byte identical to v0.4 (ICD-05 v0.4.1 §Open-questions close).
+
+function restoreBuilding(b) {
+  return {
+    id: b.id,
+    kind: b.kind,
+    tile: { x: b.tile.x, y: b.tile.y },
+    hp: b.hp,
+    hp_max: b.hp_max,
+    tier: b.tier,
+  };
+}
+
+function restoreUnit(u) {
+  const live = {
+    id: u.id,
+    kind: u.kind,
+    tile: { x: u.tile.x, y: u.tile.y },
+    pos: { x: u.pos.x, y: u.pos.y, z: u.pos.z },
+    facing: u.facing,
+    state: u.state,
+    selected: false,
+    carrying: u.carrying,
+    carryingStoryId: u.carrying_story_id,
+    path: u.path.map((c) => ({ x: c.x, y: c.y })),
+    pathIdx: u.path_idx,
+  };
+  if (u.hp !== undefined)     live.hp = u.hp;
+  if (u.hp_max !== undefined) live.hp_max = u.hp_max;
+  return live;
+}
+
+function restoreStory(s) {
+  // Strip the per-record `version` — the live Story shape has no such field
+  // (ICD-05 v0.4.1 close: version lives on the persisted StorySnap only).
+  const live = {
+    id: s.id,
+    state: s.state,
+    district: s.district,
+    flavor: s.flavor,
+    tier: s.tier,
+    truthful: s.truthful,
+    spawned_at_ms: s.spawned_at_ms,
+    tile: { x: s.tile.x, y: s.tile.y },
+    picked_up_by: s.picked_up_by,
+    held_by_building: s.held_by_building,
+  };
+  if (s.verified_by !== undefined) live.verified_by = s.verified_by;
+  if (s.plated_by !== undefined)   live.plated_by = s.plated_by;
+  if (s.printed_in !== undefined)  live.printed_in = s.printed_in;
+  if (s.cash_yield !== undefined)  live.cash_yield = s.cash_yield;
+  if (s.heat_yield !== undefined)  live.heat_yield = s.heat_yield;
+  if (s.ink_cost !== undefined)    live.ink_cost = s.ink_cost;
+  return live;
 }
 
 // Shared unit constructor. hp/hp_max are sim-internal (not on UnitView) and

@@ -28,7 +28,7 @@ definitions.
 | **0.7.0** | Evening Star SCAVENGE + RAID states · Goon unit · Fixer unit · Press HP + `CYCLE_GAME_OVER` fail-state — *shipped v0.7.0* | ICD-02 v0.2 used as authored; ICD-06 → v0.3 (CYCLE_GAME_OVER); Editor + ink gate split out to **0.7.1** | strong |
 | **0.7.1** | Editor unit (substitutes `AUTO_PLATE_SENTINEL` with `UnitId`) · ink plate-time hard gate (reject `verified → plated` if ink would go negative) — *shipped v0.7.1* | ICD-05 v0.4 §Notes used as authored — code-only milestone | strong |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session — *shipped v0.7.2* | Required before any code touches persistence | strong |
-| **0.8** | Save / load · resume mid-edition · version field | ICD-04 · localStorage blob · migration stub | strong |
+| **0.8** | Save / load · resume mid-edition · version field — *shipped v0.8* | ICD-04 v0.1 lifted verbatim · localStorage blob · migration-chain stub · cadence locked at cycle-begin + game-over | strong |
 | **0.9** | HUD corkboard · deadline ticker · selected-unit dossier | Design doc §13 · medium-band layout | medium |
 | **RE-EVAL** | After 0.9 · paper + code-aware | Code-arch divergence check. Tighten HUD spec. Confirm Tier-0 exit criteria. | re-eval |
 | **0.10** | Tier-0 closer · 5-edition arc · run-end summary screen · high-score persistence | The first thing a friend can play · verifies the loop reads as a game | strong |
@@ -47,28 +47,31 @@ v0.4 cover them).
 
 ## Current status
 
-**PRE-0.8 — shipped (v0.7.2, paper-only).** ICD-04 (save schema) is
-authored at v0.1 ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)).
-Single versioned `localStorage` JSON blob (`'late-edition.save.v1'`)
-with per-rival RNG state captured for determinism, mid-edition resume
-via continuous `pos` + remaining `path` + `CycleClock.remainingMs` +
-the `_warningFired` / `_fireFired` re-emission guards, and a per-record
-`Story.version` field that migrates independently of the blob-level
-`version`. The Story `version` field closes ICD-05 v0.4 §Open-Q-1
-(which had explicitly deferred the question to PRE-0.8); ICD-05 bumps
-to v0.4.1 with the §Open-questions closure paragraph — **no in-memory
-shape change**. ICD-04 also recommends the save trigger surface
-(on-`EDITION_DEBRIEF_END` + on-`CYCLE_GAME_OVER`) without locking it,
-leaving the cadence question for the 0.8 code session. No code touched
-in this PR — paper-only architecture session, exactly as the
-methodology asks before code can touch persistence.
+**Milestone 0.8 — shipped (v0.8).** Save / load / resume mid-edition
+lifted ICD-04 v0.1 verbatim. New module
+[`js/sim/save.js`](js/sim/save.js) exposes `saveNow(world)` /
+`loadSave()` against the single versioned `localStorage` blob at
+`'late-edition.save.v1'`; the `World` snap restore path bypasses
+fresh-construct seeding and rebuilds every authoritative field from
+the blob. `CycleClock.fromSnap` and `EveningStar.fromSnap` carry the
+`_warningFired` / `_fireFired` deadline-event guards and the rival's
+`rng.state` + `_tickAccumMs` verbatim — replay determinism is
+load-bearing through the round-trip. `setIdMint` / `getIdMint` plug
+the module-scoped `nextId` counter into both construct paths so
+post-load `mkId()` doesn't collide with the loaded blob. The
+§Save-trigger-surface Open Q settles at the ICD's recommended default:
+writes fire on `EDITION_DEBRIEF_END` + on `CYCLE_GAME_OVER`. The
+`Story.version: 1` field lives on the persisted `StorySnap` only (ICD-
+05 v0.4.1 close); the live in-memory `Story` shape is byte-for-byte
+identical to v0.4. No ICD bumps — v0.1 was lifted verbatim and
+Constraint #4 honored by zero deviation. Tests at 106 cases (94 →
+106; twelve new under [`tests/save-load.test.mjs`](tests/save-load.test.mjs)).
 
-Next: **milestone 0.8** — save/load · resume mid-edition · version
-field. ICD-04 v0.1 is now the contract the 0.8 code session lifts;
-deviations update ICD-04 in the same PR (Constraint #4). The 0.8 code
-session is also the spot where the cadence Open Q above settles and
-the live-Story-vs-persisted-StorySnap projector lands (per ICD-05
-v0.4.1 §Open-questions resolution).
+Next: **milestone 0.9** — HUD corkboard, deadline ticker, selected-
+unit dossier. Medium-band layout per ICD-01 v0.5 §HudState + design
+doc §13. The post-0.9 re-eval slot is the third re-eval in the
+tier-0 plan; it'll do the code-arch divergence check and tighten the
+HUD spec before milestone 0.10 (the tier-0 closer).
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -170,6 +173,22 @@ v0.4.1 §Open-questions resolution).
       v0.4.1 — §Open-questions closure paragraph only, no in-memory
       shape change. ICD-01 v0.5 / 02 v0.2 / 06 v0.3 unchanged.
       Milestone 0.8 is now code-ready.
+- [x] **Milestone 0.8** — Save · load · resume mid-edition.
+      [`js/sim/save.js`](js/sim/save.js) hosts `saveNow` / `loadSave` /
+      `serialize` / `deserialize` / `runMigrations` against the single
+      versioned `localStorage` blob (`'late-edition.save.v1'`).
+      `World({ snap })` + `CycleClock.fromSnap` + `EveningStar.fromSnap`
+      bypass fresh-construct seeding; `setIdMint` / `getIdMint` round-
+      trip the module-scoped `nextId` counter. `Unit.selected` resets
+      on load (UI state, ICD-04 §Notes). [`js/main.js`](js/main.js)
+      boots via `loadSave() ?? new World()` and subscribes
+      `saveNow(world)` to `CYCLE_BEGIN` + `CYCLE_GAME_OVER` (the
+      ICD's recommended `EDITION_DEBRIEF_END` couldn't be used
+      as-is because `cycle.start()` inside `ackDebrief()` runs
+      AFTER that emit; the 0.8 session settles the Open Q on
+      `CYCLE_BEGIN` which fires immediately after with a fresh
+      clock). ICD-04 v0.1 lifted verbatim — no ICD bumps.
+      Tests at 106 cases (94 → 106; new `save-load.test.mjs`).
 
 ## Out of scope until called
 

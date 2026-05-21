@@ -8,28 +8,40 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.7.2 — PRE-0.8 (paper-only, ICD-04 save schema).** The last ICD
-the Phase-0 supplement deferred is now authored. ICD-04 v0.1
-([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)) defines
-the on-disk shape of a Late-Edition save: a single versioned
-`localStorage` JSON blob (`'late-edition.save.v1'`) capturing the
-full sim state — World clock, CycleClock, running resources, grid,
-every building / unit / story, the Evening Star state machine
-including its `SeededRng` 32-bit state for replay determinism, and
-the terminal / paused-state flags for round-trip integrity.
-Migration policy is a `migrate_N_to_N+1` pure-function chain on
-load; unknown future versions refuse to load rather than silently
-truncate. Mid-edition resume works because continuous unit `pos` +
-remaining `path` survive a save/load and the `CycleClock`
-`_warningFired` / `_fireFired` flags suppress duplicate deadline-event
-emissions. ICD-05 bumps to v0.4.1 — §Open-questions closure paragraph
-only, closing the "should `Story` carry a `version` field" question
-deferred at v0.1 to PRE-0.8 (the field lives on the persisted
-`StorySnap`, not on the live in-memory `Story`, so the in-memory
-shape is byte-for-byte identical to v0.4). ICD-01 v0.5, ICD-02 v0.2,
-ICD-06 v0.3 unchanged. Paper-only milestone — no JS touched, tests
-unchanged at 94 cases. Next slot per the roadmap is **milestone 0.8**
-— save/load · resume mid-edition · version field. See
+**v0.8 — save · load · resume mid-edition.** ICD-04 v0.1 lifts into
+code verbatim. A new module [`js/sim/save.js`](js/sim/save.js)
+exposes `saveNow(world)` / `loadSave()` against the single
+versioned `localStorage` blob at key `'late-edition.save.v1'`; the
+blob carries the full sim state — `CycleClock` (including the
+`_warningFired` / `_fireFired` guards that suppress duplicate
+deadline-event emissions on resume), the Evening Star's `SeededRng`
+32-bit state + sub-tick accumulator for replay determinism, every
+building / unit / story (with continuous `pos` + remaining `path`
+preserved on units so mid-edition resume is partial-tile-accurate),
+running resources, the edition-history ring, and the `game_over` /
+`debrief_open` flags for round-trip integrity through terminal and
+paused states. `World.fromSnap(blob)` and the corresponding
+`CycleClock.fromSnap` / `EveningStar.fromSnap` statics bypass the
+fresh-construct seeding paths; `setIdMint` / `getIdMint` round-trip
+the module-scoped id-mint counter so post-load `mkId()` doesn't
+collide with the loaded blob. The §Save-trigger-surface Open
+Question settles: writes fire on `CYCLE_BEGIN` (edition just opened
+with a fresh clock — the ICD's recommended `EDITION_DEBRIEF_END`
+can't be used as-is because `cycle.start()` inside `ackDebrief()`
+runs after that emit, so a save taken on debrief-end would capture
+the cycle stuck at `fire_fired=true`) and on `CYCLE_GAME_OVER`
+(terminal integrity). The trigger surface is sim-external per the
+ICD itself, so settling on a different concrete trigger than the
+ICD recommendation is not an ICD bump. Autosave-every-N, multi-slot, compression,
+and a pre-`DEADLINE_FIRE` checkpoint are deferred per ICD-04
+§Open-questions. `Story.version: 1` lives on the persisted
+`StorySnap` only — the live in-memory `Story` shape is byte-for-byte
+identical to v0.4 (ICD-05 v0.4.1 close). Boot in
+[`js/main.js`](js/main.js) tries `loadSave()` first and falls
+through to `new World()` on no-save / parse-fail / unknown-future-
+version. No ICD bumps — v0.1 lifted verbatim. Tests at 106 cases
+(94 → 106; twelve new under
+[`tests/save-load.test.mjs`](tests/save-load.test.mjs)). See
 [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
@@ -131,7 +143,8 @@ late-edition/
     │   ├── cycle-clock.js  # 12-min print cycle (ICD-06)
     │   ├── resources.js    # cash/ink/heat yield tables
     │   ├── seeded-rng.js   # 0.7.0 deterministic PRNG
-    │   └── evening-star.js # 0.7.0 rival state machine (ICD-02)
+    │   ├── evening-star.js # 0.7.0 rival state machine (ICD-02)
+    │   └── save.js         # 0.8 localStorage save/load (ICD-04 v0.1)
     └── render/
         └── renderer.js     # three.js cel-shaded toon world
 ```

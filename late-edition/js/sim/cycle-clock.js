@@ -28,6 +28,21 @@ export class CycleClock {
     return { kind: 'CYCLE_BEGIN', edition };
   }
 
+  // 0.8 (ICD-04 v0.1) — restore an existing clock from a CycleSnap. Bypasses
+  // start() so the warning_fired / fire_fired guards survive the round-trip
+  // and DEADLINE_WARNING / DEADLINE_FIRE don't double-emit on resume.
+  static fromSnap(snap) {
+    const c = new CycleClock({
+      editionDurationMs: snap.edition_duration_ms,
+      warningOffsetMs:   snap.warning_offset_ms,
+    });
+    c.edition = snap.edition;
+    c.remainingMs = snap.remaining_ms;
+    c._warningFired = snap.warning_fired;
+    c._fireFired = snap.fire_fired;
+    return c;
+  }
+
   // Step the clock forward. Returns events emitted this step (in order):
   //   CYCLE_TICK always (when an edition is open), then optionally
   //   DEADLINE_WARNING when remaining first crosses the warning threshold,

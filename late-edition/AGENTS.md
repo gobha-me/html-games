@@ -38,9 +38,9 @@ working as designed, not a delay.
 ## Hard rules for this game
 
 - **Don't commit code for milestones that haven't had their ICDs authored.**
-  ICD-04 was the last ICD deferred (to PRE-0.8); it's now authored at v0.1
-  ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)), so milestone
-  0.8 is code-ready and persistence work may proceed.
+  All six ICDs are authored; milestones 0.1–0.8 have shipped against
+  their contracts. Milestone 0.9 (HUD corkboard) lifts ICD-01 v0.5
+  §HudState — no new ICD required to open the code session.
 - **When code deviates from an ICD, update the ICD in the same PR.** This
   is Constraint #4 of the methodology.
 - **Bands are not decoration.** Strong-band commitments are load-bearing.
@@ -51,48 +51,55 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.7.2 — PRE-0.8 shipped (paper-only).** ICD-04 (save schema) authored
-at v0.1. No code touched this milestone — pure architecture session, as
-the supplement asked for and the methodology requires before any code
-can touch persistence at milestone 0.8.
+**v0.8 — save · load · resume mid-edition.** Code milestone. ICD-04
+v0.1 lifted verbatim; the live-`Story`-vs-`StorySnap` projector
+landed; the §Save-trigger-surface Open Question settled.
 
 Headline outputs:
 
-- **ICD-04 v0.1** ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)).
-  Single versioned `localStorage` JSON blob (`'late-edition.save.v1'`)
-  captures the full sim state: `sim_time_ms`, `CycleClock`, running
-  resources, grid, every building / unit / story (`StorySnap` with a
-  per-record `version` field), Evening Star state machine + its
-  `SeededRng` 32-bit state for replay determinism + `tick_accum_ms` for
-  sub-tick fractional progress, the edition-history ring, and the
-  `gameOver` / `debriefOpen` flags for round-trip integrity through
-  terminal / paused states. Migration policy is a `migrate_N_to_N+1`
-  pure-function chain on load; unknown future versions refuse to load
-  rather than silently truncate. Mid-edition resume works because
-  continuous `pos` + remaining `path` survive a save/load, and the
-  `CycleClock` `_warningFired` / `_fireFired` flags suppress duplicate
-  event emissions on resume.
-- **ICD-05 v0.4.1** — §Open-questions closure paragraph only. The
-  "should `Story` carry a `version` field" question deferred at v0.1 to
-  PRE-0.8 is now closed: the field lives on the persisted `StorySnap`,
-  not on the live in-memory `Story`, so the in-memory `Story` shape is
-  **byte-for-byte identical** to v0.4. The 0.8 code session will add the
-  tiny serialize/deserialize projector that bridges the two surfaces.
-- **What's NOT locked.** Save trigger cadence (autosave-every-N vs.
-  on-debrief-end vs. manual) is an Open Question for the 0.8 code
-  session per ICD-04 §Open-questions — v0.1 recommends on
-  `EDITION_DEBRIEF_END` + on `CYCLE_GAME_OVER` but doesn't lock it.
-  Compression and multi-slot are also deferred.
-- **ICD activity.** ICD-04 authored at v0.1. ICD-05 bumped to v0.4.1
-  (§Open-questions paragraph only — no shape change). ICD-01 v0.5 /
-  ICD-02 v0.2 / ICD-06 v0.3 unchanged.
-- **Tests.** Unchanged at 94 cases — paper-only milestone, no JS touched.
+- **`js/sim/save.js` (new).** `SAVE_KEY` /
+  `CURRENT_VERSION` / `STORY_VERSION` constants and the
+  `saveNow(world)` / `loadSave()` / `serialize(world)` /
+  `deserialize(blob)` / `runMigrations(raw)` public surface. Storage
+  is dependency-injected so Node tests pass a `Map`-backed stub;
+  browser path defaults to `globalThis.localStorage`. Size guard
+  surfaces a `console.warn` at 500 KB.
+- **`World` restore path.** `new World({ snap })` /
+  `World.fromSnap(blob)` skip fresh-construct seeding and rebuild
+  authoritative state from the blob; `setIdMint(n)` / `getIdMint()`
+  plug the module-scoped `nextId` counter into both construct paths.
+  `CycleClock.fromSnap` / `EveningStar.fromSnap` bypass their own
+  constructor seeding so `_warningFired` / `_fireFired` and
+  `rng.state` / `_tickAccumMs` / `pastIntents` survive verbatim.
+  `Unit.selected` resets on load (ICD §Notes — UI state).
+- **`main.js` wire-up.** Boot tries `loadSave()`, falls through to
+  `new World()` on no-save / parse-fail / unknown-future-version.
+  Subscribes `saveNow(world)` to the two recommended triggers
+  (`EDITION_DEBRIEF_END` + `CYCLE_GAME_OVER`).
+- **Cadence Open Q settled.** Writes fire on `CYCLE_BEGIN` (post-
+  `cycle.start()` — captures the just-opened edition with a fresh
+  clock) and on `CYCLE_GAME_OVER` (terminal integrity). The ICD's
+  recommended `EDITION_DEBRIEF_END` couldn't be used as-is because
+  `cycle.start()` inside `ackDebrief()` runs AFTER that emit, so a
+  debrief-end save would capture the cycle stuck at `fire_fired=true`
+  / `remainingMs=0`. The constructor's edition-1 `start(1)` runs
+  before subscribers attach, so this subscriber never fires at boot.
+  Autosave-every-N, multi-slot, compression, and a pre-
+  `DEADLINE_FIRE` checkpoint are deferred per ICD-04 §Open-questions.
+  The trigger surface is sim-external per the ICD — no ICD-04 bump.
+- **`Story.version` projector.** `serialize` / `deserialize` add /
+  strip the field at the persistence boundary; the live in-memory
+  shape is byte-for-byte identical to v0.4 (ICD-05 v0.4.1 §Open-
+  questions close, code side).
+- **ICD activity.** None. v0.1 lifted verbatim. Constraint #4 (code
+  deviations update the ICD in the same PR) is honored by zero
+  deviation.
+- **Tests.** 94 → 106 (twelve new under
+  [`tests/save-load.test.mjs`](tests/save-load.test.mjs)).
 
-**Next: milestone 0.8 (code).** Save/load · resume mid-edition · version
-field. The 0.8 code session lifts ICD-04 v0.1 verbatim; deviations
-update the ICD in the same PR (Constraint #4). The cadence Open Q above
-and the live-Story-vs-`StorySnap` projector both settle in that
-session.
+**Next: milestone 0.9 (code).** HUD corkboard, deadline ticker,
+selected-unit dossier (medium-band layout per ICD-01 v0.5 + design
+doc §13). The post-0.9 re-eval slot follows.
 
 ## When you're stuck
 
