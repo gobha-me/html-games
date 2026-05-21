@@ -51,61 +51,52 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.9 — HUD corkboard · deadline ticker · dossier.** Code milestone.
-ICD-01 v0.5 §HudState lifted as authored. Pure renderer-side
-reorganization on top of the already-locked HudState / UnitView /
-BuildingView / LeadView projections.
+**v0.9.2 — RE-EVAL after 0.9 (paper + code-aware).** Third re-eval in
+the Tier-0 plan, alongside [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md)
+and [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).
+**Read [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md)
+and the supplement [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html)
+before opening the next session.** The HTML is a Claude Design audit of
+the v0.9 codebase against the design package; the markdown re-eval is
+the formal landing site and triage layer.
 
-Headline outputs:
+Headline verdicts:
 
-- **CSS Grid layout in [`index.html`](index.html).** `<body>` becomes
-  a four-row grid (masthead · top cards · viewport+deadline-strip ·
-  dossier row). `#world` keeps its full-bleed canvas in the `1fr`
-  row; the renderer already reads `root.clientWidth/Height`
-  ([`js/render/renderer.js`](js/render/renderer.js)) so resize
-  reflows for free. Arcade back-link folds into the masthead so
-  no chrome floats over the dossier.
-- **`HudCorkboard` facade in [`js/hud.js`](js/hud.js).** Single
-  `apply(frame)` entry kept (`main.js` change is one line). Three
-  sibling region projectors:
-  - `TopCards` — seven pinned index cards with serif numerals (Bodoni
-    Moda) + mono kicker labels. `.is-hot` class on the Heat card when
-    `heat >= 40` (design doc §19 first threshold).
-  - `DeadlineStrip` — typewriter-ribbon across the top of the
-    viewport. `.is-warning` class at ≤60s (red), `.is-critical` class
-    at ≤10s (red + 2Hz opacity pulse via CSS `@keyframes`). Both
-    classes clear at zero so the cycle transition doesn't strobe.
-  - `Dossier` — three panels:
-    - **Selected**: `frame.units.find(u => u.selected)` → kind
-      (Reporter / Photog / Fixer / Editor / Goon) + state (Idle /
-      Walking / Carrying) + "Carrying lead" annotation when applicable.
-      Empty state "No selection".
-    - **Story queue**: active leads count + tier histogram (whisper /
-      investigation / arc) + flavor histogram (vice / violence /
-      money / labor) — both derived from LeadView's locked `tier` /
-      `flavor` fields — plus in-flight count from
-      `hud.resources.stories`.
-    - **Threats**: goon count from `frame.units` + Press HP from the
-      Bureau BuildingView. Empty state "Streets quiet".
-  - Projection helpers (`pickSelected`, `countByKind`,
-    `tierHistogram`, `formatMs`, `formatEdition`) are named exports
-    so node tests exercise them without jsdom.
-- **Per-record change detection.** Each region caches its rendered
-  state and writes DOM only on change.
-- **ICD activity.** None. Every field consumed at 0.9 was already
-  projected at v0.8 or earlier. Constraint #4 honored by zero
-  deviation. ICD-01 bump candidates surfaced — `UnitView` stat
-  badges (Nerve / Nose / Legs from the §13 mock) for the Selected
-  dossier · `LeadView.district` for per-district Story queue ·
-  `WorldFrame.rivals` for raid ETA / source direction — parked for
-  the post-0.9 re-eval.
-- **Tests.** 106 → 113 (seven new under
-  [`tests/hud.test.mjs`](tests/hud.test.mjs)).
+- **Six ICDs intact.** Twelve code milestones in, zero interface drift.
+  Constraint #4 honored every time. The methodology is working.
+- **Findings are at the design-doc-to-code level, not contract level.**
+  Seven criticals (audit C-01 through C-07), nine acknowledged drifts
+  (D-01 through D-09, all flagged in code comments at the deviation
+  site), fourteen spec'd-but-not-implemented gaps (G-01 through G-14),
+  eleven explicit parks (P-01 through P-11).
+- **One band promotion:** HUD corkboard medium → strong (overview line
+  45). The §13 pixel-honest layout shipping at 0.9 is now load-bearing
+  for ICD-01 v0.6's `UnitView.stats` / `LeadView.district` /
+  `WorldFrame.rivals` additions.
+- **One scheduled paper slot — PRE-0.10** — authors **ICD-01 v0.6**
+  (`UnitView.stats` + `LeadView.district` + `WorldFrame.rivals:
+  RivalStatusView[]` + `FxEvent` union) + **ICD-06 v0.4** (30 s minimum
+  debrief wording per Design Doc §19) + **ICD-07 v0.1** (audio bus,
+  new). Gates milestone 0.10.
+- **Tier-0 exit criteria confirmed.** The audit's PR-C scope (lead-spawn
+  engine + districts as data + Branch Bureau + slot-grammar headlines +
+  run-end summary + high-score persistence + diegetic tutorial +
+  minimum control surface) is the locked shape of milestone 0.10. Split
+  into 0.10.0 / 0.10.1 at session open if scope creeps (0.7 precedent).
+- **Four Gitea tickets opened** for the forward code sequence:
+  PR-A (0.9.1 polish — seven mechanical fixes, no ICD bumps beyond a
+  one-line ICD-02 §Notes addition in-PR per Constraint #4) ·
+  PR-B (PRE-0.10 paper-only) ·
+  PR-C (milestone 0.10 — Tier-0 closer) ·
+  PR-D (0.10.x visual feedback — after PRE-0.10's `FxEvent` lands).
+  Ordering is mandatory: PR-A first (any time), PR-B before PR-C,
+  PR-B + PR-C before PR-D.
 
-**Next: post-0.9 re-eval (paper-only).** Code-arch divergence check
-across all six ICDs; weigh promotion of the surfaced ICD-01 bumps;
-tighten HUD spec from medium→strong; confirm Tier-0 exit criteria
-before milestone 0.10 (the Tier-0 closer).
+**Next: PRE-0.10** (paper-only) — authors the four ICD edits above.
+After PRE-0.10 ships, milestone 0.10 (the Tier-0 closer) opens as a
+code session with every required contract in hand. PR-A can land any
+time before, during, or after PRE-0.10 — it carries no contract
+dependencies beyond the one-line §Notes patch.
 
 ## When you're stuck
 

@@ -29,53 +29,57 @@ definitions.
 | **0.7.1** | Editor unit (substitutes `AUTO_PLATE_SENTINEL` with `UnitId`) · ink plate-time hard gate (reject `verified → plated` if ink would go negative) — *shipped v0.7.1* | ICD-05 v0.4 §Notes used as authored — code-only milestone | strong |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session — *shipped v0.7.2* | Required before any code touches persistence | strong |
 | **0.8** | Save / load · resume mid-edition · version field — *shipped v0.8* | ICD-04 v0.1 lifted verbatim · localStorage blob · migration-chain stub · cadence locked at cycle-begin + game-over | strong |
-| **0.9** | HUD corkboard · deadline ticker · selected-unit dossier — *shipped v0.9* | Design doc §13 · ICD-01 v0.5 §HudState lifted as authored · zero ICD bumps | medium |
-| **RE-EVAL** | After 0.9 · paper + code-aware | Code-arch divergence check. Tighten HUD spec. Confirm Tier-0 exit criteria. | re-eval |
-| **0.10** | Tier-0 closer · 5-edition arc · run-end summary screen · high-score persistence | The first thing a friend can play · verifies the loop reads as a game | strong |
-| **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 07+ for branch bureaus, switchboard, archive. | re-eval |
+| **0.9** | HUD corkboard · deadline ticker · selected-unit dossier — *shipped v0.9* | Design doc §13 · ICD-01 v0.5 §HudState lifted as authored · zero ICD bumps | medium → strong |
+| **RE-EVAL** | After 0.9 · paper + code-aware — *shipped v0.9.2* | Six ICDs survived code-aware re-read with zero interface drift; nine acknowledged drifts + seven criticals + fourteen gaps surfaced at the design-doc-to-code level. HUD corkboard band promoted medium → strong. PRE-0.10 scheduled. Tier-0 exit criteria confirmed: seven-item PR-C scope. See [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md) + supplement [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html). | re-eval |
+| **PRE-0.10** | Author **ICD-01 v0.6** (`UnitView.stats` · `LeadView.district` · `WorldFrame.rivals: RivalStatusView[]` · `FxEvent` union) + **ICD-06 v0.4** (30 s minimum debrief wording per Design Doc §19) + **ICD-07 v0.1** (audio bus, new — channel vocabulary + ducking rules + press-silence beat) | Architecture session · paper-only · gates milestone 0.10 | strong |
+| **0.10** | Tier-0 closer · lead-spawn engine (C-04) · districts as data (G-04) · Branch Bureau (G-01) · slot-grammar headlines (G-05) · run-end summary + high-score persistence (G-13) · diegetic tutorial (G-09) · minimum control surface (WASD pan + Block zoom + slow-mo) (G-07) | The first thing a friend can play · verifies the loop reads as a game · split 0.10.0 / 0.10.1 at session open if scope creeps (0.7 precedent) | strong |
+| **0.10.x** | Visual feedback · rain ramp at deadline (C-06) · `WorldFrame.effects` wired end-to-end (C-07) · debrief panel as newspaper pages (D-07) · lit windows + fog-on-deadline (D-09) | Renderer-side polish on `FxEvent` contract from PRE-0.10 · post-0.10 | strong |
+| **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 08+ for branch bureaus, switchboard, archive. | re-eval |
 
-12 code milestones (0.7 split into 0.7.0 + 0.7.1), 4 re-evaluation slots,
-4 architecture-session-only items (PRE-0.1, PRE-0.5, PRE-0.7, and PRE-0.8).
-That's the ratio the methodology asks for: re-eval every ~3 code milestones,
+13 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10.x reserved for
+post-0.10 visual feedback), 4 re-evaluation slots, 5 architecture-session-
+only items (PRE-0.1, PRE-0.5, PRE-0.7, PRE-0.8, and PRE-0.10). That's the
+ratio the methodology asks for: re-eval every ~3 code milestones,
 architecture sessions wherever a contract crosses a code-session boundary
 that hasn't been authored yet. PRE-0.5 was inserted by the post-0.3 re-eval's
 forward ICD presence check; PRE-0.7 was inserted by the post-0.6 re-eval's
-same check. The 0.7 split (0.7.0 adversarial ring · 0.7.1 Editor + ink gate)
-was made at 0.7.0 open to keep each code session inside one milestone's
-worth of scope — both halves of 0.7 are ICD-ready (ICD-02 v0.2 and ICD-05
-v0.4 cover them).
+same check; PRE-0.10 is inserted by the post-0.9 re-eval (this slot) to
+author ICD-01 v0.6 + ICD-06 v0.4 + ICD-07 v0.1 ahead of the Tier-0 closer.
+The 0.7 split (0.7.0 adversarial ring · 0.7.1 Editor + ink gate) was made
+at 0.7.0 open to keep each code session inside one milestone's worth of
+scope — both halves of 0.7 are ICD-ready (ICD-02 v0.2 and ICD-05 v0.4
+cover them). The 0.10 split (0.10.0 substrate · 0.10.1 onboarding + controls)
+is reserved for session-open use under the same precedent.
 
 ## Current status
 
-**Milestone 0.9 — shipped (v0.9).** HUD corkboard, deadline ticker,
-selected-unit dossier. The HUD lifts from a single-line ticker to the
-corkboard from design doc §13: seven pinned index cards along the top
-(Edition / Deadline / Leads / Stories / Ink / Cash / Heat); a
-typewriter-ribbon deadline strip across the top of the 3D viewport
-(red at ≤60s, pulsing red at ≤10s); three dossier panels along the
-bottom — Selected (kind / state / carrying), Story queue (active
-leads + tier and flavor histograms + in-flight Story count), and
-Threats (goon count + Press HP). [`index.html`](index.html) becomes a
-four-row CSS grid; `#world` keeps its full-bleed canvas in the `1fr`
-row (the renderer already reads `root.clientWidth/Height`, so resize
-flows through). [`js/hud.js`](js/hud.js) becomes a `HudCorkboard`
-facade with three sibling region projectors (`TopCards`,
-`DeadlineStrip`, `Dossier`); projection helpers (`pickSelected`,
-`countByKind`, `tierHistogram`, `formatMs`, `formatEdition`) are
-named exports for [`tests/hud.test.mjs`](tests/hud.test.mjs). **Zero
-ICD changes** — every field consumed at 0.9 was already projected at
-v0.8 or earlier. Constraint #4 honored by zero deviation. ICD-01
-bump candidates surfaced by the milestone — `UnitView` stat badges
-(Nerve / Nose / Legs from the §13 mock), `LeadView.district` for
-per-district story queue, `WorldFrame.rivals` for raid ETA / source
-direction — are parked for the post-0.9 re-eval. Tests at 113 cases
-(106 → 113; seven new under [`tests/hud.test.mjs`](tests/hud.test.mjs)).
+**RE-EVAL after 0.9 — shipped (v0.9.2).** Paper + code-aware session.
+Third re-eval in the Tier-0 plan, mirroring re-eval-after-0.3 +
+re-eval-after-0.6. The six ICDs (01 v0.5 · 02 v0.2.1 · 03 v0.2 · 04
+v0.1 · 05 v0.4.1 · 06 v0.3) survived code-aware re-read with **zero
+interface drift**. Constraint #4 honored across all twelve code
+milestones. Findings sit at the design-doc-to-code level: **seven
+criticals** (audit C-01 through C-07 — Press HP repair, raid_succeeded
+emit, new-run button, lead-spawn engine, 30 s minimum debrief, rain
+ramp at deadline, `WorldFrame.effects` channel), **nine acknowledged
+drifts** (audit D-01 through D-09 — all flagged in code comments),
+**fourteen gaps** (audit G-01 through G-14 — half land at 0.10, half
+Tier-1), and **eleven explicit parks** (audit P-01 through P-11 —
+discussion docs + ICD §Open questions). One band promotion: **HUD
+corkboard medium → strong** (overview line 45) — the §13 pixel-honest
+layout shipping at 0.9 is now load-bearing for ICD-01 v0.6's
+`UnitView.stats` / `LeadView.district` / `WorldFrame.rivals` additions.
+PRE-0.10 scheduled to author ICD-01 v0.6 + ICD-06 v0.4 (30 s debrief
+wording) + ICD-07 v0.1 (audio bus, new). Tier-0 exit criteria confirmed:
+the audit's PR-C scope (lead-spawn engine + districts + Branch + grammar
++ run-end summary + tutorial + minimum controls) is the locked shape of
+milestone 0.10. Four Gitea tickets opened for the next code sequence
+(PR-A polish · PR-B PRE-0.10 paper · PR-C milestone 0.10 · PR-D
+visual feedback). See [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md)
++ supplement [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html).
 
-Next: **RE-EVAL after 0.9** — paper + code-aware. Third re-eval in
-the tier-0 plan. Code-arch divergence check across all six ICDs;
-weigh promotion of the surfaced ICD-01 bumps; tighten HUD spec from
-medium→strong; confirm Tier-0 exit criteria before milestone 0.10
-(the Tier-0 closer).
+Next: **PRE-0.10** — paper-only architecture session. Authors the four
+ICD edits above. Gates milestone 0.10.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -218,6 +222,20 @@ medium→strong; confirm Tier-0 exit criteria before milestone 0.10
       new [`tests/hud.test.mjs`](tests/hud.test.mjs) exercising
       `formatMs`, `formatEdition`, `pickSelected`, `countByKind`,
       `tierHistogram`).
+- [x] **RE-EVAL after 0.9** — paper + code-aware. Six ICDs survived
+      code-aware re-read; zero interface drift. Seven criticals + nine
+      drifts + fourteen gaps surfaced at the design-doc-to-code level
+      (no contract bumps). HUD corkboard band promoted medium → strong
+      (overview line 45). PRE-0.10 scheduled to author ICD-01 v0.6 +
+      ICD-06 v0.4 + ICD-07 v0.1. Tier-0 exit criteria confirmed: the
+      audit's PR-C scope (lead-spawn engine + districts + Branch +
+      grammar + scores + tutorial + minimum controls) is the locked
+      shape of milestone 0.10. Four Gitea tickets opened for the next
+      code sequence (PR-A polish · PR-B PRE-0.10 paper · PR-C closer ·
+      PR-D visual feedback). See
+      [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md)
+      and supplement
+      [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html).
 
 ## Out of scope until called
 

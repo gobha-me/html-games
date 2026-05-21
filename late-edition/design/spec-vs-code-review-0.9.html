@@ -1,0 +1,1248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>LATE EDITION — Spec vs Code Review (v0.9)</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900;1,6..96,400&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #0a0a0c;
+    --ink-2: #1a1a1d;
+    --mid: #6b6864;
+    --mid-2: #97938b;
+    --rule: #c8c4bc;
+    --paper: #ece8df;
+    --paper-2: #f4f1ea;
+    --paper-3: #d9d4c8;
+    --red: #c0212a;
+    --red-2: #8c1820;
+    --amber: #b87a0a;
+    --green: #2f6d3a;
+    --tape: rgba(232, 215, 165, 0.55);
+
+    --serif: 'Bodoni Moda', 'Bodoni 72', 'Didot', serif;
+    --body:  'EB Garamond', Georgia, serif;
+    --mono:  'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--body);
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse at 20% 0%, #efebe1 0%, transparent 60%),
+      radial-gradient(ellipse at 90% 80%, #e3decf 0%, transparent 55%),
+      var(--paper);
+    background-attachment: fixed;
+    font-size: 16.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 1px 1px, rgba(20,20,20,0.06) 0.6px, transparent 1.2px);
+    background-size: 3px 3px;
+    mix-blend-mode: multiply;
+    z-index: 1;
+  }
+  .page {
+    position: relative;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 56px 120px;
+    z-index: 2;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    border-top: 6px double var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding: 22px 0 18px;
+    margin-bottom: 14px;
+  }
+  .masthead-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: end;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .masthead-row .l, .masthead-row .r { color: var(--mid); }
+  .masthead-row .r { text-align: right; }
+  h1.title {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: clamp(54px, 8vw, 108px);
+    line-height: 0.9;
+    margin: 6px 0;
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+  h1.title .ed { font-style: italic; font-weight: 400; }
+  .subhead {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--mid);
+    padding-top: 8px;
+    border-top: 1px solid var(--ink);
+    margin-top: 4px;
+  }
+  .subhead b { color: var(--ink); }
+
+  /* ---------- sections ---------- */
+  h2.section {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 38px;
+    line-height: 1;
+    letter-spacing: -0.015em;
+    margin: 64px 0 6px;
+    border-top: 1px solid var(--ink);
+    padding-top: 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+  }
+  h2.section .num {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    color: var(--red);
+    border: 1px solid var(--red);
+    padding: 4px 8px;
+    line-height: 1;
+    transform: translateY(-6px);
+  }
+  h3 {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 22px;
+    margin: 28px 0 6px;
+    letter-spacing: -0.005em;
+  }
+  h4 {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 17px;
+    margin: 18px 0 4px;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin: 4px 0 18px;
+  }
+  p { margin: 0 0 10px; max-width: 78ch; }
+  p.lead {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.35;
+    color: var(--ink);
+    max-width: 62ch;
+  }
+  p.lead::first-letter {
+    font-family: var(--serif);
+    font-style: normal;
+    font-weight: 900;
+    font-size: 4.2em;
+    float: left;
+    line-height: 0.85;
+    padding: 6px 10px 0 0;
+  }
+  code, .code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--paper-3);
+    padding: 1px 6px;
+    border-radius: 1px;
+  }
+
+  /* ---------- severity chips ---------- */
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--ink);
+    line-height: 1;
+    vertical-align: 2px;
+    white-space: nowrap;
+  }
+  .chip.crit    { background: var(--red);   color: var(--paper-2); border-color: var(--red); }
+  .chip.drift   { background: var(--paper-2); color: var(--amber); border-color: var(--amber); }
+  .chip.gap     { background: var(--paper-2); color: var(--ink); border-color: var(--ink); }
+  .chip.parked  { background: var(--paper-2); color: var(--mid); border-color: var(--mid); }
+  .chip.ok      { background: var(--paper-2); color: var(--green); border-color: var(--green); }
+  .chip.ink     { background: var(--ink);   color: var(--paper-2); border-color: var(--ink); }
+
+  /* ---------- finding table ---------- */
+  table.findings {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14.5px;
+  }
+  table.findings th, table.findings td {
+    border-top: 1px solid var(--ink);
+    padding: 11px 12px;
+    vertical-align: top;
+    text-align: left;
+  }
+  table.findings tr:last-child td { border-bottom: 1px solid var(--ink); }
+  table.findings thead th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+    background: var(--paper-2);
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+  }
+  table.findings .col-id  { width: 56px;  font-family: var(--mono); font-size: 11px; color: var(--red); letter-spacing: 0.12em; white-space: nowrap; }
+  table.findings .col-sev { width: 90px;  white-space: nowrap; }
+  table.findings .col-area{ width: 130px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mid); }
+  table.findings .head {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.25;
+    margin-bottom: 4px;
+  }
+  table.findings .body { font-size: 14.5px; line-height: 1.5; }
+  table.findings .body p { margin: 0 0 6px; max-width: none; }
+  table.findings .meta {
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--mid);
+    line-height: 1.55;
+  }
+  table.findings .meta b { color: var(--ink); font-weight: 700; }
+  table.findings .meta code { font-size: 10.5px; }
+  table.findings tr.row-crit  td.col-id { color: var(--red); }
+  table.findings tr.row-drift td.col-id { color: var(--amber); }
+  table.findings tr:hover td  { background: rgba(232,215,165,0.10); }
+
+  /* ---------- callouts ---------- */
+  .callout {
+    border-left: 4px solid var(--red);
+    background: var(--paper-2);
+    padding: 14px 18px;
+    margin: 20px 0;
+    font-size: 15px;
+    box-shadow: 3px 5px 0 -1px rgba(0,0,0,0.08);
+  }
+  .callout b { font-family: var(--serif); font-size: 17px; }
+  .callout.amber { border-left-color: var(--amber); }
+  .callout.ink   { border-left-color: var(--ink); }
+
+  /* ---------- legend ---------- */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    background: var(--paper-2);
+    border: 1px solid var(--ink);
+    padding: 12px 16px;
+    margin: 16px 0 22px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    box-shadow: 3px 5px 0 -1px rgba(0,0,0,0.08);
+  }
+  .legend .label { color: var(--mid); margin-right: 6px; }
+  .legend .row { display: flex; gap: 8px; align-items: center; }
+  .legend small { font-family: var(--body); text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--mid); }
+
+  /* ---------- summary card ---------- */
+  .scoreboard {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin: 18px 0 8px;
+  }
+  .score {
+    border: 1px solid var(--ink);
+    background: var(--paper-2);
+    padding: 14px 12px 14px;
+    box-shadow: 3px 5px 0 -1px rgba(0,0,0,0.10);
+  }
+  .score .lbl {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-bottom: 6px;
+  }
+  .score .val {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 36px;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    font-feature-settings: "tnum";
+  }
+  .score .val.red  { color: var(--red); }
+  .score .val.amber{ color: var(--amber); }
+  .score .val.mid  { color: var(--mid); }
+  .score .val.green{ color: var(--green); }
+
+  /* ---------- fix list ---------- */
+  .fix-list {
+    background: var(--paper-2);
+    border: 1px solid var(--ink);
+    padding: 22px 26px;
+    margin: 18px 0;
+    box-shadow: 5px 9px 0 -2px rgba(0,0,0,0.10);
+  }
+  .fix-list ol { list-style: none; padding: 0; margin: 0; counter-reset: fix; }
+  .fix-list li {
+    counter-increment: fix;
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 14px;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--rule);
+    font-size: 15px;
+  }
+  .fix-list li::before {
+    content: counter(fix, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--red);
+    align-self: start;
+    padding-top: 2px;
+  }
+  .fix-list li:last-child { border-bottom: none; }
+  .fix-list li .desc { font-family: var(--body); line-height: 1.4; max-width: 70ch; }
+  .fix-list li .desc b { font-family: var(--serif); font-weight: 700; font-size: 16.5px; }
+  .fix-list li .desc small {
+    display: block;
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--mid);
+    line-height: 1.5;
+  }
+
+  /* ---------- pull ---------- */
+  .pull {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 26px;
+    line-height: 1.3;
+    border-top: 4px double var(--ink);
+    border-bottom: 4px double var(--ink);
+    padding: 18px 0;
+    margin: 28px auto;
+    text-align: center;
+    max-width: 780px;
+  }
+  .pull .by {
+    display: block;
+    font-family: var(--mono);
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-top: 10px;
+  }
+
+  /* ---------- 2-col helper ---------- */
+  .cols-2 { columns: 2; column-gap: 36px; column-rule: 1px solid var(--rule); }
+  .cols-2 p { break-inside: avoid; max-width: none; }
+
+  /* ---------- footer ---------- */
+  .colophon {
+    margin-top: 80px;
+    padding-top: 22px;
+    border-top: 1px solid var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+    display: flex;
+    justify-content: space-between;
+  }
+  .small { font-size: 13.5px; }
+  .muted { color: var(--mid); }
+
+  /* Print friendliness */
+  @media print {
+    body::before { display: none; }
+    .page { padding: 24px; max-width: none; }
+    table.findings { font-size: 11px; }
+    table.findings .body { font-size: 11px; }
+    .scoreboard { grid-template-columns: repeat(6, 1fr); }
+    .score .val { font-size: 22px; }
+    h2.section { page-break-before: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ========================================================= -->
+  <header class="masthead">
+    <div class="masthead-row">
+      <div class="l">REVIEW · COMPARE · v0.9 → BACK-TO-CLAUDE-CODE</div>
+      <div></div>
+      <div class="r">PREPARED MAY 21, 2026 · POST-0.9 SHIPPED</div>
+    </div>
+    <h1 class="title">The <span class="ed">Audit</span></h1>
+    <div class="subhead"><b>DESIGN PACKAGE · ICDS · CURRENT CODE</b> · DRIFT, GAPS, AND THE NEXT PR</div>
+    <div class="masthead-row" style="margin-top:14px">
+      <div class="l">FOR: CLAUDE CODE · MILESTONE 0.10 RUNUP</div>
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:0.22em;">— READ · TRIAGE · MERGE —</div>
+      <div class="r">SOURCE: 4 HTML DESIGN DOCS · 6 ICDS · ~3.7k LOC</div>
+    </div>
+  </header>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">01</span> WHAT THIS IS</h2>
+    <div class="kicker">A code-aware re-read against the design package · not a re-design</div>
+
+    <p class="lead">Twelve code milestones in, the loop turns: a reporter ferries a lead to the Bureau, a photog ferries it to the Darkroom, the deadline fires, a story prints, and rivals can burn the press to the ground. This audit reads the v0.9 codebase against the four design HTMLs and the six ICDs, names every place the code drifts from the spec, classifies each finding, and hands Claude Code a prioritized fix list so the next architecture session and milestone 0.10 (Tier-0 closer) open from a known floor.</p>
+
+    <p>The methodology calls this a <b>code-aware re-evaluation</b> (METHODOLOGY §3 both halves) — the same shape as <code>architecture/re-eval-after-0.3.md</code> and <code>architecture/re-eval-after-0.6.md</code>, framed for the next handoff rather than as an in-tree session document. The roadmap's <b>RE-EVAL after 0.9</b> slot is the formal landing site; this doc is the supplement that gets uploaded with it.</p>
+
+    <div class="legend">
+      <span class="label">Findings:</span>
+      <span class="row"><span class="chip crit">critical</span><small>real bug or contract drift</small></span>
+      <span class="row"><span class="chip drift">drift</span><small>code differs from spec but acknowledged in comments</small></span>
+      <span class="row"><span class="chip gap">gap</span><small>spec'd, not yet implemented</small></span>
+      <span class="row"><span class="chip parked">parked</span><small>explicit deferral, no action this PR</small></span>
+      <span class="row"><span class="chip ok">aligned</span><small>code matches doc</small></span>
+    </div>
+
+    <h3>Scoreboard</h3>
+    <div class="scoreboard">
+      <div class="score"><div class="lbl">Critical</div><div class="val red">7</div></div>
+      <div class="score"><div class="lbl">Drift</div><div class="val amber">9</div></div>
+      <div class="score"><div class="lbl">Gap</div><div class="val">14</div></div>
+      <div class="score"><div class="lbl">Parked</div><div class="val mid">11</div></div>
+      <div class="score"><div class="lbl">ICDs aligned</div><div class="val green">6 / 6</div></div>
+      <div class="score"><div class="lbl">Tests</div><div class="val">113</div></div>
+    </div>
+
+    <p class="small muted" style="margin-top:14px">All six ICDs (01 v0.5 · 02 v0.2.1 · 03 v0.2 · 04 v0.1 · 05 v0.4.1 · 06 v0.3) survived code-aware re-read with <b>no interface drift</b>. Every finding below is at the design-doc-to-code level or at the arch-silent (ICD-mute, design-doc-loud) level — none require breaking a frozen ICD contract.</p>
+
+    <div class="pull">
+      "The contracts held. The doc did not."
+      <span class="by">— headline summary</span>
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">02</span> WHERE WE ARE vs. WHERE WE SAID WE'D BE</h2>
+    <div class="kicker">Roadmap status · what shipped · what didn't</div>
+
+    <p>The Phase-0 roadmap (Supplement B §04) committed to twelve code milestones across the Tier-0 vertical slice. Eleven have shipped. The post-0.9 re-eval is the active slot; 0.10 (Tier-0 closer) is the next code session.</p>
+
+    <table class="findings">
+      <thead>
+        <tr>
+          <th class="col-id">M.</th>
+          <th class="col-sev">Status</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="col-id">0.1</td><td><span class="chip ok">shipped</span></td><td>Scene, camera, toon pipeline, fog, rain, ground grid.</td></tr>
+        <tr><td class="col-id">0.2</td><td><span class="chip ok">shipped</span></td><td>A* pathfinding, Reporter unit, click-to-dispatch.</td></tr>
+        <tr><td class="col-id">0.3</td><td><span class="chip ok">shipped</span></td><td>Lead spawn (single tile), pickup, return-to-bureau.</td></tr>
+        <tr><td class="col-id">0.4</td><td><span class="chip ok">shipped</span></td><td>Photog · Darkroom · <code>lead → verified</code>.</td></tr>
+        <tr><td class="col-id">0.5</td><td><span class="chip ok">shipped</span></td><td>Print cycle clock, deadline events, debrief panel.</td></tr>
+        <tr><td class="col-id">0.6</td><td><span class="chip ok">shipped</span></td><td>Cash + Ink + Heat resources, yields at plate-time.</td></tr>
+        <tr><td class="col-id">0.7.0</td><td><span class="chip ok">shipped</span></td><td>Evening Star · Goon · Fixer · Press HP · <code>CYCLE_GAME_OVER</code>.</td></tr>
+        <tr><td class="col-id">0.7.1</td><td><span class="chip ok">shipped</span></td><td>Editor unit, ink plate-time hard gate.</td></tr>
+        <tr><td class="col-id">0.8</td><td><span class="chip ok">shipped</span></td><td>Save / load / resume mid-edition (ICD-04 v0.1).</td></tr>
+        <tr><td class="col-id">0.9</td><td><span class="chip ok">shipped</span></td><td>HUD corkboard, deadline ticker, dossier row.</td></tr>
+        <tr><td class="col-id">RE-EVAL</td><td><span class="chip drift">active</span></td><td><b>This document.</b> Paper-only, no code; finalize findings before 0.10 opens.</td></tr>
+        <tr><td class="col-id">0.10</td><td><span class="chip gap">queued</span></td><td>Tier-0 closer · 5-edition arc · run-end summary · high-score persistence. <i>The first thing a friend can play.</i></td></tr>
+      </tbody>
+    </table>
+
+    <h3>The four loop rings — per re-eval-after-0.6 §3.5 Q1</h3>
+    <table class="findings">
+      <thead>
+        <tr><th class="col-area">Ring</th><th class="col-sev">Status</th><th>Reads</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-area">Inner</td>
+          <td><span class="chip ok">closed</span></td>
+          <td>dispatch → pickup → verify → plate → print · all five ICD-05 rows lit · same id flows end-to-end.</td>
+        </tr>
+        <tr>
+          <td class="col-area">Outer</td>
+          <td><span class="chip ok">closed</span></td>
+          <td>12-min cycle · T-60s warning class · T-10s pulse · deadline fires · debrief mounts · sim pauses · click resumes.</td>
+        </tr>
+        <tr>
+          <td class="col-area">Economy</td>
+          <td><span class="chip ok">closed</span></td>
+          <td>Cash in at print · ink decremented · heat applied per flavor · heat decay −8 per edition · ink hard gate at plate-time.</td>
+        </tr>
+        <tr>
+          <td class="col-area">Adversarial</td>
+          <td><span class="chip drift">half-closed</span></td>
+          <td>Evening Star RAID + Fixer intercept + Press HP fail-state all live. <b>The attacker has only one move</b> (RAID) and <b>the player has only one defender</b> (one stationary Fixer, no Branch, no Safehouse, no bribes). PANIC / BRIBE / RUSH / BURNOUT bodies caller-triggered per ICD-02 v0.2 §Caller-triggered — correct, not a bug.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <b>The single biggest gap is not in the spec.</b> The simulation spawns <i>one</i> lead at construction (<code>js/sim/world-state.js:168-178</code>) and never spawns another. After the player ferries that lead through the pipeline, the world is empty — every subsequent edition fires with zero stories. The 12-minute cycle keeps ticking; nothing pulls on it. The four-ring "loop plays" verdict at the post-0.6 re-eval was true for one edition's worth of motion. Milestone 0.10 cannot read as a game without a lead-spawn engine. See finding C-04 below.
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">03</span> CRITICAL FINDINGS</h2>
+    <div class="kicker">Real bugs and contract drift · these block 0.10 or already break the loop</div>
+
+    <table class="findings">
+      <thead>
+        <tr>
+          <th class="col-id">ID</th>
+          <th class="col-sev">Sev</th>
+          <th class="col-area">Area</th>
+          <th>Finding · Fix</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr class="row-crit">
+          <td class="col-id">C-01</td>
+          <td><span class="chip crit">critical</span></td>
+          <td class="col-area">Combat / Defense</td>
+          <td>
+            <div class="head">Bureau HP never repairs between editions.</div>
+            <div class="body">
+              <p>Design Doc §19 Press &amp; production: <i>"Press HP 90 · damaged by goon contact at 1/s · <b>fully repaired between editions if &gt; 0</b>."</i> The repair rule is the design's stated relief valve — a player who survives an edition gets the press back to 90 HP and the next raid is winnable.</p>
+              <p>Code: <code>ackDebrief()</code> applies heat decay and ticks rivals' <code>onEditionEnd()</code> but never touches <code>bureau.hp</code>. A 60 HP press at edition close stays 60 HP at edition open. Two unlucky editions in a row become a death spiral the design explicitly rejected.</p>
+            </div>
+            <div class="meta">
+              <b>Site:</b> <code>js/sim/world-state.js:434-447</code> (<code>ackDebrief</code>) — add <code>bureau.hp = bureau.hp_max</code> when <code>bureau.hp &gt; 0</code>, after the heat decay line.<br/>
+              <b>Test:</b> add to <code>tests/press-hp.test.mjs</code> — damage Bureau partway, fire deadline, ack debrief, assert <code>hp === hp_max</code>. Add a second case: damage to 0 → <code>game_over</code> → debrief never opens → no repair.<br/>
+              <b>ICD impact:</b> none. Repair is sim-internal; ICD-01 §BuildingView <code>hp</code> projection unchanged.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-crit">
+          <td class="col-id">C-02</td>
+          <td><span class="chip crit">critical</span></td>
+          <td class="col-area">Rival / Telemetry</td>
+          <td>
+            <div class="head"><code>raid_succeeded</code> / <code>raid_wiped</code> digest events are never emitted.</div>
+            <div class="body">
+              <p>The <code>_buildEditionSummary</code> projector filters <code>_pendingRivalEvents</code> by <code>kind === 'raid_succeeded'</code> to compute <code>EditionDigestSnap.raids_succeeded</code>, but only <code>raid_attempted</code> is ever pushed (<code>_reconcileIntent</code>, RAID_BUREAU branch).</p>
+              <p>Effect today: <code>raids_succeeded</code> in <code>editionHistory</code> is permanently 0, and the Evening Star's <i>3 consecutive failed raids → PANIC</i> transition (ICD-02 §Evening Star state machine) will never fire even when its body lands at Tier-1 — it's reading from a counter that nothing writes. ICD-06 §EditionSummary's <code>rival_events</code> field is also missing the win/loss texture the debrief panel could surface.</p>
+            </div>
+            <div class="meta">
+              <b>Sites:</b> <code>js/sim/world-state.js</code> — at the goon-damage tick (already deals damage), push <code>{rival: 'evening_star', kind: 'raid_succeeded', text: '…'}</code> when <code>bureau.hp</code> first crosses below <code>hp_max</code> in a raid window OR (cleaner) emit on the <code>_enterGameOver</code> path. At <code>_pruneDeadUnits</code> when the last living goon from a raid is removed, emit <code>raid_wiped</code> if no damage was dealt this raid.<br/>
+              <b>Note:</b> requires tracking "is a raid currently in flight" — likely a flag on <code>EveningStar</code> (e.g. <code>activeRaidGoonsRemaining: number</code>) or per-goon <code>raid_id</code> tag. Pick the lighter one and ICD-bump <code>RivalsSnap</code> in the same PR (Constraint #4).<br/>
+              <b>Test:</b> extend <code>tests/evening-star.test.mjs</code> + <code>tests/goon.test.mjs</code> — assert one <code>raid_succeeded</code> per raid that lands damage, one <code>raid_wiped</code> per raid where fixer kills all goons.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-crit">
+          <td class="col-id">C-03</td>
+          <td><span class="chip crit">critical</span></td>
+          <td class="col-area">Game-end UX</td>
+          <td>
+            <div class="head">Game-over overlay has no "new run" action.</div>
+            <div class="body">
+              <p>ICD-04 §Notes (Saves after <code>CYCLE_GAME_OVER</code>): <i>"the renderer mounts the THE PRESS BURNS overlay… and the only valid next action is 'new run.'"</i> The "new run" affordance does not exist in <code>js/game-over-overlay.js</code> — the panel mounts a card with the kicker, banner, and reason text, then nothing. The player has to know to manually delete <code>localStorage</code> or open devtools to escape; refreshing the page lands them right back in the terminal state (the save round-trips the <code>game_over: true</code> flag verbatim, ICD-04 §Notes <i>"round-trip integrity, not a feature"</i>).</p>
+            </div>
+            <div class="meta">
+              <b>Site:</b> <code>js/game-over-overlay.js:17-26</code> — add a button (<code>&lt;button class="new-run"&gt;Start a new run&lt;/button&gt;</code>) that calls <code>storage.removeItem(SAVE_KEY)</code> and <code>location.reload()</code>. Style under <code>index.html</code>'s existing <code>.gameover-card</code> CSS.<br/>
+              <b>ICD impact:</b> none. UI affordance, not save-schema. ICD-04 §Notes already names this behaviour.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-crit">
+          <td class="col-id">C-04</td>
+          <td><span class="chip crit">critical</span></td>
+          <td class="col-area">Core loop</td>
+          <td>
+            <div class="head">No lead-spawn engine — the world holds exactly one lead, ever.</div>
+            <div class="body">
+              <p>Design Doc §19 Leads: <i>"1 lead per ~90s per district with a Bureau · ×1.5 with Tip Line · ×0.5 if no Bureau"</i>; <i>"Decay 3 minutes from spawn · halved if rival paper is nearby"</i>; <i>"Tier roll 70% Whisper · 25% Investigation · 5% Arc"</i>.</p>
+              <p>Code: <code>World</code> constructor spawns one hard-coded <code>{flavor: 'vice', tier: 'whisper', tile: (2,2)}</code> Story in <code>'lead'</code> state. No spawner runs in <code>tick()</code>, no decay, no tier roll, no per-district rate. Once the player ferries it through, the four-ring loop spins dry — every subsequent deadline prints 0 stories and the debrief panel shows "(no stories printed)".</p>
+              <p>This is the load-bearing gap for milestone 0.10 ("5-edition arc · the first thing a friend can play"). Without a spawner, edition 2 onward is empty. ICD-05 v0.4.1 §Shape already supports everything the spawner needs to populate — no ICD-05 bump.</p>
+            </div>
+            <div class="meta">
+              <b>Site:</b> new file <code>js/sim/lead-spawner.js</code> (pure module, mirrors <code>resources.js</code> / <code>cycle-clock.js</code> shape) with <code>tickSpawn(world, dt) → Story[]</code> + tier-roll table + decay rule. Wire into <code>World.tick()</code> after the rival tick but before <code>cycle.advance</code>. Constants medium-band per overview line 44.<br/>
+              <b>ICD impact:</b> potentially ICD-04 §Notes if spawn cadence needs its own RNG state (use the reserved <code>rng_seed</code> slot already on the save blob — see G-13 below).<br/>
+              <b>Test:</b> new <code>tests/lead-spawn.test.mjs</code> — spawn cadence under fixed-rng, decay clears expired leads, tier-roll distribution under a sample of 1000 spawns.<br/>
+              <b>Coupled:</b> requires districts (G-04) to honor per-district rates. A degenerate single-<code>'d-default'</code> spawner is acceptable as an intermediate step.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-crit">
+          <td class="col-id">C-05</td>
+          <td><span class="chip crit">critical</span></td>
+          <td class="col-area">Edition rhythm</td>
+          <td>
+            <div class="head">Debrief panel dismisses instantly — design says 30-second non-skippable pause.</div>
+            <div class="body">
+              <p>Design Doc §19 Time: <i>"Between-edition pause · 30s · cannot be skipped · debrief animation."</i> Design Doc §05 The Core Loop: <i>"The first 30 seconds of every new edition are a debrief — a literal stack of newspaper pages laid out on the corkboard."</i></p>
+              <p>Code: <code>DebriefPanel</code> mounts on <code>EDITION_DEBRIEF_BEGIN</code> and dismisses on any click into the panel root, immediately calling <code>world.ackDebrief()</code>. A player rapid-clicking can move through 5 editions in under 2 seconds. The debrief is the design's reward beat; making it skippable on the first click strips that.</p>
+              <p>ICD-06 §Cycle timing pins <i>"Duration is player-controlled (click to dismiss)"</i> — so the <b>ICD wording disagrees with the design doc</b>. This is an ICD-06 v0.3 → v0.4 amendment (§Cycle timing line edit), not a deviation; do it in the same PR as the code change per Constraint #4.</p>
+            </div>
+            <div class="meta">
+              <b>Site:</b> <code>js/debrief-panel.js</code> — gate the click handler on a 30-second timer (<code>setTimeout</code> at <code>_mount</code>, set a flag, ignore clicks until then; show a "click to continue →" hint after the timer). World-side: <code>ackDebrief</code> stays player-driven, unchanged.<br/>
+              <b>ICD impact:</b> ICD-06 v0.3 → v0.4 §Cycle timing — change <i>"Duration is player-controlled"</i> to <i>"30s minimum debrief animation; dismissable after the minimum elapses (Design Doc §19)"</i>. Authoring in same PR.<br/>
+              <b>Test:</b> <code>tests/print-cycle.test.mjs</code> — assert <code>EDITION_DEBRIEF_END</code> not emitted within 30 simulated seconds of <code>EDITION_DEBRIEF_BEGIN</code>; emitted on first click after.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-crit">
+          <td class="col-id">C-06</td>
+          <td><span class="chip crit">critical</span></td>
+          <td class="col-area">Visual feedback</td>
+          <td>
+            <div class="head">Rain never doubles at deadline. World-frame <code>rain.intensity</code> is hardcoded to 1.</div>
+            <div class="body">
+              <p>Design Doc §12 Deadline UI: <i>"At T-30s the strip turns bleed-red and the world's rain doubles."</i> Design Doc §03 Rain: <i>"Intensity ramps with edition pressure — by deadline minute zero, it is sheeting."</i></p>
+              <p>Code: <code>snapshot()</code> emits <code>rain: { intensity: 1 }</code> every frame unconditionally. The renderer (<code>renderer.js</code>) carries a constant <code>RAIN_COUNT = 600</code> and does not read <code>frame.rain.intensity</code> — so even if sim ramped the value, the renderer wouldn't honour it. ICD-01 §<code>WorldFrame</code> declares <code>rain: RainConfig</code> with <i>"intensity 0-1"</i>; the field is wired through but dead at both ends.</p>
+            </div>
+            <div class="meta">
+              <b>Site (sim):</b> <code>js/sim/world-state.js:744</code> — compute intensity from <code>cycle.remainingMs</code>: <code>1 + (remaining ≤ 30_000 ? 1 - remaining/30_000 : 0)</code> giving a 1→2 ramp in the last 30 s.<br/>
+              <b>Site (renderer):</b> <code>js/render/renderer.js</code> <code>_stepRain</code> — multiply per-frame line density (or visible-strip count) by <code>frame.rain.intensity</code>. Capping at 1500 lines is fine per Design Doc §15.<br/>
+              <b>Coupled:</b> design also says the deadline strip turns bleed-red at T-30s; HUD currently turns red at T-60s (<code>js/hud.js:23</code> <code>WARNING_MS = 60_000</code>). See D-07.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-crit">
+          <td class="col-id">C-07</td>
+          <td><span class="chip crit">critical</span></td>
+          <td class="col-area">Effects channel</td>
+          <td>
+            <div class="head"><code>WorldFrame.effects</code> is permanently empty — no visual beats fire.</div>
+            <div class="body">
+              <p>ICD-01 v0.5 §<code>WorldFrame</code>: <i>"effects: FxEvent[]   // flashes, prints, deaths"</i> and §Notes: <i>"<code>effects: FxEvent[]</code> is a drained queue — events live for one frame."</i> The contract is authored; no producer exists.</p>
+              <p>Code: <code>World</code> initializes <code>this.effects = []</code> in the constructor and the restore path. <code>snapshot()</code> drains it (<code>this.effects.splice(0)</code>) every frame. <b>Nothing ever pushes.</b> No flash on photog verify, no flash on print, no flash on goon kill or fixer death. The renderer doesn't even consume the array — the channel is dead from both directions.</p>
+              <p>Combined with C-06 (no rain ramp), the game has zero on-screen feedback for any state transition more transient than "a building took damage." The noir aesthetic is supposed to read by motion + light, not by HUD text. Without effects, every player action feels uncommitted.</p>
+            </div>
+            <div class="meta">
+              <b>Author:</b> a small <code>FxEvent</code> vocabulary (lift from ICD-01 line 6: <code>'flash' | 'print' | 'death'</code>; suggest also <code>'pickup' | 'verify' | 'raid_warning'</code>). Push from <code>_handleArrival</code> (pickup/verify), <code>_fireDebrief</code> (print), <code>_pruneDeadUnits</code> (death), <code>_reconcileIntent</code> RAID branch (raid_warning).<br/>
+              <b>ICD impact:</b> ICD-01 v0.5 → v0.6 — add <code>FxEvent</code> union under §<code>WorldFrame</code>. Author in the post-0.9 paper slot, before code lands.<br/>
+              <b>Renderer:</b> per-event consumer in <code>renderer.js</code> — flash quads, paper-page sprite for print, etc. Scope per milestone (0.10 ships only what 0.10 needs).
+            </div>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+
+    <div class="callout amber">
+      <b>Triage note for Claude Code.</b> C-01 / C-02 / C-03 / C-05 are mechanical fixes (one file each, &lt; 30 LOC, contained in one PR with the relevant ICD bump). C-04 / C-06 / C-07 are real design surface and should each open their own milestone slot. Recommended split: <b>C-01 + C-02 + C-03 + C-05 into a "0.9.1 polish" PR</b>; <b>C-04 (lead spawn) into milestone 0.10's lead-spawner slot</b>; <b>C-06 + C-07 into a "0.10 visual feedback" PR after FxEvent ICD-01 v0.6 lands at the post-0.9 paper slot.</b>
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">04</span> ACKNOWLEDGED DRIFT</h2>
+    <div class="kicker">Code differs from the design package but says so in comments · cleanup, not surprise</div>
+
+    <table class="findings">
+      <thead>
+        <tr><th class="col-id">ID</th><th class="col-sev">Sev</th><th class="col-area">Area</th><th>Finding · Fix</th></tr>
+      </thead>
+      <tbody>
+
+        <tr class="row-drift">
+          <td class="col-id">D-01</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">Unit balance</td>
+          <td>
+            <div class="head">Photog walk speed 3.5 u/s vs. Design §19 spec 2.5 u/s.</div>
+            <div class="body">
+              <p>Carryover from milestone 0.4 where Photog shipped at the Reporter speed. <code>UNIT_SPEED</code> table comment at <code>js/sim/world-state.js:56-59</code>: <i>"photog 2.5 (held at 3.5 by carryover from 0.4 — re-tune at Tier-1 balance pass)."</i></p>
+              <p>Honest call; just needs to actually happen. Per design, photog should be the slower verifier paired with a faster reporter (§08 Photog: <i>"Photogs are slow and skittish; pair them with reporters with high nerve"</i>) — the slowness is part of the dispatch puzzle.</p>
+            </div>
+            <div class="meta">
+              <b>Fix:</b> change <code>UNIT_SPEED.photog</code> to <code>2.5</code>. Update <code>tests/unit-step.test.mjs</code> if it asserts a specific traversal time.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-02</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">Unit HP</td>
+          <td>
+            <div class="head">Reporter, Photog, Editor have no HP fields.</div>
+            <div class="body">
+              <p>Design Doc §19 Units: Reporter HP 2 · Photog HP 1 · Editor HP 2. Code: only Goon (HP 1) and Fixer (HP 3) carry <code>hp</code> / <code>hp_max</code> — the others use the makeUnit default which omits them.</p>
+              <p>Comment at <code>js/sim/world-state.js:131</code> (Editor): <i>"No HP — the Editor isn't a damage target at 0.7.1."</i> True today (no source of damage on non-combatants). But: the design promises the Evening Star will BRIBE reporters (Tier-1), and a Photog walking through a raid is supposed to be jumpable. Without HP fields the damage-to-staff path has no shape.</p>
+            </div>
+            <div class="meta">
+              <b>Fix:</b> add <code>{hp, hp_max}</code> to each unit at construction (<code>js/sim/world-state.js:122-133</code>). Plumb through <code>UnitSnap</code> already supports it (<code>save.js:127-141</code>). UnitView intentionally omits HP at v0.5 (sim-internal); no ICD-01 bump until a HUD surface needs it.<br/>
+              <b>Scope:</b> ship today; the damage source comes later. Schema-only change.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-03</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">Resources</td>
+          <td>
+            <div class="head">Cash / heat yields collapsed to midpoints — no ranges, no district modifier, no lie/front-page multipliers.</div>
+            <div class="body">
+              <p>Design §19: <i>"Story cash yield: Whisper $80–250 · Investigation $400–1200 · Arc $2000+ · all modified ±30% by district disposition."</i> Code (<code>resources.js</code>): single midpoints (165 / 800 / 2000). <i>"Heat: Vice +4–12 · Violence +6–18 · Money +8–22 · Lie multiplier ×1.5 · Front-page placement ×1.3."</i> Code: single midpoints (8/12/15), no multipliers.</p>
+              <p>Comments acknowledge: <i>"medium-band per overview line 44 · single representative per dimension, no district modifier, no lie/front-page multipliers. Those land at 0.7+ when districts and rival AI materialize."</i> Districts have arrived (sort of — see G-04); the multiplier work hasn't.</p>
+            </div>
+            <div class="meta">
+              <b>Fix:</b> couple to lead-spawner (C-04) — once Story carries a real <code>district</code>, add <code>districtModifierFor(district, flavor)</code> in <code>resources.js</code>. <code>truthful: false</code> ×1.5 heat multiplier is one line. Front-page placement requires a notion of placement (not modeled today; defer with the Story Engine §18 work).<br/>
+              <b>Test:</b> extend <code>tests/resources.test.mjs</code>.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-04</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">Resources</td>
+          <td>
+            <div class="head">Heat decay nuances missing — flat −8 only.</div>
+            <div class="body">
+              <p>Design §19 Heat: <i>"−8 per edition baseline · −12 if no controversial stories that edition · 0 decay if &gt; 80."</i> Code (<code>resources.js</code>): <code>HEAT_DECAY_PER_EDITION = 8</code>, applied unconditionally. Comment: <i>"the −12 if no controversial and 0 decay if heat&gt;80 nuances are medium-band balance refinements scheduled for 0.7+."</i></p>
+              <p>The "0 decay above 80" is what makes the heat curve dangerous near cap; without it the player can print a wild edition, ack debrief, and reset to manageable. The "−12 quiet edition" is the design's nudge to occasionally print clean.</p>
+            </div>
+            <div class="meta">
+              <b>Fix:</b> in <code>ackDebrief()</code>, branch on <code>summary.heat_applied &gt; 0</code> for baseline-vs-bonus decay; clamp decay to 0 when <code>resources.heat &gt; 80</code> pre-decay. ~5 LOC. Tests in <code>resources.test.mjs</code>.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-05</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">Rival AI</td>
+          <td>
+            <div class="head">Goon spawn tile is hardcoded NW corner (0,0) — Design says "from district edges."</div>
+            <div class="body">
+              <p>Design Doc §10 Defense Layer: <i>"Goons appear from district edges, walk to the bureau."</i> Code: <code>GOON_SPAWN_TILE = { x: 0, y: 0 }</code>, single point. Every raid walks the same diagonal across the 10×10 grid.</p>
+              <p>ICD-02 §Open questions (resolved at 0.7.0): <i>"Multi-edition goon transit deferred to Tier-1 when district edges and patrol patterns enter the model."</i> The spawn-tile question is part of the same deferral but worth flagging — visually it makes every raid look identical, which kills the "where are they coming from?" beat the HUD threats panel is supposed to surface (§13 mock: <i>"3 GOONS · FROM SW"</i>).</p>
+            </div>
+            <div class="meta">
+              <b>Tier-0 fix:</b> rotate among <code>[(0,0), (9,0), (0,9), (9,9)]</code> using the rival's RNG. Cheap, gets visual variety. Tag <code>raid_attempted</code> digest with the spawn corner so the HUD can render "FROM NW".<br/>
+              <b>Tier-1 fix:</b> real district edges once districts exist as data (G-04). Defer to Tier-1.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-06</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">HUD</td>
+          <td>
+            <div class="head">HUD warning threshold at T-60s, not T-30s as design specifies.</div>
+            <div class="body">
+              <p>Design §12 Deadline UI + §19 Time: <i>"At T-30s the strip turns bleed-red."</i> ICD-06 §Cycle timing: <i>"<code>DEADLINE_WARNING</code> fires once at T-30s."</i> Code (<code>js/hud.js:23-24</code>): <code>WARNING_MS = 60_000</code> (red strip), <code>CRITICAL_MS = 10_000</code> (red + pulse).</p>
+              <p>The sim correctly fires <code>DEADLINE_WARNING</code> at T-30s (<code>cycle-clock.js:13</code> <code>DEFAULT_WARNING_MS = 30_000</code>) but the HUD doesn't subscribe to it — it reads <code>deadline_ms</code> off <code>HudState</code> and picks its own thresholds.</p>
+              <p>Net effect: the visual escalation comes 30 seconds early. Not a bug, but a UX drift from the design's "the strip is calm until it isn't" beat.</p>
+            </div>
+            <div class="meta">
+              <b>Fix:</b> change <code>WARNING_MS</code> to <code>30_000</code> in <code>js/hud.js</code>. Optionally drop <code>CRITICAL_MS = 10_000</code> to <code>5_000</code> for tighter pulse window. One-line change + test.<br/>
+              <b>Alternative:</b> subscribe to <code>CycleEvent</code> events for the threshold transitions instead of polling <code>deadline_ms</code> — cleaner per ICD-06 §Subscriber expectations table.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-07</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">HUD</td>
+          <td>
+            <div class="head">Debrief panel is flat HTML — design calls for newspaper pages "laid out on the corkboard."</div>
+            <div class="body">
+              <p>Design Doc §05: <i>"The first 30 seconds of every new edition are a debrief — a literal stack of newspaper pages laid out on the corkboard, telling you what happened."</i> §13: <i>"the morning edition is a literal newspaper that lays itself out on the corkboard between cycles."</i></p>
+              <p>Code (<code>js/debrief-panel.js</code>): single card with kicker + banner + <code>&lt;ul&gt;</code> of story rows. The 0.9 PR's CHANGELOG calls this out: <i>"the corkboard layout (Design Doc §13) materializes at milestone 0.9"</i> — but 0.9 did the HUD corkboard around the viewport, not the debrief panel itself.</p>
+              <p>Combined with C-05 (instant dismissal), the debrief is the most under-delivered moment in the game today vs. its design intent.</p>
+            </div>
+            <div class="meta">
+              <b>Fix:</b> milestone-shape work — give it its own polish slot inside 0.10 or stage as 0.10.1. Render <code>StoryDigest</code> rows as inline newspaper page cards (use existing Bodoni Moda + EB Garamond stack already loaded). Slap-down animation timed to the 30s pause (C-05). SFX-14 from audio-manifest already named for the page slap.<br/>
+              <b>Scope check:</b> straightforward CSS + DOM; ~150 LOC.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-08</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">Save / persistence</td>
+          <td>
+            <div class="head"><code>SaveBlobV1.rng_seed</code> always 0 — World has no top-level RNG owner.</div>
+            <div class="body">
+              <p>ICD-04 §Notes Determinism: <i>"The World-level RNG is reserved for systems that don't have a per-rival owner (lead spawn jitter at milestone 0.9+ is the first plausible caller)."</i> Code (<code>save.js:42</code>): <code>rng_seed: 0, // World RNG owner doesn't exist at 0.8; reserved for later</code>.</p>
+              <p>The lead-spawn engine (C-04) is exactly the first plausible caller the ICD named. Add a <code>SeededRng</code> on <code>World</code> when the spawner lands; restore from <code>blob.rng_seed</code> on the snap path; serialize the live state at write. Existing tests (<code>save-load.test.mjs</code>) already lock the field; just needs to carry a real value.</p>
+            </div>
+            <div class="meta">
+              <b>Fix:</b> couples to C-04 lead-spawner PR. <code>this.rng = new SeededRng(opts.seed ?? Date.now() &amp; 0xffffffff)</code>; on restore <code>this.rng.state = blob.rng_seed</code>. Update <code>serialize()</code> to read <code>world.rng.state</code> instead of literal 0.
+            </div>
+          </td>
+        </tr>
+
+        <tr class="row-drift">
+          <td class="col-id">D-09</td>
+          <td><span class="chip drift">drift</span></td>
+          <td class="col-area">Visual / Rendering</td>
+          <td>
+            <div class="head">Lit windows, halftone print, fog-on-deadline ramp — none implemented.</div>
+            <div class="body">
+              <p>Design §03 Material language: <i>"Lit windows · Unlit emissive · ~40% lit at any time · flicker awake/asleep on a slow timer to suggest a living city."</i> §03 Halftone print: <i>"UI documents, photos, and the loading screen get a 3px-radius halftone treatment."</i> §15: <i>"FOG · Driven by a single uniform — by dialing the near plane we can ramp from <i>damp</i> to <i>soup</i> on deadline."</i></p>
+              <p>Code: buildings are simple toon meshes (<code>buildBuildingMesh</code> in renderer.js). No window quads, no flicker timer, no halftone CSS pass on the debrief panel, no fog-uniform dial.</p>
+              <p>None of these are blockers; they're the texture beats the design doc spent its visual-direction section on. The vertical slice survives without them, but a "feels like the doc" run does not.</p>
+            </div>
+            <div class="meta">
+              <b>Scope:</b> renderer-side aesthetic polish; pick one or two for milestone 0.10 polish slot, stage the rest into Tier-1.<br/>
+              <b>Easiest wins:</b> lit windows (instanced emissive quads, ~80 LOC); fog-on-deadline (one-line lerp in <code>apply()</code>).<br/>
+              <b>ICD impact:</b> ICD-01 v0.5 §<code>WorldFrame.fog</code> already carries <code>{near, far, color}</code>; sim can dial <code>near</code> on the deadline ramp without an ICD change.
+            </div>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">05</span> SPEC'D BUT NOT YET IMPLEMENTED</h2>
+    <div class="kicker">Gaps the docs name explicitly · listed for awareness and Tier-1 planning</div>
+
+    <table class="findings">
+      <thead>
+        <tr><th class="col-id">ID</th><th class="col-sev">Sev</th><th class="col-area">Area</th><th>Finding · Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-id">G-01</td><td><span class="chip gap">gap</span></td><td class="col-area">Buildings</td>
+          <td>
+            <div class="head">No Branch Bureau — Tier-0 scope (§16) calls for 3 buildings, code ships 2.</div>
+            <div class="body">Design §16 Tier-0: <i>"3 buildings (bureau, branch, darkroom)."</i> Code: Bureau + Darkroom only. Branch is what enables district coverage — without it, the lead-spawn engine (C-04) has nowhere to anchor per-district rates. Couples tightly with G-04 (districts) and C-04 (spawner).</div>
+            <div class="meta"><b>Next:</b> milestone 0.10 or a 0.9.5 building slot. ICD-01 <code>BuildingKind</code> union widens by one — ICD-01 bump in the same PR.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-02</td><td><span class="chip gap">gap</span></td><td class="col-area">Units</td>
+          <td>
+            <div class="head">Tipster and Stringer not in code.</div>
+            <div class="body">Tier-0 §16 lists 3 unit types (reporter, photog, fixer); we ship 5 (added Editor + Goon, both correct). Tipster + Stringer + Editor are all Tier-1 per §16. Editor was needed for ink gate so it shipped early. Tipster reveals hidden leads — couples with the lead-spawn engine + the partial-info dossier decision (re-eval-after-0.6 §3.5 Q5).</div>
+            <div class="meta"><b>Next:</b> Tier-1.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-03</td><td><span class="chip gap">gap</span></td><td class="col-area">Rivals</td>
+          <td>
+            <div class="head">Herald and Observer rivals not implemented.</div>
+            <div class="body">Rival AI Spec §03 + §05 author full state machines for both. ICD-02 §Open questions: <i>"Herald + Observer state machines… ICD-02 mirrors land when each rival's first milestone enters the N-window (Tier-1)."</i> Correct deferral; flag for Tier-1 architecture session.</div>
+            <div class="meta"><b>Next:</b> Tier-1 PRE-1.x paper slot to author ICD-02 v0.3 with Herald + Observer state-machine prose.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-04</td><td><span class="chip gap">gap</span></td><td class="col-area">World data</td>
+          <td>
+            <div class="head">Districts don't exist as data — literal string <code>'d-default'</code> everywhere.</div>
+            <div class="body">Overview banding: <i>"District-as-data shape needs to be strong; district contents are fuzzy."</i> Code: Story.district is the string <code>'d-default'</code> for the one lead; LeadView passes it through; rivals' <code>visible_leads</code> tag it with <code>'d-default'</code>. No District type, no district map, no per-district personality. Tier-0 §16 wants 1 district lit; the door is open to do this minimally now.</div>
+            <div class="meta"><b>Next:</b> couples to C-04. Add <code>js/sim/districts.js</code> with at least one real district record (the Docks per Tier-0 §16); plumb <code>DistrictId</code> as a real type. ICD-05's <code>district: DistrictId</code> field is already strong-band — no ICD bump needed if the type's just renamed.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-05</td><td><span class="chip gap">gap</span></td><td class="col-area">Story engine</td>
+          <td>
+            <div class="head">No slot grammar — debrief headlines are placeholder strings.</div>
+            <div class="body"><code>storyDigest</code> at <code>world-state.js:785-794</code> synthesizes <i>"VICE WHISPER HITS WIRE"</i> — comment says <i>"a real headline-generation pass lands later when the story engine (Design Doc §17) lights up."</i> Design §18 specs the full grammar.</div>
+            <div class="meta"><b>Next:</b> couples to G-04 + C-04. Per-district actor pools, verbs tagged by category, suffix table. Pure data + 30 LOC of template-fill. Big payoff for "feels like a paper."</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-06</td><td><span class="chip gap">gap</span></td><td class="col-area">Story engine</td>
+          <td>
+            <div class="head">Zero of eight authored arcs.</div>
+            <div class="body">Design §18 names the 8 MVP arcs (The Longshoreman Strike, The Mayor's Mistress, etc.) with a full authoring spec for each. <i>"~1.5 days of writing + design per arc · 8 arcs at MVP · ~12 working days total for narrative content."</i></div>
+            <div class="meta"><b>Next:</b> Tier-2 unless the user wants to author the first arc (the Longshoreman Strike is the natural Tier-0 closer demo). Belongs in the "come back to me in design mode" bucket per Supplement B §05.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-07</td><td><span class="chip gap">gap</span></td><td class="col-area">Controls / Camera</td>
+          <td>
+            <div class="head">Input model is left-click select + right-click dispatch only.</div>
+            <div class="body">Design §12 Camera &amp; Controls lists: WASD pan, edge-scroll, two-zoom step (City / Block) with 250ms ease, Q/E rotation in 90° steps, drag-select, double-click select-all-of-type, 1–9 control groups, Tab cycle, Space slow-mo, Enter open morning edition, minimap. Code: <code>input.js</code> is 31 lines; renderer camera is static.</div>
+            <div class="meta"><b>Next:</b> milestone 0.10 polish slot. WASD pan + Block zoom are the load-bearing pair for "feels like an RTS." Hotkeys + drag-select are Tier-1. Slow-mo (0.5× for 5s, 30s cooldown) is a §19 commitment that gates &lt; 12-min editions feeling unfair.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-08</td><td><span class="chip gap">gap</span></td><td class="col-area">Audio</td>
+          <td>
+            <div class="head">No audio. Manifest has 60 prompts; code has zero audio surface.</div>
+            <div class="body">Supplement C names 6 ambient beds, 6 music stems, 24 SFX, 60 VO lines, all Venice-ready. Audio Manifest §06 phases AMB-01/02/03 to milestone 0.1 — none generated, no <code>js/audio/</code> directory, no <code>Audio</code> API hooks anywhere. The press silence beat (<i>"the first time the press goes silent is the first time the player notices it was there"</i>) requires audio existing first.</div>
+            <div class="meta"><b>Next:</b> architecture session for ICD-07 (audio bus) before any audio code lands. Asset generation is parallel work; the bus contract is the gating artifact. Surface this in the post-0.9 paper slot.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-09</td><td><span class="chip gap">gap</span></td><td class="col-area">Onboarding</td>
+          <td>
+            <div class="head">No tutorial. Diegetic frame is locked but unwritten.</div>
+            <div class="body">Discussion doc <code>tutorial-first-edition.md</code> status: <i>"committed-direction · diegetic frame locked (notes from the old man) · copy lands at milestone 0.10."</i> The frame is settled; the actual copy and the corkboard pin surface need to ship at 0.10. Without it, a new player sees a fogged-out city and has no idea why a reporter walks when right-clicked.</div>
+            <div class="meta"><b>Next:</b> milestone 0.10 work item. Couples to G-07 (minimum control surface for the tutorial to call out).</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-10</td><td><span class="chip gap">gap</span></td><td class="col-area">HUD</td>
+          <td>
+            <div class="head">Selected-unit dossier: no Reporter stats (Nerve / Nose / Legs).</div>
+            <div class="body">Design §13 HUD mock shows <i>"M. Calloway · Nerve 6 · Nose 8 · Legs 4"</i> for a selected reporter. Code: kind + state + carry annotation only. v0.9 changelog explicitly flags as ICD-01 bump candidate parked for post-0.9 re-eval.</div>
+            <div class="meta"><b>Next:</b> this re-eval (the one this doc supplements) — decide whether to bump ICD-01 v0.5 → v0.6 with <code>UnitView.stats: {nerve, nose, legs}</code>. Recommendation: yes if Reporter naming is also coming (G-09 tutorial uses named reporters in the design); both want a Reporter character model. Author together in the post-0.9 paper slot.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-11</td><td><span class="chip gap">gap</span></td><td class="col-area">HUD</td>
+          <td>
+            <div class="head">Story queue dossier: histograms instead of per-district story listing.</div>
+            <div class="body">Design §13 mock: <i>"Docks: Strike Threat · Hillside: Mayor's Mistress · Diamond Row: Empty Vault."</i> Code: tier histogram (<i>"3 whisper · 1 investigation"</i>) + flavor histogram. Acknowledged in v0.9 changelog as <i>"LeadView.district isn't projected today (ICD-01 bump candidate)."</i></div>
+            <div class="meta"><b>Next:</b> couples to G-04 (districts as data) + G-05 (real headlines). Once both exist, the projection is a one-line change to <code>LeadView</code> in ICD-01.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-12</td><td><span class="chip gap">gap</span></td><td class="col-area">HUD</td>
+          <td>
+            <div class="head">Threats dossier: no raid ETA / source direction / rival attribution.</div>
+            <div class="body">Design §13 mock: <i>"Evening Star raid · ETA 02:40 · 3 GOONS · FROM SW."</i> Code: goon count + Press HP only ("3 goons abroad · Press 78 HP"). v0.9 CHANGELOG: <i>"Raid ETA / source-direction from the §13 mock deferred — needs a WorldFrame.rivals top-level key, which is an architecture session per ICD-01 §Deviation policy."</i> ICD-02 §Open questions resolved this at 0.7.0 to <i>"defer to milestone 0.9's corkboard"</i> — but 0.9 didn't ship it.</div>
+            <div class="meta"><b>Next:</b> this re-eval — author <code>WorldFrame.rivals: RivalStatusView[]</code> on ICD-01 v0.6. Then surface in the threats dossier. Picks up the "RivalStatusView HUD surface" thread that's been open since the post-0.6 re-eval §3.5 Q5.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-13</td><td><span class="chip gap">gap</span></td><td class="col-area">Save / persistence</td>
+          <td>
+            <div class="head">High-score persistence not implemented (Tier-0 closer requirement).</div>
+            <div class="body">Roadmap milestone 0.10 row: <i>"5-edition arc · run-end summary screen · high-score persistence."</i> ICD-04 §Storage key: <i>"High-score persistence (milestone 0.10) lives under a separate key (<code>'late-edition.scores.v1'</code>)."</i> The key is reserved; the persistence is unwritten.</div>
+            <div class="meta"><b>Next:</b> milestone 0.10. Probably an ICD-04 §Notes extension naming the high-score schema; small.</div>
+          </td>
+        </tr>
+        <tr>
+          <td class="col-id">G-14</td><td><span class="chip gap">gap</span></td><td class="col-area">Save / persistence</td>
+          <td>
+            <div class="head">No autosave, no pre-<code>DEADLINE_FIRE</code> checkpoint, no multi-slot.</div>
+            <div class="body">ICD-04 §Open questions explicitly defers all three; v0.8 code session settled on <code>CYCLE_BEGIN</code> + <code>CYCLE_GAME_OVER</code> only. Player loses any progress in the edition currently underway if the tab closes.</div>
+            <div class="meta"><b>Next:</b> Tier-1 once playtesting surfaces the cost. Likely smallest-first: add a 30 s debounced autosave during play.</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">06</span> EXPLICITLY PARKED</h2>
+    <div class="kicker">Acknowledged deferrals · no action this PR · listed for transparency</div>
+
+    <p>Items in the discussion/ tree, in ICD §Open questions tables, in the design-doc §20 TBD list, or pinned by re-eval verdicts. Recording them here so they're not re-discovered as "missing."</p>
+
+    <table class="findings">
+      <thead>
+        <tr><th class="col-id">ID</th><th class="col-area">Area</th><th>Item · Pinned at</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="col-id">P-01</td><td class="col-area">Rival AI</td><td>BRIBE / RUSH / PANIC / BURNOUT bodies — caller-triggered per ICD-02 v0.2 §Caller-triggered scope. Tier-1.</td></tr>
+        <tr><td class="col-id">P-02</td><td class="col-area">Rival AI</td><td>Multi-edition goon transit — pinned at ICD-02 v0.2.1 §Open questions; permanent Tier-0 clamp via <code>eta_ms ≤ remaining_ms - 1000</code>.</td></tr>
+        <tr><td class="col-id">P-03</td><td class="col-area">Rival AI</td><td>Observer violence (<code>discussion/observer-violence.md</code>) — partner-fund Tier IV mechanism parked. Revisit when Observer milestone enters N-window.</td></tr>
+        <tr><td class="col-id">P-04</td><td class="col-area">Run-meta</td><td>Difficulty selector (frequency scaling on rival tick) — Tier-1 run-meta layer. Pinned at re-eval-after-0.6 §3.5 Q4.</td></tr>
+        <tr><td class="col-id">P-05</td><td class="col-area">Rival AI</td><td>Partial-dossier rival visibility with <code>{calm, scheming, hostile}</code> posture vocabulary — committed direction; HUD surface still TBD (see G-12).</td></tr>
+        <tr><td class="col-id">P-06</td><td class="col-area">World data</td><td>18+ district canonical city — fuzzy band. Tier-0 ships 1 district.</td></tr>
+        <tr><td class="col-id">P-07</td><td class="col-area">Tech tree</td><td>Yellow / Establishment branch detection heuristic (<code>discussion/yellow-establishment-branch.md</code>) — Tier-1+ branch detection. No N-window consumer.</td></tr>
+        <tr><td class="col-id">P-08</td><td class="col-area">Accessibility</td><td><code>discussion/accessibility.md</code> — pre-architectural; ICD-06 already cites it for the deadline non-visual cue.</td></tr>
+        <tr><td class="col-id">P-09</td><td class="col-area">Multiplayer</td><td>MP, accounts, cloud saves — fuzzy band. Architecture must not foreclose; ICD-04 already authoritative-server-shaped.</td></tr>
+        <tr><td class="col-id">P-10</td><td class="col-area">World gen</td><td>Procedural city generation — fuzzy band. <code>grid.walkable</code> persistence in ICD-04 already shaped for the Tier-1 proc-gen layer.</td></tr>
+        <tr><td class="col-id">P-11</td><td class="col-area">Tech</td><td>Per-kind pathfinder costs (Goon alley shortcuts, Reporter street preference) — ICD-03 §Notes; Tier-1 with the cost-unit shift.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">07</span> WHAT'S ACTUALLY RIGHT</h2>
+    <div class="kicker">For the file · so the next code session knows what not to touch</div>
+
+    <p>The audit is heavy on the gap list because that's the point. But a fair read needs the ledger of what's load-bearing-and-correct.</p>
+
+    <div class="cols-2" style="margin-top:14px">
+      <p><b>ICD contracts.</b> All six ICDs (01 v0.5 · 02 v0.2.1 · 03 v0.2 · 04 v0.1 · 05 v0.4.1 · 06 v0.3) survived code-aware re-read with zero interface drift. Every <code>WorldFrame</code> sub-shape, every Intent kind, every State transition matches the markdown. Constraint #4 (in-PR ICD bumps on deviation) has been honored across all twelve milestones.</p>
+
+      <p><b>The inner three rings.</b> Dispatch → pickup → verify → plate → print is closed and tested (113 cases). Same <code>Story.id</code> flows end-to-end (ICD-05 §Purpose). 12-minute cycle correct (<code>DEFAULT_EDITION_MS = 720_000</code>). Heat decay at edition boundaries. Cash / ink / heat all reconciled at <code>DEADLINE_FIRE</code>. <code>EditionSummary</code> shape correct, including the ink gate's <code>ink_consumed</code> reflecting only admitted stories.</p>
+
+      <p><b>Save / load.</b> Single versioned <code>localStorage</code> blob (<code>'late-edition.save.v1'</code>), atomic write, migration-chain stub, per-rival RNG state captured, mid-edition resume via continuous <code>pos</code> + remaining <code>path</code> + <code>CycleClock.remainingMs</code> with duplicate-event suppression. Unknown-future-version refuses gracefully. Round-trip-tested under <code>tests/save-load.test.mjs</code> for 12 cases including duplicate-event suppression, EveningStar determinism, and the size-guard stretch case.</p>
+
+      <p><b>Adversarial half-ring.</b> Evening Star is a real seeded state machine (Mulberry32, 32-bit state). Goon damage rate matches <code>GOON_DAMAGE_PER_SECOND = 1</code> per Design §17. Fixer 1-hit-kills adjacent goons; two-goon swarm kills the fixer (Design §rivals). <code>CYCLE_GAME_OVER</code> fires exactly once. <code>raid_attempted</code> digests accrue and flush to <code>EditionSummary.rival_events</code>. <code>onEditionEnd()</code> ticks <code>editionsSinceRaid</code> correctly.</p>
+
+      <p><b>Renderer / sim split.</b> Renderer never reaches back into world state — <code>renderer.js</code> imports only <code>TILE</code> (a constant). All state flows through <code>WorldFrame</code>. The 30 Hz fixed-tick with renderer-side lerp survives. <code>world-frame.test.mjs</code> actively rejects sim-only fields (<code>path</code>, <code>tile</code>, <code>pathIdx</code>, <code>carryingStoryId</code>) from any View.</p>
+
+      <p><b>Determinism contract.</b> Seeded RNG per rival. <code>tick_accum_ms</code> sub-tick accumulator preserved across save round-trip. A reloaded run produces the same Evening Star decisions the original run would (load-bearing for telemetry, replay, bug repro, and any future automated playtest harness).</p>
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">08</span> THE FIX LIST FOR CLAUDE CODE</h2>
+    <div class="kicker">Prioritized · grouped by PR · cite-ready for the next code session</div>
+
+    <h3>PR-A · Polish patch (0.9.1)</h3>
+    <p class="small muted">Small, contained, no ICD bumps. Ship together.</p>
+    <div class="fix-list">
+      <ol>
+        <li>
+          <div class="desc">
+            <b>C-01 · Repair Press HP between editions.</b>
+            <small>Add <code>bureau.hp = bureau.hp_max</code> when <code>&gt; 0</code> in <code>ackDebrief</code>. Test in <code>press-hp.test.mjs</code>.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>C-02 · Emit <code>raid_succeeded</code> and <code>raid_wiped</code> rival events.</b>
+            <small>Track active-raid goons (per-goon <code>raid_id</code> tag is cheapest); emit on first damage tick + on last-goon prune. Tests in <code>evening-star.test.mjs</code> + <code>goon.test.mjs</code>. ICD-02 §Notes one-line addition.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>C-03 · "New run" button on the game-over overlay.</b>
+            <small><code>removeItem(SAVE_KEY)</code> + <code>location.reload()</code>. CSS in <code>index.html</code>.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>D-01 · Photog speed 3.5 → 2.5 u/s.</b>
+            <small>One-line table change; update <code>tests/unit-step.test.mjs</code> if it pins a time.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>D-02 · HP fields on Reporter (2), Photog (1), Editor (2).</b>
+            <small>Schema-only; UnitView omits intentionally. <code>UnitSnap</code> already carries optional <code>hp</code> / <code>hp_max</code>.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>D-04 · Heat decay nuances (−12 quiet edition · 0 decay if heat &gt; 80).</b>
+            <small>Two branches in <code>ackDebrief</code>; <code>resources.test.mjs</code> coverage.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>D-06 · HUD warning threshold T-60s → T-30s.</b>
+            <small><code>WARNING_MS = 30_000</code> in <code>js/hud.js</code>. Aligns with <code>DEADLINE_WARNING</code> event already firing at T-30s.</small>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <h3>PR-B · Paper-only architecture session (PRE-0.10)</h3>
+    <p class="small muted">No code. Authors the ICD work milestone 0.10 needs.</p>
+    <div class="fix-list">
+      <ol>
+        <li>
+          <div class="desc">
+            <b>ICD-01 v0.5 → v0.6.</b>
+            <small>Add <code>UnitView.stats: {nerve, nose, legs} | undefined</code> (G-10). Add <code>LeadView.district</code> projection (G-11). Add <code>WorldFrame.rivals: RivalStatusView[]</code> top-level key (G-12 / re-eval-after-0.6 §3.5 Q5 carryover). Author <code>FxEvent</code> union under §<code>WorldFrame</code> with <code>'flash' | 'print' | 'death' | 'pickup' | 'verify' | 'raid_warning'</code> vocabulary (C-07).</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>ICD-06 v0.3 → v0.4.</b>
+            <small>§Cycle timing wording amended for the 30 s minimum debrief duration (C-05). One sentence, no shape change.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>ICD-07 — new — Audio bus.</b>
+            <small>Author the audio bus contract so audio assets can land in parallel (G-08). Channel vocabulary (ambient bed, music stem, SFX, VO), ducking rules, the press-silence beat. Reference Supplement C for the 60-prompt manifest.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>Promote HUD corkboard layout: medium → strong.</b>
+            <small>Overview line 45. The 0.9 PR shipped pixel-honest layout; the §13 mock is now load-bearing — strong-band per the N=3 horizon rule.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>Confirm Tier-0 exit criteria.</b>
+            <small>Roadmap line 32. Specifically: 5-edition arc, run-end summary, high-score persistence. The criterion <i>"verifies the loop reads as a game"</i> implies C-04 + G-09 must be in 0.10.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>Author <code>architecture/re-eval-after-0.9.md</code>.</b>
+            <small>The formal landing site for this audit. Mirror the structure of re-eval-after-0.6.md. Snip the divergences into "drift / decision-in-comments / arch-silent" buckets per METHODOLOGY §3.1.1.</small>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <h3>PR-C · Milestone 0.10 (Tier-0 closer)</h3>
+    <p class="small muted">The first thing a friend can play. Land in one code session if possible; split into 0.10.0 / 0.10.1 if scope creeps past one PR.</p>
+    <div class="fix-list">
+      <ol>
+        <li>
+          <div class="desc">
+            <b>C-04 · Lead-spawn engine.</b>
+            <small>New pure module <code>js/sim/lead-spawner.js</code>. Cadence + tier roll table + 3-minute decay. Wires the World RNG slot (D-08). Tests in <code>tests/lead-spawn.test.mjs</code>.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>G-04 · Districts as data.</b>
+            <small><code>js/sim/districts.js</code> with the Docks as the first real district (Tier-0 §16). Plumb <code>DistrictId</code> as a real string-id type. Couples to LeadView.district from ICD-01 v0.6 (PR-B).</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>G-01 · Branch Bureau.</b>
+            <small><code>BuildingKind</code> union widens by one. Building has a per-district coverage flag; the spawner reads it for per-district rate.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>G-05 · Slot-grammar headlines.</b>
+            <small>Replace <code>storyDigest</code>'s placeholder with the §18 grammar. Per-district actor pools. Suffix table. ~50 LOC of data + 30 LOC of fill.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>G-13 · High-score persistence + run-end summary.</b>
+            <small>New file <code>js/sim/scores.js</code> against <code>'late-edition.scores.v1'</code> key. Run-end summary mounts on <code>CYCLE_GAME_OVER</code> (extends C-03's overlay) or on the 5-edition arc closer.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>G-09 · Diegetic tutorial (notes from the old man).</b>
+            <small>Discussion doc is settled; copy + 4–5 corkboard pins ship with this PR. Couples to G-07 minimum (need WASD pan for the tutorial to call out a control).</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>G-07 · Minimum control surface.</b>
+            <small>WASD pan + Block-zoom step (the two load-bearing controls). Slow-mo (Space, 0.5×, 5s, 30s cooldown — Design §19) for the deadline-rush feel. Drag-select / hotkeys / minimap park to Tier-1.</small>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <h3>PR-D · Visual feedback PR (0.10.x or Tier-1 lead-in)</h3>
+    <p class="small muted">After FxEvent ICD-01 v0.6 lands. Pure renderer work + small sim emit sites.</p>
+    <div class="fix-list">
+      <ol>
+        <li>
+          <div class="desc">
+            <b>C-06 · Rain ramp at deadline.</b>
+            <small>Sim dials <code>rain.intensity</code> 1→2 in the last 30s. Renderer multiplies <code>RAIN_COUNT</code> visible by intensity.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>C-07 · Wire <code>WorldFrame.effects</code> end-to-end.</b>
+            <small>Sim emit sites: pickup, verify, print, death, raid-incoming. Renderer per-event consumers.</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>D-07 · Debrief panel as newspaper pages.</b>
+            <small>Page-slap animation timed to the 30s pause (C-05). SFX-14 hook (once audio bus lands).</small>
+          </div>
+        </li>
+        <li>
+          <div class="desc">
+            <b>D-09 · Lit windows + fog-on-deadline.</b>
+            <small>Two easiest visual wins from the §03 material language section. Lit windows: instanced emissive quads with slow flicker timer. Fog: lerp <code>fog.near</code> 22→14 across the last 60s.</small>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="callout ink" style="margin-top:24px">
+      <b>Methodology reminder.</b> The four PRs above are not parallel — they have ordering. PR-A ships first (no ICD work, mechanical fixes). PR-B is the paper-only session that gates PR-C and PR-D. PR-C is the Tier-0 closer code session against PR-B's ICDs. PR-D follows PR-B's <code>FxEvent</code> work and PR-C's milestone-0.10 substrate. Don't open PR-C without PR-B shipped; don't open PR-D without PR-B + PR-C shipped. This is the surface-and-schedule pattern the methodology uses for every previous milestone gate.
+    </div>
+  </section>
+
+  <!-- ========================================================= -->
+  <section>
+    <h2 class="section"><span class="num">09</span> SUMMARY · CARRY THESE FORWARD</h2>
+    <div class="kicker">The short version · what to tell the next session</div>
+
+    <div class="cols-2">
+      <p><b>Six ICDs intact.</b> Twelve code milestones in, no contract drift. The methodology is working.</p>
+
+      <p><b>One showstopper for 0.10.</b> No lead-spawn engine means there is nothing to ferry after edition 1. Without C-04, the Tier-0 closer cannot meet its <i>"first thing a friend can play"</i> bar.</p>
+
+      <p><b>Seven critical findings.</b> Three are 10-LOC mechanical fixes (C-01, C-02, C-03). Two are architecture beats (C-04 spawner, C-07 effects channel). Two are UX restorations matching the design doc against current code (C-05 30s debrief, C-06 deadline rain ramp).</p>
+
+      <p><b>Nine acknowledged drifts.</b> All flagged in code comments. Cleanup pass, not surprise.</p>
+
+      <p><b>Fourteen spec'd-but-not-implemented gaps.</b> Half land at milestone 0.10 (lead spawn + districts + Branch + grammar + tutorial + scores + minimum controls). The other half belong to Tier-1.</p>
+
+      <p><b>Eleven explicit parks.</b> Discussion docs, ICD §Open questions, fuzzy-band notes. Listed so they're not re-discovered.</p>
+
+      <p><b>One audit verdict.</b> The simulation is closer to "tech demo with a deadline" than to "newspaper noir RTS." The gap is content (districts, grammar, arcs, audio, tutorial) and feedback (rain, effects, debrief animation). The contracts are ready to carry it.</p>
+
+      <p><b>One quote to carry into the next session.</b> The roadmap calls 0.10 <i>"the first thing a friend can play · verifies the loop reads as a game."</i> Today the loop turns. Whether it reads as a game is what PR-C settles.</p>
+    </div>
+
+    <div class="pull" style="margin-top:36px">
+      "Twelve milestones in. The press runs. The deadline fires. There's nothing to print."
+      <span class="by">— the audit, in one breath</span>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <div>LATE EDITION · SPEC vs CODE REVIEW · v0.9 → BACK-TO-CLAUDE-CODE</div>
+    <div>READ ALONGSIDE METHODOLOGY.md · architecture/ · icds/ · design/</div>
+  </footer>
+
+</div>
+</body>
+</html>
