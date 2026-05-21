@@ -232,22 +232,19 @@ function handleNextDay() {
   gameState = { ...result.state, rng: gameState.rng, _turnLog: gameState._turnLog };
   trailLedger = result.ledger;
   currentEvent = result.event;
-
-  saveGame(gameState);
-
-  render();
 }
 
 /**
- * Select an event category based on current game state.
+ * Select a random event category based on weighted distribution.
  */
 function selectEventCategory() {
-  const rng = gameState.rng;
-  const roll = rng();
-  
-  if (roll < 0.35) return 'opportunity';
-  if (roll < 0.65) return 'moral';
-  return 'opportunity'; // default
+  const roll = gameState.rng();
+  if (roll < 0.20) return 'weather';
+  if (roll < 0.35) return 'illness';
+  if (roll < 0.55) return 'encounter';
+  if (roll < 0.70) return 'terrain';
+  if (roll < 0.85) return 'opportunity';
+  return 'moral';
 }
 
 /**
