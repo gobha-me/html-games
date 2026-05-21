@@ -1,0 +1,373 @@
+/* ── Oregon Trail — End Screen Styles ── */
+
+/* ── Overlay Backdrop ───────────────────────────────────────────── */
+
+.end-screen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.end-screen-overlay[hidden] {
+  display: none !important;
+}
+
+/* ── End Screen Card ────────────────────────────────────────────── */
+
+.end-screen-card {
+  position: relative;
+  max-width: 640px;
+  width: 100%;
+  padding: 2.5rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+/* ── Theme: Win (golden/green) ──────────────────────────────────── */
+
+.end-screen-card.theme-win {
+  background: linear-gradient(160deg, #f5e6c8 0%, #e8d5a3 60%, #c9b87a 100%);
+  border: 3px solid #8b6914;
+  color: #2c1810;
+}
+
+.end-screen-card.theme-win .end-screen-icon {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.end-screen-card.theme-win .end-screen-title {
+  color: #3b2f2f;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.end-screen-card.theme-win .end-screen-subtitle {
+  color: #5c4033;
+  font-style: italic;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Theme: Lose (dark/red) ─────────────────────────────────────── */
+
+.end-screen-card.theme-lose {
+  background: linear-gradient(160deg, #2c1810 0%, #3b2f2f 60%, #4a2020 100%);
+  border: 3px solid #8b3a3a;
+  color: #e8d5a3;
+}
+
+.end-screen-card.theme-lose .end-screen-icon {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.end-screen-card.theme-lose .end-screen-title {
+  color: #f44336;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.end-screen-card.theme-lose .end-screen-subtitle {
+  color: #b8a88a;
+  font-style: italic;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Theme: Partial (amber/muted) ───────────────────────────────── */
+
+.end-screen-card.theme-partial {
+  background: linear-gradient(160deg, #e8d5a3 0%, #d4c08a 60%, #b8a060 100%);
+  border: 3px solid #a08040;
+  color: #3b2f2f;
+}
+
+.end-screen-card.theme-partial .end-screen-icon {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.end-screen-card.theme-partial .end-screen-title {
+  color: #5c4033;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.end-screen-card.theme-partial .end-screen-subtitle {
+  color: #6b5344;
+  font-style: italic;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Divider ────────────────────────────────────────────────────── */
+
+.end-screen-divider {
+  width: 120px;
+  height: 2px;
+  background: var(--trail-accent, #c4883f);
+  margin: 1.5rem auto;
+  border: none;
+}
+
+/* ── Stats Grid ─────────────────────────────────────────────────── */
+
+.end-screen-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.stat-item {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.theme-win .stat-item {
+  background: rgba(139, 105, 20, 0.1);
+  border: 1px solid rgba(139, 105, 20, 0.2);
+}
+
+.theme-lose .stat-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.theme-partial .stat-item {
+  background: rgba(160, 128, 64, 0.1);
+  border: 1px solid rgba(160, 128, 64, 0.2);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+/* ── Party Status ───────────────────────────────────────────────── */
+
+.end-screen-party {
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.end-screen-party h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+  margin-bottom: 0.75rem;
+}
+
+.party-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+  font-size: 0.95rem;
+}
+
+.theme-win .party-member-row {
+  background: rgba(139, 105, 20, 0.05);
+}
+
+.theme-lose .party-member-row {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.theme-partial .party-member-row {
+  background: rgba(160, 128, 64, 0.05);
+}
+
+.party-member-name {
+  font-weight: bold;
+}
+
+.party-member-status {
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.party-member-status.alive {
+  color: #4a7c59;
+}
+
+.party-member-status.deceased {
+  color: #f44336;
+}
+
+.theme-lose .party-member-status.alive {
+  color: #8bc34a;
+}
+
+.theme-lose .party-member-status.deceased {
+  color: #ef9a9a;
+}
+
+/* ── Trail Ledger ───────────────────────────────────────────────── */
+
+.end-screen-ledger {
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.end-screen-ledger h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.ledger-faction-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.ledger-faction-name {
+  width: 100px;
+  font-size: 0.85rem;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.ledger-faction-bar-bg {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.ledger-faction-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.ledger-faction-bar-fill.positive {
+  background: #4a7c59;
+}
+
+.ledger-faction-bar-fill.negative {
+  background: #f44336;
+}
+
+.ledger-faction-bar-fill.neutral {
+  background: #8b6914;
+}
+
+.ledger-faction-label {
+  width: 80px;
+  font-size: 0.8rem;
+  font-style: italic;
+  text-align: left;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+/* ── Play Again Button ──────────────────────────────────────────── */
+
+.end-screen-play-again {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.85rem 2rem;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: 2px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.05em;
+}
+
+.theme-win .end-screen-play-again {
+  background: var(--earth-dark, #3b2f2f);
+  color: var(--parchment, #f5e6c8);
+  border-color: var(--earth-dark, #3b2f2f);
+}
+
+.theme-win .end-screen-play-again:hover {
+  background: var(--earth-mid, #5c4033);
+  border-color: var(--earth-mid, #5c4033);
+}
+
+.theme-lose .end-screen-play-again {
+  background: var(--parchment, #f5e6c8);
+  color: var(--earth-dark, #3b2f2f);
+  border-color: var(--parchment, #f5e6c8);
+}
+
+.theme-lose .end-screen-play-again:hover {
+  background: var(--parchment-deep, #e8d5a3);
+  border-color: var(--parchment-deep, #e8d5a3);
+}
+
+.theme-partial .end-screen-play-again {
+  background: var(--earth-dark, #3b2f2f);
+  color: var(--parchment, #f5e6c8);
+  border-color: var(--earth-dark, #3b2f2f);
+}
+
+.theme-partial .end-screen-play-again:hover {
+  background: var(--earth-mid, #5c4033);
+  border-color: var(--earth-mid, #5c4033);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .end-screen-card {
+    padding: 1.5rem 1rem;
+  }
+
+  .end-screen-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .end-screen-title {
+    font-size: 1.5rem;
+  }
+
+  .ledger-faction-name {
+    width: 80px;
+    font-size: 0.75rem;
+  }
+
+  .ledger-faction-label {
+    width: 60px;
+    font-size: 0.7rem;
+  }
+}

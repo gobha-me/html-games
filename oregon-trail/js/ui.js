@@ -37,7 +37,13 @@ import {
   saveGame,
   loadGame,
   hasSave,
+  deleteSave,
 } from './save-load.js';
+
+import {
+  showEndScreen,
+  hideEndScreen,
+} from './end-screen.js';
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
@@ -132,6 +138,7 @@ function startNewGame() {
   trailLedger = createLedger();
   turnLog = ['Day 1: The journey begins from Independence, Missouri.'];
   currentEvent = null;
+  hideEndScreen();
 }
 
 /**
@@ -206,7 +213,12 @@ function handleNextDay() {
     gameState.gameOver = true;
     gameState.endReason = gameOverResult.reason;
     render();
-    showGameOver(gameOverResult.reason);
+    showEndScreen(gameState, trailLedger, () => {
+      deleteSave();
+      startNewGame();
+      hideEndScreen();
+      render();
+    });
     return;
   }
   
@@ -481,25 +493,6 @@ function renderTurnLog() {
     div.textContent = entry;
     DOM.turnLogEntries.appendChild(div);
   });
-}
-
-/**
- * Show game over overlay/message.
- */
-function showGameOver(reason) {
-  DOM.eventTitle.textContent = 'Journey\'s End';
-  DOM.eventDescription.textContent = reason || 'Your journey has come to an end.';
-  DOM.eventChoices.innerHTML = '';
-  
-  const restartBtn = document.createElement('button');
-  restartBtn.className = 'choice-btn';
-  restartBtn.textContent = '🔄 Start New Journey';
-  restartBtn.addEventListener('click', () => {
-    deleteSave();
-    startNewGame();
-    render();
-  });
-  DOM.eventChoices.appendChild(restartBtn);
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
