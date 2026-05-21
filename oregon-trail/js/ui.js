@@ -195,40 +195,37 @@ function bindEvents() {
  */
 function handleNextDay() {
   if (gameState.gameOver) return;
-  
-  // Advance the turn
-  const result = advanceTurn(gameState);
-  gameState = result.newState;
-  
-  // Add turn log entries
-  if (result.log && result.log.length > 0) {
-    result.log.forEach(entry => {
-      turnLog.unshift(`Day ${gameState.day}: ${entry}`);
+
+  const decisions = {
+    pace: gameState.pace,
+    ration: gameState.ration,
+    action: gameState.action
+  };
+
+  gameState = advanceTurn(gameState, decisions);
+
+  const lastTurn = gameState._turnLog && gameState._turnLog[gameState._turnLog.length - 1];
+  if (lastTurn && lastTurn.events && lastTurn.events.length > 0) {
+    lastTurn.events.forEach(entry => {
+      turnLog.unshift(`Day ${lastTurn.day}: ${entry}`);
     });
   }
-  
-  // Check for game over
-  const gameOverResult = checkGameOver(gameState);
-  if (gameOverResult.gameOver) {
-    gameState.gameOver = true;
-    gameState.endReason = gameOverResult.reason;
+
+  if (gameState.gameOver) {
     render();
     showEndScreen(gameState, trailLedger, () => {
       deleteSave();
       startNewGame();
-      hideEndScreen();
       render();
     });
     return;
   }
-  
-  // Dispatch an event
+
   const eventCategory = selectEventCategory();
   currentEvent = dispatchEvent(eventCategory, gameState, trailLedger, gameState.rng);
-  
-  // Auto-save
+
   saveGame(gameState);
-  
+
   render();
 }
 
