@@ -27,7 +27,7 @@ definitions.
 | **PRE-0.7** | Author **ICD-02 v0.2** (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView posture) + **ICD-05 §Notes** (AUTO_PLATE_SENTINEL substitution path + ink plate-time hard gate) — *shipped v0.6.2* | Architecture session · paper-only · gates milestone 0.7 | strong |
 | **0.7.0** | Evening Star SCAVENGE + RAID states · Goon unit · Fixer unit · Press HP + `CYCLE_GAME_OVER` fail-state — *shipped v0.7.0* | ICD-02 v0.2 used as authored; ICD-06 → v0.3 (CYCLE_GAME_OVER); Editor + ink gate split out to **0.7.1** | strong |
 | **0.7.1** | Editor unit (substitutes `AUTO_PLATE_SENTINEL` with `UnitId`) · ink plate-time hard gate (reject `verified → plated` if ink would go negative) — *shipped v0.7.1* | ICD-05 v0.4 §Notes used as authored — code-only milestone | strong |
-| **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session | Required before any code touches persistence | strong |
+| **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session — *shipped v0.7.2* | Required before any code touches persistence | strong |
 | **0.8** | Save / load · resume mid-edition · version field | ICD-04 · localStorage blob · migration stub | strong |
 | **0.9** | HUD corkboard · deadline ticker · selected-unit dossier | Design doc §13 · medium-band layout | medium |
 | **RE-EVAL** | After 0.9 · paper + code-aware | Code-arch divergence check. Tighten HUD spec. Confirm Tier-0 exit criteria. | re-eval |
@@ -47,29 +47,28 @@ v0.4 cover them).
 
 ## Current status
 
-**0.7.1 — shipped (v0.7.1).** Editor unit lit and the ink plate-time
-hard gate enforced. The Editor (`kind: 'editor'`) spawns at
-`EDITOR_SPAWN_TILE = (4, 5)` — Bureau-adjacent west, the remaining
-cardinal slot after Reporter N, Photog S, Fixer E. Speed 0 in the
-per-kind table plus a `dispatch()`-level reject keeps it pinned to the
-Bureau door (Design Doc §17 "Stationed at the Bureau"). At
-`DEADLINE_FIRE` the `_fireDebrief` plating step substitutes the
-Editor's `UnitId` for `AUTO_PLATE_SENTINEL` on `Story.plated_by` per
-ICD-05 v0.4 §Notes — the sentinel constant stays exported as the
-defensive fallback. The ink hard gate (ICD-05 v0.4 §Notes) walks the
-verified queue in order against a projected ink budget; stories whose
-cost would push `World.resources.ink` below zero stay `verified` at
-the Darkroom and try again next edition. `EditionSummary.ink_consumed`
-reflects the admitted set only, so the running balance stays ≥ 0
-across the print. No ICD bumps — pure code milestone, exactly as
-PRE-0.7 promised. 85 → 94 node tests (`editor.test.mjs` +
-`ink-gate.test.mjs`).
+**PRE-0.8 — shipped (v0.7.2, paper-only).** ICD-04 (save schema) is
+authored at v0.1 ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)).
+Single versioned `localStorage` JSON blob (`'late-edition.save.v1'`)
+with per-rival RNG state captured for determinism, mid-edition resume
+via continuous `pos` + remaining `path` + `CycleClock.remainingMs` +
+the `_warningFired` / `_fireFired` re-emission guards, and a per-record
+`Story.version` field that migrates independently of the blob-level
+`version`. The Story `version` field closes ICD-05 v0.4 §Open-Q-1
+(which had explicitly deferred the question to PRE-0.8); ICD-05 bumps
+to v0.4.1 with the §Open-questions closure paragraph — **no in-memory
+shape change**. ICD-04 also recommends the save trigger surface
+(on-`EDITION_DEBRIEF_END` + on-`CYCLE_GAME_OVER`) without locking it,
+leaving the cadence question for the 0.8 code session. No code touched
+in this PR — paper-only architecture session, exactly as the
+methodology asks before code can touch persistence.
 
-Next: **PRE-0.8** — author ICD-04 (save schema). Architecture session,
-paper-only, gates milestone 0.8 (save/load · resume mid-edition ·
-version field). ICD-04 was the one ICD explicitly deferred to PRE-0.8
-by the supplement, so this is the next paper slot the methodology
-asks for before code can touch persistence.
+Next: **milestone 0.8** — save/load · resume mid-edition · version
+field. ICD-04 v0.1 is now the contract the 0.8 code session lifts;
+deviations update ICD-04 in the same PR (Constraint #4). The 0.8 code
+session is also the spot where the cadence Open Q above settles and
+the live-Story-vs-persisted-StorySnap projector lands (per ICD-05
+v0.4.1 §Open-questions resolution).
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -157,8 +156,23 @@ asks for before code can touch persistence.
       admitted set only. No ICD bumps (01 v0.5, 02 v0.2, 05 v0.4, 06
       v0.3 all used as authored). Tests at 94 cases (85 → 94; new
       `editor.test.mjs` + `ink-gate.test.mjs`).
+- [x] **PRE-0.8** — paper-only. Authored ICD-04 v0.1
+      ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)) —
+      single-blob `localStorage` schema with explicit blob `version`,
+      migration policy (`migrate_N_to_N+1` chain on load), determinism
+      contract (per-rival RNG state in `EveningStarSnap.rng.state` +
+      sub-tick `tick_accum_ms`), mid-edition resume rules
+      (continuous `pos` + remaining `path` + `CycleClock.remainingMs`
+      with `_warningFired` / `_fireFired` flags suppressing duplicate
+      events), per-record `Story.version` (closes ICD-05 §Open-Q-1),
+      and a recommended-but-not-locked save trigger surface (on
+      `EDITION_DEBRIEF_END` + on `CYCLE_GAME_OVER`). ICD-05 bumped to
+      v0.4.1 — §Open-questions closure paragraph only, no in-memory
+      shape change. ICD-01 v0.5 / 02 v0.2 / 06 v0.3 unchanged.
+      Milestone 0.8 is now code-ready.
 
 ## Out of scope until called
 
-- **ICD-04** — explicitly deferred to PRE-0.8 by the supplement.
+- ~~**ICD-04** — explicitly deferred to PRE-0.8 by the supplement.~~ Authored
+  at v0.1 in PRE-0.8 (shipped v0.7.2); no longer out of scope.
 - **Tier-1 architecture** — gated behind the Tier-0 → Tier-1 RE-EVAL slot.

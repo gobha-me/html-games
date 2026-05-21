@@ -38,8 +38,9 @@ working as designed, not a delay.
 ## Hard rules for this game
 
 - **Don't commit code for milestones that haven't had their ICDs authored.**
-  ICD-04 in particular is explicitly deferred to PRE-0.8 — do not touch
-  persistence before then.
+  ICD-04 was the last ICD deferred (to PRE-0.8); it's now authored at v0.1
+  ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)), so milestone
+  0.8 is code-ready and persistence work may proceed.
 - **When code deviates from an ICD, update the ICD in the same PR.** This
   is Constraint #4 of the methodology.
 - **Bands are not decoration.** Strong-band commitments are load-bearing.
@@ -50,49 +51,48 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.7.1 — milestone 0.7.1 shipped (code).** The inner three rings
-close. Editor unit lit; ink plate-time hard gate enforced. Both halves
-of the 0.7 split (0.7.0 adversarial ring + 0.7.1 Editor + ink gate)
-are now shipped. Pure code milestone — every ICD shape was already
-authored at the right version going in, and the implementation lifts
-ICD-05 v0.4 §Notes verbatim. No ICD bumps in this PR.
+**v0.7.2 — PRE-0.8 shipped (paper-only).** ICD-04 (save schema) authored
+at v0.1. No code touched this milestone — pure architecture session, as
+the supplement asked for and the methodology requires before any code
+can touch persistence at milestone 0.8.
 
 Headline outputs:
 
-- **Editor unit.** [`js/sim/world-state.js`](js/sim/world-state.js)
-  spawns a `kind: 'editor'` unit at `EDITOR_SPAWN_TILE = (4, 5)` —
-  Bureau-adjacent west. Speed 0 in `UNIT_SPEED` + a `dispatch()`
-  reject pin it to its tile (Design Doc §17 "Stationed at the
-  Bureau"). The renderer's `buildEditorMesh` gives it a shirt + dark
-  vest + green eyeshade silhouette with no selection ring (goon
-  precedent for non-player units).
-- **`AUTO_PLATE_SENTINEL` substitution.** At `DEADLINE_FIRE`,
-  `_fireDebrief` looks up the Editor and writes `editor.id` to every
-  printed story's `plated_by` (ICD-05 v0.4 §Notes). The sentinel
-  constant stays exported as the defensive fallback for the no-Editor
-  case (covered by `editor.test.mjs`).
-- **Ink plate-time hard gate.** `_fireDebrief` walks the verified
-  queue against a projected ink budget and admits only stories whose
-  `inkCostFor(story)` keeps `World.resources.ink ≥ 0`. Rejected
-  stories stay `verified` + `held_by_building === darkroom.id`, ready
-  to retry next edition. `EditionSummary.ink_consumed` reflects the
-  admitted set only — the running balance can no longer go negative
-  through plating (other ink delta sources still permitted; ICD-05
-  v0.4 §Notes is precise about this).
-- **ICD activity.** None. ICD-01 v0.5, ICD-02 v0.2, ICD-05 v0.4,
-  ICD-06 v0.3 all used as authored. ICD-04 still deferred to PRE-0.8.
-- **Tests.** 85 → 94 cases. New test files: `editor.test.mjs` (5
-  cases — spawn shape, dispatch reject, frame surfacing, plated_by
-  substitution, sentinel fallback), `ink-gate.test.mjs` (4 cases —
-  insufficient/sufficient ink, partial budget admission, held-over
-  retry on restock). `world-frame.test.mjs` extended construction
-  roster to `[editor, fixer, photog, reporter]`.
+- **ICD-04 v0.1** ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)).
+  Single versioned `localStorage` JSON blob (`'late-edition.save.v1'`)
+  captures the full sim state: `sim_time_ms`, `CycleClock`, running
+  resources, grid, every building / unit / story (`StorySnap` with a
+  per-record `version` field), Evening Star state machine + its
+  `SeededRng` 32-bit state for replay determinism + `tick_accum_ms` for
+  sub-tick fractional progress, the edition-history ring, and the
+  `gameOver` / `debriefOpen` flags for round-trip integrity through
+  terminal / paused states. Migration policy is a `migrate_N_to_N+1`
+  pure-function chain on load; unknown future versions refuse to load
+  rather than silently truncate. Mid-edition resume works because
+  continuous `pos` + remaining `path` survive a save/load, and the
+  `CycleClock` `_warningFired` / `_fireFired` flags suppress duplicate
+  event emissions on resume.
+- **ICD-05 v0.4.1** — §Open-questions closure paragraph only. The
+  "should `Story` carry a `version` field" question deferred at v0.1 to
+  PRE-0.8 is now closed: the field lives on the persisted `StorySnap`,
+  not on the live in-memory `Story`, so the in-memory `Story` shape is
+  **byte-for-byte identical** to v0.4. The 0.8 code session will add the
+  tiny serialize/deserialize projector that bridges the two surfaces.
+- **What's NOT locked.** Save trigger cadence (autosave-every-N vs.
+  on-debrief-end vs. manual) is an Open Question for the 0.8 code
+  session per ICD-04 §Open-questions — v0.1 recommends on
+  `EDITION_DEBRIEF_END` + on `CYCLE_GAME_OVER` but doesn't lock it.
+  Compression and multi-slot are also deferred.
+- **ICD activity.** ICD-04 authored at v0.1. ICD-05 bumped to v0.4.1
+  (§Open-questions paragraph only — no shape change). ICD-01 v0.5 /
+  ICD-02 v0.2 / ICD-06 v0.3 unchanged.
+- **Tests.** Unchanged at 94 cases — paper-only milestone, no JS touched.
 
-**Next: PRE-0.8 (architecture, paper-only).** ICD-04 (save schema) —
-the one ICD explicitly deferred to PRE-0.8 by the supplement. Single
-architecture session, no code, gates milestone 0.8 (save/load · resume
-mid-edition · version field). Do not commit code that touches
-persistence before ICD-04 is authored.
+**Next: milestone 0.8 (code).** Save/load · resume mid-edition · version
+field. The 0.8 code session lifts ICD-04 v0.1 verbatim; deviations
+update the ICD in the same PR (Constraint #4). The cadence Open Q above
+and the live-Story-vs-`StorySnap` projector both settle in that
+session.
 
 ## When you're stuck
 

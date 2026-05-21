@@ -1,5 +1,113 @@
 # Changelog — Late Edition
 
+## v0.7.2 — 2026-05-21 — PRE-0.8 paper session
+
+Paper-only, no code. The last ICD the Phase-0 supplement deferred is
+now authored: [`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)
+at v0.1. Milestone 0.8 (save/load · resume mid-edition · version field)
+is legal to open as a code session — the strong-band single-localStorage-
+JSON commitment (Design Doc §17 + overview line 33) has its contract.
+
+This is the sixth paper-only changelog entry (v0.1.1 was PRE-0.2;
+v0.3.1 was RE-EVAL after 0.3; v0.4.1 was PRE-0.5; v0.6.1 was RE-EVAL
+after 0.6; v0.6.2 was PRE-0.7). METHODOLOGY §3.2 forbids code in a
+paper slot — verified by the byte-zero diff under [`js/`](js),
+[`tests/`](tests), [`index.html`](index.html), and [`design/`](design).
+
+Headline outputs:
+
+- **ICD-04 → v0.1.** The save schema authored from scratch — there was
+  no prior version. Single versioned `localStorage` JSON blob under the
+  key `'late-edition.save.v1'`. Top-level `SaveBlobV1` captures
+  `sim_time_ms`, the `CycleClock` snapshot (edition + remaining_ms +
+  tunable durations + `_warningFired` / `_fireFired` flags), running
+  resources (cash/ink/heat), the baked pathfinding grid, every
+  building / unit / story, the Evening Star's full state machine
+  including its `SeededRng` 32-bit state and `tick_accum_ms` sub-tick
+  accumulator, the edition-history ring, the per-edition rival-event
+  digest accumulator, and the `game_over` / `debrief_open` flags for
+  round-trip integrity through terminal and paused states.
+- **Migration policy.** `loadSave(raw)` reads `raw.version` and runs a
+  chain of `migrate_N_to_N+1` pure functions before returning a
+  `SaveBlobV1` to the rest of the system. v0.1 ships **no migrations**
+  — `"1.0"` is the floor. Unknown future versions refuse to load and
+  surface a player-facing message (no silent data loss; no best-effort
+  field truncation). Roster expansions (adding a unit kind, building
+  kind, story state, or rival) bump the blob version and migrate the
+  new fields with defaults — this is normal schema evolution, not a
+  Constraint #4 deviation.
+- **Determinism contract.** Every RNG owner serializes its `state`.
+  At v0.1 there is exactly one — the Evening Star's `SeededRng`
+  (Mulberry32, 32-bit state). Combined with the captured
+  `tick_accum_ms`, this is load-bearing for telemetry, replay, and bug
+  repro: a saved run reloaded produces the same Evening Star decisions
+  the original run would have. Future rivals (Herald, Observer at
+  Tier-1) add their own RNG state to `RivalsSnap`.
+- **Mid-edition resume.** Saves may be taken at any sim frame. The
+  continuous unit `pos`, remaining `path` + `path_idx`, and
+  `CycleClock.remainingMs` with `_warningFired` / `_fireFired` flags
+  preserve partial-tile motion and suppress duplicate deadline-event
+  emissions on resume. Saves taken during the debrief pause restore
+  the paused state; saves taken after `CYCLE_GAME_OVER` reload into
+  the same terminal state (round-trip integrity, not a feature).
+- **Story `version` field — closes ICD-05 §Open-Q-1.** ICD-05 v0.4
+  flagged the question explicitly with "defer to ICD-04 (PRE-0.8)" —
+  PRE-0.8 is now here, and the resolution is: every Story carries a
+  per-record `version: 1` field at the persistence boundary, **not**
+  on the live in-memory `Story`. Per-record versions migrate
+  independently of the blob version so a future Story shape change
+  doesn't cascade through the entire save. The 0.8 code session adds
+  the tiny `serializeStory` / `deserializeStory` projector that
+  bridges the two surfaces.
+- **What's NOT locked.** Save trigger cadence is the 0.8 code
+  session's concern; v0.1 recommends on `EDITION_DEBRIEF_END` + on
+  `CYCLE_GAME_OVER` but does not commit. Compression, multi-slot
+  saves, and the schema-bump-vs-fall-through policy for optional-field
+  additions are also deferred (see ICD-04 §Open questions).
+
+### Added
+
+- [`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md) — new
+  file. ~200 lines. Authored at v0.1.
+
+### Changed
+
+- [`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md)
+  bumped to **v0.4.1**. §Open-questions paragraph rewritten to close
+  the "should `Story` carry a `version` field" question deferred at
+  v0.1 to PRE-0.8, cross-linking to ICD-04 v0.1 `StorySnap.version`.
+  Revision history prepended with the v0.4.1 entry. **Shape
+  unchanged** — `Story` interface, state-transition table, and §Notes
+  paragraphs all byte-for-byte identical to v0.4. The version field
+  lives in the save schema only; the in-memory `Story` is unchanged.
+- [`roadmap.md`](roadmap.md) — PRE-0.8 row gains *"shipped v0.7.2"*
+  marker; current-status block rewritten to reflect PRE-0.8 shipped
+  and milestone 0.8 code-ready; new `- [x] **PRE-0.8**` history entry
+  appended below the milestone-0.7.1 entry; "Out of scope" section
+  strikes the "ICD-04 — explicitly deferred to PRE-0.8" line.
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next" paragraphs
+  rewritten for v0.7.2: PRE-0.8 shipped, ICD-04 v0.1 + ICD-05 v0.4.1
+  authored, milestone 0.8 unblocked. §Hard-rules paragraph that
+  warned "do not touch persistence" rewritten — persistence is now
+  legal to open at milestone 0.8.
+- [`README.md`](README.md) — status paragraph rewritten for v0.7.2 /
+  PRE-0.8; ICD list updated (now six authored ICDs: 01, 02, 03, 04,
+  05, 06).
+
+### Not changed
+
+- No file under [`js/`](js), [`tests/`](tests), [`index.html`](index.html),
+  or [`design/`](design) was touched. METHODOLOGY §3.2 forbids code in
+  a paper slot; AGENTS.md §Hard rules forbids editing the design HTMLs.
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md),
+  [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md),
+  [`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md),
+  [`icds/ICD-06-print-cycle.md`](icds/ICD-06-print-cycle.md) — no
+  bumps. The 0.7.1 surfaces were ICD-stable; PRE-0.8 introduces no
+  new dependencies on those four.
+- Test counts unchanged at 94 cases — paper-only milestone, no JS
+  touched and nothing to test in markdown.
+
 ## v0.7.1 — 2026-05-21 — Milestone 0.7.1: editor · ink hard gate
 
 The inner three rings (lead → verified → plated → printed) close. The

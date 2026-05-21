@@ -8,27 +8,29 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.7.1 — milestone 0.7.1 (editor · ink hard gate).** The inner three
-rings close. The Editor unit
-([`js/sim/world-state.js`](js/sim/world-state.js), `kind: 'editor'`)
-spawns at `EDITOR_SPAWN_TILE = (4, 5)` — Bureau-adjacent west, the
-remaining cardinal slot after Reporter N, Photog S, Fixer E. It is
-stationary at the Bureau (Design Doc §17 "Stationed at the Bureau"):
-speed 0 in the per-kind table and a `dispatch()` reject pin it to its
-tile. At `DEADLINE_FIRE` the plating step substitutes the Editor's
-`UnitId` for the placeholder `AUTO_PLATE_SENTINEL` on
-`Story.plated_by` per ICD-05 v0.4 §Notes — the sentinel constant
-stays exported as the defensive fallback. The ink plate-time hard gate
-(ICD-05 v0.4 §Notes) walks the verified queue against a projected
-ink budget and admits only stories whose `inkCostFor(story)` keeps
-`World.resources.ink ≥ 0`. Skipped stories stay `verified` at the
-Darkroom and retry next edition; `EditionSummary.ink_consumed`
-reflects the admitted set only. Pure code milestone — no ICD bumps;
-ICD-05 stays at v0.4, ICD-01 at v0.5, ICD-02 at v0.2, ICD-06 at v0.3.
-85 → 94 node tests (new `editor.test.mjs` + `ink-gate.test.mjs`).
-Next slot per the roadmap is **PRE-0.8** — architecture session for
-ICD-04 (save schema). See [`roadmap.md`](roadmap.md) and
-[`CHANGELOG.md`](CHANGELOG.md).
+**v0.7.2 — PRE-0.8 (paper-only, ICD-04 save schema).** The last ICD
+the Phase-0 supplement deferred is now authored. ICD-04 v0.1
+([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md)) defines
+the on-disk shape of a Late-Edition save: a single versioned
+`localStorage` JSON blob (`'late-edition.save.v1'`) capturing the
+full sim state — World clock, CycleClock, running resources, grid,
+every building / unit / story, the Evening Star state machine
+including its `SeededRng` 32-bit state for replay determinism, and
+the terminal / paused-state flags for round-trip integrity.
+Migration policy is a `migrate_N_to_N+1` pure-function chain on
+load; unknown future versions refuse to load rather than silently
+truncate. Mid-edition resume works because continuous unit `pos` +
+remaining `path` survive a save/load and the `CycleClock`
+`_warningFired` / `_fireFired` flags suppress duplicate deadline-event
+emissions. ICD-05 bumps to v0.4.1 — §Open-questions closure paragraph
+only, closing the "should `Story` carry a `version` field" question
+deferred at v0.1 to PRE-0.8 (the field lives on the persisted
+`StorySnap`, not on the live in-memory `Story`, so the in-memory
+shape is byte-for-byte identical to v0.4). ICD-01 v0.5, ICD-02 v0.2,
+ICD-06 v0.3 unchanged. Paper-only milestone — no JS touched, tests
+unchanged at 94 cases. Next slot per the roadmap is **milestone 0.8**
+— save/load · resume mid-edition · version field. See
+[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 
@@ -69,9 +71,9 @@ ICD-04 (save schema). See [`roadmap.md`](roadmap.md) and
 3. Read [`roadmap.md`](roadmap.md) for the milestone list in plain markdown.
 4. Read [`architecture/00-overview.md`](architecture/00-overview.md) for the
    strong/medium/fuzzy banding in markdown.
-5. Open the [`icds/`](icds) directory for the five interface contracts (01,
-   02, 03, 05, 06) that gate the next code sessions; ICD-04 is deferred to
-   PRE-0.8.
+5. Open the [`icds/`](icds) directory for the six interface contracts (01,
+   02, 03, 04, 05, 06) that gate the code sessions. All six are now
+   authored — ICD-04 (save schema) shipped at PRE-0.8.
 
 ## Tech stack (planned)
 
@@ -101,6 +103,7 @@ late-edition/
 │   ├── ICD-01-world-renderer.md
 │   ├── ICD-02-rival-world.md
 │   ├── ICD-03-unit-pathfinder.md
+│   ├── ICD-04-save-schema.md
 │   ├── ICD-05-story-lifecycle.md
 │   └── ICD-06-print-cycle.md
 ├── discussion/             # pre-architecture parking spots

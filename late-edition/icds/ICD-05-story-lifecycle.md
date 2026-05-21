@@ -1,6 +1,6 @@
 # ICD-05 · Story Lifecycle Object
 
-**Status:** v0.4 (PRE-0.7 §Notes amendment — `AUTO_PLATE_SENTINEL` substitution path + ink plate-time hard gate)
+**Status:** v0.4.1 (PRE-0.8 §Open-Q-1 closure — `Story.version` deferred-to-ICD-04 resolved; per-record version captured by ICD-04 v0.1 `StorySnap.version`)
 **Band:** strong
 **First caller:** milestone 0.3 (lead spawn · pickup · return-to-bureau) — shipped in v0.3.0; row 3 (`lead → verified`) lit by milestone 0.4 (Photog · Darkroom) — shipped in v0.4.0; rows 4 + 5 (`verified → plated → printed`) auto-fired by milestone 0.5 via the pre-Editor `AUTO_PLATE_SENTINEL` path — shipped in v0.5.0
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
@@ -102,8 +102,20 @@ state — the state didn't move, the one-way rule still holds.
 
 ## Open questions
 
-- Should `Story` carry a `version` field for save-schema migration? Defer to
-  ICD-04 (PRE-0.8).
+- ~~Should `Story` carry a `version` field for save-schema migration? Defer to
+  ICD-04 (PRE-0.8).~~ **Resolved at v0.4.1 (PRE-0.8).** ICD-04 v0.1
+  ([`ICD-04-save-schema.md`](ICD-04-save-schema.md) §Core shape — `StorySnap`
+  + §Notes "Story `version` field") settles this: every Story carries a
+  per-record `version` field, starting at `1` in v0.1. The field migrates
+  **independently** of the blob-level `version` so future Story shape changes
+  bump `Story.version` and add a localized `migrate_story_N_to_N+1` pure
+  function without cascading the whole save through a blob-version bump.
+  The in-memory Story interface (§Shape above) stays at its v0.4 fields
+  for the 0.7.1 surface — the `version` field is added to the persisted
+  shape only and lives at the save-write boundary, not on the live Story
+  in code. The 0.8 code session is where the live-vs-persisted split lands
+  (likely a tiny `serializeStory` projector). No in-memory shape change at
+  PRE-0.8; this is a §Notes / §Open-questions paragraph only.
 
 ## Deviation policy
 
@@ -112,6 +124,17 @@ ICD **in the same PR**.
 
 ## Revision history
 
+- **v0.4.1** (PRE-0.8, 2026-05-21) — §Open-questions closure only; no
+  shape change. The "should `Story` carry a `version` field" question
+  deferred to ICD-04 at v0.1 (Phase 0 bootstrap) is now resolved:
+  ICD-04 v0.1's `StorySnap.version` carries the per-record version at
+  the persistence boundary, starting at `1`. The in-memory `Story`
+  interface above is **byte-for-byte identical** to v0.4 — the version
+  field lives in the save schema only, not on the live Story object.
+  The 0.8 code session adds the tiny serialize/deserialize projector
+  that bridges the two. See
+  [`ICD-04-save-schema.md`](ICD-04-save-schema.md) §Core shape (`StorySnap`)
+  and §Notes (Story `version` field) for the resolution detail.
 - **v0.4** (PRE-0.7, 2026-05-21) — §Notes-only amendment. Two paragraphs
   added: (1) pre-Editor `AUTO_PLATE_SENTINEL` substitution path — captures
   the same-frame `verified → plated → printed` auto-fire at
