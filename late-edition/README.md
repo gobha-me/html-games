@@ -8,40 +8,30 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.8 — save · load · resume mid-edition.** ICD-04 v0.1 lifts into
-code verbatim. A new module [`js/sim/save.js`](js/sim/save.js)
-exposes `saveNow(world)` / `loadSave()` against the single
-versioned `localStorage` blob at key `'late-edition.save.v1'`; the
-blob carries the full sim state — `CycleClock` (including the
-`_warningFired` / `_fireFired` guards that suppress duplicate
-deadline-event emissions on resume), the Evening Star's `SeededRng`
-32-bit state + sub-tick accumulator for replay determinism, every
-building / unit / story (with continuous `pos` + remaining `path`
-preserved on units so mid-edition resume is partial-tile-accurate),
-running resources, the edition-history ring, and the `game_over` /
-`debrief_open` flags for round-trip integrity through terminal and
-paused states. `World.fromSnap(blob)` and the corresponding
-`CycleClock.fromSnap` / `EveningStar.fromSnap` statics bypass the
-fresh-construct seeding paths; `setIdMint` / `getIdMint` round-trip
-the module-scoped id-mint counter so post-load `mkId()` doesn't
-collide with the loaded blob. The §Save-trigger-surface Open
-Question settles: writes fire on `CYCLE_BEGIN` (edition just opened
-with a fresh clock — the ICD's recommended `EDITION_DEBRIEF_END`
-can't be used as-is because `cycle.start()` inside `ackDebrief()`
-runs after that emit, so a save taken on debrief-end would capture
-the cycle stuck at `fire_fired=true`) and on `CYCLE_GAME_OVER`
-(terminal integrity). The trigger surface is sim-external per the
-ICD itself, so settling on a different concrete trigger than the
-ICD recommendation is not an ICD bump. Autosave-every-N, multi-slot, compression,
-and a pre-`DEADLINE_FIRE` checkpoint are deferred per ICD-04
-§Open-questions. `Story.version: 1` lives on the persisted
-`StorySnap` only — the live in-memory `Story` shape is byte-for-byte
-identical to v0.4 (ICD-05 v0.4.1 close). Boot in
-[`js/main.js`](js/main.js) tries `loadSave()` first and falls
-through to `new World()` on no-save / parse-fail / unknown-future-
-version. No ICD bumps — v0.1 lifted verbatim. Tests at 106 cases
-(94 → 106; twelve new under
-[`tests/save-load.test.mjs`](tests/save-load.test.mjs)). See
+**v0.9 — HUD corkboard · deadline ticker · dossier.** The HUD lifts
+from a single-line ticker to the corkboard the design doc §13 always
+called for. Seven pinned index cards along the top (Edition / Deadline
+/ Leads / Stories / Ink / Cash / Heat); a typewriter-ribbon deadline
+strip across the top of the 3D viewport (red at ≤60s, pulsing red at
+≤10s); three dossier panels along the bottom — Selected (kind / state
+/ carrying), Story queue (active leads + tier & flavor histograms +
+in-flight count), and Threats (goon count + Press HP). Pure renderer-
+side reorganization on top of the already-locked
+[`HudState`](icds/ICD-01-world-renderer.md) / `UnitView` /
+`BuildingView` / `LeadView` projections. The `<body>` becomes a
+four-row CSS grid; `#world` keeps its full-bleed canvas in the `1fr`
+row because the renderer already reads
+`root.clientWidth/Height`. [`js/hud.js`](js/hud.js) becomes a
+`HudCorkboard` facade with three sibling region projectors
+(`TopCards`, `DeadlineStrip`, `Dossier`) — each diffs its own DOM at
+its natural change cadence. Projection helpers (`pickSelected`,
+`countByKind`, `tierHistogram`, `formatMs`, `formatEdition`) are
+named exports so [`tests/hud.test.mjs`](tests/hud.test.mjs)
+exercises them in node without jsdom. **Zero ICD changes** — every
+field consumed at 0.9 was already projected at v0.8 or earlier.
+ICD-01 bump candidates surfaced by 0.9 (UnitView stat badges,
+LeadView.district, WorldFrame.rivals for raid ETA) are parked for
+the post-0.9 re-eval. Tests at 113 cases (106 → 113). See
 [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
@@ -53,8 +43,9 @@ version. No ICD bumps — v0.1 lifted verbatim. Tests at 106 cases
    distinguishable by trench coat + brim + red kerchief — Editor west
    in a green visor + dark vest), a lead at the northwest district
    tile, and a HUD ticker top-right showing
-   `EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT · 90 HP`
-   counting down. **Left-click a unit** to select (a yellow ring
+   the corkboard HUD (top: seven pinned index cards · viewport: a
+   torn-edge deadline ticker · bottom: Selected / Story queue /
+   Threats dossier panels) counting down from 12:00. **Left-click a unit** to select (a yellow ring
    appears — the Editor and Goon don't get rings, they're not player
    controlled). **Right-click anywhere on the street grid** to
    dispatch — the unit walks the A*-shortest path. Left-click empty

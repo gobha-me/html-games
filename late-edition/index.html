@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 0.7.1 editor · ink hard gate</title>
+<title>Late Edition — 0.9 HUD corkboard</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,33 +16,40 @@
     --rule: #c8c4bc;
     --paper: #ece8df;
     --paper-2: #f4f1ea;
+    --paper-shadow: #b6afa1;
     --red: #c0212a;
     --serif: 'Bodoni Moda', 'Bodoni 72', 'Didot', serif;
     --mono:  'JetBrains Mono', ui-monospace, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; background: var(--paper); color: var(--ink); }
-  body { overflow: hidden; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); }
+  /* Corkboard grid: masthead · top cards · viewport+deadline-strip · dossier row.
+     The viewport (#world) sits in the 1fr row; the deadline strip overlays its top.
+     The 3D renderer reads root.clientWidth/Height (js/render/renderer.js) so it
+     reflows correctly inside the grid row when the window resizes. */
+  body {
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+  }
 
   #world {
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
   }
   #world canvas { display: block; }
 
   .masthead {
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    right: 14px;
-    z-index: 10;
+    padding: 14px 18px 10px;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 18px;
-    pointer-events: none;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
   }
   .masthead .title {
     font-family: var(--serif);
@@ -64,40 +71,141 @@
     color: var(--mid);
     text-decoration: none;
     border-bottom: 1px solid var(--rule);
-    pointer-events: auto;
   }
   .masthead .meta a:hover { color: var(--ink); border-color: var(--ink); }
 
-  .back-to-arcade {
-    position: fixed;
-    bottom: 16px;
-    left: 16px;
-    z-index: 10;
+  /* Top resource cards — pinned index cards along the top of the corkboard.
+     Mock: design-doc §13. Serif numerals, mono kicker labels. */
+  #hud-top-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 18px 12px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  #hud-top-cards .card {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 8px 14px;
+    min-width: 96px;
+    box-shadow: 2px 2px 0 var(--paper-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  #hud-top-cards .card .lbl {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 9px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  #hud-top-cards .card .val {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    font-feature-settings: "tnum";
+  }
+  #hud-top-cards .card.is-hot .val { color: var(--red); }
+
+  /* Deadline ticker — typewriter ribbon strip across the top of the viewport.
+     Lives inside the #world row, overlays the 3D scene; pointer-events:none so
+     click-to-dispatch still hits the canvas underneath. */
+  #hud-deadline-strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 6px 18px 8px;
+    background: var(--paper);
+    border-bottom: 2px dashed var(--ink);
+    box-shadow: 0 3px 0 -1px var(--paper-shadow);
+    pointer-events: none;
+  }
+  #hud-deadline-strip .lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  #hud-deadline-strip .val {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    font-feature-settings: "tnum";
+  }
+  #hud-deadline-strip .ed {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-left: auto;
+  }
+  #hud-deadline-strip.is-warning .val { color: var(--red); }
+  #hud-deadline-strip.is-critical .val {
+    color: var(--red);
+    animation: deadline-pulse 0.5s ease-in-out infinite alternate;
+  }
+  @keyframes deadline-pulse {
+    from { opacity: 0.5; }
+    to   { opacity: 1; }
+  }
+
+  /* Dossier row — three panels along the bottom of the corkboard. */
+  #hud-dossier {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 12px 18px 14px;
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+  }
+  #hud-dossier .panel {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    padding: 10px 14px 12px;
+    min-height: 78px;
+    box-shadow: 2px 2px 0 var(--paper-shadow);
+  }
+  #hud-dossier .panel .lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--mid);
+    margin-bottom: 6px;
+  }
+  #hud-dossier .panel .body {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.35;
+    color: var(--ink);
+  }
+  #hud-dossier .panel .body .note {
+    display: block;
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--mid);
-    text-decoration: none;
-    border: 1px solid var(--rule);
-    background: var(--paper-2);
-    padding: 6px 10px;
   }
-  .back-to-arcade:hover { color: var(--ink); border-color: var(--ink); }
-
-  #hud-ticker {
-    position: fixed;
-    top: 44px;
-    right: 14px;
-    z-index: 10;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    color: var(--ink);
-    background: var(--paper-2);
-    border: 1px solid var(--rule);
-    padding: 6px 10px;
-    pointer-events: none;
+  #hud-dossier .panel.empty .body {
+    color: var(--mid);
+    font-style: italic;
   }
 
   #debrief-panel {
@@ -224,22 +332,42 @@
 </head>
 <body>
 
-<div id="world"></div>
-
 <header class="masthead">
   <div class="title">Late <span class="ed">Edition</span></div>
   <div class="meta">
-    Milestone 0.7.1 &middot; editor &middot; ink hard gate &middot; left-click select &middot; right-click dispatch &middot;
+    Milestone 0.9 &middot; HUD corkboard &middot; left-click select &middot; right-click dispatch &middot;
     <a href="design/phase-0-roadmap.html">Phase 0 + Roadmap &rarr;</a>
+    &middot;
+    <a href="../">&larr; Arcade</a>
   </div>
 </header>
 
-<div id="hud-ticker">EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT · 90 HP</div>
+<section id="hud-top-cards">
+  <div class="card" data-card="edition"><span class="lbl">Edition</span><span class="val">№ 001</span></div>
+  <div class="card" data-card="deadline"><span class="lbl">Deadline</span><span class="val">12:00</span></div>
+  <div class="card" data-card="leads"><span class="lbl">Leads</span><span class="val">1</span></div>
+  <div class="card" data-card="stories"><span class="lbl">Stories</span><span class="val">0</span></div>
+  <div class="card" data-card="ink"><span class="lbl">Ink</span><span class="val">20</span></div>
+  <div class="card" data-card="cash"><span class="lbl">Cash</span><span class="val">$ 0</span></div>
+  <div class="card" data-card="heat"><span class="lbl">Heat</span><span class="val">0</span></div>
+</section>
+
+<div id="world">
+  <div id="hud-deadline-strip">
+    <span class="lbl">Deadline</span>
+    <span class="val">12:00</span>
+    <span class="ed">Edition № 001</span>
+  </div>
+</div>
+
+<section id="hud-dossier">
+  <div class="panel empty" data-panel="selected"><div class="lbl">Selected</div><div class="body">No selection</div></div>
+  <div class="panel" data-panel="queue"><div class="lbl">Story queue</div><div class="body">—</div></div>
+  <div class="panel" data-panel="threats"><div class="lbl">Threats</div><div class="body">—</div></div>
+</section>
 
 <div id="debrief-panel" hidden></div>
 <div id="gameover-overlay" hidden></div>
-
-<a href="../" class="back-to-arcade">&larr; Back to Arcade</a>
 
 <script type="module" src="js/main.js"></script>
 

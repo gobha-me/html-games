@@ -5,7 +5,7 @@
 import { Renderer } from './render/renderer.js';
 import { World } from './sim/world-state.js';
 import { attachInput } from './input.js';
-import { HudTicker } from './hud.js';
+import { HudCorkboard } from './hud.js';
 import { DebriefPanel } from './debrief-panel.js';
 import { GameOverOverlay } from './game-over-overlay.js';
 import { loadSave, saveNow } from './sim/save.js';
@@ -15,8 +15,14 @@ const TICK_DT = 1 / TICK_HZ;
 
 const root = document.getElementById('world');
 if (!root) throw new Error('world root not found');
-const hudRoot = document.getElementById('hud-ticker');
-if (!hudRoot) throw new Error('hud-ticker root not found');
+const hudRoots = {
+  topCards: document.getElementById('hud-top-cards'),
+  deadline: document.getElementById('hud-deadline-strip'),
+  dossier:  document.getElementById('hud-dossier'),
+};
+for (const [k, el] of Object.entries(hudRoots)) {
+  if (!el) throw new Error(`hud root ${k} not found`);
+}
 const panelRoot = document.getElementById('debrief-panel');
 if (!panelRoot) throw new Error('debrief-panel root not found');
 const gameOverRoot = document.getElementById('gameover-overlay');
@@ -26,7 +32,7 @@ const renderer = new Renderer(root);
 // 0.8 (ICD-04 v0.1): attempt to restore from localStorage; fall through to
 // a fresh World on no-save / parse-fail / unknown-future-version.
 const world = loadSave() ?? new World();
-const hud = new HudTicker(hudRoot);
+const hud = new HudCorkboard(hudRoots);
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);
 attachInput(root, renderer, world);

@@ -1,5 +1,86 @@
 # Changelog — Late Edition
 
+## v0.9 — 2026-05-21 — HUD corkboard · deadline ticker · dossier
+
+Code milestone. The HUD lifts from a single-line ticker to the corkboard
+the design doc §13 always called for: seven pinned index cards along the
+top (Edition / Deadline / Leads / Stories / Ink / Cash / Heat), a
+typewriter-ribbon deadline strip across the top of the 3D viewport
+(red at ≤60s, pulsing red at ≤10s), and three dossier panels along the
+bottom — Selected (kind / state / carrying), Story queue (active leads
++ tier and flavor histograms + in-flight Story count), and Threats
+(goon count + Press HP). Pure renderer-side reorganization on top of
+the already-locked HudState / UnitView / BuildingView / LeadView
+projections. **Zero ICD changes** (Constraint #4 honored by zero
+deviation).
+
+Headline outputs:
+
+- **CSS Grid layout in [`index.html`](index.html).** `<body>` becomes
+  a four-row grid (masthead · top cards · viewport+deadline-strip ·
+  dossier row). `#world` keeps its full-bleed canvas inside the `1fr`
+  row; the renderer already reads `root.clientWidth/Height`
+  ([`js/render/renderer.js`](js/render/renderer.js) lines 19-20,
+  250-251) so the resize story is free. The arcade back-link folds
+  into the masthead so no chrome floats over the dossier.
+- **`HudCorkboard` facade in [`js/hud.js`](js/hud.js).** Single
+  `apply(frame)` entry kept (`main.js` change is one line); three
+  sibling region projectors (`TopCards`, `DeadlineStrip`, `Dossier`)
+  each diff their own DOM at their natural change cadence. Projection
+  helpers (`pickSelected`, `countByKind`, `tierHistogram`, `formatMs`,
+  `formatEdition`) are named exports so node tests exercise them
+  without jsdom.
+- **Deadline emphasis.** Class toggles drive visual state on
+  `#hud-deadline-strip`: `.is-warning` (≤60s, red) and `.is-critical`
+  (≤10s, red + 2Hz opacity pulse via CSS `@keyframes`). Both classes
+  clear at zero so the cycle transition doesn't strobe through the
+  fire-debrief frame.
+- **Selected-unit dossier.** Reads `frame.units.find(u => u.selected)`
+  per `UnitView.selected` (ICD-01 v0.5 §UnitView). Kind label
+  (Reporter / Photog / Fixer / Editor / Goon) + state label (Idle /
+  Walking / Carrying) + "Carrying lead" annotation when applicable.
+  Empty state: "No selection". Reporter stat badges (Nerve / Nose /
+  Legs from the §13 mock) deferred — would need a `UnitView` field
+  add (ICD-01 bump candidate, surfaced for the post-0.9 re-eval).
+- **Story queue dossier.** Active leads count + tier histogram
+  (whisper / investigation / arc) + flavor histogram (vice /
+  violence / money / labor) — both derived directly from
+  `frame.leads` per LeadView's locked `tier` + `flavor` fields —
+  plus in-flight count from `frame.hud.resources.stories`. Per-
+  district breakdown from the §13 mock deferred — `LeadView.district`
+  isn't projected today (ICD-01 bump candidate).
+- **Threats dossier.** Goon count from
+  `frame.units.filter(u => u.kind === 'goon')` + Press HP from
+  the Bureau BuildingView. Empty state "Streets quiet" + still-shows
+  Press HP. Raid ETA / source-direction from the §13 mock deferred —
+  needs a `WorldFrame.rivals` top-level key, which is an architecture
+  session per [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md)
+  §Deviation policy. Surfaced for the post-0.9 re-eval.
+- **Heat hot-state visual.** Top-card `.is-hot` class toggles when
+  `heat >= 40` (design doc §19 first threshold — also the heat line
+  that triggers raid eligibility). Numeral turns red.
+- **Per-record change detection.** Each region caches its rendered
+  state and writes DOM only on change. Top cards diff per-card;
+  the deadline strip diffs val/edition/class triplet; the dossier
+  diffs the selected-unit key + queue/threats text composites.
+- **ICD activity.** None. ICD-01 v0.5 §HudState / §UnitView /
+  §LeadView / §BuildingView all lifted as authored.
+- **Tests.** 106 → 113 (seven new under
+  [`tests/hud.test.mjs`](tests/hud.test.mjs)). Coverage: `formatMs`
+  MM:SS padding (including negative-floor), `formatEdition` 3-digit
+  zero-pad, `pickSelected` first-selected semantics + null-on-empty,
+  `countByKind` tally (including miss-kind = 0), `tierHistogram`
+  buckets with stable zero-defaults (filled + empty), and a
+  `World.snapshot()` smoke check that the helpers still match
+  what the corkboard sees.
+
+Next: **post-0.9 re-eval** — paper + code-aware. ICD-01 bump
+candidates surfaced by 0.9 (UnitView stat badges for the Selected
+dossier · LeadView.district for per-district Story queue ·
+WorldFrame.rivals for raid ETA / direction). HUD-spec pixel-perfect
+promotion from medium→strong. Tier-0 exit criteria review before
+milestone 0.10 (the Tier-0 closer).
+
 ## v0.8 — 2026-05-21 — save · load · resume mid-edition
 
 Code milestone. Lifts ICD-04 v0.1 verbatim — single versioned

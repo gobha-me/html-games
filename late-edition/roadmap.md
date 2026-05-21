@@ -29,7 +29,7 @@ definitions.
 | **0.7.1** | Editor unit (substitutes `AUTO_PLATE_SENTINEL` with `UnitId`) · ink plate-time hard gate (reject `verified → plated` if ink would go negative) — *shipped v0.7.1* | ICD-05 v0.4 §Notes used as authored — code-only milestone | strong |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session — *shipped v0.7.2* | Required before any code touches persistence | strong |
 | **0.8** | Save / load · resume mid-edition · version field — *shipped v0.8* | ICD-04 v0.1 lifted verbatim · localStorage blob · migration-chain stub · cadence locked at cycle-begin + game-over | strong |
-| **0.9** | HUD corkboard · deadline ticker · selected-unit dossier | Design doc §13 · medium-band layout | medium |
+| **0.9** | HUD corkboard · deadline ticker · selected-unit dossier — *shipped v0.9* | Design doc §13 · ICD-01 v0.5 §HudState lifted as authored · zero ICD bumps | medium |
 | **RE-EVAL** | After 0.9 · paper + code-aware | Code-arch divergence check. Tighten HUD spec. Confirm Tier-0 exit criteria. | re-eval |
 | **0.10** | Tier-0 closer · 5-edition arc · run-end summary screen · high-score persistence | The first thing a friend can play · verifies the loop reads as a game | strong |
 | **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 07+ for branch bureaus, switchboard, archive. | re-eval |
@@ -47,31 +47,35 @@ v0.4 cover them).
 
 ## Current status
 
-**Milestone 0.8 — shipped (v0.8).** Save / load / resume mid-edition
-lifted ICD-04 v0.1 verbatim. New module
-[`js/sim/save.js`](js/sim/save.js) exposes `saveNow(world)` /
-`loadSave()` against the single versioned `localStorage` blob at
-`'late-edition.save.v1'`; the `World` snap restore path bypasses
-fresh-construct seeding and rebuilds every authoritative field from
-the blob. `CycleClock.fromSnap` and `EveningStar.fromSnap` carry the
-`_warningFired` / `_fireFired` deadline-event guards and the rival's
-`rng.state` + `_tickAccumMs` verbatim — replay determinism is
-load-bearing through the round-trip. `setIdMint` / `getIdMint` plug
-the module-scoped `nextId` counter into both construct paths so
-post-load `mkId()` doesn't collide with the loaded blob. The
-§Save-trigger-surface Open Q settles at the ICD's recommended default:
-writes fire on `EDITION_DEBRIEF_END` + on `CYCLE_GAME_OVER`. The
-`Story.version: 1` field lives on the persisted `StorySnap` only (ICD-
-05 v0.4.1 close); the live in-memory `Story` shape is byte-for-byte
-identical to v0.4. No ICD bumps — v0.1 was lifted verbatim and
-Constraint #4 honored by zero deviation. Tests at 106 cases (94 →
-106; twelve new under [`tests/save-load.test.mjs`](tests/save-load.test.mjs)).
+**Milestone 0.9 — shipped (v0.9).** HUD corkboard, deadline ticker,
+selected-unit dossier. The HUD lifts from a single-line ticker to the
+corkboard from design doc §13: seven pinned index cards along the top
+(Edition / Deadline / Leads / Stories / Ink / Cash / Heat); a
+typewriter-ribbon deadline strip across the top of the 3D viewport
+(red at ≤60s, pulsing red at ≤10s); three dossier panels along the
+bottom — Selected (kind / state / carrying), Story queue (active
+leads + tier and flavor histograms + in-flight Story count), and
+Threats (goon count + Press HP). [`index.html`](index.html) becomes a
+four-row CSS grid; `#world` keeps its full-bleed canvas in the `1fr`
+row (the renderer already reads `root.clientWidth/Height`, so resize
+flows through). [`js/hud.js`](js/hud.js) becomes a `HudCorkboard`
+facade with three sibling region projectors (`TopCards`,
+`DeadlineStrip`, `Dossier`); projection helpers (`pickSelected`,
+`countByKind`, `tierHistogram`, `formatMs`, `formatEdition`) are
+named exports for [`tests/hud.test.mjs`](tests/hud.test.mjs). **Zero
+ICD changes** — every field consumed at 0.9 was already projected at
+v0.8 or earlier. Constraint #4 honored by zero deviation. ICD-01
+bump candidates surfaced by the milestone — `UnitView` stat badges
+(Nerve / Nose / Legs from the §13 mock), `LeadView.district` for
+per-district story queue, `WorldFrame.rivals` for raid ETA / source
+direction — are parked for the post-0.9 re-eval. Tests at 113 cases
+(106 → 113; seven new under [`tests/hud.test.mjs`](tests/hud.test.mjs)).
 
-Next: **milestone 0.9** — HUD corkboard, deadline ticker, selected-
-unit dossier. Medium-band layout per ICD-01 v0.5 §HudState + design
-doc §13. The post-0.9 re-eval slot is the third re-eval in the
-tier-0 plan; it'll do the code-arch divergence check and tighten the
-HUD spec before milestone 0.10 (the tier-0 closer).
+Next: **RE-EVAL after 0.9** — paper + code-aware. Third re-eval in
+the tier-0 plan. Code-arch divergence check across all six ICDs;
+weigh promotion of the surfaced ICD-01 bumps; tighten HUD spec from
+medium→strong; confirm Tier-0 exit criteria before milestone 0.10
+(the Tier-0 closer).
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -189,6 +193,31 @@ HUD spec before milestone 0.10 (the tier-0 closer).
       `CYCLE_BEGIN` which fires immediately after with a fresh
       clock). ICD-04 v0.1 lifted verbatim — no ICD bumps.
       Tests at 106 cases (94 → 106; new `save-load.test.mjs`).
+- [x] **Milestone 0.9** — HUD corkboard, deadline ticker,
+      selected-unit dossier. [`index.html`](index.html) becomes a
+      four-row CSS grid (masthead · top cards · viewport+deadline-strip
+      · dossier row); the renderer already reads
+      `root.clientWidth/Height` so the 3D scene reflows for free.
+      [`js/hud.js`](js/hud.js) becomes a `HudCorkboard` facade with
+      three sibling region projectors (`TopCards`, `DeadlineStrip`,
+      `Dossier`). Top cards: seven pinned index cards (Edition /
+      Deadline / Leads / Stories / Ink / Cash / Heat) with serif
+      numerals + mono kicker labels. Deadline strip: typewriter-ribbon
+      across the top of the viewport with `.is-warning` (≤60s) /
+      `.is-critical` (≤10s, 2Hz opacity pulse) class toggles. Dossier
+      row: Selected (kind / state / carrying), Story queue (active
+      leads + tier and flavor histograms from `LeadView.tier` /
+      `LeadView.flavor` + in-flight count from `hud.resources.stories`),
+      and Threats (goon count from `frame.units` + Press HP from the
+      Bureau BuildingView). Pure renderer-side reorganization on top
+      of the already-locked HudState / UnitView / BuildingView /
+      LeadView projections — no ICD bumps; Constraint #4 honored by
+      zero deviation. ICD-01 bump candidates surfaced (UnitView stat
+      badges · LeadView.district · WorldFrame.rivals for raid ETA)
+      parked for the post-0.9 re-eval. Tests at 113 cases (106 → 113;
+      new [`tests/hud.test.mjs`](tests/hud.test.mjs) exercising
+      `formatMs`, `formatEdition`, `pickSelected`, `countByKind`,
+      `tierHistogram`).
 
 ## Out of scope until called
 
