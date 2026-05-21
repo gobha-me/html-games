@@ -25,7 +25,8 @@ definitions.
 | **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption — *shipped v0.6.0* | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
 | **RE-EVAL** | After 0.6 · paper + code-aware — *shipped v0.6.1* | Loop plays (inner three rings closed; adversarial ring is 0.7). ICD-02 promoted medium→strong. Tutorial frame locked (diegetic). Difficulty deferred to Tier-1. Partial-dossier rival visibility. Ink plate-time gate at 0.7. See [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md). | re-eval |
 | **PRE-0.7** | Author **ICD-02 v0.2** (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView posture) + **ICD-05 §Notes** (AUTO_PLATE_SENTINEL substitution path + ink plate-time hard gate) — *shipped v0.6.2* | Architecture session · paper-only · gates milestone 0.7 | strong |
-| **0.7** | Evening Star SCAVENGE + RAID states · Goon unit · Press HP + fail-state | ICD-02 v0.2 · Fixer unit · Editor unit · Bureau defense beat | strong |
+| **0.7.0** | Evening Star SCAVENGE + RAID states · Goon unit · Fixer unit · Press HP + `CYCLE_GAME_OVER` fail-state — *shipped v0.7.0* | ICD-02 v0.2 used as authored; ICD-06 → v0.3 (CYCLE_GAME_OVER); Editor + ink gate split out to **0.7.1** | strong |
+| **0.7.1** | Editor unit (substitutes `AUTO_PLATE_SENTINEL` with `UnitId`) · ink plate-time hard gate (reject `verified → plated` if ink would go negative) | ICD-05 v0.4 §Notes already authored — code-only milestone | strong |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session | Required before any code touches persistence | strong |
 | **0.8** | Save / load · resume mid-edition · version field | ICD-04 · localStorage blob · migration stub | strong |
 | **0.9** | HUD corkboard · deadline ticker · selected-unit dossier | Design doc §13 · medium-band layout | medium |
@@ -33,39 +34,42 @@ definitions.
 | **0.10** | Tier-0 closer · 5-edition arc · run-end summary screen · high-score persistence | The first thing a friend can play · verifies the loop reads as a game | strong |
 | **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 07+ for branch bureaus, switchboard, archive. | re-eval |
 
-11 code milestones, 4 re-evaluation slots, 4 architecture-session-only items
-(PRE-0.1, PRE-0.5, PRE-0.7, and PRE-0.8). That's the ratio the methodology
-asks for: re-eval every ~3 code milestones, architecture sessions wherever
-a contract crosses a code-session boundary that hasn't been authored yet.
-PRE-0.5 was inserted by the post-0.3 re-eval's forward ICD presence check;
-PRE-0.7 was inserted by the post-0.6 re-eval's same check.
+12 code milestones (0.7 split into 0.7.0 + 0.7.1), 4 re-evaluation slots,
+4 architecture-session-only items (PRE-0.1, PRE-0.5, PRE-0.7, and PRE-0.8).
+That's the ratio the methodology asks for: re-eval every ~3 code milestones,
+architecture sessions wherever a contract crosses a code-session boundary
+that hasn't been authored yet. PRE-0.5 was inserted by the post-0.3 re-eval's
+forward ICD presence check; PRE-0.7 was inserted by the post-0.6 re-eval's
+same check. The 0.7 split (0.7.0 adversarial ring · 0.7.1 Editor + ink gate)
+was made at 0.7.0 open to keep each code session inside one milestone's
+worth of scope — both halves of 0.7 are ICD-ready (ICD-02 v0.2 and ICD-05
+v0.4 cover them).
 
 ## Current status
 
-**PRE-0.7 — shipped (v0.6.2).** Paper-only. The forward-ICD gap the
-post-0.6 re-eval flagged is now closed: ICD-02 (Rival ↔ World) is
-authored to v0.2 — Evening Star SCAVENGE + RAID state machine (6 states,
-9 transitions, 20s tick cadence), `RAID_BUREAU` Intent shape detail
-(`goons` heat-banded count, `eta_ms` cycle-clock-clamped resolution,
-Bureau-only target), `RivalView` projection (cycle / player / own /
-edition history sub-shapes, past-intents bounded to last 8), and
-`RivalStatusView` posture projection with the locked
-`{calm, scheming, hostile}` vocabulary. ICD-05 is bumped to v0.4 with
-two §Notes paragraphs: the pre-Editor `AUTO_PLATE_SENTINEL` substitution
-path (captures the same-frame `verified → plated → printed` auto-fire
-at `DEADLINE_FIRE` until the Editor unit substitutes its `UnitId` at
-0.7) and the ink plate-time hard gate rule (plating that would leave
-ink negative is rejected; the Story stays `verified`). No shape change
-on ICD-05 — §Notes-only. ICD-01 stays at v0.5 — the `RivalStatusView`
-HUD surface (pill at 0.7 vs. corkboard at 0.9) is flagged as an open
-question and decided at the 0.7 code session. No JS / test /
-index.html changes. See
-[`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md)
-§3 PRE-0.7 + §3.5 Q2 / Q5 / Q6.
+**0.7.0 — shipped (v0.7.0).** The adversarial ring closes. Evening Star
+(`js/sim/evening-star.js`) ticks every 20 s through SCAVENGE+RAID state
+bodies using a seeded RNG (`js/sim/seeded-rng.js`), emits `RAID_BUREAU`
+intents on the heat-banded `1/2/3` goon count, and the World reconciler
+spawns Goon units at the NW grid edge pathing toward a Bureau-adjacent
+tile. Adjacent goons damage the Press at 1 dmg/s per design doc §17;
+the bundled Fixer unit (1-hit kill on goon; dies to 2 simultaneous
+goons) is dispatchable via the existing input model. Press HP at 0
+emits the new `CYCLE_GAME_OVER` event (ICD-06 → v0.3); the
+`GameOverOverlay` mounts the terminal "THE PRESS BURNS" screen and the
+sim freezes. HUD ticker gained an `X HP` segment derived from
+`BuildingView.hp` — no `HudState` shape change, ICD-01 stays at v0.5.
+Two ICD-02 §Open questions resolved in-PR: multi-edition goon transit
+deferred to Tier-1 (kept the v0.2 clamp); `RivalStatusView` HUD surface
+deferred to milestone 0.9's corkboard. 53 → 85 node tests (5 new test
+files).
 
-Next: **milestone 0.7** — Evening Star SCAVENGE + RAID, Goon unit,
-Editor unit, Fixer unit, Press HP + fail-state. Code session. All
-required ICDs now authored to the level the strong band claims.
+Next: **milestone 0.7.1** — Editor unit + ink plate-time hard gate.
+Editor stationary at Bureau; substitutes `AUTO_PLATE_SENTINEL` with its
+`UnitId` at the plating step. Ink hard gate per ICD-05 v0.4 §Notes:
+plating that would leave ink negative is rejected; the Story stays
+`verified` and waits for the next edition. All required ICD shapes are
+already authored at v0.4 — code-only milestone.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -129,6 +133,18 @@ required ICDs now authored to the level the strong band claims.
       ink plate-time hard gate rule). ICD-01 unchanged — HUD pill vs.
       corkboard decision left to the 0.7 code session. Milestone 0.7 is
       now code-ready.
+- [x] **Milestone 0.7.0** — Evening Star rival lit (`js/sim/evening-star.js`,
+      seeded via `js/sim/seeded-rng.js`); SCAVENGE + RAID + PASS state
+      bodies on a 20 s tick; RAID_BUREAU intent reconciler spawns Goon
+      units at the NW grid edge with a path to a Bureau-adjacent tile;
+      adjacent goons damage Press @ 1 dmg/s; Fixer unit (HP 3, 3.0 u/s)
+      kills adjacent goon on contact, dies to 2-goon swarm. Press HP at
+      0 emits `CYCLE_GAME_OVER`; `GameOverOverlay` mounts "THE PRESS
+      BURNS" terminal screen. HUD ticker gained `X HP` segment. ICD-06
+      → v0.3 (`CYCLE_GAME_OVER` event added); ICD-02 v0.2 §Open
+      questions resolved (multi-edition transit deferred to Tier-1,
+      HUD pill deferred to 0.9). Tests at 85 cases (53 → 85; new
+      evening-star / rival-view / goon / press-hp / fixer test files).
 
 ## Out of scope until called
 

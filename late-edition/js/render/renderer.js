@@ -355,6 +355,8 @@ function buildFolderMesh(gradient) {
 
 function buildUnitMesh(gradient, kind) {
   if (kind === 'photog') return buildPhotogMesh(gradient);
+  if (kind === 'goon')   return buildGoonMesh(gradient);
+  if (kind === 'fixer')  return buildFixerMesh(gradient);
   return buildReporterMesh(gradient);
 }
 
@@ -415,4 +417,55 @@ function makeSelectRing() {
   ring.name = 'selectRing';
   ring.visible = false;
   return ring;
+}
+
+// 0.7.0: Goon — squatter than reporter (heavier body), almost-black coat,
+// pulled-low flat cap. Faceless silhouette — the visual signal is "thug
+// from a district edge", not a character. No select ring (goons are not
+// player units).
+function buildGoonMesh(gradient) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.45, 0.9), toon(gradient, 0x1c1818));
+  body.position.y = 0.85;
+  withOutline(body);
+  group.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.6, 0.65), toon(gradient, 0x8a7560));
+  head.position.y = 1.9;
+  withOutline(head);
+  group.add(head);
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.18, 0.95), toon(gradient, 0x0a0a0c));
+  cap.position.y = 2.25;
+  withOutline(cap);
+  group.add(cap);
+  return group;
+}
+
+// 0.7.0: Fixer — taller silhouette (trench coat), brim hat, dark red accent
+// (kerchief at neck) reads against the noir palette so the player can pick
+// the fixer out of the crowd at a glance.
+function buildFixerMesh(gradient) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.7, 0.8), toon(gradient, 0x2a2520));
+  body.position.y = 1.0;
+  withOutline(body);
+  group.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), toon(gradient, 0xd9c8a8));
+  head.position.y = 2.15;
+  withOutline(head);
+  group.add(head);
+  const brim = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.18, 1.05), toon(gradient, 0x141414));
+  brim.position.y = 2.55;
+  withOutline(brim);
+  group.add(brim);
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 0.7), toon(gradient, 0x141414));
+  crown.position.y = 2.78;
+  withOutline(crown);
+  group.add(crown);
+  // Kerchief — small red accent at the throat.
+  const kerchief = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.18, 0.2), toon(gradient, 0xc0212a));
+  kerchief.position.set(0, 1.75, 0.45);
+  withOutline(kerchief);
+  group.add(kerchief);
+  group.add(makeSelectRing());
+  return group;
 }

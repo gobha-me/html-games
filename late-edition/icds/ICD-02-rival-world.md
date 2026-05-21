@@ -259,16 +259,20 @@ added without an ICD revision.
 ## Open questions
 
 - `WireTerms` shape — defer until first wire-deal milestone (Tier-1+).
-- **Multi-edition goon transit.** When the pathfinder returns
-  `eta_ms > cycle.remaining_ms`, does the RAID span `DEADLINE_FIRE`? The
-  v0.2 §`RAID_BUREAU` clamp (`eta_ms ≤ remaining_ms - 1000`) defers the
-  decision; the 0.7 PR is the natural settle slot when goon-dispatch
-  arrival logic ships.
-- **`RivalStatusView` HUD surface.** Does milestone 0.7 ship a
-  `HudState.rival_status: RivalStatusView[]` pill (which would bump ICD-01
-  v0.5 → v0.6 in the 0.7 PR), or does the corkboard at milestone 0.9
-  absorb it (no ICD-01 bump at 0.7)? Post-0.6 re-eval §3.5 Q5 permitted
-  either; PRE-0.7 leaves it to the 0.7 code session.
+- **Multi-edition goon transit — resolved at 0.7.0.** The v0.2
+  §`RAID_BUREAU` clamp `eta_ms ≤ remaining_ms - 1000` is the permanent
+  Tier-0 answer: one-edition raids only, no `DEADLINE_FIRE`-spanning
+  goon teams. The 0.7.0 reconciler walks goons from `GOON_SPAWN_TILE` to
+  a Bureau-adjacent tile inside the active edition; if a raid is still
+  in flight at deadline, the goons keep walking through the debrief
+  pause (the sim freezes) and resume after `EDITION_DEBRIEF_END`. Cross-
+  edition raid mechanics are a Tier-1 concern when district edges and
+  patrol patterns enter the model.
+- **`RivalStatusView` HUD surface — resolved at 0.7.0.** The 0.7.0 PR
+  defers the surface to milestone 0.9's corkboard (option B of re-eval
+  §3.5 Q5). No `HudState.rival_status` field at 0.7.0; ICD-01 stays at
+  v0.5. The projection shape (`{rival, posture}`) is already locked at
+  v0.2; only the surface decision was open.
 - **Herald + Observer state machines.** Specced in
   [`../design/rival-ai-spec.html`](../design/rival-ai-spec.html) §03 + §05;
   their ICD-02 mirrors land when each rival's first milestone enters the
@@ -284,6 +288,14 @@ table is an architecture session, not a deviation.
 
 ## Revision history
 
+- **v0.2.1** (milestone 0.7.0, 2026-05-21) — §Open questions resolutions
+  only; no shape change. Multi-edition goon transit settled to the v0.2
+  clamp (one-edition raids; multi-edition transit deferred to Tier-1).
+  `RivalStatusView` HUD surface settled to the 0.9 corkboard (no
+  `HudState.rival_status` field at 0.7.0; ICD-01 stays at v0.5). All
+  Evening Star state machine / `RAID_BUREAU` / `RivalView` /
+  `RivalStatusView` shapes used as authored at v0.2 — no in-PR deviation
+  required Constraint #4 bumping.
 - **v0.2** (PRE-0.7, 2026-05-21) — Strong-band shape work landed: Evening
   Star SCAVENGE + RAID state machine lifted from rival-ai-spec §04 + §08
   into committed prose (6 states, 9 transitions, 20s tick cadence);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 0.6 cash · ink · heat</title>
+<title>Late Edition — 0.7.0 adversarial ring · raid · fixer</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -176,6 +176,50 @@
     color: var(--red);
     text-align: right;
   }
+
+  #gameover-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 12, 0.82);
+  }
+  #gameover-overlay[hidden] { display: none; }
+  #gameover-overlay .gameover-card {
+    background: var(--paper-2);
+    border: 2px solid var(--red);
+    padding: 32px 44px;
+    min-width: 380px;
+    max-width: 560px;
+    box-shadow: 0 16px 48px rgba(10, 10, 12, 0.75);
+    text-align: center;
+  }
+  #gameover-overlay .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--mid);
+    margin-bottom: 10px;
+  }
+  #gameover-overlay .banner {
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 36px;
+    letter-spacing: -0.01em;
+    color: var(--red);
+    border-bottom: 2px solid var(--red);
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+  }
+  #gameover-overlay .reason {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
 </style>
 </head>
 <body>
@@ -185,14 +229,15 @@
 <header class="masthead">
   <div class="title">Late <span class="ed">Edition</span></div>
   <div class="meta">
-    Milestone 0.6 &middot; cash &middot; ink &middot; heat &middot; left-click select &middot; right-click dispatch &middot;
+    Milestone 0.7.0 &middot; adversarial ring &middot; raid &middot; fixer &middot; left-click select &middot; right-click dispatch &middot;
     <a href="design/phase-0-roadmap.html">Phase 0 + Roadmap &rarr;</a>
   </div>
 </header>
 
-<div id="hud-ticker">EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT</div>
+<div id="hud-ticker">EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT · 90 HP</div>
 
 <div id="debrief-panel" hidden></div>
+<div id="gameover-overlay" hidden></div>
 
 <a href="../" class="back-to-arcade">&larr; Back to Arcade</a>
 

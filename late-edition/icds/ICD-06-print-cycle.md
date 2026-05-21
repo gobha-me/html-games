@@ -1,6 +1,6 @@
 # ICD-06 · Edition / Print Cycle Events
 
-**Status:** v0.2 (shipped against PRE-0.5 — `EditionSummary` shape authored ahead of milestone 0.5)
+**Status:** v0.3 (shipped at milestone 0.7.0 — `CYCLE_GAME_OVER` event added to the vocabulary for the Press fail-state)
 **Band:** strong (touches every subsystem)
 **First caller:** milestone 0.5 (print cycle clock · deadline events · debrief panel)
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
@@ -20,8 +20,21 @@ type CycleEvent =
   | { kind: 'DEADLINE_WARNING',    remaining_ms: 30_000 }
   | { kind: 'DEADLINE_FIRE',       edition: number }
   | { kind: 'EDITION_DEBRIEF_BEGIN', edition: number, summary: EditionSummary }
-  | { kind: 'EDITION_DEBRIEF_END' };
+  | { kind: 'EDITION_DEBRIEF_END' }
+  | { kind: 'CYCLE_GAME_OVER',     edition: number, reason: GameOverReason };
+
+type GameOverReason = 'press_destroyed';   // v0.3 vocabulary; new reasons admitted via this ICD only
 ```
+
+- `CYCLE_GAME_OVER` is **terminal**. It fires at most once per game run, when
+  the single fail-state condition is reached (overview §Single fail-state).
+  After it fires, the World short-circuits subsequent ticks the same way
+  `EDITION_DEBRIEF_BEGIN` pauses the sim — the renderer keeps painting the
+  last snapshot, but the cycle clock and units stop. There is no `ack`-equivalent
+  for `CYCLE_GAME_OVER`; the run is over.
+- The 0.7.0 vocabulary covers exactly one `GameOverReason`: `'press_destroyed'`
+  (Bureau HP reached 0 via goon damage). Future reasons (e.g., bankruptcy at
+  Tier-1) widen the union and require an ICD-06 bump.
 
 ## `EditionSummary` shape (v0.2)
 
@@ -96,6 +109,7 @@ interface RivalEventDigest {
 | Rival AI tick | `CYCLE_TICK` | 0.7 |
 | Save | `EDITION_DEBRIEF_END` | 0.8 |
 | Run-end summary | `DEADLINE_FIRE` (final) | 0.10 |
+| Game-over overlay | `CYCLE_GAME_OVER` | 0.7.0 |
 
 ## Open questions
 
@@ -116,6 +130,14 @@ a paper session.
 
 ## Revision history
 
+- **v0.3** (milestone 0.7.0, 2026-05-21) — Added `CYCLE_GAME_OVER` event to
+  the vocabulary for the strong-band single-fail-state condition (overview
+  §Single fail-state). `GameOverReason` union introduced with a single
+  initial value `'press_destroyed'`; terminal-event semantics pinned in the
+  vocabulary §Notes. Subscriber expectations table gained the Game-over
+  overlay row (`js/game-over-overlay.js`, milestone 0.7.0). `EditionSummary`,
+  `StoryDigest`, `RivalEventDigest`, cycle timing, and pause-during-debrief
+  semantics unchanged from v0.2.
 - **v0.2** (PRE-0.5, 2026-05-20) — Authored the `EditionSummary` shape (plus
   `StoryDigest` and `RivalEventDigest` sub-shapes) referenced by
   `EDITION_DEBRIEF_BEGIN` since v0.1. Resolved the pause-during-debrief

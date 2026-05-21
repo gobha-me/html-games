@@ -7,6 +7,7 @@ import { World } from './sim/world-state.js';
 import { attachInput } from './input.js';
 import { HudTicker } from './hud.js';
 import { DebriefPanel } from './debrief-panel.js';
+import { GameOverOverlay } from './game-over-overlay.js';
 
 const TICK_HZ = 30;
 const TICK_DT = 1 / TICK_HZ;
@@ -17,11 +18,14 @@ const hudRoot = document.getElementById('hud-ticker');
 if (!hudRoot) throw new Error('hud-ticker root not found');
 const panelRoot = document.getElementById('debrief-panel');
 if (!panelRoot) throw new Error('debrief-panel root not found');
+const gameOverRoot = document.getElementById('gameover-overlay');
+if (!gameOverRoot) throw new Error('gameover-overlay root not found');
 
 const renderer = new Renderer(root);
 const world = new World();
 const hud = new HudTicker(hudRoot);
 new DebriefPanel(panelRoot, world);
+new GameOverOverlay(gameOverRoot, world);
 attachInput(root, renderer, world);
 
 let lastFrameTime = performance.now();

@@ -50,61 +50,52 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.6.2 — PRE-0.7 shipped (paper-only).** Single architecture session,
-no code. The forward-ICD gap the post-0.6 re-eval surfaced is now closed
-— milestone 0.7 has every ICD it needs at the level the strong band
-claims. METHODOLOGY §3.2 honored: zero diff under `js/`, `tests/`,
-`index.html`, `design/`. Pattern mirrors the v0.4.1 PRE-0.5 precedent.
-Outputs:
+**v0.7.0 — milestone 0.7.0 shipped (code).** The adversarial ring closes.
+Roadmap milestone 0.7 was split at session open into 0.7.0 (this PR —
+adversarial ring) and 0.7.1 (Editor + ink plate-time gate, next PR) to
+keep each code session inside one milestone's worth of scope. Both halves
+are ICD-ready: ICD-02 v0.2 and ICD-05 v0.4 cover them as authored at
+PRE-0.7.
 
-- **ICD-02 v0.1 → v0.2** — strong-band rival contract authored ahead of
-  its 0.7 first caller. Four pieces of shape work:
-  - **Evening Star SCAVENGE + RAID state machine** lifted from
-    `design/rival-ai-spec.html` §04 + §08 into committed prose. 6
-    states (`SCAVENGE | RAID | BRIBE | RUSH | PANIC | BURNOUT`), 9
-    transitions with seeded-RNG predicates, 20 s tick cadence. The
-    0.7 slice scope is SCAVENGE + RAID + PASS; the other four states
-    are shape-committed (transition graph closes) but caller-triggered.
-  - **`RAID_BUREAU` Intent shape detail** — `goons` count by heat band
-    (1 at heat 40–60, 2 at 60–80, 3 at ≥ 80), `eta_ms` clamped to
-    `cycle.remaining_ms - 1000` (one-edition raids at 0.7; multi-edition
-    deferred), `target: BuildingId` always the Bureau at 0.7 (Branch +
-    Switchboard fuzzy until Tier-1).
-  - **`RivalView` projection** authored — cycle / player / own /
-    edition_history sub-shapes. Closes v0.1 §Open-questions item on
-    past-intent visibility: rivals **do** see their own past intents,
-    bounded to the last 8 entries (the cooldown working set).
-  - **`RivalStatusView` posture projection** — medium-band vocabulary
-    `'calm' | 'scheming' | 'hostile'` locked at re-eval §3.5 Q5. The
-    Evening Star state→posture mapping is committed (SCAVENGE/RUSH/
-    BURNOUT → `calm`; BRIBE → `scheming`; RAID/PANIC → `hostile`);
-    Herald + Observer mappings defer to their first-caller milestones.
-- **ICD-05 v0.3 → v0.4 §Notes amendment** — no shape change. Two
-  paragraphs added:
-  - **Pre-Editor `AUTO_PLATE_SENTINEL` substitution path** — captures
-    in committed prose what previously lived only in code comments
-    (`world-state.js:41-47`): the same-frame `verified → plated →
-    printed` auto-fire at `DEADLINE_FIRE` uses `plated_by =
-    AUTO_PLATE_SENTINEL` until the Editor unit at 0.7 substitutes its
-    `UnitId` in the same slot. Field type stays `EditorId`.
-  - **Ink plate-time hard gate** — pins the v0.6.0 changelog's
-    "can't print if ink runs out" enforcement to plate-time rejection
-    (verdict (a) of re-eval §3.5 Q6). A `verified → plated` transition
-    that would leave `World.resources.ink` negative is rejected; the
-    Story stays `verified` and waits for the next edition. The
-    Editor's arrival logic enforces it at 0.7; the
-    `AUTO_PLATE_SENTINEL` path inherits the rule until then.
-- **No other ICD touched.** ICD-01 v0.5 stays — the `RivalStatusView`
-  HUD surface decision (a `HudState.rival_status` pill at 0.7 vs. the
-  corkboard at 0.9 absorbing it) is flagged on ICD-02 §Open questions
-  and decided at the 0.7 code session, not at PRE-0.7. ICD-03 v0.2,
-  ICD-06 v0.2 — no drift; no bumps.
+Headline outputs:
 
-**Next: milestone 0.7 (code).** Evening Star SCAVENGE + RAID (Intent
-emission + state-machine bodies for those two states + PASS), Goon
-unit, Editor unit (substitutes `AUTO_PLATE_SENTINEL` and enforces the
-plate-time ink gate), Fixer unit, Press HP + fail-state. All required
-ICDs are now authored.
+- **Evening Star rival lit.** [`js/sim/evening-star.js`](js/sim/evening-star.js)
+  implements ICD-02 v0.2's state machine — SCAVENGE + RAID + PASS bodies
+  (the other four states caller-triggered to Tier-1), 20 s tick cadence,
+  heat-banded `goons = 1/2/3` for `[40,60)/[60,80)/[80,∞)`,
+  `eta_ms ≤ remaining_ms - 1000` clamp. Deterministic via the new
+  [`js/sim/seeded-rng.js`](js/sim/seeded-rng.js) mulberry32 PRNG;
+  same-seed reproducibility is asserted in tests.
+- **Goon + Fixer units land.** Goons spawn at the NW grid edge
+  (`GOON_SPAWN_TILE`) on `RAID_BUREAU` intent reconciliation, walk at
+  2.5 u/s to a Bureau-adjacent tile, damage Press at 1 dmg/s on contact
+  (design doc §17). Fixer (HP 3, 3.0 u/s) spawns east of Bureau,
+  dispatchable via the existing input model; on adjacency 1-hit kills
+  one goon; if 2+ goons adjacent, fixer dies too ("two goons beat one
+  fixer" — design doc §rivals).
+- **Press HP fail-state.** Bureau HP at 0 emits `CYCLE_GAME_OVER`
+  (ICD-06 → v0.3); the new
+  [`js/game-over-overlay.js`](js/game-over-overlay.js) mounts a terminal
+  "THE PRESS BURNS" screen and the World short-circuits subsequent ticks
+  (same shape as the debrief pause).
+- **ICD activity.** ICD-06 v0.2 → v0.3 (CYCLE_GAME_OVER event added to
+  the vocabulary; subscriber expectations table gained Game-over overlay
+  row). ICD-02 v0.2 §Open questions closed in-PR (multi-edition transit
+  deferred to Tier-1, HUD pill deferred to 0.9 corkboard); no shape
+  change — bumped to v0.2.1 in revision history only. ICD-01 v0.5,
+  ICD-03 v0.2, ICD-05 v0.4 — used as authored; no bumps. ICD-04 still
+  deferred to PRE-0.8.
+- **Tests.** 53 → 85 cases. New test files: `evening-star.test.mjs`,
+  `rival-view.test.mjs`, `goon.test.mjs`, `press-hp.test.mjs`,
+  `fixer.test.mjs`. `world-frame.test.mjs` updated to expect the new
+  Fixer at construction.
+
+**Next: milestone 0.7.1 (code).** Editor unit — stationary at Bureau,
+substitutes `AUTO_PLATE_SENTINEL` with its `UnitId` at the plating step.
+Ink plate-time hard gate per ICD-05 v0.4 §Notes: `verified → plated`
+that would leave ink negative is rejected; the Story stays `verified`.
+All required ICD shapes are already authored at v0.4 — code-only
+milestone.
 
 ## When you're stuck
 

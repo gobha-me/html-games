@@ -1,5 +1,216 @@
 # Changelog — Late Edition
 
+## v0.7.0 — 2026-05-21 — Milestone 0.7.0: adversarial ring · raid · fixer
+
+The adversarial ring closes. The roadmap's milestone 0.7 row was split at
+session open into 0.7.0 (this entry — Evening Star · Goon · Fixer · Press
+HP + fail-state) and 0.7.1 (Editor + ink plate-time hard gate — next
+session). Both halves are already ICD-ready at v0.2 (ICD-02) and v0.4
+(ICD-05). The split keeps the adversarial loop **playable both ways** —
+attack and defense lit in one PR — rather than shipping a one-sided "you
+can only lose" state. Editor work is orthogonal to the adversarial loop
+and ships clean in 0.7.1.
+
+This is the first code session in three. The 0.7.0 slice runs the Evening
+Star (Yellow rival per the design doc) on a 20 s state-machine tick:
+SCAVENGE → emit PASS; SCAVENGE → RAID under `heat_noisy > 40 && cooldown
+clear && rng.chance(0.18)` (seeded determinism per ICD-02 §Determinism).
+RAID emits one `RAID_BUREAU` Intent with the heat-banded `goons = 1/2/3`
+count. The World reconciler spawns Goon units at the NW grid edge
+walking toward a Bureau-adjacent tile; adjacent goons damage the Press
+at 1 dmg/s (Design Doc §17). The Fixer unit (HP 3, walk 3.0 u/s) is
+dispatchable via the existing input model; on adjacency to a goon, it
+1-hit kills the goon. If 2+ goons are adjacent to the fixer on the same
+tick, the fixer dies — "two goons beat one fixer" (Design Doc §rivals).
+
+Press HP at 0 emits the new `CYCLE_GAME_OVER` event (ICD-06 → v0.3);
+the `GameOverOverlay` mounts the terminal "THE PRESS BURNS" screen and
+the World short-circuits subsequent ticks the same way `debriefOpen`
+pauses the sim. The HUD ticker gained an `X HP` segment derived from
+`BuildingView.hp` already on ICD-01 v0.5 — no HudState shape change, no
+ICD-01 bump.
+
+Headline outputs:
+
+- **Evening Star rival** — new pure module
+  [`js/sim/evening-star.js`](js/sim/evening-star.js) hosting the
+  ICD-02 v0.2 state machine (six states declared, two with bodies at
+  0.7.0; the other four shape-committed and caller-triggered per the
+  v0.2 §Caller-triggered scope). Backed by
+  [`js/sim/seeded-rng.js`](js/sim/seeded-rng.js) (mulberry32, 32-bit
+  state, deterministic per seed — load-bearing for replay, telemetry,
+  bug repro, and the PRE-0.8 save schema).
+- **Goon unit** — `kind: 'goon'`, HP 1, walk 2.5 u/s (Design Doc §17).
+  Spawned by `RAID_BUREAU` reconciliation at
+  `GOON_SPAWN_TILE = (0, 0)` with a path to a Bureau-adjacent tile;
+  damages Bureau HP at `GOON_DAMAGE_PER_SECOND = 1` while idle adjacent.
+- **Fixer unit** — `kind: 'fixer'`, HP 3, walk 3.0 u/s (Design Doc §17).
+  Spawned at `FIXER_SPAWN_TILE = (6, 5)` (east of Bureau);
+  click-to-dispatch via the existing input model (no new Intent kind
+  needed — ICD-02 untouched on the player side). 1-hit kill on adjacent
+  goon; dies if 2+ adjacent.
+- **Press HP fail-state** — Bureau HP drains under goon damage; HP at 0
+  emits `CYCLE_GAME_OVER` once and sets `World.gameOver = true`. Cycle
+  clock, unit motion, and rival ticks all freeze in subsequent ticks.
+- **Game-over overlay** — new
+  [`js/game-over-overlay.js`](js/game-over-overlay.js) mirrors the
+  `DebriefPanel` subscriber pattern. Terminal — no dismiss handler.
+
+### Added
+
+- [`js/sim/seeded-rng.js`](js/sim/seeded-rng.js) — **NEW.** Mulberry32
+  PRNG. `SeededRng.next()` / `.chance(p)` / `.range(lo, hi)`. Deterministic
+  per seed.
+- [`js/sim/evening-star.js`](js/sim/evening-star.js) — **NEW.** The
+  Evening Star rival. Exports `EveningStar`, `EVENING_STAR_TICK_INTERVAL_MS`
+  (20 000), `PAST_INTENTS_BUFFER_CAP` (20), `PAST_INTENTS_PROJECTION_CAP`
+  (8). State machine, `tick(rivalView, dt_ms) → Intent[]` contract,
+  `onEditionEnd()` callback the world invokes on `EDITION_DEBRIEF_END`.
+- [`js/game-over-overlay.js`](js/game-over-overlay.js) — **NEW.** DOM
+  overlay subscribing to `CYCLE_GAME_OVER`. Mounts the "THE PRESS BURNS"
+  card; no dismiss (terminal).
+- [`tests/evening-star.test.mjs`](tests/evening-star.test.mjs) — 9 new
+  cases: tick interval, SCAVENGE→PASS, SCAVENGE→RAID predicate firing,
+  goon-count band table, `eta_ms` clamp, past-intents buffer cap,
+  RAID→SCAVENGE on `onEditionEnd`, cooldown gate (`editionsSinceRaid > 1`),
+  posture mapping.
+- [`tests/rival-view.test.mjs`](tests/rival-view.test.mjs) — 8 new cases:
+  RivalView field shape, cycle pass-through, heat noise bound, visible
+  leads filter, visible reporters filter, own.state/posture, past_intents
+  projection cap, edition_history bound.
+- [`tests/goon.test.mjs`](tests/goon.test.mjs) — 7 new cases: spawn from
+  `RAID_BUREAU`, walk-to-adjacency idle, 1-goon damage tick, no-damage
+  at distance, 2-goon stacking, PRESS_HP / damage-rate constants, no
+  pickup branch.
+- [`tests/press-hp.test.mjs`](tests/press-hp.test.mjs) — 3 new cases:
+  `CYCLE_GAME_OVER` fires exactly once, sim freezes on game-over, HP
+  clamp non-negative.
+- [`tests/fixer.test.mjs`](tests/fixer.test.mjs) — 5 new cases: spawn
+  shape, dispatch via input model, 1-goon adjacency kill, 2-goon trade
+  (fixer dies), goon walking into stationary fixer.
+
+### Changed
+
+- [`js/sim/world-state.js`](js/sim/world-state.js) — Per-kind speed
+  table (`UNIT_SPEED = { reporter: 3.5, photog: 3.5, goon: 2.5,
+  fixer: 3.0 }`); `stepAlongPath` looks up by `u.kind`. `REPORTER_SPEED`
+  legacy export preserved as `UNIT_SPEED.reporter`. New exported
+  constants: `GOON_DAMAGE_PER_SECOND`, `FIXER_SPAWN_TILE`,
+  `GOON_SPAWN_TILE`. `World` constructor hosts `rivals[]`,
+  `editionHistory`, `_pendingRivalEvents`, `gameOver` flag; spawns the
+  Fixer alongside Reporter + Photog; mints `EveningStar` with
+  constructor-overridable seed. `tick()` adds the goon-damage tick,
+  fixer-intercept tick, dead-unit prune, fail-state check, and rival
+  advance + intent reconcile (ordering: motion → combat → fail-state →
+  rival → cycle). New methods: `_buildRivalView`, `_reconcileIntent`,
+  `_goonDamageTick`, `_fixerInterceptTick`, `_pruneDeadUnits`,
+  `_enterGameOver`, `_bureau`. `_buildEditionSummary` flushes
+  `_pendingRivalEvents` into `EditionSummary.rival_events` and appends
+  to `editionHistory` (cap 10). `ackDebrief` calls `rival.onEditionEnd()`
+  on each rival.
+- [`js/render/renderer.js`](js/render/renderer.js) — `buildUnitMesh`
+  dispatcher gained `goon` and `fixer` branches. New
+  `buildGoonMesh` (dark coat, low cap, no select ring — not a player
+  unit) and `buildFixerMesh` (trench coat, brim hat, red kerchief accent,
+  selection ring). No camera / fog / rain changes.
+- [`js/hud.js`](js/hud.js) — Ticker line gained `X HP` segment derived
+  from `frame.buildings[bureau].hp`. No HudState shape change — `hp` is
+  already on `BuildingView` per ICD-01 v0.5.
+- [`js/main.js`](js/main.js) — Instantiates `GameOverOverlay` alongside
+  `DebriefPanel`. New `#gameover-overlay` root lookup.
+- [`index.html`](index.html) — `<title>` and masthead caption rolled
+  forward to "0.7.0 adversarial ring · raid · fixer". HUD initial text
+  appended with " · 90 HP". New `<div id="gameover-overlay" hidden>`
+  with the matching CSS (red kerchief border, paper-2 card, dark
+  scrim).
+- [`tests/world-frame.test.mjs`](tests/world-frame.test.mjs) — One
+  amended case: `frame.units` at construction is now
+  `['fixer', 'photog', 'reporter']` (was `['photog', 'reporter']`).
+  Goons appear only when a raid is in flight.
+- [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md) —
+  §Open questions resolutions only. Multi-edition goon transit deferred
+  to Tier-1 (kept the v0.2 clamp); `RivalStatusView` HUD surface
+  deferred to milestone 0.9's corkboard. Revision history gained the
+  v0.2.1 entry. **No shape change** — v0.2's `RivalView`,
+  `RivalStatusView`, Evening Star state machine, and `RAID_BUREAU`
+  Intent all used as authored.
+- [`icds/ICD-06-print-cycle.md`](icds/ICD-06-print-cycle.md) bumped to
+  **v0.3**. New `CYCLE_GAME_OVER` event in the vocabulary; new
+  `GameOverReason` union (`'press_destroyed'` initial value); terminal-
+  event semantics pinned in vocabulary §Notes. Subscriber expectations
+  table gained the Game-over overlay row (first milestone: 0.7.0).
+  `EditionSummary`, `StoryDigest`, `RivalEventDigest`, cycle timing, and
+  pause-during-debrief semantics unchanged from v0.2.
+- [`roadmap.md`](roadmap.md) — 0.7 row split into 0.7.0 (this PR) and
+  0.7.1 (next PR); 0.7.0 ticked. Current-status block rewritten;
+  checklist appended with the v0.7.0 entry; ratio paragraph updated
+  (11 → 12 code milestones).
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next" paragraphs
+  rewritten for v0.7.0: adversarial ring shipped, ICD-06 bumped,
+  ICD-02 open questions closed, 0.7.1 next.
+- [`README.md`](README.md) — Status block bumped to v0.7.0; "How to
+  navigate" updated to mention the goon spawn / fixer dispatch / fail-
+  state and the new HP segment.
+
+### Not changed
+
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) — no
+  bump. Press HP exposure rides on existing `BuildingView.hp`; no new
+  `HudState` field. The `RivalStatusView` HUD-surface decision settled
+  to "defer to 0.9 corkboard" — option B of re-eval §3.5 Q5.
+- [`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md) —
+  no bump. Per-kind speeds live as code constants (`UNIT_SPEED` table
+  in `world-state.js`); ICD-03's contract is the pathfinder shape, not
+  the speed table. Future bump may tighten if speeds need to cross the
+  pathfinder boundary.
+- [`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md) —
+  no bump at 0.7.0. Editor + ink gate work lands at 0.7.1; ICD-05 v0.4
+  §Notes already covers them.
+- [`icds/ICD-04`](icds) — still deferred to PRE-0.8.
+- [`js/sim/cycle-clock.js`](js/sim/cycle-clock.js),
+  [`js/sim/pathfinder.js`](js/sim/pathfinder.js),
+  [`js/sim/resources.js`](js/sim/resources.js),
+  [`js/input.js`](js/input.js),
+  [`js/debrief-panel.js`](js/debrief-panel.js) — untouched. The 0.7.0
+  surface lives entirely in the rival module, world-state's integration,
+  the renderer's two new meshes, the HUD ticker extension, and the new
+  overlay.
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard rule.
+- [`architecture/00-overview.md`](architecture/00-overview.md) — no band
+  movements. ICD-02 was already strong-band post-0.6 re-eval; the v0.2
+  shape work landed at PRE-0.7.
+
+### ICD activity
+
+- **ICD-06 v0.2 → v0.3** — `CYCLE_GAME_OVER` event added to the
+  vocabulary. `GameOverReason` union introduced (single value
+  `'press_destroyed'`). Subscriber row added.
+- **ICD-02 v0.2 → v0.2.1** — Revision-history-only entry. §Open
+  questions table got two in-PR resolutions (multi-edition transit;
+  HUD pill). **No shape change**; first-callers and state machine
+  identical to v0.2.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — **85 / 85 pass.** 32 new cases since
+  v0.6.2 (53 → 85). The `world-frame.test.mjs` `FRAME_KEYS` allowlist
+  still passes — no top-level `WorldFrame` keys added.
+- Browser smoke: load [`index.html`](index.html). Masthead reads
+  "Milestone 0.7.0 · adversarial ring · raid · fixer". HUD ticker starts
+  with `EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT · 90 HP`.
+  Three units visible at spawn: Reporter (north of Bureau), Photog
+  (south of Bureau), Fixer (east of Bureau, distinguishable by trench
+  coat + brim + red kerchief). Manually raise heat above 40 by printing
+  controversial stories; after a couple of editions of cooldown, the
+  Evening Star fires a `RAID_BUREAU` intent and a Goon spawns at the
+  NW grid edge walking south-east toward (4, 5). Right-click the goon's
+  tile while the Fixer is selected; the Fixer walks to the goon and on
+  contact the goon disappears. Repeat without the fixer; HP drains
+  from 90 to 0 (visible in the ticker); the "THE PRESS BURNS" overlay
+  mounts and the sim freezes (reporter / photog stop moving; HUD
+  ticker stops counting down). Same seed → same goon spawn timing
+  asserted in `tests/evening-star.test.mjs`.
+
 ## v0.6.2 — 2026-05-21 — PRE-0.7 paper session
 
 Paper-only, no code. The forward-ICD gap the post-0.6 re-eval flagged

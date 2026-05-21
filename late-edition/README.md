@@ -8,42 +8,56 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.6.0 — milestone 0.6 (cash · ink · heat).** The economy lights up.
-Each printed Story now carries a `cash_yield` / `heat_yield` / `ink_cost`
-set at the plated step from [`js/sim/resources.js`](js/sim/resources.js)
-(Design Doc §06 + §19 first-pass numbers, medium-band). `EditionSummary`
-aggregates the deltas, `World.resources` accumulates them across editions,
-and `ackDebrief()` applies the §19 baseline heat decay between editions.
-The HUD ticker now reads
-`EDITION N · MM:SS · X LD · X ST · X INK · $X · X HEAT` —
-single-line strip preserved so the corkboard layout at milestone 0.9 can
-grow it without churning [`js/main.js`](js/main.js). Sim still under
-[`js/sim/`](js/sim) (state + A* pathfinder + `cycle-clock.js` + new
-`resources.js`), renderer under [`js/render/`](js/render). 53 node tests
-cover the pure sim modules. Next is the **post-0.6 RE-EVAL** (paper +
-code-aware) — does the loop play? Promote rival AI contract to strong
-for 0.7–0.8? See [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+**v0.7.0 — milestone 0.7.0 (adversarial ring · raid · fixer).** The
+adversarial ring closes. The Evening Star rival
+([`js/sim/evening-star.js`](js/sim/evening-star.js)) ticks every 20 s
+through SCAVENGE + RAID + PASS state bodies (the other four states are
+shape-committed and caller-triggered to Tier-1); deterministic via a
+new seeded PRNG ([`js/sim/seeded-rng.js`](js/sim/seeded-rng.js)). On
+heat > 40 with cooldown clear, the rival emits `RAID_BUREAU` with the
+heat-banded `goons = 1/2/3` count; the world spawns Goon units at the
+NW grid edge walking toward a Bureau-adjacent tile. Adjacent goons
+damage the Press at 1 dmg/s (Design Doc §17). The Fixer unit (HP 3,
+3.0 u/s) is dispatchable via the existing input model; on adjacency it
+1-hit kills the goon; if 2+ goons swarm it, the fixer dies (Design Doc
+§rivals "two goons beat one fixer"). Press HP at 0 emits the new
+`CYCLE_GAME_OVER` event (ICD-06 → v0.3); the "THE PRESS BURNS" overlay
+mounts and the sim freezes. HUD ticker gained an `X HP` segment derived
+from `BuildingView.hp` — no `HudState` shape change. The 0.7 milestone
+was split at session open into 0.7.0 (this ship — adversarial ring) and
+0.7.1 (next ship — Editor unit + ink plate-time hard gate) to keep each
+code session inside one milestone's scope. 85 node tests cover the pure
+sim modules. See [`roadmap.md`](roadmap.md) and
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 
 1. Open `index.html` in a browser (or click the **Late Edition** card
    from the arcade launcher). You'll see the cel-shaded world with two
-   buildings (Bureau in the center, Darkroom to the southeast), two
-   units (Reporter north of the Bureau, Photog south of it), a lead at
-   the northwest district tile, and a HUD ticker top-right showing
-   `EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT` counting
-   down. **Left-click a unit** to select (a yellow ring appears).
-   **Right-click anywhere on the street grid** to dispatch — the unit
-   walks the A*-shortest path. Left-click empty ground to deselect. The
-   story flow: Reporter to the lead (auto-pickup; LD drops to 0),
-   Reporter back to a Bureau-adjacent tile (auto-drop); Photog to a
-   Bureau-adjacent tile (picks up the held lead), Photog to a
-   Darkroom-adjacent tile (drop flips state to `'verified'`; ST ticks to 1).
-   The verified story then waits at the Darkroom; when the 12-minute
-   deadline fires, the debrief panel mounts with the front page and the
-   resources reconcile (cash earned, ink consumed, heat applied). Click
-   anywhere on the panel to dismiss; heat decays by the §19 baseline and
-   the next edition opens.
+   buildings (Bureau in the center, Darkroom to the southeast), three
+   units (Reporter north of the Bureau, Photog south, Fixer east —
+   distinguishable by trench coat + brim + red kerchief), a lead at the
+   northwest district tile, and a HUD ticker top-right showing
+   `EDITION 1 · 12:00 · 1 LD · 0 ST · 20 INK · $0 · 0 HEAT · 90 HP`
+   counting down. **Left-click a unit** to select (a yellow ring
+   appears). **Right-click anywhere on the street grid** to dispatch —
+   the unit walks the A*-shortest path. Left-click empty ground to
+   deselect. The story flow: Reporter to the lead (auto-pickup; LD
+   drops to 0), Reporter back to a Bureau-adjacent tile (auto-drop);
+   Photog to a Bureau-adjacent tile (picks up the held lead), Photog to
+   a Darkroom-adjacent tile (drop flips state to `'verified'`; ST ticks
+   to 1). The verified story then waits at the Darkroom; when the
+   12-minute deadline fires, the debrief panel mounts with the front
+   page and the resources reconcile (cash earned, ink consumed, heat
+   applied). Click anywhere on the panel to dismiss; heat decays by the
+   §19 baseline and the next edition opens. After the second edition
+   with heat above 40, the Evening Star may fire a `RAID_BUREAU` —
+   look for a Goon (dark coat, no select ring) at the NW grid edge
+   walking toward the Bureau. **Right-click the goon's tile while the
+   Fixer is selected** to intercept — Fixer beats one goon, two goons
+   beat one Fixer. If goons reach the Bureau, the `X HP` segment
+   drains at 1/s; at 0, the "THE PRESS BURNS" overlay mounts and the
+   run ends.
 2. The in-page **Phase 0 + Roadmap →** link (top-right of the scene) opens
    the architectural supplement (also reachable directly at
    [`design/phase-0-roadmap.html`](design/phase-0-roadmap.html)).
@@ -98,7 +112,20 @@ late-edition/
 │   ├── rival-ai-spec.html      # Supplement A
 │   └── audio-manifest.html     # Supplement C
 └── js/
-    └── world.js            # milestone 0.1 — scene · camera · toon · rain
+    ├── main.js             # entry point — sim loop + interp
+    ├── input.js            # left-click select / right-click dispatch
+    ├── hud.js              # ticker DOM projection
+    ├── debrief-panel.js    # edition debrief overlay
+    ├── game-over-overlay.js# 0.7.0 fail-state overlay
+    ├── sim/
+    │   ├── world-state.js  # authoritative grid + units + stories + rivals
+    │   ├── pathfinder.js   # A* (ICD-03)
+    │   ├── cycle-clock.js  # 12-min print cycle (ICD-06)
+    │   ├── resources.js    # cash/ink/heat yield tables
+    │   ├── seeded-rng.js   # 0.7.0 deterministic PRNG
+    │   └── evening-star.js # 0.7.0 rival state machine (ICD-02)
+    └── render/
+        └── renderer.js     # three.js cel-shaded toon world
 ```
 
 ## Design package

@@ -7,6 +7,9 @@
 // Milestone 0.6 extends the line with four resource segments (LD / ST / INK /
 // $ / HEAT). Single-line strip preserved so 0.9 can grow it without churning
 // main.js (per the v0.5 changelog rationale).
+// Milestone 0.7.0 appends a Press HP segment (`X HP`) derived from
+// `frame.buildings[bureau].hp`. HP already lives on BuildingView (ICD-01 v0.5)
+// — the HUD just reads it. No HudState shape change → no ICD-01 bump.
 
 export class HudTicker {
   constructor(rootEl) {
@@ -16,13 +19,16 @@ export class HudTicker {
 
   apply(frame) {
     const { edition, deadline_ms, resources } = frame.hud;
+    const bureau = frame.buildings.find((b) => b.kind === 'bureau');
+    const hp = bureau ? Math.ceil(bureau.hp) : 0;
     const text =
       `EDITION ${edition} · ${formatMs(deadline_ms)}` +
       ` · ${resources.leads} LD` +
       ` · ${resources.stories} ST` +
       ` · ${resources.ink} INK` +
       ` · $${resources.cash}` +
-      ` · ${resources.heat} HEAT`;
+      ` · ${resources.heat} HEAT` +
+      ` · ${hp} HP`;
     if (text !== this._lastText) {
       this.root.textContent = text;
       this._lastText = text;
