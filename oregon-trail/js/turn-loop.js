@@ -7,6 +7,15 @@
  * @module turn-loop
  */
 
+import {
+  getLegForDistance,
+  getLegInfo,
+  getFlavorText,
+  hasEnteredNewLeg,
+  getRegionName,
+  getArrivalMessage
+} from './region-runner.js';
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TOTAL_DISTANCE = 2000; // miles from Independence to Willamette Valley
@@ -315,11 +324,28 @@ function advanceTurn(state, decisions, seed = undefined) {
   }
 
   // 2. Apply pace effects (distance, wagon wear)
+  const previousDistance = newState.distanceTraveled;
   newState.distanceTraveled += paceFx.distance;
   newState.resources.wagonCondition = Math.max(
     0,
     newState.resources.wagonCondition - paceFx.wagonWear
   );
+
+  // 2b. Regional flavor: check for leg transitions and add flavor text
+  if (hasEnteredNewLeg(newState.distanceTraveled, previousDistance)) {
+    const newLegIndex = getLegForDistance(newState.distanceTraveled);
+    const arrivalMsg = getArrivalMessage(newLegIndex);
+    const regionName = getRegionName(newLegIndex);
+    turnLog.push(`📍 ${arrivalMsg} (${regionName} region)`);
+
+    // Add atmospheric flavor text based on day rotation
+    const timeSlots = ['morning', 'midday', 'evening', 'campfire'];
+    const timeOfDay = timeSlots[newState.day % 4];
+    const flavor = getFlavorText(newState.distanceTraveled, timeOfDay);
+    if (flavor) {
+      turnLog.push(flavor);
+    }
+  }
 
   // 3. Apply ration morale/health effects
   newState.resources.morale = clamp(

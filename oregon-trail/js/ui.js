@@ -41,6 +41,12 @@ import {
 } from './save-load.js';
 
 import {
+  getLegForDistance,
+  getLegLabel,
+  getRegionName
+} from './region-runner.js';
+
+import {
   showEndScreen,
   hideEndScreen,
 } from './end-screen.js';
@@ -75,8 +81,8 @@ const DOM = {};
 function cacheDOM() {
   DOM.dayLabel = document.getElementById('day-label');
   DOM.distanceLabel = document.getElementById('distance-label');
+  DOM.regionLabel = document.getElementById('region-label');
   DOM.progressBarFill = document.getElementById('progress-bar-fill');
-  
   DOM.foodBarFill = document.getElementById('food-bar-fill');
   DOM.foodValue = document.getElementById('food-value');
   DOM.moneyBarFill = document.getElementById('money-bar-fill');
@@ -314,6 +320,13 @@ function renderDayCounter() {
   
   const progress = (gameState.distanceTraveled / gameState.totalDistance) * 100;
   DOM.progressBarFill.style.width = `${Math.min(progress, 100)}%`;
+  
+  // Update region label
+  if (DOM.regionLabel) {
+    const legIndex = getLegForDistance(gameState.distanceTraveled);
+    const regionName = getRegionName(legIndex);
+    DOM.regionLabel.textContent = `${regionName} — Leg ${legIndex + 1}/12`;
+  }
 }
 
 /**
