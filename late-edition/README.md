@@ -8,44 +8,49 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
-**v0.9.4 — PRE-0.10 paper session (post-0.9 audit PR-B).**
-Paper-only architecture session — three ICD edits gate milestone 0.10
-(the Tier-0 closer). **ICD-01 → v0.6** with four field-set additions:
-[`UnitView.stats: {nerve, nose, legs} | undefined`](icds/ICD-01-world-renderer.md)
-for the Reporter trio per Design Doc §08 + §13 HUD mock (audit G-10),
-`LeadView.district: DistrictId` lifted from the sim-layer
-`Story.district` field so the §13 Story-queue dossier can render
-per-district headlines (audit G-11; couples to G-04 districts-as-data
-at PR-C), `WorldFrame.rivals: RivalStatusView[]` as the top-level
-posture surface for the §13 Threats dossier (audit G-12; resolves
-post-0.6 §3.5 Q5 carryover — top-level not nested in `hud`;
-`RivalStatusView` type stays owned by ICD-02 v0.2), and the **`FxEvent`
-union** under `WorldFrame.effects` with six-kind vocabulary `'flash' |
-'print' | 'death' | 'pickup' | 'verify' | 'raid_warning'` and
-drained-queue semantics (audit C-07; producers + consumers wire at
-PR-D / milestone 0.10.x — this PR authors the contract only). **ICD-06
-→ v0.4** with a single §Cycle timing wording edit aligning the
-debrief with Design Doc §19's *"30 s · cannot be skipped · debrief
-animation"* (audit C-05). **ICD-07 → v0.1 (new)** — audio bus
-contract authored from scratch (audit G-08): channels `'ambient' |
-'music' | 'sfx' | 'vo'`, [§Ducking rules](icds/ICD-07-audio-bus.md)
-table lifted from Design Doc §14 (VO ducks music + ambient; SFX
-ducks nothing; music adaptive ramp at T-30s; print-fire tag;
-debrief pull-back), §The press-silence beat as a one-way ambient
-mute on `CYCLE_GAME_OVER`, §FxEvent ↔ SFX cue-table mapping ICD-01
-v0.6's six kinds to Supplement-C cue ids, §Asset reference pointing
-at [`design/audio-manifest.html`](design/audio-manifest.html)
-(96-prompt manifest: 6 beds · 6 stems · 24 SFX · 60 VO lines).
-Same PR carries the **HUD corkboard band promotion (medium →
-strong)** in [`architecture/00-overview.md`](architecture/00-overview.md)
-line 45 — the §13 pixel-honest layout shipping at v0.9 is now
-load-bearing for ICD-01 v0.6's additions. Tests at 124 cases (no
-change — paper-only PR; the count tracks v0.9.3 PR-A). Milestone
-0.10 (Tier-0 closer · PR-C — lead-spawn engine · districts as data
-· Branch Bureau · slot-grammar headlines · run-end summary +
-high-score persistence · diegetic tutorial · minimum control surface)
-is now legal to open as a code session with every required contract
-in hand. See [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+**v0.10.0 — PR-C substrate (Tier-0 closer · substrate half).**
+Code session against the milestone 0.10 closer authored at PRE-0.10.
+The roadmap's authorized 0.10.0/0.10.1 split (precedent: 0.7.0 / 0.7.1)
+lands five of the seven items here; the remaining two (G-09 diegetic
+tutorial · G-07 minimum control surface) defer to **0.10.1 (onboarding)**.
+**C-04 — Lead-spawn engine.** New pure module
+[`js/sim/lead-spawner.js`](js/sim/lead-spawner.js) — Design Doc §19's
+"1 lead per ~90s per covered district, ×0.5 if uncovered, 70/25/5 tier
+roll, 180s decay" — replaces the 0.3-era hardcoded single-lead spawn so
+every edition after the first no longer fires with zero stories
+(*"reads as a game"* per the post-0.9 re-eval §3.5 Q1). Deterministic
+via a `SeededRng` stream that round-trips through the save blob.
+**G-04 — Districts as data.** New pure module
+[`js/sim/districts.js`](js/sim/districts.js) ships two records at
+Tier-0 — **The Docks** (vice/violence-leaning · SW) and **Hillside**
+(money-heavy · NE) — each with a spawn rect, a covering bureau-family
+tag, per-district flavor weights, and an actor pool. `DistrictId`
+becomes a real union per ICD-01 v0.6's `LeadView.district` projection.
+**G-01 — Branch Bureau.** Second bureau-family building at tile (8, 3)
+inside the Hillside spawn rect. HP 20 (squishy per §15 *"1 goon takes
+them out in 20s"*). Reporters drop at either bureau-family building;
+photogs likewise pick up from either. Branch destruction does NOT
+trigger `CYCLE_GAME_OVER` — only the main Bureau drives the §17 single
+fail-state. **G-05 — Slot-grammar headlines.** New pure module
+[`js/sim/headlines.js`](js/sim/headlines.js) implements Design Doc §18's
+actor-verb-object grammar with flavor-tagged verbs and tier prefixes
+("EXCLUSIVE · " for Investigation). Story shape gains an optional
+`headline` field set deterministically at spawn time. **G-13 — Run-end
+summary + high-score persistence.** New `World.runStats` rolls revenue
++ editions + top headline across the run; `'late-edition.scores.v1'`
+hosts a cross-run sorted-desc cap-at-10 high-score list; the existing
+game-over overlay now renders the run summary card (editions · revenue
+· top headline · rank · top-5 board) inside the same terminal mount,
+preserving the "Start a new run" exit. **ICD bumps (Constraint #4):**
+ICD-01 → v0.6.1 widens `BuildingKind` for `'branch_bureau'`; ICD-04 →
+v0.1.1 settles the `rng_seed` semantics (live PRNG state, not initial
+seed), adds the `lead_spawner` + `run_stats` blocks, and documents the
+new `SCORES_KEY` with full `HighScoreBlobV1` schema — all
+backward-compatible via optional-field reads (no migration). Tests at
+**159 cases** (124 → 159 — five new test files covering the substrate
+modules). Next: **0.10.1 (onboarding)** — diegetic tutorial copy + WASD
+pan / Block zoom / slow-mo control surface. See
+[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ## How to navigate
 

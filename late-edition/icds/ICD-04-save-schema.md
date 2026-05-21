@@ -1,6 +1,6 @@
 # ICD-04 · Save Schema
 
-**Status:** v0.1 (authored at PRE-0.8 — paper-only architecture session)
+**Status:** v0.1.1 (milestone 0.10.0 — `rng_seed` semantics settled (carries live PRNG state, not initial seed) · `lead_spawner` snap block added · `run_stats` block added · `'late-edition.scores.v1'` key documented)
 **Band:** strong (Design Doc §17 locks "single localStorage JSON · versioned · migrations defined")
 **First caller:** milestone 0.8 (save / load · resume mid-edition · version field)
 **Source:** [`../design/design-doc.html`](../design/design-doc.html) §17 (save) ·
@@ -25,7 +25,21 @@ band "post-MVP multiplayer / cloud saves").
 ## Storage key
 
 ```ts
-const SAVE_KEY = 'late-edition.save.v1';
+const SAVE_KEY   = 'late-edition.save.v1';
+const SCORES_KEY = 'late-edition.scores.v1';  // v0.1.1 — high-score persistence (audit G-13)
+```
+
+```ts
+interface HighScoreBlobV1 {
+  version: 1;
+  scores: HighScoreEntry[];   // sorted desc by editions_survived, then total_revenue; capped at 10
+}
+interface HighScoreEntry {
+  editions_survived: number;
+  total_revenue:     number;
+  ended_at_ms:       number;                          // wall-clock for display
+  cause:             'game_over' | 'arc_end';
+}
 ```
 
 - **Single blob, single key.** All save state lives at this key. No sharded
@@ -47,14 +61,16 @@ interface SaveBlobV1 {
   version:      SaveVersion;        // "1.0" at this ICD
   saved_at_ms:  number;             // Date.now() at write — wall-clock, for UI
   sim_time_ms:  number;             // absolute sim clock (World.sim_time_ms)
-  rng_seed:     number;             // the seed the World was constructed with
+  rng_seed:     number;             // v0.1.1: the spawner stream's live PRNG state (renamed semantics — see §Notes)
+  world_rng:    { state: number };  // v0.1.1: same value as rng_seed under the clearer key; both written for compat
+  lead_spawner: LeadSpawnerSnap | null; // v0.1.1: per-district spawn accumulators (audit C-04 first caller of the rng slot)
   id_mint:      { next: number };   // module-scoped mkId counter — next value to mint
 
   cycle:        CycleSnap;          // CycleClock state
   resources:    { cash: number, ink: number, heat: number };
   grid:         GridSnap;           // baked pathfinding grid (static post-city-gen but captured for safety)
 
-  buildings:    BuildingSnap[];     // every building in this.buildings
+  buildings:    BuildingSnap[];     // every building in this.buildings (incl. branch_bureau at 0.10.0)
   units:        UnitSnap[];         // every unit in this.units (including goons spawned mid-edition)
   stories:      StorySnap[];        // every story in this.stories regardless of state
 
@@ -64,6 +80,18 @@ interface SaveBlobV1 {
 
   game_over:    boolean;            // World.gameOver — terminal state captured for round-trip integrity
   debrief_open: boolean;            // World.debriefOpen — saves taken during the debrief pause restore the paused state
+
+  run_stats:    RunStatsSnap;       // v0.1.1: rolling run totals for the run-end summary + high-score write (audit G-13)
+}
+
+interface LeadSpawnerSnap {
+  accum_by_district: { [districtId: string]: number };  // ms accumulated toward next spawn per district
+}
+
+interface RunStatsSnap {
+  total_revenue:     number;
+  editions_survived: number;
+  top_story:         { headline: string, cash: number } | null;
 }
 
 interface CycleSnap {
@@ -293,6 +321,27 @@ the deviation lands.
 
 ## Revision history
 
+- **v0.1.1** (milestone 0.10.0, 2026-05-21) — Lead-spawn engine (audit
+  C-04) is the first concrete caller of the `rng_seed` slot v0.1 reserved
+  ("first plausible caller: lead spawn jitter at milestone 0.9+"). The
+  semantics settle here: the field carries the spawner stream's **live
+  PRNG state** (not just the initial seed), so a post-load run resumes the
+  cadence at the exact byte the pre-save run was at. The clearer `world_rng:
+  { state }` key is written alongside for forward-compat readers; both
+  point at the same number. New `lead_spawner` block carries the per-
+  district accumulator map (`{ [districtId]: ms_toward_next_spawn }`) so
+  the spawn cadence resumes mid-edition without rounding. New `run_stats`
+  block carries the rolling totals (`total_revenue`, `editions_survived`,
+  `top_story`) that the run-end summary + high-score writer read at
+  `CYCLE_GAME_OVER` (audit G-13). New sibling key `'late-edition.scores.v1'`
+  hosts the cross-run `HighScoreBlobV1` (10-entry sorted cap; schema
+  declared above in §Storage key). `BuildingKind` union widens to include
+  `'branch_bureau'` per ICD-01 v0.6.1 (audit G-01). No migration is needed
+  — the v0.1 → v0.1.1 transition adds only optional fields to existing
+  blobs, and `_loadFromSnap` reads each via `??` fallback. `runMigrations`
+  still routes `'1.0'` blobs through the identity path; the in-blob
+  `version` stays at `"1.0"` until the next breaking change. Constraint
+  #4 in-PR bump alongside the milestone 0.10.0 substrate code session.
 - **v0.1** (PRE-0.8, 2026-05-21) — Authored. Single-blob `localStorage`
   schema with explicit version, migration policy, determinism contract
   (per-rival RNG state captured), mid-edition resume rules, Story

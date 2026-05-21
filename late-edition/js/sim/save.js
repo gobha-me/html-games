@@ -23,8 +23,11 @@
 import { World, getIdMint } from './world-state.js';
 
 export const SAVE_KEY = 'late-edition.save.v1';
+export const SCORES_KEY = 'late-edition.scores.v1';   // 0.10.0 (G-13)
 export const CURRENT_VERSION = '1.0';
+export const SCORES_VERSION = 1;                       // 0.10.0 (G-13)
 export const STORY_VERSION = 1;
+export const MAX_HIGH_SCORES = 10;                     // 0.10.0 (G-13)
 // ICD §Open-questions: compression deferred until size shows up. The guard
 // surfaces the trigger as a console.warn when a playtest blob crosses the
 // rough localStorage practical ceiling on older browsers (~1 MB).
@@ -33,12 +36,20 @@ const SIZE_GUARD_BYTES = 500_000;
 // World → SaveBlobV1 projector (ICD-04 §Core shape). Snake_case is the wire
 // convention; the live World uses camelCase. The projector handles both
 // directions symmetrically.
+//
+// 0.10.0 (C-04): the rng_seed slot (reserved at ICD-04 v0.1 for the
+// "lead spawn jitter at milestone 0.9+ first plausible caller") now carries
+// the spawner stream's live PRNG state, plus a sibling `lead_spawner` block
+// for the per-district accumulator. ICD-04 §Notes calls this out in v0.1.1
+// alongside the same PR per Constraint #4.
 export function serialize(world) {
   return {
     version: CURRENT_VERSION,
     saved_at_ms: Date.now(),
     sim_time_ms: world.sim_time_ms,
-    rng_seed: 0, // World RNG owner doesn't exist at 0.8; reserved for later (ICD-04 §Notes determinism).
+    rng_seed: world.spawnerRng?.state ?? 0,
+    world_rng: { state: world.spawnerRng?.state ?? 0 },
+    lead_spawner: world.leadSpawner?.snap() ?? null,
     id_mint: { next: getIdMint() },
     cycle: cycleSnap(world.cycle),
     resources: { cash: world.resources.cash, ink: world.resources.ink, heat: world.resources.heat },
@@ -51,6 +62,11 @@ export function serialize(world) {
     pending_rival_events: world._pendingRivalEvents.slice(),
     game_over: world.gameOver,
     debrief_open: world.debriefOpen,
+    run_stats: {                         // 0.10.0 (G-13)
+      total_revenue:     world.runStats?.total_revenue     ?? 0,
+      editions_survived: world.runStats?.editions_survived ?? 0,
+      top_story:         world.runStats?.top_story ?? null,
+    },
   };
 }
 
@@ -163,6 +179,7 @@ function storySnap(s) {
     picked_up_by: s.picked_up_by,
     held_by_building: s.held_by_building,
   };
+  if (s.headline !== undefined) snap.headline = s.headline;       // 0.10.0 (G-05)
   if (s.verified_by !== undefined) snap.verified_by = s.verified_by;
   if (s.plated_by !== undefined) snap.plated_by = s.plated_by;
   if (s.printed_in !== undefined) snap.printed_in = s.printed_in;
@@ -170,6 +187,52 @@ function storySnap(s) {
   if (s.heat_yield !== undefined) snap.heat_yield = s.heat_yield;
   if (s.ink_cost !== undefined) snap.ink_cost = s.ink_cost;
   return snap;
+}
+
+// 0.10.0 (G-13) — high-score persistence (ICD-04 §Storage adds key).
+// Separate blob from the save blob: save = a single in-progress run,
+// scores = the run history. Same versioning shape so a future migration
+// pass can mirror the run-save migration chain.
+
+export function loadScores(storage = globalThis.localStorage) {
+  if (!storage) return emptyScoresBlob();
+  const raw = storage.getItem(SCORES_KEY);
+  if (!raw) return emptyScoresBlob();
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch { return emptyScoresBlob(); }
+  if (!parsed || typeof parsed !== 'object') return emptyScoresBlob();
+  if (parsed.version !== SCORES_VERSION) return emptyScoresBlob();
+  const scores = Array.isArray(parsed.scores) ? parsed.scores.slice() : [];
+  return { version: SCORES_VERSION, scores: sortAndCap(scores) };
+}
+
+export function saveScore(entry, storage = globalThis.localStorage) {
+  if (!storage) return { rank: null, blob: null };
+  const blob = loadScores(storage);
+  blob.scores = sortAndCap([...blob.scores, entry]);
+  storage.setItem(SCORES_KEY, JSON.stringify(blob));
+  const rank = blob.scores.findIndex((e) =>
+    e.editions_survived === entry.editions_survived &&
+    e.total_revenue === entry.total_revenue &&
+    e.ended_at_ms === entry.ended_at_ms,
+  );
+  return { rank: rank >= 0 ? rank + 1 : null, blob };
+}
+
+function emptyScoresBlob() {
+  return { version: SCORES_VERSION, scores: [] };
+}
+
+function sortAndCap(scores) {
+  return scores
+    .slice()
+    .sort((a, b) => {
+      if (b.editions_survived !== a.editions_survived) {
+        return b.editions_survived - a.editions_survived;
+      }
+      return b.total_revenue - a.total_revenue;
+    })
+    .slice(0, MAX_HIGH_SCORES);
 }
 
 function rivalsSnap(rivals) {

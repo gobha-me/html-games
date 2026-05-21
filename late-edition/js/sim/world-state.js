@@ -54,6 +54,16 @@ import {
   heatYieldFor,
 } from './resources.js';
 import { EveningStar, PAST_INTENTS_PROJECTION_CAP } from './evening-star.js';
+import { SeededRng } from './seeded-rng.js';
+import { LeadSpawner } from './lead-spawner.js';
+import {
+  DISTRICTS,
+  DEFAULT_DISTRICT_ID,
+  resolveDistrictId,
+  pickWeighted,
+  districtForTile,
+} from './districts.js';
+import { synthesizeHeadline } from './headlines.js';
 
 // 0.8: id-mint module state. Both fresh-construct (constructor) and the
 // snap restore path explicitly call setIdMint — fresh = 1, restore =
@@ -77,12 +87,14 @@ export const UNIT_SPEED = {
 export const REPORTER_SPEED = UNIT_SPEED.reporter; // legacy export — kept stable for tests/unit-step.test.mjs
 export const PRESS_HP = 90;        // overview §Single fail-state
 export const GOON_DAMAGE_PER_SECOND = 1; // Design Doc §17 — "damages press at 1 dmg/s on contact"
-export const LEAD_SPAWN_TILE = { x: 2, y: 2 }; // 0.3 "single district" pickup point
+export const LEAD_SPAWN_TILE = { x: 2, y: 2 }; // 0.3 "single district" pickup point (starter lead seed)
 export const BUREAU_TILE = { x: 5, y: 5 };
 export const DARKROOM_TILE = { x: 7, y: 7 }; // 0.4: symmetric from Bureau (Manhattan 4)
 export const FIXER_SPAWN_TILE = { x: 6, y: 5 }; // 0.7: Bureau-adjacent (east of Bureau)
 export const GOON_SPAWN_TILE = { x: 0, y: 0 }; // 0.7: NW grid edge (placeholder until district edges land)
 export const EDITOR_SPAWN_TILE = { x: 4, y: 5 }; // 0.7.1: Bureau-adjacent (west of Bureau) — Editor is stationary
+export const BRANCH_BUREAU_TILE = { x: 8, y: 3 }; // 0.10.0 (G-01): inside Hillside district spawnRect (6..9, 1..4)
+export const BRANCH_HP = 20;                      // §15 line 916 "squishy: 1 goon takes them out in 20s" @ 1 dmg/s
 
 // At 0.5 the print pipeline closes with no Editor unit yet — the verified →
 // plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
@@ -150,6 +162,20 @@ export class World {
         hp_max: PRESS_HP,
         tier: 1,
       },
+      {
+        // 0.10.0 (G-01): Branch Bureau. Covers the Hillside district per
+        // districts.js coveredByKind. Lower HP than the main Bureau (§15
+        // "squishy: 1 goon takes them out in 20s"). Loss does NOT trigger
+        // CYCLE_GAME_OVER — only the main Bureau (kind 'bureau') drives
+        // the §17 single fail-state; branch destruction silently drops
+        // Hillside back to the rumor rate. Rebuild is Tier-1 work.
+        id: mkId('b'),
+        tile: { ...BRANCH_BUREAU_TILE },
+        kind: 'branch_bureau',
+        hp: BRANCH_HP,
+        hp_max: BRANCH_HP,
+        tier: 1,
+      },
     ];
 
     for (const b of this.buildings) this.grid.walkable[b.tile.y][b.tile.x] = false;
@@ -174,12 +200,18 @@ export class World {
       makeUnit(mkId('u'), 'editor',   { ...EDITOR_SPAWN_TILE }, { hp: 2, hp_max: 2 }),
     ];
 
-    // Milestone 0.3: spawn one Story in 'lead' state at the district tile.
-    // ICD-05 §Shape — district / flavor / tier / truthful / spawned_at_ms.
+    // 0.10.0 (C-04): LeadSpawner owns the spawn cadence end-to-end. One
+    // starter lead seeds the Docks so the player has something to chase
+    // before the first 90 s interval elapses (same tile as the legacy 0.3
+    // spawn so visual layout doesn't shift). Subsequent leads come from
+    // _runSpawnerTick during World.tick. The hand-written starter headline
+    // sets the tone before the synth takes over.
+    this.spawnerRng = new SeededRng(opts.spawnerSeed ?? 0xBEEF1ED);
+    this.leadSpawner = new LeadSpawner();
     this.stories = [{
       id: mkId('s'),
       state: 'lead',
-      district: 'd-default',
+      district: DEFAULT_DISTRICT_ID,
       flavor: 'vice',
       tier: 'whisper',
       truthful: true,
@@ -187,6 +219,7 @@ export class World {
       tile: { ...LEAD_SPAWN_TILE },
       picked_up_by: null,
       held_by_building: null,
+      headline: 'DOCKHAND TIPS THE WIRE',
     }];
 
     // 0.7.0: Evening Star rival (ICD-02 v0.2). Deterministic seed → replay-safe.
@@ -220,6 +253,16 @@ export class World {
     this.gameOver = false;
 
     this.effects = [];
+
+    // 0.10.0 (G-13): rolling run stats fed by _buildEditionSummary. Read by
+    // the game-over overlay to render run-end summary + write a high-score
+    // entry. Persisted in the save blob so a mid-run resume keeps the count
+    // honest.
+    this.runStats = {
+      total_revenue:     0,
+      editions_survived: 0,
+      top_story:         null, // { headline, cash } | null
+    };
   }
 
   // 0.8 restore path (ICD-04 v0.1). Rebuilds every authoritative field from
@@ -258,6 +301,24 @@ export class World {
     this._activeRaids = new Map();
     this._nextRaidId = 1;
     this.effects = [];
+    // 0.10.0 (C-04): restore the spawner PRNG state + per-district
+    // accumulators. ICD-04 §Notes — rng_seed (renamed to world_rng for
+    // clarity in v0.6 of ICD-04) carries the spawner stream's `.state`,
+    // not the initial seed.
+    const rngState = blob.world_rng?.state ?? blob.rng_seed ?? 0;
+    this.spawnerRng = new SeededRng(rngState || 0xBEEF1ED);
+    this.leadSpawner = blob.lead_spawner
+      ? LeadSpawner.fromSnap(blob.lead_spawner)
+      : new LeadSpawner();
+    // 0.10.0 (G-13): run stats survive resume so a mid-edition save/load
+    // doesn't lose the high-score-bound counters.
+    this.runStats = blob.run_stats
+      ? {
+          total_revenue:     blob.run_stats.total_revenue     ?? 0,
+          editions_survived: blob.run_stats.editions_survived ?? 0,
+          top_story:         blob.run_stats.top_story         ?? null,
+        }
+      : { total_revenue: 0, editions_survived: 0, top_story: null };
   }
 
   subscribeCycle(fn) {
@@ -338,6 +399,11 @@ export class World {
       for (const intent of intents) this._reconcileIntent(rival, intent);
     }
 
+    // 0.10.0 (C-04): lead-spawn engine. Cadence + decay live in
+    // js/sim/lead-spawner.js (Design Doc §19 1 per ~90s per covered
+    // district · 180 s decay · ×0.5 rate when uncovered).
+    this._runSpawnerTick(dtMs);
+
     const events = this.cycle.advance(dt * 1000);
     for (const ev of events) {
       this._emitCycle(ev);
@@ -366,7 +432,7 @@ export class World {
           .map((s) => ({ id: s.id, district: s.district, tier: s.tier, flavor: s.flavor })),
         visible_reporters: this.units
           .filter((u) => u.kind === 'reporter')
-          .map((u) => ({ id: u.id, district: 'd-default' })),
+          .map((u) => ({ id: u.id, district: districtForTile(u.tile) })),
       },
       own: {
         state:        rival.state,
@@ -505,6 +571,37 @@ export class World {
     });
   }
 
+  // 0.10.0 (C-04): builds the per-tick context the spawner needs, runs it,
+  // and applies the results to this.stories. Occupied-tile filter prevents
+  // two leads stacking on the same tile. New stories get an id minted here
+  // (spawner stays free of mkId concerns); expired stories are removed and
+  // any unit currently pathing toward one falls back to idle (the lead
+  // pickup check inside _handleReporterArrival also no-ops cleanly).
+  _runSpawnerTick(dtMs) {
+    const occupied = new Set();
+    for (const s of this.stories) {
+      if (s.state === 'lead' && !s.picked_up_by && !s.held_by_building) {
+        occupied.add(`${s.tile.x},${s.tile.y}`);
+      }
+    }
+    const ctx = {
+      grid:      this.grid,
+      buildings: this.buildings,
+      stories:   this.stories,
+      simTimeMs: this.sim_time_ms,
+      rng:       this.spawnerRng,
+      occupiedTiles: occupied,
+    };
+    const { spawns, expiredIds } = this.leadSpawner.tick(dtMs, ctx);
+    for (const partial of spawns) {
+      this.stories.push({ id: mkId('s'), ...partial });
+    }
+    if (expiredIds.length > 0) {
+      const dead = new Set(expiredIds);
+      this.stories = this.stories.filter((s) => !dead.has(s.id));
+    }
+  }
+
   // Triggered exactly once per edition on DEADLINE_FIRE. Walks each verified
   // story sitting at the Darkroom through verified → plated → printed in the
   // same frame. 0.7.1: the plating step substitutes the Editor's UnitId for
@@ -617,9 +714,23 @@ export class World {
     });
     while (this.editionHistory.length > 10) this.editionHistory.shift();
 
+    const digests = printed.map(storyDigest);
+
+    // 0.10.0 (G-13): rolling run stats. editions_survived counts each
+    // completed printing (a press-destroyed edition still counts if a
+    // summary was built before the fail-state — Tier-0 has no such
+    // ordering today; the count stays a faithful "printed editions" tally).
+    this.runStats.total_revenue += cashEarned;
+    this.runStats.editions_survived = this.cycle.edition;
+    for (const d of digests) {
+      if (!this.runStats.top_story || d.cash > this.runStats.top_story.cash) {
+        this.runStats.top_story = { headline: d.headline, cash: d.cash };
+      }
+    }
+
     return {
       edition: this.cycle.edition,
-      stories_printed: printed.map(storyDigest),
+      stories_printed: digests,
       cash_earned:  cashEarned,
       ink_consumed: printed.reduce((sum, s) => sum + (s.ink_cost  ?? 0), 0),
       heat_applied: printed.reduce((sum, s) => sum + (s.heat_yield ?? 0), 0),
@@ -667,14 +778,17 @@ export class World {
       return;
     }
     if (u.carrying === 'lead') {
-      const bureau = this.buildings.find((b) =>
-        b.kind === 'bureau' &&
+      // 0.10.0 (G-01): drop is accepted at any bureau-family building. The
+      // reporter picks the closest one that's Manhattan-adjacent — when both
+      // bureaus are equidistant the find-order wins, which is harmless.
+      const dropAt = this.buildings.find((b) =>
+        isBureauFamily(b) &&
         Math.abs(b.tile.x - u.tile.x) + Math.abs(b.tile.y - u.tile.y) === 1,
       );
-      if (bureau) {
+      if (dropAt) {
         const story = this.stories.find((s) => s.id === u.carryingStoryId);
         if (story) {
-          story.held_by_building = bureau.id;
+          story.held_by_building = dropAt.id;
           story.picked_up_by = null;
         }
         u.carrying = null;
@@ -685,8 +799,9 @@ export class World {
 
   _handlePhotogArrival(u) {
     if (u.carrying === null) {
+      // 0.10.0 (G-01): pickup from either bureau-family building.
       const bureau = this.buildings.find((b) =>
-        b.kind === 'bureau' &&
+        isBureauFamily(b) &&
         Math.abs(b.tile.x - u.tile.x) + Math.abs(b.tile.y - u.tile.y) === 1,
       );
       if (!bureau) return;
@@ -734,6 +849,11 @@ export class World {
       buildings: this.buildings.map(buildingView),
       units: this.units.map(unitView),
       leads,
+      // 0.10.0 (audit G-12 · ICD-01 v0.6 line 23): RivalStatusView[] as a
+      // top-level WorldFrame field (not nested in `hud`). RivalStatusView
+      // type is owned by ICD-02 — id/state/posture today; the dossier
+      // Threats card reads this to render "Evening Star: scheming".
+      rivals: this.rivals.map((r) => ({ id: r.id, state: r.state, posture: r.posture })),
       rain: { intensity: 1 },
       fog: { near: 22, far: 60, color: 0xc8c4bc },
       hud: {
@@ -762,6 +882,15 @@ World.fromSnap = (blob) => new World({ snap: blob });
 function bakeGrid() {
   const walkable = Array.from({ length: GRID_H }, () => Array(GRID_W).fill(true));
   return { width: GRID_W, height: GRID_H, walkable };
+}
+
+// 0.10.0 (G-01): two BuildingKinds count as "bureau-family" — the central
+// Bureau (kind 'bureau') and the Branch Bureau (kind 'branch_bureau'). Both
+// can receive a reporter's drop and yield a lead to a photog; only 'bureau'
+// drives the §17 single fail-state (a Branch loss is recoverable in the
+// sense that the run continues).
+function isBureauFamily(b) {
+  return b.kind === 'bureau' || b.kind === 'branch_bureau';
 }
 
 // 0.8 (ICD-04 v0.1) — snap → live projectors. Snake_case is the wire
@@ -806,7 +935,7 @@ function restoreStory(s) {
   const live = {
     id: s.id,
     state: s.state,
-    district: s.district,
+    district: resolveDistrictId(s.district),
     flavor: s.flavor,
     tier: s.tier,
     truthful: s.truthful,
@@ -815,6 +944,7 @@ function restoreStory(s) {
     picked_up_by: s.picked_up_by,
     held_by_building: s.held_by_building,
   };
+  if (s.headline !== undefined)    live.headline = s.headline;
   if (s.verified_by !== undefined) live.verified_by = s.verified_by;
   if (s.plated_by !== undefined)   live.plated_by = s.plated_by;
   if (s.printed_in !== undefined)  live.printed_in = s.printed_in;
@@ -872,18 +1002,27 @@ function leadView(s, simTime) {
     pos: tileToWorld(s.tile),
     tier: s.tier,
     flavor: s.flavor,
+    // 0.10.0 (audit G-11 · ICD-01 v0.6 line 131): district lifts from the
+    // sim-layer Story.district so per-district HUD readouts have the data
+    // they need. Legacy 'd-default' (pre-0.10 saves) resolves to the
+    // central Docks via districts.js.
+    district: resolveDistrictId(s.district),
     age_ms: simTime - s.spawned_at_ms,
   };
 }
 
-// ICD-06 v0.2 StoryDigest projection. Headline is synthesized from flavor +
-// tier at 0.5 — a real headline-generation pass lands later when the story
-// engine (Design Doc §17) lights up. The text is for player feedback in the
-// debrief panel; the load-bearing data is id / flavor / tier / cash.
+// ICD-06 v0.2 StoryDigest projection. Headline grammar lives in
+// js/sim/headlines.js (audit G-05). The digest carries the load-bearing
+// id / flavor / tier / cash plus the synthesized headline string for the
+// debrief panel + run-summary readout. A pre-synthesized `headline` field
+// on the Story is preferred (lets headline generation be deterministic in
+// the spawner) — if absent the digest falls back to the literal flavor/tier
+// shape used pre-0.10. RNG is unused in this fallback path.
 function storyDigest(s) {
+  const headline = s.headline ?? `${s.flavor.toUpperCase()} ${s.tier.toUpperCase()} HITS WIRE`;
   return {
     id: s.id,
-    headline: `${s.flavor.toUpperCase()} ${s.tier.toUpperCase()} HITS WIRE`,
+    headline,
     flavor: s.flavor,
     tier: s.tier,
     cash: s.cash_yield ?? 0,

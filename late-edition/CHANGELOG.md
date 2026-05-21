@@ -1,5 +1,113 @@
 # Changelog — Late Edition
 
+## v0.10.0 — 2026-05-21 — PR-C substrate (lead-spawn engine · districts · Branch Bureau · grammar · scores)
+
+PR-C from the post-0.9 re-eval — the substrate half of the Tier-0 closer.
+Five of the seven audit-named items land here; the remaining two (G-09
+diegetic tutorial copy · G-07 minimum control surface) defer to
+**milestone 0.10.1 (onboarding)** per the roadmap's authorized
+0.10.0/0.10.1 split (precedent: 0.7.0 / 0.7.1). The substrate makes the
+loop **read as a game**: leads spawn continuously, districts have
+identity, the dossier shows real headlines, the second bureau-family
+building lights up, and a run ends with a numbered place on the
+high-score board.
+
+Headline changes:
+
+- **C-04 — Lead-spawn engine.** New pure module
+  [`js/sim/lead-spawner.js`](js/sim/lead-spawner.js) mirrors the
+  [`js/sim/resources.js`](js/sim/resources.js) pattern. Owns the per-tick
+  cadence (Design Doc §19 line 1436: 1 lead per ~90 s per covered
+  district, ×0.5 if uncovered), the tier roll (70/25/5 Whisper /
+  Investigation / Arc — Arc remaps to Investigation at Tier-0 per
+  §18 line 1354), and the 180 s decay rule (§19 line 887). The
+  cross-tick state is one accumulator per district plus a `SeededRng`
+  stream (`World.spawnerRng`); both round-trip through the save blob.
+  Wired into [`World.tick`](js/sim/world-state.js) after the rival tick
+  and before `cycle.advance`. The 0.3-era hardcoded single-lead spawn
+  remains as a starter seed (same tile, hand-written headline
+  *"DOCKHAND TIPS THE WIRE"*) so the first 90 s of a fresh run is
+  never an empty world.
+- **G-04 — Districts as data.** New pure module
+  [`js/sim/districts.js`](js/sim/districts.js) ships two records at
+  Tier-0 — **The Docks** (vice/violence leaning · SW spawn rect) and
+  **Hillside** (money-heavy · NE spawn rect). Each carries a `spawnRect`,
+  a `coveredByKind` bureau-family tag (`'bureau'` for Docks · `'branch_bureau'`
+  for Hillside per Design Doc §15 *"a bureau in a district produces
+  leads there"*), per-district `flavorWeights` (the §19 HEAT_BY_FLAVOR
+  table is the receiver), and an `actorPool` (the §18 slot-grammar's
+  first slot). Legacy saves carrying the `'d-default'` district literal
+  resolve to the Docks via `resolveDistrictId` (no migration needed —
+  the projector folds at the boundary). `DistrictId` becomes a real
+  union per ICD-01 v0.6's `LeadView.district` projection.
+- **G-01 — Branch Bureau.** Second bureau-family building, at tile
+  `(8, 3)` inside the Hillside spawn rect. HP 20 (Design Doc §15
+  *"squishy: 1 goon takes them out in 20s"* @ 1 dmg/s) — distinct from
+  the main Bureau's 90. Reporters drop at either bureau-family building
+  (`_handleReporterArrival` widens the destination check via the new
+  `isBureauFamily` helper); photogs likewise pick up from either. Branch
+  destruction does NOT trigger `CYCLE_GAME_OVER` — only the main Bureau
+  drives the §17 single fail-state. ICD-01 → v0.6.1 in the same PR
+  (Constraint #4) widens the `BuildingKind` vocabulary. Renderer adds a
+  small tan-bodied mesh with a red awning so the silhouette reads as
+  "newsstand-scale office" against the central Bureau.
+- **G-05 — Slot-grammar headlines.** New pure module
+  [`js/sim/headlines.js`](js/sim/headlines.js) implements the Design
+  Doc §18 line 1359+ grammar: actor (from district pool) + verb (tagged
+  by flavor — vice / violence / money / labor) + object (district pool ∪
+  shared civic-target pool). Tier prefix register: whisper bare,
+  investigation *"EXCLUSIVE · "*, arc *"FRONT PAGE · "*. Story shape
+  gains an optional `headline` field set at spawn time (deterministic
+  via the spawner rng); `storyDigest` reads it directly for the
+  EditionSummary digest + the run-summary top-headline readout. The
+  legacy `${flavor} ${tier} HITS WIRE` line stays as a defensive
+  fallback only.
+- **G-13 — Run-end summary + high-score persistence.** New `World.runStats`
+  rolls `total_revenue` / `editions_survived` / `top_story` across the
+  run (updated in `_buildEditionSummary`, persisted in the save blob).
+  [`js/sim/save.js`](js/sim/save.js) adds a second storage key
+  `'late-edition.scores.v1'` (per ICD-04 v0.1.1 §Storage) with a sorted-
+  desc, capped-at-10 list. [`js/game-over-overlay.js`](js/game-over-overlay.js)
+  extends to render the run summary (editions · revenue · top headline
+  · rank · top-5 board) inside the existing game-over card on
+  `CYCLE_GAME_OVER`; the "Start a new run" button still clears the save
+  blob and reloads — but the score blob persists so the player's
+  history accumulates across runs.
+
+ICD bumps (Constraint #4 in-PR):
+
+- **ICD-01 → v0.6.1** ([`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md))
+  — `BuildingKind` widens to include `'branch_bureau'`. Value-level
+  addition under the open-vocabulary slot; no shape change.
+- **ICD-04 → v0.1.1** ([`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md))
+  — `rng_seed` semantics settled (live PRNG state, not initial seed),
+  `world_rng: { state }` sibling key written for clarity, new
+  `lead_spawner: LeadSpawnerSnap` block carrying per-district
+  accumulators, new `run_stats: RunStatsSnap` block, new `SCORES_KEY`
+  documented with full `HighScoreBlobV1` schema. Backward-compatible
+  via optional-field reads — no migration.
+
+Test count: 124 → 159 (+35 in 5 new files —
+[`tests/districts.test.mjs`](tests/districts.test.mjs),
+[`tests/lead-spawn.test.mjs`](tests/lead-spawn.test.mjs),
+[`tests/branch-bureau.test.mjs`](tests/branch-bureau.test.mjs),
+[`tests/headlines.test.mjs`](tests/headlines.test.mjs),
+[`tests/high-scores.test.mjs`](tests/high-scores.test.mjs)). Existing
+`tests/world-frame.test.mjs` updated for the v0.6 / v0.6.1 contract
+(LeadView.district, WorldFrame.rivals, branch_bureau in the kind enum).
+
+Out of scope for 0.10.0 (lands at 0.10.1):
+
+- **G-09** diegetic tutorial copy — coupled to G-07 (controls the
+  tutorial copy needs to reference).
+- **G-07** minimum control surface — WASD pan + Block zoom + slow-mo
+  (Design Doc §12).
+
+After 0.10.1: **0.10.x (PR-D)** visual feedback — rain ramp at deadline
+(C-06), `WorldFrame.effects` producer/consumer wiring (C-07; the
+contract authored at PRE-0.10 still has no callers), debrief panel as
+newspaper pages (D-07), lit windows + fog-on-deadline (D-09).
+
 ## v0.9.4 — 2026-05-21 — PRE-0.10 paper session (ICD-01 v0.6 · ICD-06 v0.4 · ICD-07 v0.1)
 
 PR-B from the post-0.9 re-eval — paper-only architecture session that

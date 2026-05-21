@@ -289,7 +289,8 @@ function withOutline(mesh, color = 0x0a0a0c) {
 }
 
 function buildBuildingMesh(gradient, kind) {
-  if (kind === 'darkroom') return buildDarkroomMesh(gradient);
+  if (kind === 'darkroom')      return buildDarkroomMesh(gradient);
+  if (kind === 'branch_bureau') return buildBranchBureauMesh(gradient);
   return buildBureauMesh(gradient);
 }
 
@@ -303,6 +304,28 @@ function buildBureauMesh(gradient) {
   roof.position.y = 4.2;
   withOutline(roof);
   group.add(roof);
+  return group;
+}
+
+// 0.10.0 (G-01): Branch Bureau — smaller-than-Bureau silhouette, tan body
+// (district outpost), red awning over the entrance to read as a newsstand-
+// scale "office that obviously can be taken out in 20s." Reads alongside
+// the Bureau without being mistaken for it.
+function buildBranchBureauMesh(gradient) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.8, 3.2), toon(gradient, 0xa68f6f));
+  body.position.y = 1.4;
+  withOutline(body);
+  group.add(body);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.3, 3.5), toon(gradient, 0x5e4a2e));
+  roof.position.y = 2.95;
+  withOutline(roof);
+  group.add(roof);
+  // Awning — short red brim over one face. Visual signature.
+  const awning = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.18, 0.7), toon(gradient, 0xc0212a));
+  awning.position.set(0, 1.9, 1.7);
+  withOutline(awning);
+  group.add(awning);
   return group;
 }
 

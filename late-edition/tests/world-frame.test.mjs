@@ -2,14 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../js/sim/world-state.js';
 
-// ICD-01 v0.2 — render-only projection rule:
+// ICD-01 v0.6 (PRE-0.10 paper) — render-only projection rule:
 // "no field on a View carries information the renderer doesn't use this frame."
 // Snapshot must match the ICD's WorldFrame / View struct field sets exactly.
+// v0.6 adds: WorldFrame.rivals · LeadView.district · FxEvent union (effects
+// shape stays the same — drained queue, kind+payload entries).
 
-const FRAME_KEYS = ['cameraTarget', 'buildings', 'units', 'leads', 'rain', 'fog', 'hud', 'effects'];
+const FRAME_KEYS = ['cameraTarget', 'buildings', 'units', 'leads', 'rivals', 'rain', 'fog', 'hud', 'effects'];
 const BUILDING_VIEW_KEYS = ['id', 'pos', 'kind', 'hp', 'hp_max', 'tier'];
 const UNIT_VIEW_KEYS = ['id', 'pos', 'facing', 'kind', 'state', 'selected', 'carrying'];
-const LEAD_VIEW_KEYS = ['id', 'pos', 'tier', 'flavor', 'age_ms'];
+const LEAD_VIEW_KEYS = ['id', 'pos', 'tier', 'flavor', 'district', 'age_ms'];
 
 function keysOf(obj) { return Object.keys(obj).sort(); }
 
@@ -31,11 +33,14 @@ test('BuildingView field set matches ICD-01 v0.2 exactly (no leaks)', () => {
   }
 });
 
-test('frame.buildings includes both Bureau and Darkroom (ICD-01 kind enum)', () => {
+test('frame.buildings includes Bureau, Branch Bureau, Darkroom (ICD-01 v0.6 kind enum)', () => {
+  // 0.10.0 (G-01): Branch Bureau is the third construction-time building.
+  // It covers the Hillside district (districts.js) and lets reporters drop
+  // their leads at either bureau-family building.
   const w = new World();
   const f = w.snapshot();
   const kinds = f.buildings.map((b) => b.kind).sort();
-  assert.deepEqual(kinds, ['bureau', 'darkroom']);
+  assert.deepEqual(kinds, ['branch_bureau', 'bureau', 'darkroom']);
 });
 
 test('frame.units includes Reporter, Photog, Fixer, and Editor (ICD-01 kind enum)', () => {
@@ -83,7 +88,7 @@ test('snapshot does not expose sim-only fields (path, tile, pathIdx)', () => {
   }
 });
 
-test('LeadView field set matches ICD-01 v0.4 exactly (no leaks)', () => {
+test('LeadView field set matches ICD-01 v0.6 exactly (no leaks)', () => {
   const w = new World();
   const f = w.snapshot();
   assert.ok(f.leads.length > 0, 'expected at least one lead at spawn');
@@ -93,6 +98,9 @@ test('LeadView field set matches ICD-01 v0.4 exactly (no leaks)', () => {
     assert.ok(['whisper', 'investigation', 'arc'].includes(l.tier));
     assert.ok(['vice', 'violence', 'money', 'labor'].includes(l.flavor));
     assert.equal(typeof l.age_ms, 'number');
+    // ICD-01 v0.6 line 131 — DistrictId is one of the authored ids in
+    // districts.js (Tier-0 ships docks + hillside).
+    assert.ok(['docks', 'hillside'].includes(l.district));
   }
 });
 

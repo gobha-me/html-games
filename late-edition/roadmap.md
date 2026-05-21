@@ -32,7 +32,8 @@ definitions.
 | **0.9** | HUD corkboard · deadline ticker · selected-unit dossier — *shipped v0.9* | Design doc §13 · ICD-01 v0.5 §HudState lifted as authored · zero ICD bumps | medium → strong |
 | **RE-EVAL** | After 0.9 · paper + code-aware — *shipped v0.9.2* | Six ICDs survived code-aware re-read with zero interface drift; nine acknowledged drifts + seven criticals + fourteen gaps surfaced at the design-doc-to-code level. HUD corkboard band promoted medium → strong. PRE-0.10 scheduled. Tier-0 exit criteria confirmed: seven-item PR-C scope. See [`architecture/re-eval-after-0.9.md`](architecture/re-eval-after-0.9.md) + supplement [`design/spec-vs-code-review-0.9.html`](design/spec-vs-code-review-0.9.html). | re-eval |
 | **PRE-0.10** | Author **ICD-01 v0.6** (`UnitView.stats` · `LeadView.district` · `WorldFrame.rivals: RivalStatusView[]` · `FxEvent` union) + **ICD-06 v0.4** (30 s minimum debrief wording per Design Doc §19) + **ICD-07 v0.1** (audio bus, new — channel vocabulary + ducking rules + press-silence beat) — *shipped v0.9.4* | Architecture session · paper-only · gates milestone 0.10 · also carries the HUD corkboard medium → strong band promotion (overview line 45) | strong |
-| **0.10** | Tier-0 closer · lead-spawn engine (C-04) · districts as data (G-04) · Branch Bureau (G-01) · slot-grammar headlines (G-05) · run-end summary + high-score persistence (G-13) · diegetic tutorial (G-09) · minimum control surface (WASD pan + Block zoom + slow-mo) (G-07) | The first thing a friend can play · verifies the loop reads as a game · split 0.10.0 / 0.10.1 at session open if scope creeps (0.7 precedent) | strong |
+| **0.10.0** | Tier-0 closer — substrate · lead-spawn engine (C-04) · districts as data (G-04) · Branch Bureau (G-01) · slot-grammar headlines (G-05) · run-end summary + high-score persistence (G-13) — *shipped v0.10.0* | First half of the 0.10 closer per the authorized split (0.7 precedent). ICD-01 → v0.6.1 (BuildingKind widens for `'branch_bureau'`); ICD-04 → v0.1.1 (rng_seed semantics + lead_spawner + run_stats + scores key). Tests at 159 cases (124 → 159). | strong |
+| **0.10.1** | Tier-0 closer — onboarding · diegetic tutorial (G-09) · minimum control surface (WASD pan + Block zoom + slow-mo) (G-07) | Second half of the 0.10 closer. Tutorial copy references the new controls — coupled scope. No ICD bumps expected. | strong |
 | **0.10.x** | Visual feedback · rain ramp at deadline (C-06) · `WorldFrame.effects` wired end-to-end (C-07) · debrief panel as newspaper pages (D-07) · lit windows + fog-on-deadline (D-09) | Renderer-side polish on `FxEvent` contract from PRE-0.10 · post-0.10 | strong |
 | **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 08+ for branch bureaus, switchboard, archive. | re-eval |
 
@@ -95,13 +96,29 @@ cue-table, reference to Supplement C at `design/audio-manifest.html`
 → strong; overview line 45) per the post-0.9 re-eval §2. **Milestone
 0.10 is now code-ready** — every required contract is in hand.
 
-Next: **Milestone 0.10** — the Tier-0 closer. The locked PR-C scope (lead-
-spawn engine · districts as data · Branch Bureau · slot-grammar headlines
-· run-end summary + high-score persistence · diegetic tutorial · minimum
-control surface) opens as a code session against ICD-01 v0.6 + ICD-04 v0.1
-+ ICD-06 v0.4. Split into 0.10.0 / 0.10.1 at session open if scope creeps
-(0.7 precedent). PR-D (0.10.x visual feedback) follows, lighting up the
-`FxEvent` producers + consumers authored in this slot.
+**Milestone 0.10.0 — shipped (v0.10.0).** PR-C substrate — the
+0.10.0/0.10.1 split was taken at session open per the 0.7.0/0.7.1
+precedent: substrate items (C-04 lead-spawn · G-04 districts · G-01
+Branch Bureau · G-05 slot grammar · G-13 run-end summary + high scores)
+land here against ICD-01 v0.6 + ICD-04 v0.1 + ICD-06 v0.4 + ICD-07
+v0.1. Constraint #4 bumps ICD-01 → v0.6.1 (`BuildingKind` widens for
+`'branch_bureau'`) and ICD-04 → v0.1.1 (`rng_seed` carries live PRNG
+state · `lead_spawner` + `run_stats` blocks · `'late-edition.scores.v1'`
+key with `HighScoreBlobV1`). The world spawns leads continuously per
+Design Doc §19; the dossier shows per-district histograms; the debrief
+panel reads §18 grammar; a destroyed Press writes a high-score entry
+before the run-end overlay mounts. Tests at 159 cases (124 → 159).
+
+Next: **Milestone 0.10.1 — onboarding.** The remaining two PR-C items
+(G-09 diegetic tutorial · G-07 minimum control surface — WASD pan +
+Block zoom + slow-mo). Tutorial copy needs to reference the new
+controls — coupled scope, expected one code session. No ICD bumps
+expected (HUD corkboard pin surface is on the strong band).
+
+After 0.10.1: **PR-D (0.10.x visual feedback)** lights up the
+`FxEvent` producers + consumers authored at PRE-0.10, the rain ramp
+at deadline, the newspaper-pages debrief layout, and the lit-windows +
+fog-on-deadline beats.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.

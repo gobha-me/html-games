@@ -1,6 +1,6 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6 (shipped against PRE-0.10 — `UnitView.stats` + `LeadView.district` + `WorldFrame.rivals: RivalStatusView[]` added; `FxEvent` union authored under `WorldFrame.effects`)
+**Status:** v0.6.1 (shipped against milestone 0.10.0 — `BuildingKind` vocabulary widens to include `'branch_bureau'`; no shape change)
 **Band:** strong
 **First caller:** milestone 0.1 (scene, camera, toon pipeline) — shipped in v0.1.0
 **Current caller:** milestone 0.9 (HUD corkboard) — shipped in v0.9.0 against v0.5 with no ICD bump; HUD corkboard band promoted medium → strong post-0.9 (overview line 45). PRE-0.10 (v0.9.4) authors the v0.6 additions ahead of milestone 0.10 (Tier-0 closer): `UnitView.stats` for the §13 Selected dossier, `LeadView.district` for the Story queue, `WorldFrame.rivals` for the Threats dossier, `FxEvent` union for the rain-ramp + effects-channel feedback path (producers wire at milestone 0.10.x / PR-D).
@@ -45,7 +45,7 @@ Darkroom at 0.4 and the remaining strong-band buildings (§07 of the design doc)
 interface BuildingView {
   id:     BuildingId;          // stable; pairs with ICD-03 recomputeOn invalidation set
   pos:    Vec3;                // world-space origin (footprint anchor)
-  kind:   BuildingKind;        // 'bureau' at 0.2; 'darkroom' at 0.4; full catalogue medium-band
+  kind:   BuildingKind;        // 'bureau' at 0.2; 'darkroom' at 0.4; 'branch_bureau' at 0.10.0 (G-01); full catalogue medium-band
   hp:     number;              // current HP
   hp_max: number;              // for HUD damage bar (0.7+); 90 for press, per overview
   tier:   1 | 2 | 3;           // §07; default 1 in vertical slice
@@ -372,6 +372,16 @@ they live here as implementation pins.
 
 ## Revision history
 
+- **v0.6.1** (milestone 0.10.0, 2026-05-21) — `BuildingKind` vocabulary
+  widens to include `'branch_bureau'` (audit G-01 — Tier-0 §16 calls for
+  three buildings; code shipped Bureau + Darkroom through 0.9.x). The
+  Branch Bureau is the second bureau-family building; reporters drop at
+  either, and the new building covers the Hillside district per
+  [`../js/sim/districts.js`](../js/sim/districts.js) `coveredByKind`.
+  Branch destruction does NOT trigger `CYCLE_GAME_OVER` — only the main
+  Bureau drives the §17 single fail-state. Value-level addition under the
+  open-vocabulary `BuildingKind` slot — no shape change. Constraint #4
+  in-PR bump alongside the milestone 0.10.0 substrate code session.
 - **v0.6** (PRE-0.10, 2026-05-21) — Four field-set additions ahead of
   milestone 0.10 (Tier-0 closer). **`UnitView.stats: {nerve: number,
   nose: number, legs: number} | undefined`** authored for the Reporter
