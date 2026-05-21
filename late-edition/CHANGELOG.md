@@ -1,5 +1,157 @@
 # Changelog — Late Edition
 
+## v0.6.2 — 2026-05-21 — PRE-0.7 paper session
+
+Paper-only, no code. The forward-ICD gap the post-0.6 re-eval flagged
+([`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md)
+§3 "Scheduled paper slot — PRE-0.7") is now closed. Milestone 0.7
+(Evening Star SCAVENGE + RAID · Goon unit · Editor unit · Fixer unit ·
+Press HP + fail-state) is legal to open as a code session — every ICD
+the 0.7 milestone depends on is now authored to the level the strong
+band claims.
+
+This is the fifth paper-only changelog entry (v0.1.1 was PRE-0.2;
+v0.3.1 was RE-EVAL after 0.3; v0.4.1 was PRE-0.5; v0.6.1 was RE-EVAL
+after 0.6). METHODOLOGY §3.2 forbids code in a paper slot — verified
+by the byte-zero diff under [`js/`](js), [`tests/`](tests),
+[`index.html`](index.html), and [`design/`](design).
+
+Headline outputs:
+
+- **ICD-02 → v0.2.** Strong-band rival contract authored ahead of its
+  milestone-0.7 first caller:
+  - **Evening Star SCAVENGE + RAID state machine** lifted from
+    [`design/rival-ai-spec.html`](design/rival-ai-spec.html) §04 + §08
+    into committed prose. Six states (`SCAVENGE | RAID | BRIBE | RUSH
+    | PANIC | BURNOUT`), nine transitions with seeded-RNG predicates,
+    20 s tick cadence. The 0.7 slice scope is SCAVENGE + RAID + PASS;
+    the other four states are shape-committed (transition graph
+    closes) but caller-triggered (their bodies fill in when their
+    dependencies — reporter morale, lead-tier classifier,
+    multi-edition raid counters — land at Tier-1).
+  - **`RAID_BUREAU` Intent shape detail** — `goons` count banded by
+    `player_heat` (1 at `[40, 60)`, 2 at `[60, 80)`, 3 at `≥ 80`);
+    `eta_ms` clamped to `cycle.remaining_ms - 1000` for one-edition
+    raids (multi-edition transit deferred to a 0.7 §Notes resolution);
+    `target: BuildingId` always the Bureau at 0.7 (Branch + Switchboard
+    fuzzy until Tier-1).
+  - **`RivalView` projection** authored — `cycle` (edition +
+    remaining_ms), `player` (heat ±20 noise, visibility-filtered leads
+    and reporters), `own` (state, posture, past_intents bounded to
+    last 8), and `edition_history` (last 10 editions' public deltas).
+    Closes the v0.1 §Open-questions item on past-intent visibility:
+    rivals **do** see their own past intents, bounded to the working
+    set the cooldown predicates need.
+  - **`RivalStatusView` posture projection** — medium-band vocabulary
+    `'calm' | 'scheming' | 'hostile'` locked at the post-0.6 re-eval
+    §3.5 Q5. Evening Star state→posture mapping committed
+    (SCAVENGE/RUSH/BURNOUT → `calm`; BRIBE → `scheming`; RAID/PANIC →
+    `hostile`); Herald + Observer mappings deferred to their
+    first-caller milestones.
+- **ICD-05 → v0.4.** §Notes-only amendment, no shape change. Two
+  paragraphs added: (1) pre-Editor `AUTO_PLATE_SENTINEL` substitution
+  path — captures the same-frame `verified → plated → printed`
+  auto-fire at `DEADLINE_FIRE` that lived only in code comments
+  before; names the sentinel as the marker the Editor swaps for its
+  `UnitId` at milestone 0.7; (2) ink plate-time hard gate — pins the
+  v0.6.0 "can't print if ink runs out" enforcement rule to plate-time
+  rejection (verdict (a) of re-eval §3.5 Q6); the Editor's arrival
+  logic enforces it at 0.7 and the `AUTO_PLATE_SENTINEL` path
+  inherits the rule until then.
+- **ICD-01 stays at v0.5.** The `RivalStatusView` HUD surface — does
+  milestone 0.7 ship a `HudState.rival_status: RivalStatusView[]`
+  pill (which would force an ICD-01 v0.6 in the 0.7 PR), or does the
+  milestone-0.9 corkboard absorb it? — is flagged as an ICD-02 §Open
+  question and decided at the 0.7 code session, not here. Per the
+  post-0.6 re-eval §3.5 Q5, both branches are permitted; PRE-0.7
+  declines to choose, keeping this paper slot scoped to the two
+  ICDs it set out to author.
+
+### Added
+
+- (none — no new files)
+
+### Changed
+
+- [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md) bumped to
+  **v0.2**. Status header rewritten; new §`RivalView` projection (v0.2),
+  §`RivalStatusView` projection (v0.2), §Evening Star state machine
+  (v0.2), and §`RAID_BUREAU` Intent shape detail (v0.2) sections added;
+  §Caller-triggered scope table gained a "v0.2 shape detail?" column;
+  §Notes section added covering the 0.7 slice scope, the player-state
+  inputs the state machine reads, the rival-internal state that lives
+  on the rival object (not on `RivalView`), and the ICD-06 v0.2
+  string-typed `RivalEventDigest.kind` interaction; §Open questions
+  rewritten (past-intents item closed; multi-edition goon transit,
+  HUD surface, and other rivals added); §Deviation policy tightened
+  to call out the now-strong-band state machine; revision history
+  prepended with the v0.2 entry.
+- [`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md)
+  bumped to **v0.4**. Status header updated; First-caller line
+  extended to mention rows 4 + 5 (`verified → plated → printed`)
+  auto-fired by milestone 0.5 via the pre-Editor
+  `AUTO_PLATE_SENTINEL` path; §Notes gains two paragraphs (the
+  sentinel substitution path and the ink plate-time hard gate);
+  revision history prepended with the v0.4 entry. **Shape unchanged**
+  — `Story` interface, state-transition table, and `lead → verified`
+  field-delta paragraph all byte-for-byte identical to v0.3.
+- [`roadmap.md`](roadmap.md) — PRE-0.7 row gains *"shipped v0.6.2"*
+  marker; current-status block rewritten to reflect PRE-0.7 shipped
+  and milestone 0.7 unblocked; new `- [x] **PRE-0.7**` history entry
+  appended below the v0.6.1 RE-EVAL entry.
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next" paragraphs
+  rewritten for v0.6.2: PRE-0.7 shipped, ICD-02 v0.2 + ICD-05 v0.4
+  authored, milestone 0.7 unblocked.
+
+### Not changed
+
+- No file under [`js/`](js), [`tests/`](tests), [`index.html`](index.html),
+  or [`design/`](design) was touched. METHODOLOGY §3.2 forbids code in
+  a paper slot; AGENTS.md §Hard rules forbids editing the design HTMLs.
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md) —
+  no bump. The `RivalStatusView` HUD-surface decision (would force
+  v0.5 → v0.6) is deliberately left open and decided at the 0.7 code
+  session per re-eval §3.5 Q5.
+- [`icds/ICD-03-unit-pathfinder.md`](icds/ICD-03-unit-pathfinder.md),
+  [`icds/ICD-06-print-cycle.md`](icds/ICD-06-print-cycle.md) — post-0.6
+  re-eval found no drift; no bump warranted at PRE-0.7.
+  ICD-06's string-typed `RivalEventDigest.kind` stays string-typed —
+  ICD-02's vocabulary is now strong-band but ICD-06's permissive shape
+  is intentional and a future ICD-06 bump can tighten it without
+  churning ICD-02 again.
+- [`icds/ICD-04`](icds) — explicitly deferred to PRE-0.8 by the
+  supplement; untouched.
+- [`architecture/00-overview.md`](architecture/00-overview.md) — no
+  band movements at PRE-0.7. The post-0.6 re-eval already moved
+  ICD-02 medium → strong; no further movement triggered by the v0.2
+  shape work.
+- [`discussion/`](discussion) — three docs already settled at the
+  re-eval (tutorial, difficulty, rival-state visibility); the three
+  remaining (observer-violence, accessibility, yellow-establishment-branch)
+  stay parked per the re-eval §2 finding.
+
+### ICD activity
+
+- **ICD-02 v0.1 → v0.2** — Evening Star SCAVENGE + RAID state machine
+  authored; `RAID_BUREAU` goon-count + `eta_ms` policy authored;
+  `RivalView` projection authored; `RivalStatusView` posture
+  projection authored. Intent vocabulary unchanged from v0.1 — no
+  kinds added or removed (the design HTML's `RAID_BRANCH` and other
+  Tier-1+ kinds remain explicitly out of the v0.1 commitment and out
+  of v0.2's scope).
+- **ICD-05 v0.3 → v0.4** — §Notes-only amendment. `Story` interface
+  + state-transition table + `lead → verified` field-delta paragraph
+  unchanged.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — 53 / 53 pass (baseline, unchanged).
+- `git diff main -- late-edition/js late-edition/tests late-edition/index.html late-edition/design`
+  produces empty output — paper-only boundary preserved.
+- `git diff main --stat -- late-edition/` lists exactly five files:
+  `icds/ICD-02-rival-world.md`, `icds/ICD-05-story-lifecycle.md`,
+  `roadmap.md`, `AGENTS.md`, `CHANGELOG.md`.
+
 ## v0.6.1 — 2026-05-21 — RE-EVAL after 0.6 (paper + code-aware)
 
 Paper-only, no code. The post-0.6 re-evaluation slot the roadmap called

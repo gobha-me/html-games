@@ -24,7 +24,7 @@ definitions.
 | **0.5** | Print cycle clock · deadline events · edition debrief panel — *shipped v0.5.0* | ICD-06 · the heartbeat lights up | strong |
 | **0.6** | Cash + Ink + Heat resources · story cash on print · ink consumption — *shipped v0.6.0* | Design doc §06 · §19 first-pass numbers · medium-band balance values | strong |
 | **RE-EVAL** | After 0.6 · paper + code-aware — *shipped v0.6.1* | Loop plays (inner three rings closed; adversarial ring is 0.7). ICD-02 promoted medium→strong. Tutorial frame locked (diegetic). Difficulty deferred to Tier-1. Partial-dossier rival visibility. Ink plate-time gate at 0.7. See [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md). | re-eval |
-| **PRE-0.7** | Author **ICD-02 v0.2** (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView posture) + **ICD-05 §Notes** (AUTO_PLATE_SENTINEL substitution path + ink plate-time hard gate) | Architecture session · paper-only · gates milestone 0.7 | strong |
+| **PRE-0.7** | Author **ICD-02 v0.2** (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView posture) + **ICD-05 §Notes** (AUTO_PLATE_SENTINEL substitution path + ink plate-time hard gate) — *shipped v0.6.2* | Architecture session · paper-only · gates milestone 0.7 | strong |
 | **0.7** | Evening Star SCAVENGE + RAID states · Goon unit · Press HP + fail-state | ICD-02 v0.2 · Fixer unit · Editor unit · Bureau defense beat | strong |
 | **PRE-0.8** | Author **ICD-04** (save schema) · single architecture session | Required before any code touches persistence | strong |
 | **0.8** | Save / load · resume mid-edition · version field | ICD-04 · localStorage blob · migration stub | strong |
@@ -42,27 +42,30 @@ PRE-0.7 was inserted by the post-0.6 re-eval's same check.
 
 ## Current status
 
-**RE-EVAL after 0.6 — shipped (v0.6.1).** Paper + code-aware. Four
-implemented ICDs (01 v0.5, 03 v0.2, 05 v0.3, 06 v0.2) survived contact
-with 0.4–0.6 code — no drift, Constraint #4 honored throughout. The
-inner three rings of the loop are closed (dispatch→pickup→verify→plate
-→print, the 12-min cycle, the cash/ink/heat economy); the adversarial
-ring is entirely a 0.7 concern. ICD-02 promoted medium→strong on the
-N-window rule (overview line 42). One scheduled paper slot inserted —
-PRE-0.7 — to author ICD-02 v0.2 (Evening Star SCAVENGE+RAID state
-machine, RAID_BUREAU policy, RivalView past-intents, RivalStatusView
-posture) and an ICD-05 §Notes amendment (`AUTO_PLATE_SENTINEL`
-substitution path + ink plate-time hard gate). Three discussion docs
-settled: tutorial diegetic frame locked (copy at 0.10), difficulty
-selector deferred to Tier-1 (frequency-scaling only), rival-state
-visibility locked to partial-dossier with vocabulary
-`{calm, scheming, hostile}`. No JS / test / index.html changes.
-See [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).
+**PRE-0.7 — shipped (v0.6.2).** Paper-only. The forward-ICD gap the
+post-0.6 re-eval flagged is now closed: ICD-02 (Rival ↔ World) is
+authored to v0.2 — Evening Star SCAVENGE + RAID state machine (6 states,
+9 transitions, 20s tick cadence), `RAID_BUREAU` Intent shape detail
+(`goons` heat-banded count, `eta_ms` cycle-clock-clamped resolution,
+Bureau-only target), `RivalView` projection (cycle / player / own /
+edition history sub-shapes, past-intents bounded to last 8), and
+`RivalStatusView` posture projection with the locked
+`{calm, scheming, hostile}` vocabulary. ICD-05 is bumped to v0.4 with
+two §Notes paragraphs: the pre-Editor `AUTO_PLATE_SENTINEL` substitution
+path (captures the same-frame `verified → plated → printed` auto-fire
+at `DEADLINE_FIRE` until the Editor unit substitutes its `UnitId` at
+0.7) and the ink plate-time hard gate rule (plating that would leave
+ink negative is rejected; the Story stays `verified`). No shape change
+on ICD-05 — §Notes-only. ICD-01 stays at v0.5 — the `RivalStatusView`
+HUD surface (pill at 0.7 vs. corkboard at 0.9) is flagged as an open
+question and decided at the 0.7 code session. No JS / test /
+index.html changes. See
+[`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md)
+§3 PRE-0.7 + §3.5 Q2 / Q5 / Q6.
 
-Next: **PRE-0.7** — paper-only architecture session authoring ICD-02
-v0.2 + ICD-05 §Notes amendment. Gates milestone 0.7. Ships at v0.6.2.
-Then milestone 0.7 (Evening Star SCAVENGE + RAID, Goon unit, Editor
-unit, Fixer unit, Press HP + fail-state).
+Next: **milestone 0.7** — Evening Star SCAVENGE + RAID, Goon unit,
+Editor unit, Fixer unit, Press HP + fail-state. Code session. All
+required ICDs now authored to the level the strong band claims.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -117,6 +120,15 @@ unit, Fixer unit, Press HP + fail-state).
       Three discussion docs settled (tutorial / difficulty / rival
       visibility). Ink plate-time hard gate locked; lands at 0.7. See
       [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).
+- [x] **PRE-0.7** — paper-only. Authored ICD-02 v0.2 (Evening Star
+      SCAVENGE+RAID state machine, `RAID_BUREAU` goon-count + `eta_ms`
+      policy, `RivalView` projection with past-intents bounded to last 8,
+      `RivalStatusView` posture with `{calm, scheming, hostile}`
+      vocabulary + Evening Star state→posture mapping) and the ICD-05
+      v0.4 §Notes amendment (`AUTO_PLATE_SENTINEL` substitution path +
+      ink plate-time hard gate rule). ICD-01 unchanged — HUD pill vs.
+      corkboard decision left to the 0.7 code session. Milestone 0.7 is
+      now code-ready.
 
 ## Out of scope until called
 

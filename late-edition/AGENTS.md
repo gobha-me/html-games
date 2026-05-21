@@ -50,46 +50,61 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.6.1 — RE-EVAL after 0.6 shipped (paper + code-aware).** The first
-re-evaluation since v0.3.1 (the post-0.3 re-eval) and the first one that's
-paper + code-aware. No JS / test / index.html changes — strict paper-only
-per METHODOLOGY §3.2. Outputs:
+**v0.6.2 — PRE-0.7 shipped (paper-only).** Single architecture session,
+no code. The forward-ICD gap the post-0.6 re-eval surfaced is now closed
+— milestone 0.7 has every ICD it needs at the level the strong band
+claims. METHODOLOGY §3.2 honored: zero diff under `js/`, `tests/`,
+`index.html`, `design/`. Pattern mirrors the v0.4.1 PRE-0.5 precedent.
+Outputs:
 
-- **Four implemented ICDs survived contact with 0.4–0.6 code.** ICD-01
-  v0.5, ICD-03 v0.2, ICD-05 v0.3, ICD-06 v0.2 — no drift; Constraint #4
-  honored throughout (0.4 bumped ICD-05 v0.2→v0.3 in-PR; PRE-0.5 authored
-  06 v0.2 + 01 v0.5; 0.5/0.6 used everything as authored). Two
-  strong-band claims moved from *aligned* to *tested*: the 12-min cycle
-  (`tests/print-cycle.test.mjs`) and the five-resource names
-  (`tests/resources.test.mjs`).
-- **Loop status:** inner three rings closed (dispatch→pickup→verify→
-  plate→print, the 12-minute cycle, the cash/ink/heat economy). The
-  adversarial ring (rivals + Press HP fail-state) is entirely a 0.7
-  concern — expected per overview line 28.
-- **One band promotion:** ICD-02 medium → strong (overview line 42
-  fires on the N=3-window rule with 0.7 entering scope). Status edited
-  in-PR; v0.2 shape work scheduled to PRE-0.7.
-- **One scheduled paper slot — PRE-0.7** — authors ICD-02 v0.2
-  (Evening Star SCAVENGE+RAID state machine, RAID_BUREAU policy,
-  RivalView past-intents, RivalStatusView posture) and an ICD-05
-  §Notes amendment (`AUTO_PLATE_SENTINEL` substitution path + ink
-  plate-time hard gate rule). Gates milestone 0.7. Will ship at v0.6.2.
-- **Three discussion docs settled:**
-  - `discussion/tutorial-first-edition.md` — diegetic frame locked
-    ("notes from the old man"); copy lands at milestone 0.10.
-  - `discussion/difficulty-selector.md` — frequency-scaling only;
-    deferred to Tier-1 run-meta layer.
-  - `discussion/rival-state-visibility.md` — partial-dossier locked
-    with posture vocabulary `{calm, scheming, hostile}`; medium-band.
-- **Ink negative-balance enforcement** — locked to **plate-time hard
-  gate**; lands at 0.7 with the Editor unit. ICD-05 §Notes amendment
-  scheduled to PRE-0.7.
+- **ICD-02 v0.1 → v0.2** — strong-band rival contract authored ahead of
+  its 0.7 first caller. Four pieces of shape work:
+  - **Evening Star SCAVENGE + RAID state machine** lifted from
+    `design/rival-ai-spec.html` §04 + §08 into committed prose. 6
+    states (`SCAVENGE | RAID | BRIBE | RUSH | PANIC | BURNOUT`), 9
+    transitions with seeded-RNG predicates, 20 s tick cadence. The
+    0.7 slice scope is SCAVENGE + RAID + PASS; the other four states
+    are shape-committed (transition graph closes) but caller-triggered.
+  - **`RAID_BUREAU` Intent shape detail** — `goons` count by heat band
+    (1 at heat 40–60, 2 at 60–80, 3 at ≥ 80), `eta_ms` clamped to
+    `cycle.remaining_ms - 1000` (one-edition raids at 0.7; multi-edition
+    deferred), `target: BuildingId` always the Bureau at 0.7 (Branch +
+    Switchboard fuzzy until Tier-1).
+  - **`RivalView` projection** authored — cycle / player / own /
+    edition_history sub-shapes. Closes v0.1 §Open-questions item on
+    past-intent visibility: rivals **do** see their own past intents,
+    bounded to the last 8 entries (the cooldown working set).
+  - **`RivalStatusView` posture projection** — medium-band vocabulary
+    `'calm' | 'scheming' | 'hostile'` locked at re-eval §3.5 Q5. The
+    Evening Star state→posture mapping is committed (SCAVENGE/RUSH/
+    BURNOUT → `calm`; BRIBE → `scheming`; RAID/PANIC → `hostile`);
+    Herald + Observer mappings defer to their first-caller milestones.
+- **ICD-05 v0.3 → v0.4 §Notes amendment** — no shape change. Two
+  paragraphs added:
+  - **Pre-Editor `AUTO_PLATE_SENTINEL` substitution path** — captures
+    in committed prose what previously lived only in code comments
+    (`world-state.js:41-47`): the same-frame `verified → plated →
+    printed` auto-fire at `DEADLINE_FIRE` uses `plated_by =
+    AUTO_PLATE_SENTINEL` until the Editor unit at 0.7 substitutes its
+    `UnitId` in the same slot. Field type stays `EditorId`.
+  - **Ink plate-time hard gate** — pins the v0.6.0 changelog's
+    "can't print if ink runs out" enforcement to plate-time rejection
+    (verdict (a) of re-eval §3.5 Q6). A `verified → plated` transition
+    that would leave `World.resources.ink` negative is rejected; the
+    Story stays `verified` and waits for the next edition. The
+    Editor's arrival logic enforces it at 0.7; the
+    `AUTO_PLATE_SENTINEL` path inherits the rule until then.
+- **No other ICD touched.** ICD-01 v0.5 stays — the `RivalStatusView`
+  HUD surface decision (a `HudState.rival_status` pill at 0.7 vs. the
+  corkboard at 0.9 absorbing it) is flagged on ICD-02 §Open questions
+  and decided at the 0.7 code session, not at PRE-0.7. ICD-03 v0.2,
+  ICD-06 v0.2 — no drift; no bumps.
 
-Full report: [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).
-
-**Next: PRE-0.7 (paper).** Architecture session authoring ICD-02 v0.2 +
-ICD-05 §Notes amendment. Gates milestone 0.7 (Evening Star SCAVENGE +
-RAID, Goon unit, Editor unit, Fixer unit, Press HP + fail-state).
+**Next: milestone 0.7 (code).** Evening Star SCAVENGE + RAID (Intent
+emission + state-machine bodies for those two states + PASS), Goon
+unit, Editor unit (substitutes `AUTO_PLATE_SENTINEL` and enforces the
+plate-time ink gate), Fixer unit, Press HP + fail-state. All required
+ICDs are now authored.
 
 ## When you're stuck
 
