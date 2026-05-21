@@ -1,5 +1,37 @@
 # Changelog — Late Edition
 
+## v0.9.1 — 2026-05-21 — webgl-crash fallback (#293)
+
+Production bug fix between 0.9 and the post-0.9 re-eval. When the browser
+can't create a WebGL context — Linux Chrome on Mesa llvmpipe, hardware
+acceleration disabled, WebGL-context-limit-per-browser exceeded, iOS Lockdown
+Mode, embedded WebViews — the entry-point script previously threw out of
+[`new Renderer(root)`](js/render/renderer.js#L22) and the page stayed blank
+with no user-facing indication of what went wrong.
+
+Two layers:
+
+- **Pre-flight probe.** [`hasWebGL()`](js/webgl-unavailable.js) in the new
+  [`js/webgl-unavailable.js`](js/webgl-unavailable.js) module attempts
+  `canvas.getContext('webgl2') || getContext('webgl')` before
+  [`js/main.js`](js/main.js) constructs the renderer. On `null` the
+  fallback card mounts and module execution halts before THREE is touched.
+- **Last-resort catch.** [`new Renderer(root)`](js/main.js) is now wrapped
+  in a `try / catch` — failures that get past the pre-flight (e.g. a driver
+  crash inside `new THREE.WebGLRenderer({ antialias: true })`) still surface
+  the same fallback card, and the underlying error is rethrown so the
+  console keeps the full THREE stack trace for debugging.
+
+The fallback card uses the parchment + ink palette already defined on
+`:root` in [`index.html`](index.html) (CSS vars `--paper-2`, `--ink`,
+`--red`, `--mid`, `--rule`, fonts `--serif` / `--mono`) with inline-style
+fallbacks so it survives loading before the page stylesheet, and inlines a
+`<details>` block carrying the error message via `textContent` (not
+`innerHTML`) so the renderer's diagnostic can't inject markup.
+
+No ICD bumps, no test count change (renderer construction is not exercised
+by the node test suite). Issue [#293](https://git.gobha.me/xcaliber/HTML-Games/issues/293).
+
 ## v0.9 — 2026-05-21 — HUD corkboard · deadline ticker · dossier
 
 Code milestone. The HUD lifts from a single-line ticker to the corkboard

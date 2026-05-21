@@ -9,6 +9,7 @@ import { HudCorkboard } from './hud.js';
 import { DebriefPanel } from './debrief-panel.js';
 import { GameOverOverlay } from './game-over-overlay.js';
 import { loadSave, saveNow } from './sim/save.js';
+import { hasWebGL, mountWebGLUnavailable } from './webgl-unavailable.js';
 
 const TICK_HZ = 30;
 const TICK_DT = 1 / TICK_HZ;
@@ -28,7 +29,21 @@ if (!panelRoot) throw new Error('debrief-panel root not found');
 const gameOverRoot = document.getElementById('gameover-overlay');
 if (!gameOverRoot) throw new Error('gameover-overlay root not found');
 
-const renderer = new Renderer(root);
+// v0.9.1 (#293): WebGL context creation can fail on Mesa llvmpipe, Chrome
+// with hardware acceleration disabled, over-the-limit tabs, etc. Pre-flight
+// probe short-circuits cleanly; the catch is the last-resort for failures
+// that get past the probe (e.g. driver crash inside THREE construction).
+if (!hasWebGL()) {
+  mountWebGLUnavailable(root, new Error('WebGL not supported in this browser'));
+  throw new Error('WebGL not supported in this browser');
+}
+let renderer;
+try {
+  renderer = new Renderer(root);
+} catch (err) {
+  mountWebGLUnavailable(root, err);
+  throw err;
+}
 // 0.8 (ICD-04 v0.1): attempt to restore from localStorage; fall through to
 // a fresh World on no-save / parse-fail / unknown-future-version.
 const world = loadSave() ?? new World();
