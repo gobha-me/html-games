@@ -54,6 +54,8 @@ import {
   heatYieldFor,
 } from './resources.js';
 import { EveningStar, PAST_INTENTS_PROJECTION_CAP } from './evening-star.js';
+import { Herald } from './herald.js';
+import { Observer } from './observer.js';
 import { SeededRng } from './seeded-rng.js';
 import { LeadSpawner } from './lead-spawner.js';
 import {
@@ -95,6 +97,10 @@ export const GOON_SPAWN_TILE = { x: 0, y: 0 }; // 0.7: NW grid edge (placeholder
 export const EDITOR_SPAWN_TILE = { x: 4, y: 5 }; // 0.7.1: Bureau-adjacent (west of Bureau) — Editor is stationary
 export const BRANCH_BUREAU_TILE = { x: 8, y: 3 }; // 0.10.0 (G-01): inside Hillside district spawnRect (6..9, 1..4)
 export const BRANCH_HP = 20;                      // §15 line 916 "squishy: 1 goon takes them out in 20s" @ 1 dmg/s
+export const SWITCHBOARD_TILE = { x: 3, y: 3 };   // 1.0.0 (ICD-08): NW-of-Bureau placement gives LoS coverage from goon spawn (0,0) to Bureau (5,5) — all path tiles within ±6.
+export const SWITCHBOARD_HP = 30;                 // 1.0.0 defensive shape; no damage source targets the Switchboard at 1.0.0.
+export const SWITCHBOARD_LOS_RADIUS = 6;          // ICD-08 §LoS rect shape — ±6 axis-aligned (medium-band).
+export const BUREAU_REVEAL_RADIUS = 1;            // ICD-08 §Visibility projection rule — defensive default (Chebyshev ≤ 1 to any Bureau-family building).
 
 // At 0.5 the print pipeline closes with no Editor unit yet — the verified →
 // plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
@@ -176,6 +182,20 @@ export class World {
         hp_max: BRANCH_HP,
         tier: 1,
       },
+      {
+        // 1.0.0 (ICD-08): Switchboard. NW-of-Bureau intel-defense building.
+        // LoS rect is ±SWITCHBOARD_LOS_RADIUS tiles axis-aligned around its
+        // tile — see _isGoonVisible(). Without it, goons stay hidden until
+        // they enter BUREAU_REVEAL_RADIUS of a Bureau-family building
+        // (window-breaking beat — design-doc.html §10 line 1088).
+        // Destruction is silent (only the main Bureau drives CYCLE_GAME_OVER).
+        id: mkId('b'),
+        tile: { ...SWITCHBOARD_TILE },
+        kind: 'switchboard',
+        hp: SWITCHBOARD_HP,
+        hp_max: SWITCHBOARD_HP,
+        tier: 1,
+      },
     ];
 
     for (const b of this.buildings) this.grid.walkable[b.tile.y][b.tile.x] = false;
@@ -225,9 +245,14 @@ export class World {
     // 0.7.0: Evening Star rival (ICD-02 v0.2). Deterministic seed → replay-safe.
     // Seed is constructor-overridable so tests can pin behavior. Production uses
     // the default seed at 0.7; player-driven seeds land at PRE-0.8 / save schema.
+    // 1.0.0 (ICD-02 v0.3): Herald added — ticks 1/EDITION via onEditionEnd.
+    // Observer added in the next commit. Iteration order is
+    // [evening_star, herald, observer] and pinned for save-load determinism.
     const bureauId = this.buildings.find((b) => b.kind === 'bureau').id;
     this.rivals = [
       new EveningStar({ seed: opts.rivalSeed ?? 0xC0FFEE, bureauId }),
+      new Herald({ seed: opts.heraldSeed ?? 0xB0BBED }),
+      new Observer({ seed: opts.observerSeed ?? 0x0B5E81 }),
     ];
 
     // 0.7.0: rolling list of edition deltas the rival projection can read.
@@ -292,7 +317,15 @@ export class World {
     this.buildings = blob.buildings.map(restoreBuilding);
     this.units = blob.units.map(restoreUnit);
     this.stories = blob.stories.map(restoreStory);
-    this.rivals = [EveningStar.fromSnap(blob.rivals.evening_star)];
+    // 1.0.0: kind-keyed dispatch matching rivalsSnap (save.js). Iteration
+    // order pinned [evening_star, herald, observer] for save-load determinism.
+    // The migration (save.js migrate_1_0_to_1_1) ensures herald + observer
+    // are present on every loaded blob — defaults if the source was pre-1.0.
+    this.rivals = [
+      EveningStar.fromSnap(blob.rivals.evening_star),
+      Herald.fromSnap(blob.rivals.herald),
+      Observer.fromSnap(blob.rivals.observer),
+    ];
     this.editionHistory = blob.edition_history.slice();
     this._pendingRivalEvents = blob.pending_rival_events.slice();
     // 0.9.3: raid bookkeeping is ephemeral (see constructor comment). On
@@ -415,11 +448,32 @@ export class World {
     return this.buildings.find((b) => b.kind === 'bureau');
   }
 
-  // ICD-02 §RivalView projection (v0.2). Read-only snapshot the world hands
-  // each rival on tick. Filters honor §Visibility filter (0.7 = all-shared).
+  // ICD-02 §RivalView projection (v0.2; v0.3.1 adds player.printed_lies).
+  // Read-only snapshot the world hands each rival on tick / edition end.
+  // Filters honor §Visibility filter (0.7 = all-shared).
   _buildRivalView(rival) {
     const heat = this.resources.heat;
     const heatNoise = rival.rng ? (rival.rng.next() * 40 - 20) : 0;
+    // v0.3.1 (1.0.0 · ICD-02): printed_lies surfaces the player's recent
+    // printed stories with truthful === false. Observer reads this at the
+    // INVESTIGATE → PUBLISH transition (per ICD-02 v0.3 §Observer state
+    // machine §Notes — "fixates on the worst recent player lie at
+    // INVESTIGATE entry, last N=5 player Story records where truthful ===
+    // false, weighted by heat_yield"). The 5-edition window is the
+    // medium-band cap.
+    const RECENT_LIE_EDITIONS = 5;
+    const cutoff = this.cycle.edition - RECENT_LIE_EDITIONS;
+    const printedLies = this.stories
+      .filter((s) =>
+        s.state === 'printed' &&
+        s.truthful === false &&
+        (s.printed_in ?? 0) > cutoff,
+      )
+      .map((s) => ({
+        id:         s.id,
+        heat_yield: s.heat_yield ?? 0,
+        printed_in: s.printed_in,
+      }));
     return {
       cycle: {
         edition: this.cycle.edition,
@@ -433,6 +487,7 @@ export class World {
         visible_reporters: this.units
           .filter((u) => u.kind === 'reporter')
           .map((u) => ({ id: u.id, district: districtForTile(u.tile) })),
+        printed_lies: printedLies,
       },
       own: {
         state:        rival.state,
@@ -481,6 +536,37 @@ export class World {
         kind:  'raid_warning',
         at:    tileToWorld(GOON_SPAWN_TILE),
         rival: rival.id,
+      });
+      return;
+    }
+    // 1.0.0 (ICD-02 v0.3 — Observer intents). PUBLISH_COUNTER, INVESTIGATE_LEAD,
+    // and POISON_LEAD wire here. Other intent kinds (BRIBE / RUSH / FILE_STORY
+    // / OFFER_*) remain caller-triggered until their callers land at Tier-1.x.
+    if (intent.kind === 'PUBLISH_COUNTER') {
+      // ICD-02 v0.3 §Observer §PUBLISH: +25 player heat (effect rule applied
+      // by reconciler, not rival). "Discredit lie" and "burn source" are
+      // shape-committed for Tier-1.x — discredit needs the printed-story
+      // cash-refund mechanism; burn source needs reporter tracking on
+      // Story.verified_by. At 1.0.0 we apply heat + log the digest.
+      this.resources.heat += 25;
+      this._pendingRivalEvents.push({
+        rival: rival.id,
+        kind:  'publish_counter',
+        text:  `THE DAILY OBSERVER COUNTERS — +25 HEAT`,
+      });
+      return;
+    }
+    if (intent.kind === 'INVESTIGATE_LEAD' || intent.kind === 'POISON_LEAD') {
+      // Tracked rival-internal; no world-side effect at 1.0.0. The Observer
+      // updates its observingLeadId on emit; the player feels the impact
+      // only when WARN's POISON_LEAD effect (lead poisoning + +5 heat
+      // penalty on pickup) wires at Tier-1.x.
+      this._pendingRivalEvents.push({
+        rival: rival.id,
+        kind:  intent.kind.toLowerCase(),
+        text:  intent.kind === 'INVESTIGATE_LEAD'
+          ? `THE OBSERVER STARTS A SLOW INVESTIGATION`
+          : `THE OBSERVER POISONS A LEAD`,
       });
       return;
     }
@@ -711,7 +797,17 @@ export class World {
 
     // 0.7.0: rivals tick their edition-boundary state (ICD-02 §Notes
     // "rival manages it from … EDITION_DEBRIEF_END callbacks").
-    for (const rival of this.rivals) rival.onEditionEnd();
+    // 1.0.0 (ICD-02 v0.3): onEditionEnd now returns Intent[] so edition-cadence
+    // rivals (Herald, Observer) can emit per-edition intents. The world
+    // reconciles each rival's intents in deterministic iteration order
+    // [evening_star, herald, observer]. Reconciliation runs BEFORE
+    // cycle.start(next) so heat/state changes are visible at the next
+    // snapshot (e.g. PUBLISH_COUNTER's +25 heat shows up at edition N+1 open).
+    for (const rival of this.rivals) {
+      const view = this._buildRivalView(rival);
+      const intents = rival.onEditionEnd(view) ?? [];
+      for (const intent of intents) this._reconcileIntent(rival, intent);
+    }
 
     this._emitCycle({ kind: 'EDITION_DEBRIEF_END' });
     const begin = this.cycle.start(this.cycle.edition + 1);
@@ -867,6 +963,29 @@ export class World {
     }
   }
 
+  // ICD-08 §Visibility projection rule. Returns true if the unit is not a
+  // goon (other kinds are always visible) OR if at least one live Switchboard's
+  // ±SWITCHBOARD_LOS_RADIUS rect contains the unit's tile, OR if the unit is
+  // within BUREAU_REVEAL_RADIUS (Chebyshev) of any live Bureau-family building
+  // (defensive default: "window breaking"). Destroyed buildings (hp ≤ 0) do
+  // not contribute LoS — a downed Switchboard "goes dead" on the next frame
+  // per ICD-08 §Notes.
+  _isUnitVisible(u) {
+    if (u.kind !== 'goon') return true;
+    for (const b of this.buildings) {
+      if ((b.hp ?? 0) <= 0) continue;
+      if (b.kind === 'switchboard') {
+        if (Math.abs(u.tile.x - b.tile.x) <= SWITCHBOARD_LOS_RADIUS &&
+            Math.abs(u.tile.y - b.tile.y) <= SWITCHBOARD_LOS_RADIUS) return true;
+      } else if (isBureauFamily(b)) {
+        const dx = Math.abs(u.tile.x - b.tile.x);
+        const dy = Math.abs(u.tile.y - b.tile.y);
+        if (Math.max(dx, dy) <= BUREAU_REVEAL_RADIUS) return true;
+      }
+    }
+    return false;
+  }
+
   snapshot() {
     const leads = this.stories
       .filter((s) => s.state === 'lead' && !s.picked_up_by && !s.held_by_building)
@@ -887,7 +1006,12 @@ export class World {
     return {
       cameraTarget: { x: 0, y: 0, z: 0 },
       buildings: this.buildings.map(buildingView),
-      units: this.units.map(unitView),
+      // ICD-08 §Visibility projection rule. Goons outside any Switchboard LoS
+      // rect and outside any Bureau-family 1-tile reveal radius are omitted
+      // from WorldFrame.units entirely — neither rendered nor HUD-listed. The
+      // underlying Unit records stay authoritative in this.units; the filter
+      // is a pure projection at snapshot time.
+      units: this.units.filter((u) => this._isUnitVisible(u)).map(unitView),
       leads,
       // 0.10.0 (audit G-12 · ICD-01 v0.6 line 23): RivalStatusView[] as a
       // top-level WorldFrame field (not nested in `hud`). RivalStatusView

@@ -15,7 +15,12 @@ test('RivalView shape — cycle / player / own / edition_history keys', () => {
   const v = buildView(w);
   assert.deepEqual(Object.keys(v).sort(), ['cycle', 'edition_history', 'own', 'player']);
   assert.deepEqual(Object.keys(v.cycle).sort(), ['edition', 'remaining_ms']);
-  assert.deepEqual(Object.keys(v.player).sort(), ['heat_noisy', 'visible_leads', 'visible_reporters']);
+  // v0.3.1 (1.0.0 · ICD-02): player.printed_lies surfaces recent player lies
+  // for Observer's INVESTIGATE → PUBLISH transition.
+  assert.deepEqual(
+    Object.keys(v.player).sort(),
+    ['heat_noisy', 'printed_lies', 'visible_leads', 'visible_reporters'],
+  );
   assert.deepEqual(Object.keys(v.own).sort(), ['past_intents', 'posture', 'state']);
 });
 

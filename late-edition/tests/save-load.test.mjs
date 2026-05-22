@@ -320,9 +320,71 @@ test('size guard: console.warn fires when serialized blob exceeds 500_000 bytes'
 
 // ---- 12. version field ----------------------------------------------------
 
-test('serialized blob carries version="1.0" at the top level', () => {
+test('serialized blob carries version="1.1" at the top level', () => {
+  // 1.0.0 bumped schema to "1.1" — rivals widens to {evening_star, herald, observer}.
   const w = new World();
   const blob = serialize(w);
   assert.equal(blob.version, CURRENT_VERSION);
-  assert.equal(blob.version, '1.0');
+  assert.equal(blob.version, '1.1');
+});
+
+// ---- 13. 1.0.0 three-rival round-trip ------------------------------------
+
+test('serialize → deserialize round-trips Herald and Observer state (1.0.0)', () => {
+  const w1 = new World();
+  // Push the rivals into non-default states so the round-trip is observable.
+  const h1 = w1.rivals.find((r) => r.id === 'herald');
+  const o1 = w1.rivals.find((r) => r.id === 'observer');
+  h1.state = 'COURT';
+  h1.consecutiveHighHeatEditions = 2;
+  h1.editionsInCourt = 1;
+  h1.isWired = false;
+  o1.state = 'PUBLISH';
+  o1.cash = 350;
+  o1.observingLeadId = 'L-test';
+  o1.editionsInState = 0;
+  o1._editionTick = 5;
+
+  const blob = serialize(w1);
+  const w2 = deserialize(blob);
+  const h2 = w2.rivals.find((r) => r.id === 'herald');
+  const o2 = w2.rivals.find((r) => r.id === 'observer');
+
+  assert.equal(h2.state, 'COURT');
+  assert.equal(h2.consecutiveHighHeatEditions, 2);
+  assert.equal(h2.editionsInCourt, 1);
+  assert.equal(o2.state, 'PUBLISH');
+  assert.equal(o2.cash, 350);
+  assert.equal(o2.observingLeadId, 'L-test');
+  assert.equal(o2._editionTick, 5);
+});
+
+test('three-rival iteration order survives round-trip', () => {
+  const w1 = new World();
+  const blob = serialize(w1);
+  const w2 = deserialize(blob);
+  assert.deepEqual(w2.rivals.map((r) => r.id), ['evening_star', 'herald', 'observer']);
+});
+
+// ---- 14. 1.0 → 1.1 migration synthesis -----------------------------------
+
+test('loadSave migrates a v1.0 blob (single-rival rivals) into 1.1 with default Herald + Observer', () => {
+  const w1 = new World();
+  const blob = serialize(w1);
+  // Synthesize a v1.0 blob by stripping Herald + Observer from the rivals
+  // block and downgrading the version field.
+  const legacy = { ...blob, version: '1.0', rivals: { evening_star: blob.rivals.evening_star } };
+  const storage = memStorage();
+  storage.setItem(SAVE_KEY, JSON.stringify(legacy));
+
+  const w2 = loadSave(storage);
+  assert.ok(w2, 'expected loadSave to return a World on v1.0 → v1.1 migration');
+  const ids = w2.rivals.map((r) => r.id);
+  assert.deepEqual(ids, ['evening_star', 'herald', 'observer']);
+  const h = w2.rivals.find((r) => r.id === 'herald');
+  const o = w2.rivals.find((r) => r.id === 'observer');
+  assert.equal(h.state, 'IDLE');
+  assert.equal(h.isWired, false);
+  assert.equal(o.state, 'INVESTIGATE');
+  assert.equal(o.cash, 500);
 });

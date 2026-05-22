@@ -24,7 +24,11 @@ import { World, getIdMint } from './world-state.js';
 
 export const SAVE_KEY = 'late-edition.save.v1';
 export const SCORES_KEY = 'late-edition.scores.v1';   // 0.10.0 (G-13)
-export const CURRENT_VERSION = '1.0';
+// 1.0.0: schema bump to "1.1" — RivalsSnap widens from {evening_star} to
+// {evening_star, herald, observer}. migrate_1_0_to_1_1 synthesizes default
+// Herald + Observer state for pre-1.0.0 saves; the rest of the blob is
+// untouched (single-field migration, soft-restart of adversarial counters).
+export const CURRENT_VERSION = '1.1';
 export const SCORES_VERSION = 1;                       // 0.10.0 (G-13)
 export const STORY_VERSION = 1;
 export const MAX_HIGH_SCORES = 10;                     // 0.10.0 (G-13)
@@ -74,14 +78,59 @@ export function deserialize(blob) {
   return new World({ snap: blob });
 }
 
-// v0.1 migration chain is empty — "1.0" is the floor. The first schema bump
-// after 0.8 lands a migrate_1_0_to_1_1 here in the same PR (Constraint #4).
-// Unknown future version → null surfaces the ICD §Notes graceful-refusal.
+// v0.1.2 migration chain. "1.0" → "1.1" synthesizes Herald + Observer
+// default snaps for pre-1.0.0 saves; rest of the blob is untouched. Future
+// bumps chain through the same surface.
 export function runMigrations(raw) {
   if (!raw || typeof raw !== 'object') return null;
+  if (raw.version === '1.0') raw = migrate_1_0_to_1_1(raw);
   if (raw.version === CURRENT_VERSION) return raw;
-  // No prior versions exist at v0.1 — anything not "1.0" is a future blob.
+  // Anything not matching the current version is a future blob — refuse.
   return null;
+}
+
+// 1.0.0: v1.0 saves carry rivals = {evening_star: ...} only. The 1.1 schema
+// widens to {evening_star, herald, observer}. Synthesizes default Herald
+// and Observer state — counters at zero, RNG seeded fresh. Adversarial
+// behavior soft-resets on load (documented behavior; an explicit pre-1.0
+// run cannot preserve Herald + Observer state that didn't exist).
+function migrate_1_0_to_1_1(blob) {
+  const rivals = blob.rivals && typeof blob.rivals === 'object' ? blob.rivals : {};
+  return {
+    ...blob,
+    version: '1.1',
+    rivals: {
+      evening_star: rivals.evening_star,
+      herald:       rivals.herald ?? defaultHeraldSnap(),
+      observer:     rivals.observer ?? defaultObserverSnap(),
+    },
+  };
+}
+
+function defaultHeraldSnap() {
+  return {
+    id: 'herald',
+    state: 'IDLE',
+    consecutive_high_heat_editions: 0,
+    editions_in_court: 0,
+    editions_in_punish: 0,
+    is_wired: false,
+    past_intents: [],
+    rng: { state: 1 },
+  };
+}
+
+function defaultObserverSnap() {
+  return {
+    id: 'observer',
+    state: 'INVESTIGATE',
+    cash: 500,
+    observing_lead_id: null,
+    editions_in_state: 0,
+    edition_tick: 0,
+    past_intents: [],
+    rng: { state: 1 },
+  };
 }
 
 export function saveNow(world, storage = globalThis.localStorage) {
@@ -236,18 +285,54 @@ function sortAndCap(scores) {
 }
 
 function rivalsSnap(rivals) {
-  // v0.1 roster: Evening Star only. Herald + Observer arrive at Tier-1.
-  const star = rivals.find((r) => r.id === 'evening_star');
+  // v0.1.2 (1.0.0): full Tier-1 roster — Evening Star + Herald + Observer.
+  // Kind-keyed dispatch keeps the schema typed by kind; new rival kinds
+  // attach as sibling helpers + a new key here.
+  const star     = rivals.find((r) => r.id === 'evening_star');
+  const herald   = rivals.find((r) => r.id === 'herald');
+  const observer = rivals.find((r) => r.id === 'observer');
   return {
-    evening_star: {
-      id: star.id,
-      bureau_id: star.bureauId,
-      tick_interval_ms: star.tickInterval,
-      state: star.state,
-      editions_since_raid: star.editionsSinceRaid,
-      past_intents: star.pastIntents.slice(),
-      tick_accum_ms: star._tickAccumMs,
-      rng: { state: star.rng.state },
-    },
+    evening_star: star     ? eveningStarSnap(star)   : null,
+    herald:       herald   ? heraldSnap(herald)      : null,
+    observer:     observer ? observerSnap(observer)  : null,
+  };
+}
+
+function eveningStarSnap(star) {
+  return {
+    id: star.id,
+    bureau_id: star.bureauId,
+    tick_interval_ms: star.tickInterval,
+    state: star.state,
+    editions_since_raid: star.editionsSinceRaid,
+    past_intents: star.pastIntents.slice(),
+    tick_accum_ms: star._tickAccumMs,
+    rng: { state: star.rng.state },
+  };
+}
+
+function heraldSnap(herald) {
+  return {
+    id: herald.id,
+    state: herald.state,
+    consecutive_high_heat_editions: herald.consecutiveHighHeatEditions,
+    editions_in_court: herald.editionsInCourt,
+    editions_in_punish: herald.editionsInPunish,
+    is_wired: herald.isWired,
+    past_intents: herald.pastIntents.slice(),
+    rng: { state: herald.rng.state },
+  };
+}
+
+function observerSnap(observer) {
+  return {
+    id: observer.id,
+    state: observer.state,
+    cash: observer.cash,
+    observing_lead_id: observer.observingLeadId,
+    editions_in_state: observer.editionsInState,
+    edition_tick: observer._editionTick,
+    past_intents: observer.pastIntents.slice(),
+    rng: { state: observer.rng.state },
   };
 }

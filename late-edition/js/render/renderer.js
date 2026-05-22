@@ -496,6 +496,7 @@ function withOutline(mesh, color = 0x0a0a0c) {
 function buildBuildingMesh(gradient, kind) {
   if (kind === 'darkroom')      return buildDarkroomMesh(gradient);
   if (kind === 'branch_bureau') return buildBranchBureauMesh(gradient);
+  if (kind === 'switchboard')   return buildSwitchboardMesh(gradient);
   return buildBureauMesh(gradient);
 }
 
@@ -531,6 +532,41 @@ function buildBranchBureauMesh(gradient) {
   awning.position.set(0, 1.9, 1.7);
   withOutline(awning);
   group.add(awning);
+  return group;
+}
+
+// 1.0.0 (ICD-08): Switchboard — narrow brick body topped by a tall lattice
+// antenna mast. The antenna is the silhouette signal — reads as "this is the
+// intel building" against the rest of the skyline. Pale verdigris cap on the
+// antenna so it picks up against the paper fog. No select ring (not a player
+// unit; selection model is via building kind, not click-state).
+function buildSwitchboardMesh(gradient) {
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.4, 2.6), toon(gradient, 0x7c7468));
+  body.position.y = 1.2;
+  withOutline(body);
+  group.add(body);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.3, 2.9), toon(gradient, 0x40392f));
+  roof.position.y = 2.55;
+  withOutline(roof);
+  group.add(roof);
+  // Antenna mast — tall narrow lattice. The visual signature.
+  const mast = new THREE.Mesh(new THREE.BoxGeometry(0.18, 3.2, 0.18), toon(gradient, 0x1c1818));
+  mast.position.y = 4.3;
+  withOutline(mast);
+  group.add(mast);
+  // Cross-arms on the mast — three at different heights for skeletal silhouette.
+  for (const [y, w] of [[3.2, 1.4], [4.4, 1.1], [5.5, 0.8]]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, 0.1), toon(gradient, 0x1c1818));
+    arm.position.y = y;
+    withOutline(arm);
+    group.add(arm);
+  }
+  // Verdigris cap at the antenna top — pale teal accent against fog.
+  const cap = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.3, 0.28), toon(gradient, 0x6da99a));
+  cap.position.y = 6.05;
+  withOutline(cap);
+  group.add(cap);
   return group;
 }
 
@@ -758,6 +794,14 @@ const WINDOW_LAYOUTS = {
     [ 1.2, 1.0, 2.11, 0],
     [-2.11, 1.0, 0,  Math.PI / 2],
     [ 2.11, 1.0, 0,  Math.PI / 2],
+  ],
+  switchboard: [
+    // Two operator windows per face — the building is staffed (operators on
+    // boards) so the lit-window flicker reads as "the line is open."
+    [-0.7, 1.4, 1.31, 0],
+    [ 0.7, 1.4, 1.31, 0],
+    [-1.31, 1.4, 0,  Math.PI / 2],
+    [ 1.31, 1.4, 0,  Math.PI / 2],
   ],
 };
 

@@ -1,6 +1,7 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6.3 (PRE-1.0 — §Notes addition only; pins the authored-but-deferred-projection pattern surfaced at the post-Tier-0 → Tier-1 re-eval; no shape change)
+**Status:** v0.6.4 (shipped against milestone 1.0.0 — `BuildingKind` vocabulary widens to include `'switchboard'`; no shape change)
+**Prior:** v0.6.3 (PRE-1.0 — §Notes addition only; pinned the authored-but-deferred-projection pattern surfaced at the post-Tier-0 → Tier-1 re-eval; no shape change)
 **Prior:** v0.6.2 (shipped against milestone 0.10.2 — `WorldFrame.rain.intensity` range comment widened from `0-1` to `0+ unbounded; 1 = baseline, ~2 at deadline`; no shape change)
 **Prior:** v0.6.1 (shipped against milestone 0.10.0 — `BuildingKind` vocabulary widens to include `'branch_bureau'`; no shape change)
 **Band:** strong
@@ -47,7 +48,7 @@ Darkroom at 0.4 and the remaining strong-band buildings (§07 of the design doc)
 interface BuildingView {
   id:     BuildingId;          // stable; pairs with ICD-03 recomputeOn invalidation set
   pos:    Vec3;                // world-space origin (footprint anchor)
-  kind:   BuildingKind;        // 'bureau' at 0.2; 'darkroom' at 0.4; 'branch_bureau' at 0.10.0 (G-01); full catalogue medium-band
+  kind:   BuildingKind;        // 'bureau' at 0.2; 'darkroom' at 0.4; 'branch_bureau' at 0.10.0 (G-01); 'switchboard' at 1.0.0 (ICD-08); full catalogue medium-band
   hp:     number;              // current HP
   hp_max: number;              // for HUD damage bar (0.7+); 90 for press, per overview
   tier:   1 | 2 | 3;           // §07; default 1 in vertical slice
@@ -401,6 +402,16 @@ they live here as implementation pins.
 
 ## Revision history
 
+- **v0.6.4** (milestone 1.0.0, 2026-05-22) — `BuildingKind` vocabulary
+  widens to include `'switchboard'` (ICD-08 — Tier-1 intel-defense
+  building gating goon visibility per design-doc.html §10 line 1088
+  *"Information about the threat is itself a defense resource"*). The
+  Switchboard's load-bearing role is the snapshot-time visibility
+  filter on goon `UnitView` (ICD-08 §Visibility projection rule). Value-
+  level addition under the open-vocabulary `BuildingKind` slot — no
+  shape change, no new field, no new event. Constraint #4 in-PR bump
+  alongside the milestone 1.0.0 substrate code session (mirrors
+  precedent of v0.6.1 `'branch_bureau'` widening at milestone 0.10.0).
 - **v0.6.3** (PRE-1.0, 2026-05-22) — §Notes one-paragraph addition only;
   no shape change. Pins the *"authored-but-deferred-projection"*
   pattern surfaced by the post-Tier-0 → Tier-1 re-eval

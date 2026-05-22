@@ -130,14 +130,21 @@ export class EveningStar {
 
   // World calls this on EDITION_DEBRIEF_END. Bumps editionsSinceRaid and, if
   // a RAID was emitted this edition, transitions RAID → SCAVENGE (the goon
-  // team resolved one way or another over the edition boundary).
-  onEditionEnd() {
+  // team resolved one way or another over the edition boundary). Returns
+  // Intent[] for the world's per-rival reconciler — Evening Star does its
+  // intent emission on the 20s wall-tick (advance), so this hook returns []
+  // unconditionally. Edition-cadence rivals (Herald + Observer at 1.0.0+) do
+  // their entire state machine here and return intents from this same hook.
+  // The `view` argument is ignored by Evening Star but accepted for shape
+  // parity with edition-cadence rivals.
+  onEditionEnd(_view) {
     if (this.state === 'RAID') {
       this.editionsSinceRaid = 0; // reset; will tick up at subsequent EDITION_DEBRIEF_END calls
       this.state = 'SCAVENGE';
     } else {
       this.editionsSinceRaid += 1;
     }
+    return [];
   }
 
   // Push to the RingBuffer (capped). Returns the intent for the caller chain.

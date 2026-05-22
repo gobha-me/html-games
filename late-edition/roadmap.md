@@ -42,7 +42,8 @@ definitions.
 | Milestone | Description | Notes | Band |
 |---|---|---|---|
 | **PRE-1.0** | Author **ICD-02 v0.3** (Herald + Observer state machines · intent vocabulary · posture mapping) + **ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09** (Archive / inter-edition story state, new) + **ICD-10** (Arc framework formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-deferred-projection rule) — *shipped v0.10.4* | Architecture session · paper-only · gates milestone 1.0 · scheduled by the Tier-0 → Tier-1 re-eval | strong |
-| **1.0** | Tier-1 opener — Herald + Observer wired (the rival triangle completes) · Switchboard building (LoS intel for raid ETA visibility) · Archive UI (intentional inter-edition story hold) · `UnitView.stats` projector for named Reporters · `LeadView.district` projector for per-district Story queue dossier · 30 s minimum debrief gate (ICD-06 v0.4 code-side) | Couples to PRE-1.0 contract authoring; split 1.0.0/1.0.1 at session open per 0.7 / 0.10 precedent if scope creeps | strong |
+| **1.0.0** | Tier-1 opener — adversarial substrate · Herald state machine (IDLE / COURT / WIRED bodies; PUNISH / BUYOUT caller-triggered) · Observer state machine (INVESTIGATE / PUBLISH / WARN bodies; DESPERATE / SILENCED caller-triggered) · Switchboard building + goon LoS visibility filter (ICD-08) — *shipped v1.0.0* | First half of the 1.0 opener per the authorized split (0.7 / 0.10 precedent). ICD-01 → v0.6.4 (`BuildingKind` widens for `'switchboard'`); ICD-02 → v0.3.1 (`RivalView.player.printed_lies` field added); ICD-04 → v0.1.2 (`RivalsSnap` widens; v1.0 → v1.1 migration). Tests at 257 cases (199 → 257). | strong |
+| **1.0.1** | Tier-1 opener — Archive UI (ICD-09 · `archived` Story state · cap=5 · decay=10 editions · dossier `archived: N/5`) · `UnitView.stats` projector for named Reporters · `LeadView.district` projector for per-district Story queue dossier · 30 s minimum debrief gate (ICD-06 v0.4 code-side) | Second half of the 1.0 opener. ICD-04 → v0.1.3 (`StorySnap.state` enum widens; `archived_at_ms`). No new ICDs expected. | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -64,6 +65,23 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**v1.0.0 — Tier-1 opener · adversarial substrate (Herald + Observer +
+Switchboard).** First Tier-1 code session against the ten authored ICDs.
+The 1.0.0 / 1.0.1 split was taken at session open per issue #317 + the
+0.7 / 0.10 precedent: 1.0.0 ships the adversarial triangle (Herald +
+Observer state machines · Switchboard intel-defense building · goon LoS
+visibility filter · save-schema v1.0 → v1.1 migration). 1.0.1 (next
+session) ships the Archive UI + the deferred projectors + the 30 s
+debrief gate. **Three ICD bumps in-PR (Constraint #4):** ICD-01
+v0.6.3 → v0.6.4 (`BuildingKind` widens for `'switchboard'`); ICD-02
+v0.3 → v0.3.1 (`RivalView.player.printed_lies` field added);
+ICD-04 v0.1.1 → v0.1.2 (`RivalsSnap` widens; v1.0 → v1.1 migration).
+Tests at 257 cases (199 → 257). See
+[`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md)
+§3 for the deliverable list this PR closes against the 1.0.0 half of.
+
+---
 
 **PRE-1.0 — shipped (v0.10.4).** Paper-only architecture session. Authored
 **ICD-02 v0.3** (Herald five-state machine `IDLE | COURT | WIRED | PUNISH |
@@ -458,6 +476,29 @@ top of this file. Next: **PRE-1.0** (paper-only) — authors ICD-02 v0.3
       + the 30 s debrief gate, all at milestone 1.0; split 1.0.0/1.0.1
       if scope creeps. One Gitea ticket opened for PRE-1.0 paper. See
       [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md).
+- [x] **Milestone 1.0.0** — Tier-1 opener · adversarial substrate. New
+      [`js/sim/herald.js`](js/sim/herald.js) (IDLE | COURT | WIRED | PUNISH |
+      BUYOUT, tick 1/EDITION) + [`js/sim/observer.js`](js/sim/observer.js)
+      (INVESTIGATE | PUBLISH | WARN | DESPERATE | SILENCED, tick 1/2
+      EDITIONS) lifted from ICD-02 v0.3. IDLE / COURT / WIRED + INVESTIGATE
+      / PUBLISH / WARN bodies ship; the remaining four states (PUNISH /
+      BUYOUT / DESPERATE / SILENCED) are shape-committed but caller-
+      triggered (acceptWire / declineWire / breakDeal / acceptPartner /
+      declinePartner / frame). Switchboard `BuildingKind` widens
+      ICD-01 v0.6.4; spawned at tile (3, 3) with HP 30. `World._isUnitVisible`
+      filters goons in `snapshot()` per ICD-08 §Visibility projection rule
+      (±6 LoS rect OR Chebyshev ≤ 1 of any Bureau-family building).
+      `World.rivals = [evening_star, herald, observer]` (iteration order
+      pinned). `_reconcileIntent` gains branches for `PUBLISH_COUNTER`
+      (+25 player heat + digest), `INVESTIGATE_LEAD`, `POISON_LEAD` (digest
+      only at 1.0.0). `_buildRivalView` adds `player.printed_lies` (ICD-02
+      v0.3.1 — last 5 editions of `truthful === false` printed stories).
+      Save schema bumps v1.0 → v1.1 in-PR (ICD-04 v0.1.2 — `RivalsSnap`
+      widens to `{evening_star, herald, observer}`; `migrate_1_0_to_1_1`
+      synthesizes default Herald + Observer state for pre-1.0.0 saves).
+      Tests at 257 cases (199 → 257; new `herald.test.mjs` ·
+      `observer.test.mjs` · `switchboard.test.mjs` ·
+      `herald-observer-integration.test.mjs`).
 - [x] **PRE-1.0** — paper-only. Authored **ICD-02 v0.3** (Herald five-state
       machine `IDLE | COURT | WIRED | PUNISH | BUYOUT` lifted verbatim
       from [`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03

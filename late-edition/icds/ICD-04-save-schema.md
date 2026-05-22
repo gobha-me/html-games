@@ -1,6 +1,7 @@
 # ICD-04 · Save Schema
 
-**Status:** v0.1.1 (milestone 0.10.0 — `rng_seed` semantics settled (carries live PRNG state, not initial seed) · `lead_spawner` snap block added · `run_stats` block added · `'late-edition.scores.v1'` key documented)
+**Status:** v0.1.2 (milestone 1.0.0 — `RivalsSnap` widens to include `herald` + `observer` per Tier-1 opener; in-blob version bumps to `"1.1"`; `migrate_1_0_to_1_1` synthesizes default Herald + Observer state on load)
+**Prior:** v0.1.1 (milestone 0.10.0 — `rng_seed` semantics settled (carries live PRNG state, not initial seed) · `lead_spawner` snap block added · `run_stats` block added · `'late-edition.scores.v1'` key documented)
 **Band:** strong (Design Doc §17 locks "single localStorage JSON · versioned · migrations defined")
 **First caller:** milestone 0.8 (save / load · resume mid-edition · version field)
 **Source:** [`../design/design-doc.html`](../design/design-doc.html) §17 (save) ·
@@ -58,7 +59,7 @@ interface HighScoreEntry {
 type SaveVersion = string; // semver-ish "MAJOR.MINOR" — v0.1 emits "1.0"
 
 interface SaveBlobV1 {
-  version:      SaveVersion;        // "1.0" at this ICD
+  version:      SaveVersion;        // "1.1" at v0.1.2 (was "1.0" at v0.1)
   saved_at_ms:  number;             // Date.now() at write — wall-clock, for UI
   sim_time_ms:  number;             // absolute sim clock (World.sim_time_ms)
   rng_seed:     number;             // v0.1.1: the spawner stream's live PRNG state (renamed semantics — see §Notes)
@@ -155,7 +156,10 @@ interface StorySnap {
 }
 
 interface RivalsSnap {
-  evening_star: EveningStarSnap;              // v0.1 roster — Herald + Observer arrive at Tier-1
+  // v0.1.2 (1.0.0): Tier-1 roster — Evening Star + Herald + Observer.
+  evening_star: EveningStarSnap;
+  herald:       HeraldSnap;
+  observer:     ObserverSnap;
 }
 
 interface EveningStarSnap {
@@ -167,6 +171,32 @@ interface EveningStarSnap {
   past_intents:        Intent[];              // RingBuffer<Intent, 20> contents (ICD-02 §RivalView past-intents — storage cap)
   tick_accum_ms:       number;                // EveningStar._tickAccumMs — preserves sub-tick fractional progress
   rng:                 { state: number };     // SeededRng.state — the Mulberry32 32-bit integer
+}
+
+// v0.1.2 (1.0.0): Herald snap. Ticks 1/EDITION (no _tickAccumMs needed —
+// edition-cadence rivals dispatch at the EDITION_DEBRIEF_END boundary).
+interface HeraldSnap {
+  id:                              'herald';
+  state:                           'IDLE' | 'COURT' | 'WIRED' | 'PUNISH' | 'BUYOUT';
+  consecutive_high_heat_editions:  number;    // counter for IDLE → COURT predicate
+  editions_in_court:               number;    // counter for COURT → IDLE timeout
+  editions_in_punish:              number;    // counter for PUNISH → IDLE cooldown
+  is_wired:                        boolean;   // sticky flag: set on COURT → WIRED, cleared on exit from WIRED
+  past_intents:                    Intent[];
+  rng:                             { state: number };
+}
+
+// v0.1.2 (1.0.0): Observer snap. Ticks 1/2 EDITIONS — _edition_tick gates the
+// state-machine pass at the EDITION_DEBRIEF_END boundary.
+interface ObserverSnap {
+  id:                  'observer';
+  state:               'INVESTIGATE' | 'PUBLISH' | 'WARN' | 'DESPERATE' | 'SILENCED';
+  cash:                number;                // Observer's internal cash (start $500; +$80/edition; -$150 per PUBLISH)
+  observing_lead_id:   string | null;         // the lead Observer is currently investigating (null when idle)
+  editions_in_state:   number;                // counter for SILENCED → INVESTIGATE timeout
+  edition_tick:        number;                // internal cadence counter (1/2 editions gate)
+  past_intents:        Intent[];
+  rng:                 { state: number };
 }
 
 interface EditionDigestSnap {
@@ -320,6 +350,20 @@ the deviation lands.
   rule from §Open questions).
 
 ## Revision history
+
+- **v0.1.2** (milestone 1.0.0, 2026-05-22) — In-PR Constraint #4 bump
+  alongside the Tier-1 opener code session that wires Herald + Observer.
+  `RivalsSnap` widens to `{ evening_star, herald, observer }`; new
+  `HeraldSnap` + `ObserverSnap` interfaces authored against the rival
+  modules' internal-state fields (state, counters, RNG, past_intents).
+  In-blob `version` field bumps from `"1.0"` to `"1.1"`. New migration
+  step `migrate_1_0_to_1_1` synthesizes default Herald + Observer snaps
+  when loading a pre-1.0.0 save (counters at zero, RNG seeded fresh,
+  cash at start value); the rest of the blob is untouched. Documented
+  consequence: pre-1.0.0 runs that resume lose any adversarial-counter
+  history Herald + Observer might have accumulated had they existed
+  pre-1.0.0 — which is none, by definition. Storage key
+  (`'late-edition.save.v1'`) unchanged.
 
 - **v0.1.1** (milestone 0.10.0, 2026-05-21) — Lead-spawn engine (audit
   C-04) is the first concrete caller of the `rng_seed` slot v0.1 reserved

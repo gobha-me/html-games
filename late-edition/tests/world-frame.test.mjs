@@ -33,14 +33,16 @@ test('BuildingView field set matches ICD-01 v0.2 exactly (no leaks)', () => {
   }
 });
 
-test('frame.buildings includes Bureau, Branch Bureau, Darkroom (ICD-01 v0.6 kind enum)', () => {
+test('frame.buildings includes Bureau, Branch Bureau, Darkroom, Switchboard (ICD-01 v0.6.4 kind enum)', () => {
   // 0.10.0 (G-01): Branch Bureau is the third construction-time building.
   // It covers the Hillside district (districts.js) and lets reporters drop
   // their leads at either bureau-family building.
+  // 1.0.0 (ICD-08): Switchboard is the fourth — intel-defense building
+  // gating goon visibility (see _isUnitVisible / tests/switchboard.test.mjs).
   const w = new World();
   const f = w.snapshot();
   const kinds = f.buildings.map((b) => b.kind).sort();
-  assert.deepEqual(kinds, ['branch_bureau', 'bureau', 'darkroom']);
+  assert.deepEqual(kinds, ['branch_bureau', 'bureau', 'darkroom', 'switchboard']);
 });
 
 test('frame.units includes Reporter, Photog, Fixer, and Editor (ICD-01 kind enum)', () => {

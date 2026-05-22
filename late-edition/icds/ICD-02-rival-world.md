@@ -1,6 +1,7 @@
 # ICD-02 · Rival ↔ World
 
-**Status:** v0.3 (PRE-1.0 — Herald + Observer state machines authored; two Intent kinds added; `RivalStatusView` posture mapping extended to all three rivals; inter-rival §Notes paragraph lifted from rival-ai-spec.html §06)
+**Status:** v0.3.1 (milestone 1.0.0 — in-PR Constraint #4 bump; `RivalView.player.printed_lies` field added for Observer's INVESTIGATE → PUBLISH transition; no other shape change)
+**Prior:** v0.3 (PRE-1.0 — Herald + Observer state machines authored; two Intent kinds added; `RivalStatusView` posture mapping extended to all three rivals; inter-rival §Notes paragraph lifted from rival-ai-spec.html §06)
 **Prior:** v0.2.2 (in-PR §Notes addition at 0.9.3 — `RivalEventDigest.kind` vocabulary enumeration to cover `raid_succeeded` + `raid_wiped` emissions)
 **Band:** strong
 **First caller:** milestone 0.7 (Evening Star SCAVENGE + RAID states); milestone 1.0 lights Herald + Observer
@@ -59,6 +60,7 @@ interface RivalView {
     heat_noisy:        number;          // player heat ± 20 (per-rival seeded RNG noise; §02 Sensors)
     visible_leads:     LeadDigest[];    // only leads in districts the rival has presence in
     visible_reporters: ReporterDigest[];// only reporters in districts the rival has presence in
+    printed_lies:      Array<{ id: StoryId, heat_yield: number, printed_in: number }>; // recent player lies, last 5 editions (v0.3.1; Observer PUBLISH targeting)
   };
   own: {
     state:        RivalState;           // own current state (e.g. 'SCAVENGE' for Evening Star)
@@ -535,6 +537,18 @@ table is an architecture session, not a deviation.
 
 ## Revision history
 
+- **v0.3.1** (milestone 1.0.0, 2026-05-22) — In-PR Constraint #4 bump
+  alongside the Tier-1 opener code session that wires the Observer
+  state machine. Single-field addition to `RivalView.player`:
+  `printed_lies: Array<{ id, heat_yield, printed_in }>` — the player's
+  printed stories with `truthful === false` from the last 5 editions.
+  Read by Observer's `INVESTIGATE → PUBLISH` transition predicate per
+  §Observer state machine (Notes "fixates on the worst recent player
+  lie at INVESTIGATE entry"). The 5-edition window is the medium-band
+  cap; the cap can shrink/grow at Tier-1.x without a contract change
+  if Observer balance asks for it. No other RivalView field changes;
+  no Intent vocabulary change; no `RivalStatusView` change. Posture
+  mappings unchanged.
 - **v0.3** (PRE-1.0, 2026-05-22) — Herald + Observer state machines
   authored ahead of milestone 1.0 (Tier-1 opener). Three blocks of
   shape work landed: (1) **Herald state machine** lifted verbatim from

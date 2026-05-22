@@ -8,6 +8,30 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v1.0.0 — Tier-1 opener · adversarial substrate (Herald + Observer
++ Switchboard).** First Tier-1 code session. The rival triangle
+completes: Herald lifts the IDLE | COURT | WIRED state-machine bodies
+on a 1/EDITION cadence (with PUNISH / BUYOUT shape-committed for
+caller-triggered Tier-1.x wiring); Observer lifts the INVESTIGATE |
+PUBLISH | WARN bodies on a 1/2 EDITIONS cadence, emitting
+`INVESTIGATE_LEAD` at INVESTIGATE entry, `PUBLISH_COUNTER` at PUBLISH
+entry (with +25 heat reconciler effect), and `POISON_LEAD` at WARN
+entry. The Switchboard intel-defense building (ICD-08) spawns at tile
+(3, 3) and runs the ±6-tile axis-aligned LoS rect that gates goon
+visibility in `World.snapshot()`; without a Switchboard goons stay
+hidden until they enter Chebyshev distance 1 of any Bureau-family
+building (the design HTML §10 *"window breaking"* beat). Save schema
+bumps v1.0 → v1.1 in-PR via `migrate_1_0_to_1_1`; pre-1.0.0 saves
+load through synthesized default Herald + Observer state. **ICD bumps
+in-PR (Constraint #4):** ICD-01 v0.6.3 → v0.6.4 (`BuildingKind` widens
+for `'switchboard'`); ICD-02 v0.3 → v0.3.1 (`RivalView.player.printed_lies`
+field added); ICD-04 v0.1.1 → v0.1.2 (`RivalsSnap` widens to
+`{evening_star, herald, observer}` + new `HeraldSnap` + `ObserverSnap`
+interfaces). Tests at 257 cases (199 → 257). Closes Gitea issue #317
+(1.0.0/1.0.1 split — 1.0.1 follow-up forthcoming for Archive UI +
+deferred projectors + 30 s debrief gate). See [`roadmap.md`](roadmap.md)
+and [`CHANGELOG.md`](CHANGELOG.md).
+
 **v0.10.4 — PRE-1.0 paper (ICD-02 v0.3 · ICDs 08 / 09 / 10).**
 Paper-only architecture session. Authored **ICD-02 v0.3** (Herald +
 Observer five-state machines lifted from

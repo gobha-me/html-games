@@ -1,5 +1,135 @@
 # Changelog — Late Edition
 
+## v1.0.0 — 2026-05-22 — Tier-1 opener · adversarial substrate (Herald + Observer + Switchboard)
+
+First Tier-1 code session against the ten authored ICDs (01 v0.6.4 · 02
+v0.3.1 · 03 v0.2 · 04 v0.1.2 · 05 v0.4.1 · 06 v0.4 · 07 v0.1 · 08 v0.1 ·
+09 v0.1 · 10 v0.1). The 1.0.0 / 1.0.1 split was taken at session open
+per issue #317 (0.7.0/0.7.1 + 0.10.0/0.10.1/0.10.2 precedents):
+
+- **1.0.0 (this PR)** — Herald + Observer state machines · Switchboard
+  intel-defense building · goon line-of-sight visibility filter · save
+  round-trip widening (v1.0 → v1.1 migration).
+- **1.0.1 (forecast)** — Archive UI (ICD-09) · `UnitView.stats` projector
+  · `LeadView.district` projector · 30 s minimum debrief gate (ICD-06
+  v0.4 code-side).
+
+### Added
+
+- [`js/sim/herald.js`](js/sim/herald.js) — Herald rival (ICD-02 v0.3).
+  Five-state machine `IDLE | COURT | WIRED | PUNISH | BUYOUT` on a
+  `1/EDITION` tick cadence. All 8 transitions encoded; IDLE / COURT /
+  WIRED bodies ship (PUNISH / BUYOUT shape-committed but caller-
+  triggered — wire-deal UI lands at Tier-1.x). Posture never reaches
+  `hostile` per rival-ai-spec.html §03 *"Never sends goons"*. Public
+  caller methods `acceptWire` · `declineWire` · `breakDeal` drive the
+  caller-triggered transitions.
+- [`js/sim/observer.js`](js/sim/observer.js) — Observer rival (ICD-02
+  v0.3). Five-state machine `INVESTIGATE | PUBLISH | WARN | DESPERATE
+  | SILENCED` on a `1/2 EDITIONS` tick cadence. INVESTIGATE / PUBLISH /
+  WARN bodies ship; DESPERATE / SILENCED shape-committed but caller-
+  triggered. Intent emissions: `INVESTIGATE_LEAD` at INVESTIGATE entry
+  (deterministic target via rng); `PUBLISH_COUNTER` at PUBLISH entry
+  (targets the player's highest-heat lie from `view.player.printed_lies`);
+  `POISON_LEAD` at WARN entry. Cash model: $500 start, +$80/edition
+  ambient, -$150 per PUBLISH; DESPERATE predicate `cash < $200`.
+  Posture never reaches `hostile` per §05.
+- Switchboard building (ICD-08) — new `BuildingKind` `'switchboard'`
+  spawned at `SWITCHBOARD_TILE = (3, 3)` (NW quadrant, covers the goon
+  spawn at (0, 0) and the path to the Bureau within ±6 LoS rect). HP
+  30 defensive shape; destruction does NOT trigger CYCLE_GAME_OVER.
+  New `buildSwitchboardMesh` adds the brick body + lattice antenna
+  silhouette signature in the renderer.
+- `World._isUnitVisible` (ICD-08 §Visibility projection rule) —
+  snapshot-time filter on goon `UnitView`. Goons appear in
+  `WorldFrame.units` only if covered by a live Switchboard's ±6 LoS
+  rect OR within Chebyshev distance 1 of any live Bureau-family
+  building (defensive default lifting design-doc.html §10 line 1088
+  *"window breaking"* beat).
+- New tests at 257 cases (199 → 257):
+  [`tests/herald.test.mjs`](tests/herald.test.mjs) ·
+  [`tests/observer.test.mjs`](tests/observer.test.mjs) ·
+  [`tests/switchboard.test.mjs`](tests/switchboard.test.mjs) ·
+  [`tests/herald-observer-integration.test.mjs`](tests/herald-observer-integration.test.mjs);
+  extensions to `tests/save-load.test.mjs`, `tests/rival-view.test.mjs`,
+  `tests/world-frame.test.mjs`.
+
+### Changed
+
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md)
+  v0.6.3 → **v0.6.4**. `BuildingKind` vocabulary widens to include
+  `'switchboard'`. Mirrors precedent of v0.6.1's `'branch_bureau'`
+  widening at milestone 0.10.0. Value-level addition; no shape change.
+  Constraint #4 in-PR bump.
+- [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md) v0.3 →
+  **v0.3.1**. `RivalView.player.printed_lies: Array<{ id, heat_yield,
+  printed_in }>` field added — surfaces the player's recent
+  `truthful === false` printed stories over the last 5 editions. Read
+  by Observer's `INVESTIGATE → PUBLISH` transition predicate per §05
+  *"fixates on the worst recent player lie at INVESTIGATE entry"*.
+  Single-field addition; no other shape change. Constraint #4 in-PR.
+- [`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md) v0.1.1 →
+  **v0.1.2**. `RivalsSnap` widens to `{ evening_star, herald, observer }`;
+  new `HeraldSnap` + `ObserverSnap` interfaces authored against the
+  rival modules' internal-state field sets. In-blob `version` field
+  bumps from `"1.0"` to `"1.1"`. New migration step `migrate_1_0_to_1_1`
+  synthesizes default Herald + Observer snaps when loading a pre-1.0.0
+  save (counters zero, RNG fresh, cash at start value). Constraint #4
+  in-PR.
+- [`js/sim/world-state.js`](js/sim/world-state.js) — `World.rivals`
+  array grows to `[evening_star, herald, observer]` (iteration order
+  pinned in comment for save-load determinism). `_buildRivalView` adds
+  `player.printed_lies` projection (last 5 editions). `_reconcileIntent`
+  gains branches for `PUBLISH_COUNTER` (+25 heat + digest), `INVESTIGATE_LEAD`
+  (digest only), `POISON_LEAD` (digest only). `ackDebrief` now collects
+  `Intent[]` from per-rival `onEditionEnd(view)` and reconciles each
+  intent before `cycle.start(next)` — `PUBLISH_COUNTER`'s +25 heat is
+  visible at the next snapshot. `snapshot()` filters goon `UnitView`
+  through `_isUnitVisible` per ICD-08.
+- [`js/sim/evening-star.js`](js/sim/evening-star.js) — `onEditionEnd`
+  signature evolved to accept a `view` argument (ignored by Evening
+  Star) and return `Intent[]` (empty array for Evening Star since its
+  intent emission happens on the 20 s wall-tick). Shape parity with
+  edition-cadence rivals; no behavior change.
+- [`js/sim/save.js`](js/sim/save.js) — `rivalsSnap` rewritten as
+  kind-keyed dispatch over `world.rivals`. `runMigrations` chains
+  `migrate_1_0_to_1_1`. `CURRENT_VERSION` bumps to `"1.1"`.
+- [`js/render/renderer.js`](js/render/renderer.js) — new
+  `buildSwitchboardMesh` (brick body + lattice antenna mast).
+  `buildBuildingMesh` dispatch gains a `'switchboard'` branch.
+  `WINDOW_LAYOUTS.switchboard` adds four operator-window slots so the
+  existing lit-window flicker pipeline catches the Switchboard's
+  *"the line is open"* visual beat.
+
+### Migration
+
+A pre-1.0.0 save (version `"1.0"`) loads via `migrate_1_0_to_1_1` —
+Herald + Observer enter the run in their default starting states
+(IDLE / INVESTIGATE, counters zero, fresh RNG). The migration is
+non-destructive: existing Evening Star + cycle + buildings + units +
+stories + resources + run_stats round-trip unchanged.
+
+### Out of scope (deferred to 1.0.1)
+
+- Archive UI · `archived` Story state · transitions · cap=5 · decay=10
+  editions · dossier `archived: N/5` (ICD-09).
+- ICD-04 v0.1.2 → v0.1.3 widening for `StorySnap.state` enum +
+  `archived_at_ms` field.
+- `UnitView.stats` projector for named Reporters (ICD-01 v0.6 deferred).
+- `LeadView.district` projector wiring in `snapshot()` (sim-side field
+  exists; the projector edge wires at 1.0.1).
+- 30 s minimum debrief dismissal gate (ICD-06 v0.4 code-side).
+- Herald PUNISH + BUYOUT bodies; Observer DESPERATE + SILENCED bodies
+  (caller-triggered until consumer surfaces arrive at Tier-1.x).
+- Investigation 3-step chain wiring beyond the `parent_story_id` shape
+  (ICD-10 — Tier-1.x content milestones).
+- Star-vs-Observer raid mechanic (§06 matrix cell 3) — Tier-1.x.
+- Audio bus first caller (ICD-07 v0.1) — separate Tier-1.x audio
+  milestone.
+
+Closes Gitea issue #317 (split — 1.0.1 follow-up ticket opens after PR
+merge).
+
 ## v0.10.4 — 2026-05-22 — PRE-1.0 paper (ICD-02 v0.3 · ICDs 08 / 09 / 10 · ICD-01 v0.6.3)
 
 Paper-only architecture session. Authored the four contract surfaces
