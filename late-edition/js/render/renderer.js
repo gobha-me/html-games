@@ -13,6 +13,16 @@ import { TILE } from '../sim/world-state.js';
 const FRUSTUM = 22;
 const RAIN_COUNT = 600;
 
+// 0.10.1 (G-07): Block zoom step is the close-in counterpart to the City
+// frustum. Design Doc §12 "two steps: City (frustum ≈22) and Block (frustum
+// ≈10)" with a 250 ms ease-out cubic transition. WASD pan integrates a
+// velocity supplied by input.js; clamp to the grid extent so the player
+// cannot lose the bureau by panning off the world.
+const FRUSTUM_CITY = 22;
+const FRUSTUM_BLOCK = 10;
+const ZOOM_EASE_MS = 250;
+const PAN_CLAMP = 27;  // half-width of the grid in world units (TILE * GRID_W / 2 ≈ 30 minus a small margin)
+
 export class Renderer {
   constructor(root) {
     this.root = root;
@@ -35,6 +45,16 @@ export class Renderer {
     );
     this.camera.position.set(40, 35, 40);
     this.camera.lookAt(0, 0, 0);
+
+    // 0.10.1 (G-07) view state — pan offset (XZ ground plane) + zoom
+    // step. Both are renderer-local: the sim never sees the view; the
+    // WorldFrame's cameraTarget stays canonically (0,0,0) per ICD-01 v0.6.
+    this._pan = { x: 0, z: 0 };
+    this._panVel = { x: 0, z: 0 };
+    this._zoomLevel = 'city';
+    this._frustum = FRUSTUM_CITY;
+    this._zoomEase = null;  // { fromFrustum, toFrustum, startMs, durMs } | null
+    this._lastFrameMs = null;
 
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -80,11 +100,72 @@ export class Renderer {
   // Apply a WorldFrame. alpha ∈ [0,1] is the interpolation factor between
   // the previous sim tick and the current one (ICD-01 v0.3: renderer lerps).
   apply(frame, alpha = 1) {
+    this._updateView();
     this._syncBuildings(frame.buildings);
     this._syncUnits(frame.units, alpha);
     this._syncLeads(frame.leads);
     this._stepRain();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // 0.10.1 (G-07): input.js feeds a pan velocity (world units / sec) and a
+  // zoom step; the renderer integrates per frame. Pan velocity is supplied
+  // as a vector — input.js owns the WASD-key set and computes the resultant.
+  setPanVelocity(vx, vz) {
+    this._panVel.x = vx;
+    this._panVel.z = vz;
+  }
+
+  setZoom(level) {
+    if (level !== 'city' && level !== 'block') return;
+    if (level === this._zoomLevel) return;
+    const target = level === 'block' ? FRUSTUM_BLOCK : FRUSTUM_CITY;
+    this._zoomEase = {
+      fromFrustum: this._frustum,
+      toFrustum: target,
+      startMs: performance.now(),
+      durMs: ZOOM_EASE_MS,
+    };
+    this._zoomLevel = level;
+  }
+
+  // Per-frame view integration. Splits camera-update concerns from
+  // mesh-sync — keeps apply() readable and lets future PRs (PR-D rain
+  // ramp, etc.) layer on without touching pan/zoom math.
+  _updateView() {
+    const now = performance.now();
+    const dt = this._lastFrameMs == null ? 0 : Math.min(0.1, (now - this._lastFrameMs) / 1000);
+    this._lastFrameMs = now;
+
+    // Pan integration with grid-extent clamp.
+    if (this._panVel.x !== 0 || this._panVel.z !== 0) {
+      this._pan.x = Math.max(-PAN_CLAMP, Math.min(PAN_CLAMP, this._pan.x + this._panVel.x * dt));
+      this._pan.z = Math.max(-PAN_CLAMP, Math.min(PAN_CLAMP, this._pan.z + this._panVel.z * dt));
+    }
+
+    // Zoom ease-out cubic. The 250 ms beat is short enough to read as a
+    // crisp step, long enough to avoid pop. Releases when t hits 1.
+    if (this._zoomEase) {
+      const elapsed = now - this._zoomEase.startMs;
+      const t = Math.min(1, elapsed / this._zoomEase.durMs);
+      const k = 1 - Math.pow(1 - t, 3);
+      this._frustum = this._zoomEase.fromFrustum + (this._zoomEase.toFrustum - this._zoomEase.fromFrustum) * k;
+      if (t >= 1) this._zoomEase = null;
+    }
+
+    // Camera position + lookAt translate together so the isometric angle
+    // is preserved — we are panning the target, not orbiting around it.
+    this.camera.position.set(40 + this._pan.x, 35, 40 + this._pan.z);
+    this.camera.lookAt(this._pan.x, 0, this._pan.z);
+    this._applyFrustum(this._frustum);
+  }
+
+  _applyFrustum(frustum) {
+    this.camera.left = -frustum * this._aspect() / 2;
+    this.camera.right = frustum * this._aspect() / 2;
+    this.camera.top = frustum / 2;
+    this.camera.bottom = -frustum / 2;
+    this.camera.updateProjectionMatrix();
   }
 
   // Tell the renderer a new sim tick just happened so it can latch interp endpoints.
@@ -249,11 +330,7 @@ export class Renderer {
 
   _onResize() {
     this.renderer.setSize(this.W(), this.H());
-    this.camera.left = -FRUSTUM * this._aspect() / 2;
-    this.camera.right = FRUSTUM * this._aspect() / 2;
-    this.camera.top = FRUSTUM / 2;
-    this.camera.bottom = -FRUSTUM / 2;
-    this.camera.updateProjectionMatrix();
+    this._applyFrustum(this._frustum);
   }
 }
 

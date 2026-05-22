@@ -1,4 +1,4 @@
-// Late Edition — HUD corkboard (milestone 0.9).
+// Late Edition — HUD corkboard (milestone 0.9; 0.10.1 adds the tutorial pin).
 //
 // The HUD is a corkboard. The 3D viewport is a window punched through it.
 // Resource readouts are pinned index cards along the top; the deadline is a
@@ -19,6 +19,8 @@
 // Projection helpers (`pickSelected`, `countByKind`, `tierHistogram`,
 // `formatMs`, `formatEdition`) are exported so `tests/hud.test.mjs` can
 // exercise them in node without jsdom.
+
+import { currentTutorialBeat, BEAT_COPY } from './sim/tutorial.js';
 
 // Aligned with cycle-clock's DEADLINE_WARNING fire at T-30s (Design Doc §13 strip-
 // turns-red beat). The optional CRITICAL_MS = 5_000 tighter pulse is deferred —
@@ -81,6 +83,11 @@ export class HudCorkboard {
     this.top      = new TopCards(roots.topCards);
     this.deadline = new DeadlineStrip(roots.deadline);
     this.dossier  = new Dossier(roots.dossier);
+    // 0.10.1 (G-09): the tutorial-note pin sits above the resource cards;
+    // hides itself when currentTutorialBeat() returns null (edition ≥ 3
+    // or after the 30 s welcome window). Re-derives every frame so a
+    // save/load lands on the correct beat with no persistence.
+    this.tutorial = new TutorialNote(roots.tutorial);
   }
 
   apply(frame) {
@@ -89,6 +96,28 @@ export class HudCorkboard {
     this.top.apply(frame.hud, bureauHp);
     this.deadline.apply(frame.hud);
     this.dossier.apply(frame, bureauHp);
+    this.tutorial.apply(frame);
+  }
+}
+
+class TutorialNote {
+  constructor(rootEl) {
+    this.root = rootEl;
+    this.bodyEl = rootEl.querySelector('.body');
+    this._lastBeat = undefined;  // distinct from null so the first apply latches
+  }
+
+  apply(frame) {
+    const beat = currentTutorialBeat(frame);
+    if (beat === this._lastBeat) return;
+    this._lastBeat = beat;
+    if (beat === null) {
+      this.root.hidden = true;
+      return;
+    }
+    this.root.hidden = false;
+    this.bodyEl.textContent = BEAT_COPY[beat];
+    this.root.dataset.beat = beat;
   }
 }
 

@@ -10,6 +10,7 @@ import { DebriefPanel } from './debrief-panel.js';
 import { GameOverOverlay } from './game-over-overlay.js';
 import { loadSave, saveNow } from './sim/save.js';
 import { hasWebGL, mountWebGLUnavailable } from './webgl-unavailable.js';
+import { newSlowMoState, triggerSlowMo, speedFactor } from './slow-mo.js';
 
 const TICK_HZ = 30;
 const TICK_DT = 1 / TICK_HZ;
@@ -20,6 +21,7 @@ const hudRoots = {
   topCards: document.getElementById('hud-top-cards'),
   deadline: document.getElementById('hud-deadline-strip'),
   dossier:  document.getElementById('hud-dossier'),
+  tutorial: document.getElementById('hud-tutorial-note'),
 };
 for (const [k, el] of Object.entries(hudRoots)) {
   if (!el) throw new Error(`hud root ${k} not found`);
@@ -50,7 +52,13 @@ const world = loadSave() ?? new World();
 const hud = new HudCorkboard(hudRoots);
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);
-attachInput(root, renderer, world);
+
+// 0.10.1 (G-07): slow-mo state is real-time only (no save persistence) —
+// triggered by input.js's Space handler, consumed by the loop multiplier.
+let slowMo = newSlowMoState();
+attachInput(root, renderer, world, {
+  triggerSlowMo: () => { slowMo = triggerSlowMo(slowMo, performance.now()); },
+});
 
 // 0.8 save trigger cadence (ICD-04 §Save-trigger-surface settles here —
 // the ICD recommendation is sim-external and may be settled by the 0.8
@@ -86,8 +94,16 @@ function loop() {
   lastFrameTime = now;
   accumulator += frameDt;
 
+  // 0.10.1 (G-07): slow-mo multiplies the per-tick dt. The accumulator
+  // drains at real-time TICK_DT (loop cadence unchanged) but the world
+  // advances by TICK_DT * factor — so the deadline counts at half-speed
+  // when active, sim units move half-distance per tick, and the renderer
+  // interp window stays full TICK_DT real seconds (smooth playback).
+  const factor = speedFactor(slowMo, now);
+  const simDt = TICK_DT * factor;
+
   while (accumulator >= TICK_DT) {
-    world.tick(TICK_DT);
+    world.tick(simDt);
     accumulator -= TICK_DT;
     lastTickTime = now - accumulator * 1000;
     renderer.noteTick(world.snapshot(), TICK_DT);

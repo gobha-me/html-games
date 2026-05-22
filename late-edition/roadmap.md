@@ -109,16 +109,21 @@ Design Doc §19; the dossier shows per-district histograms; the debrief
 panel reads §18 grammar; a destroyed Press writes a high-score entry
 before the run-end overlay mounts. Tests at 159 cases (124 → 159).
 
-Next: **Milestone 0.10.1 — onboarding.** The remaining two PR-C items
-(G-09 diegetic tutorial · G-07 minimum control surface — WASD pan +
-Block zoom + slow-mo). Tutorial copy needs to reference the new
-controls — coupled scope, expected one code session. No ICD bumps
-expected (HUD corkboard pin surface is on the strong band).
+**Milestone 0.10.1 — shipped (v0.10.1).** Onboarding. G-07 minimum
+control surface (WASD pan + `[`/`]` Block zoom + Space slow-mo, Design
+Doc §12 + §19) and G-09 diegetic tutorial (four-note spine from
+[`discussion/tutorial-first-edition.md`](discussion/tutorial-first-edition.md))
+land together — the tutorial's first beat is the only diegetic surface
+that names the new controls. Pan/zoom state lives renderer-side; slow-mo
+state lives in the main loop (real-time, no save persistence); the
+tutorial beat is derived per-frame from existing WorldFrame fields. No
+ICD bumps as forecast. Tests at 179 cases (159 → 179; new
+`tutorial.test.mjs` + `slow-mo.test.mjs`).
 
-After 0.10.1: **PR-D (0.10.x visual feedback)** lights up the
-`FxEvent` producers + consumers authored at PRE-0.10, the rain ramp
-at deadline, the newspaper-pages debrief layout, and the lit-windows +
-fog-on-deadline beats.
+Next: **PR-D (0.10.x visual feedback)** lights up the `FxEvent`
+producers + consumers authored at PRE-0.10, the rain ramp at deadline,
+the newspaper-pages debrief layout, and the lit-windows + fog-on-deadline
+beats. Tracked as Gitea issue #299.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -303,6 +308,26 @@ fog-on-deadline beats.
       in [`architecture/00-overview.md`](architecture/00-overview.md)
       line 45. **Milestone 0.10 is now code-ready** — every required
       contract is in hand.
+- [x] **Milestone 0.10.0** — PR-C substrate. Lead-spawn engine (C-04),
+      districts (G-04), Branch Bureau (G-01), slot-grammar headlines
+      (G-05), run-end summary + high scores (G-13). ICD-01 → v0.6.1
+      (`BuildingKind` widens to `'branch_bureau'`); ICD-04 → v0.1.1
+      (`rng_seed` carries live PRNG state; `lead_spawner` + `run_stats`
+      blocks; `'late-edition.scores.v1'` key with `HighScoreBlobV1`).
+      Tests at 159 cases (124 → 159).
+- [x] **Milestone 0.10.1** — Onboarding. G-07 minimum control surface
+      (WASD pan + `[`/`]` Block zoom + Space slow-mo per Design Doc §12
+      + §19) and G-09 diegetic tutorial (four-note spine — "send a
+      reporter" / "verify it" / "now plate it" / "welcome to the paper"
+      — from [`discussion/tutorial-first-edition.md`](discussion/tutorial-first-edition.md))
+      ship coupled. The first beat carries the control-hint paren — the
+      one diegetic surface that names the new keys. Pan/zoom state lives
+      renderer-side (`Renderer._updateView`); slow-mo state is real-time
+      loop state ([`js/slow-mo.js`](js/slow-mo.js), no save persistence);
+      tutorial beat is derived per-frame from existing `WorldFrame`
+      fields ([`js/sim/tutorial.js`](js/sim/tutorial.js) — no ICD bump,
+      no new projection). Tests at 179 cases (159 → 179; new
+      `tutorial.test.mjs` + `slow-mo.test.mjs`).
 
 ## Out of scope until called
 

@@ -1,5 +1,66 @@
 # Changelog — Late Edition
 
+## v0.10.1 — 2026-05-22 — Onboarding (WASD pan · Block zoom · slow-mo · diegetic tutorial)
+
+The coupled remainder of PR-C, deferred at the authorized 0.10.0/0.10.1
+split. The minimum control surface and the first edition's diegetic
+tutorial are coupled by design — the player needs to know WASD / `[`/`]` /
+Space exist, and the first note from the old man is the only diegetic
+surface that names them. The substrate from 0.10.0 (lead-spawner,
+districts, branch bureau) is now reachable: fresh runs walk a new player
+through reporter → darkroom → plate → first edition with four pinned
+notes; experienced players keep the same map but with a 2.2× zoom step,
+camera pan, and a 5-second deadline cushion on a 30-second cooldown.
+
+Headline changes:
+
+- **G-07 — Minimum control surface (WASD pan · Block zoom · slow-mo).**
+  [`js/input.js`](js/input.js) gains keyboard handlers: WASD pans the
+  camera (axis-aligned XZ ground plane, `TILE × 4 = 24` world units/sec,
+  normalized so diagonals don't outpace cardinals); `[` and `]` step
+  between City (frustum 22) and Block (frustum 10) zoom — Design Doc §12
+  "two steps … 250 ms ease-out cubic"; Space triggers slow-mo (Design Doc
+  §19: 0.5× sim speed for 5 real seconds, 30 s cooldown, never pause).
+  Pan + zoom state live on the Renderer ([`js/render/renderer.js`](js/render/renderer.js))
+  with a new `_updateView()` per-frame integrator; `setPanVelocity(vx, vz)`
+  + `setZoom('city' | 'block')` are the input-side surface. Pan clamps to
+  `±27` world units (half the grid extent) so the player cannot lose the
+  bureau. Camera position and lookAt translate together — the isometric
+  angle is preserved.
+- **G-09 — Diegetic tutorial (notes from the old man).** New pure module
+  [`js/sim/tutorial.js`](js/sim/tutorial.js) derives a beat
+  (`'send-reporter' | 'verify' | 'plate' | 'welcome' | null`) from existing
+  `WorldFrame` fields — `hud.edition`, `hud.deadline_ms`,
+  `hud.resources.stories`, and `units[].kind/.carrying`. No persistence: a
+  mid-tutorial save/load lands on the correct beat by re-derivation. New
+  `TutorialNote` projector inside [`js/hud.js`](js/hud.js) mirrors the
+  TopCards diff-cache pattern; new `<aside id="hud-tutorial-note">` pinned
+  above the resource cards reads as a fifth index card with a red left
+  border. Beat 1 ("Send a reporter to The Docks, kid.") carries the control
+  hint paren — the one place where the diegesis names WASD / `[`/`]` /
+  Space. Welcome window: first 30 s of edition 2, then the note vacates
+  the corkboard forever. Copy lifts the four-note spine settled in
+  [`discussion/tutorial-first-edition.md`](discussion/tutorial-first-edition.md).
+- **Slow-mo controller.** New pure module [`js/slow-mo.js`](js/slow-mo.js)
+  owns the state shape + transitions (`triggerSlowMo`, `speedFactor`,
+  `activeRemainingMs`) — `js/main.js`'s loop multiplies `TICK_DT` by
+  `speedFactor(slowMo, performance.now())` before passing to `world.tick`,
+  so the deadline counts at half-speed and unit movement halves
+  proportionally during the active window. Loop cadence stays at 30 Hz
+  real-time so the renderer interpolation pipeline is undisturbed.
+
+Tests: 159 → 179 cases. New [`tests/tutorial.test.mjs`](tests/tutorial.test.mjs)
+covers all four beats + the null sentinels (edition ≥ 3, welcome-window
+expiry) + the `verify`-over-`plate` precedence rule. New
+[`tests/slow-mo.test.mjs`](tests/slow-mo.test.mjs) exercises the trigger /
+cooldown / speed-factor cycle against synthetic monotonic clocks. New
+[`tests/tutorial-integration.test.mjs`](tests/tutorial-integration.test.mjs)
+runs the projection against a real `World` snapshot for the
+`send-reporter` / `verify` / `plate` transitions. No ICD bumps —
+`cameraTarget` already exists in `WorldFrame` from ICD-01 v0.5 (stays at
+origin; pan/zoom live renderer-side), and the tutorial beat is derived
+from existing projection fields.
+
 ## v0.10.0 — 2026-05-21 — PR-C substrate (lead-spawn engine · districts · Branch Bureau · grammar · scores)
 
 PR-C from the post-0.9 re-eval — the substrate half of the Tier-0 closer.
