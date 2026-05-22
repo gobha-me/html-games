@@ -1,6 +1,7 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6.1 (shipped against milestone 0.10.0 — `BuildingKind` vocabulary widens to include `'branch_bureau'`; no shape change)
+**Status:** v0.6.2 (shipped against milestone 0.10.2 — `WorldFrame.rain.intensity` range comment widened from `0-1` to `0+ unbounded; 1 = baseline, ~2 at deadline`; no shape change)
+**Prior:** v0.6.1 (shipped against milestone 0.10.0 — `BuildingKind` vocabulary widens to include `'branch_bureau'`; no shape change)
 **Band:** strong
 **First caller:** milestone 0.1 (scene, camera, toon pipeline) — shipped in v0.1.0
 **Current caller:** milestone 0.9 (HUD corkboard) — shipped in v0.9.0 against v0.5 with no ICD bump; HUD corkboard band promoted medium → strong post-0.9 (overview line 45). PRE-0.10 (v0.9.4) authors the v0.6 additions ahead of milestone 0.10 (Tier-0 closer): `UnitView.stats` for the §13 Selected dossier, `LeadView.district` for the Story queue, `WorldFrame.rivals` for the Threats dossier, `FxEvent` union for the rain-ramp + effects-channel feedback path (producers wire at milestone 0.10.x / PR-D).
@@ -21,7 +22,7 @@ interface WorldFrame {
   units:     UnitView[];
   leads:     LeadView[];
   rivals:    RivalStatusView[]; // posture surface for Threats dossier (v0.6; type owned by ICD-02 v0.2)
-  rain:      RainConfig;        // intensity 0-1
+  rain:      RainConfig;        // intensity 0+ unbounded; 1 = baseline, ~2 at deadline (PR-D — v0.6.2)
   fog:       { near: number, far: number, color: number };
   hud:       HudState;          // edition, deadline_ms, resources
   effects:   FxEvent[];         // drained queue: flash · print · death · pickup · verify · raid_warning (v0.6)
@@ -283,6 +284,13 @@ type FxEvent =
 - `effects: FxEvent[]` — see §`FxEvent` union (v0.6) for the six-kind
   vocabulary and drained-queue semantics.
 - `fog.color` matches `--paper` from the design doc (`#c8c4bc` at MVP).
+- **Rain + fog ramps live sim-side (v0.6.2 · PR-D).** The continuous ramps —
+  `rain.intensity` 1 → 2 across the last 30 s and `fog.near` 22 → 14 across
+  the last 60 s — are computed inside `World.snapshot()` from
+  `cycle.remainingMs`, **not** carried as discrete `CycleEvent` kinds in
+  [ICD-06](ICD-06-print-cycle.md). The renderer reads them per-frame as
+  plain numbers. `raid_warning` (FxEvent) remains the discrete pre-raid
+  trigger as authored at v0.6.
 - **Render-only projection rule (tightened at v0.5).** No field on a View
   carries information the renderer doesn't use **within the next-N window**.
   A field justified by a committed near-horizon caller is allowed — canonical
@@ -372,6 +380,17 @@ they live here as implementation pins.
 
 ## Revision history
 
+- **v0.6.2** (milestone 0.10.2, 2026-05-22) — `WorldFrame.rain.intensity`
+  inline range comment widened from `0-1` to `0+ unbounded; 1 = baseline,
+  ~2 at deadline (PR-D)` to match the rain-ramp consumer wired in
+  milestone 0.10.2 (audit C-06 — sim dials intensity 1 → 2 over the last
+  30 s; renderer scales the line-draw range and caps at 1500 lines per
+  Design Doc §15). §Notes gains a one-paragraph note pinning both the
+  rain and fog ramps as sim-side (computed in `World.snapshot()` from
+  `cycle.remainingMs`), not new `CycleEvent` kinds — `raid_warning`
+  (FxEvent) remains the only discrete pre-raid trigger. No shape change,
+  no new field, no new event. Constraint #4 in-PR bump alongside the
+  milestone 0.10.2 visual-feedback code session.
 - **v0.6.1** (milestone 0.10.0, 2026-05-21) — `BuildingKind` vocabulary
   widens to include `'branch_bureau'` (audit G-01 — Tier-0 §16 calls for
   three buildings; code shipped Bureau + Darkroom through 0.9.x). The

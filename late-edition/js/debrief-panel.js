@@ -19,19 +19,26 @@ export class DebriefPanel {
   }
 
   _mount(summary) {
-    const rows = summary.stories_printed
+    // 0.10.2 (D-07): each printed story becomes a newspaper-column <article>.
+    // The drop cap on .np-headline::first-letter, the multi-column grid, and
+    // the .is-fresh slap-down keyframe carry the "front page just dropped"
+    // beat referenced in Design Doc §05 + §13.
+    const pages = summary.stories_printed
       .map((d) => `
-        <li class="story-row">
-          <span class="headline">${escapeHtml(d.headline)}</span>
-          <span class="meta-row">${escapeHtml(d.flavor)} · ${escapeHtml(d.tier)}</span>
-        </li>
+        <article class="np-page">
+          <h2 class="np-headline">${escapeHtml(d.headline)}</h2>
+          <div class="np-byline">${escapeHtml(d.flavor)} &middot; ${escapeHtml(d.tier)}</div>
+        </article>
       `).join('');
     this.root.innerHTML = `
-      <div class="debrief-card">
-        <div class="kicker">EDITION ${summary.edition}</div>
-        <div class="banner">FRONT PAGE</div>
-        <ul class="story-list">${rows || '<li class="empty">(no stories printed)</li>'}</ul>
-        <div class="dismiss">click to continue &rarr;</div>
+      <div class="debrief-card is-fresh">
+        <div class="np-masthead">
+          <span class="np-kicker">Morning Edition</span>
+          <span class="np-nameplate">Late Edition</span>
+          <span class="np-edition">No. ${summary.edition}</span>
+        </div>
+        <div class="np-pages">${pages || '<div class="np-empty">(no stories printed this cycle)</div>'}</div>
+        <div class="np-dismiss">click to continue &rarr;</div>
       </div>
     `;
     this.root.hidden = false;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 0.10.1 onboarding</title>
+<title>Late Edition — 0.10.2 visual feedback</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -240,6 +240,11 @@
     font-style: italic;
   }
 
+  /* 0.10.2 (D-07): debrief panel as newspaper pages. Each printed story
+     is a column on a single broadsheet that slaps down onto the corkboard
+     when the edition closes. Design Doc §05 + §13 — "the morning edition
+     is a literal newspaper that lays itself out on the corkboard." Bodoni
+     Moda + JetBrains Mono stack reuses the existing typographic system. */
   #debrief-panel {
     position: fixed;
     inset: 0;
@@ -247,74 +252,115 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(10, 10, 12, 0.55);
+    background: rgba(10, 10, 12, 0.62);
     cursor: pointer;
   }
   #debrief-panel[hidden] { display: none; }
   #debrief-panel .debrief-card {
     background: var(--paper-2);
     border: 1px solid var(--ink);
-    padding: 28px 36px;
-    min-width: 360px;
-    max-width: 520px;
-    box-shadow: 0 12px 48px rgba(10, 10, 12, 0.6);
+    padding: 24px 28px 18px;
+    min-width: 420px;
+    max-width: 760px;
+    width: min(760px, 86vw);
+    box-shadow: 0 18px 48px rgba(10, 10, 12, 0.65), 0 2px 0 var(--paper-shadow);
+    position: relative;
   }
-  #debrief-panel .kicker {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    color: var(--mid);
-    margin-bottom: 8px;
+  #debrief-panel .debrief-card.is-fresh {
+    animation: np-slap-down 320ms cubic-bezier(0.16, 0.84, 0.44, 1.0);
   }
-  #debrief-panel .banner {
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 32px;
-    letter-spacing: -0.01em;
-    color: var(--ink);
+  @keyframes np-slap-down {
+    0%   { transform: translateY(-36px) rotate(-1.4deg); opacity: 0; }
+    60%  { transform: translateY(4px)   rotate( 0.4deg); opacity: 1; }
+    100% { transform: translateY(0)     rotate(0deg);    opacity: 1; }
+  }
+  /* Masthead row — kicker date + newspaper nameplate + edition mark, like
+     a real front-page banner. Border below mirrors the original .banner rule. */
+  #debrief-panel .np-masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 18px;
     border-bottom: 2px solid var(--ink);
-    padding-bottom: 8px;
+    padding-bottom: 6px;
     margin-bottom: 14px;
   }
-  #debrief-panel .story-list {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 18px 0;
+  #debrief-panel .np-kicker {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--mid);
   }
-  #debrief-panel .story-row {
-    padding: 8px 0;
-    border-bottom: 1px solid var(--rule);
-  }
-  #debrief-panel .story-row:last-child { border-bottom: none; }
-  #debrief-panel .headline {
-    display: block;
+  #debrief-panel .np-nameplate {
     font-family: var(--serif);
-    font-weight: 700;
-    font-size: 16px;
+    font-weight: 900;
+    font-size: 30px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    font-style: italic;
+  }
+  #debrief-panel .np-edition {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  /* Pages — two-column grid that flows headlines as if each story owns a
+     column on the front page. Falls back to one column under 520px. */
+  #debrief-panel .np-pages {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 22px;
+    padding: 0;
+    margin: 0 0 14px 0;
+  }
+  @media (max-width: 540px) {
+    #debrief-panel .np-pages { grid-template-columns: 1fr; }
+  }
+  #debrief-panel .np-page {
+    padding: 6px 0 10px;
+    border-top: 1px solid var(--rule);
+  }
+  #debrief-panel .np-headline {
+    margin: 0 0 4px;
+    font-family: var(--serif);
+    font-weight: 900;
+    font-size: 18px;
+    line-height: 1.15;
+    letter-spacing: -0.005em;
     color: var(--ink);
   }
-  #debrief-panel .meta-row {
-    display: block;
-    margin-top: 2px;
+  /* Drop cap on the first letter of every headline — pure newspaper signal. */
+  #debrief-panel .np-headline::first-letter {
+    font-size: 1.45em;
+    font-weight: 900;
+    line-height: 0.9;
+  }
+  #debrief-panel .np-byline {
     font-family: var(--mono);
     font-size: 10px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--mid);
   }
-  #debrief-panel .empty {
+  #debrief-panel .np-empty {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--mid);
     padding: 8px 0;
+    grid-column: 1 / -1;
   }
-  #debrief-panel .dismiss {
+  #debrief-panel .np-dismiss {
     font-family: var(--mono);
     font-size: 10px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--red);
     text-align: right;
+    border-top: 1px solid var(--rule);
+    padding-top: 8px;
   }
 
   #gameover-overlay {
@@ -465,7 +511,7 @@
 <header class="masthead">
   <div class="title">Late <span class="ed">Edition</span></div>
   <div class="meta">
-    v0.10.1 &middot; onboarding &middot; WASD pan &middot; <kbd>[</kbd>/<kbd>]</kbd> zoom &middot; <kbd>Space</kbd> slow-mo &middot; L-click select &middot; R-click dispatch &middot;
+    v0.10.2 &middot; visual feedback &middot; WASD pan &middot; <kbd>[</kbd>/<kbd>]</kbd> zoom &middot; <kbd>Space</kbd> slow-mo &middot; L-click select &middot; R-click dispatch &middot;
     <a href="design/phase-0-roadmap.html">Phase 0 + Roadmap &rarr;</a>
     &middot;
     <a href="../">&larr; Arcade</a>

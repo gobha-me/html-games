@@ -1,5 +1,79 @@
 # Changelog — Late Edition
 
+## v0.10.2 — 2026-05-22 — Visual feedback (rain ramp · FxEvent wiring · newspaper debrief · lit windows + fog)
+
+PR-D from the post-0.9 re-eval — the closing Tier-0 polish PR. With PR-C
+(0.10.0 substrate + 0.10.1 onboarding) shipped, the simulation now plays
+end-to-end; this PR turns the surface from *tech demo with a deadline*
+into *newspaper noir RTS*. Four audit-named items land together against
+ICD-01 v0.6 + v0.6.2 (one-line range-comment widen for `rain.intensity`).
+Closes Gitea issue #299.
+
+Headline changes:
+
+- **C-06 — Rain ramp at deadline.** [`js/sim/world-state.js`](js/sim/world-state.js)
+  `snapshot()` now dials `frame.rain.intensity` from 1 → 2 across the last
+  30 s of an edition, derived from `cycle.remainingMs` (Design Doc §15).
+  [`js/render/renderer.js`](js/render/renderer.js) scales the rain line-
+  draw range by intensity (`setDrawRange`), capped at the 1500-line ceiling
+  per Design Doc §15. Boot-time rain buffer is sized to the cap so the
+  ramp is a draw-range tweak, not a geometry reallocation.
+- **C-07 — `WorldFrame.effects` wired end-to-end.** Five sim emit sites
+  feed the `FxEvent` queue authored at ICD-01 v0.6:
+  - `pickup` — reporter lands on a lead (`_handleReporterArrival`)
+  - `verify` — photog drops the held lead at the Darkroom (`_handlePhotogArrival`)
+  - `print` — one per admitted story at `DEADLINE_FIRE` (`_fireDebrief`)
+  - `death` — goon / fixer hits HP 0 (`_pruneDeadUnits`; reporter/photog death
+    stays silent at Tier-0 per the existing prune filter)
+  - `raid_warning` — once per RAID_BUREAU intent at the reconciler
+    (`_reconcileIntent`)
+  Renderer-side `_consumeEffects` drains the queue every frame and spawns
+  ephemeral noir-palette meshes (yellow ring · white camera-flash quad ·
+  rising newspaper sprite · red X · pulsing exclamation). TTLs are
+  200–1000 ms; the active set is small and disposed in place.
+- **D-07 — Debrief panel as newspaper pages.** [`js/debrief-panel.js`](js/debrief-panel.js)
+  now mounts a `<div class="debrief-card is-fresh">` with a masthead
+  (kicker · *Late Edition* nameplate · edition number) and a two-column
+  `.np-pages` grid of `<article class="np-page">` per `StoryDigest`.
+  Slap-down `@keyframes` (translateY + slight rotation, 320 ms ease-out)
+  fires on mount. Drop-cap rule (`::first-letter`) on every headline.
+  Reuses the existing Bodoni Moda + JetBrains Mono stack. ~150 LOC of
+  CSS + DOM, no JS shape change.
+- **D-09 — Lit windows + fog-on-deadline.** Per-building emissive
+  `MeshBasicMaterial` quads attached as children of each Bureau / Branch
+  Bureau / Darkroom group on first mount. Each window flicks lit ↔ dark on
+  a 4–14 s random period; convergence is ~40% lit at any moment. Fog
+  `near` plane lerps 22 → 14 across the last 60 s of the edition, sim-
+  side per the same `cycle.remainingMs` pattern as rain (no ICD shape
+  change — `WorldFrame.fog.{near, far, color}` was already authored at
+  ICD-01 v0.5).
+
+Tests: 179 → 199 cases (+20). New [`tests/effects-pickup-verify.test.mjs`](tests/effects-pickup-verify.test.mjs)
+(3) · [`tests/effects-print.test.mjs`](tests/effects-print.test.mjs) (2)
+· [`tests/effects-death-raid.test.mjs`](tests/effects-death-raid.test.mjs)
+(4) · [`tests/rain-ramp.test.mjs`](tests/rain-ramp.test.mjs) (5) ·
+[`tests/fog-ramp.test.mjs`](tests/fog-ramp.test.mjs) (6). Existing
+[`tests/world-frame.test.mjs`](tests/world-frame.test.mjs) effects-drain
+assertion (line 116) continues to cover the queue lifecycle. No regression
+in the 0.10.1 onboarding / 0.10.0 substrate / pre-Tier-0 areas.
+
+ICDs: [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md)
+→ **v0.6.2** (Constraint #4 in-PR bump). `WorldFrame.rain.intensity`
+inline comment widened from `0-1` to `0+ unbounded; 1 = baseline, ~2 at
+deadline (PR-D)`. §Notes gains a one-paragraph note pinning the rain +
+fog ramps as sim-side computations (in `World.snapshot()` from
+`cycle.remainingMs`), not new `CycleEvent` kinds — `raid_warning`
+(FxEvent) remains the only discrete pre-raid trigger. No shape change.
+
+Out of scope (Tier-1):
+
+- Halftone print pass on the debrief panel (Design Doc §03).
+- ICD-07 audio cue-table implementation (channels + assets land at
+  Tier-1's first audio milestone).
+- `flash` FxEvent co-emit with `verify` — `verify` carries the camera-
+  flash visual itself in 0.10.2; the separate `flash` kind is reserved
+  for future use.
+
 ## v0.10.1 — 2026-05-22 — Onboarding (WASD pan · Block zoom · slow-mo · diegetic tutorial)
 
 The coupled remainder of PR-C, deferred at the authorized 0.10.0/0.10.1

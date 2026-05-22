@@ -8,6 +8,21 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v0.10.2 — PR-D visual feedback (Tier-0 closes).**
+The closing post-0.9 audit PR — rain ramp at deadline (C-06), the
+`WorldFrame.effects` channel wired end-to-end (C-07 — `pickup` · `verify` ·
+`print` · `death` · `raid_warning`), debrief panel as newspaper pages
+(D-07), and lit windows + fog-pull-on-deadline (D-09). Pure renderer +
+DOM/CSS layered on top of five small sim emit sites. ICD-01 → v0.6.2
+(`rain.intensity` range-comment widen; no shape change). Tests at
+199 cases (179 → 199). Closes Gitea issue #299; Tier-0 audit (post-0.9)
+fully landed. Next: Tier-0 → Tier-1 re-eval slot. See
+[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+
+**v0.10.1 — Onboarding (WASD pan · Block zoom · slow-mo · diegetic tutorial).**
+G-07 minimum control surface and G-09 diegetic tutorial coupled as the
+second half of the Tier-0 closer.
+
 **v0.10.0 — PR-C substrate (Tier-0 closer · substrate half).**
 Code session against the milestone 0.10 closer authored at PRE-0.10.
 The roadmap's authorized 0.10.0/0.10.1 split (precedent: 0.7.0 / 0.7.1)

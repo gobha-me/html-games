@@ -473,6 +473,15 @@ export class World {
         kind:  'raid_attempted',
         text:  `${rival.id.replace('_', ' ').toUpperCase()} SENDS ${intent.goons} GOON${intent.goons === 1 ? '' : 'S'}`,
       });
+      // 0.10.2 (C-07): FxEvent emit. ICD-01 v0.6 §FxEvent — `raid_warning`
+      // is the discrete pre-raid trigger; the renderer pulses red over the
+      // goon spawn so the player has a one-frame heads-up before the goons
+      // visibly walk in. One emit per raid (not per goon).
+      this.effects.push({
+        kind:  'raid_warning',
+        at:    tileToWorld(GOON_SPAWN_TILE),
+        rival: rival.id,
+      });
       return;
     }
     // Other intent kinds are caller-triggered (BRIBE / RUSH / etc.) — when
@@ -532,6 +541,15 @@ export class World {
 
   _pruneDeadUnits() {
     if (this.units.some((u) => u.kind !== 'reporter' && u.kind !== 'photog' && (u.hp ?? 1) <= 0)) {
+      // 0.10.2 (C-07): FxEvent emit. Capture the dying units' positions and
+      // kinds before the filter drops them — `death` is ICD-01 v0.6's hook
+      // for goon-down / fixer-down beats. Reporter + Photog never reach the
+      // prune filter (their HP path is sim-internal, no death fx at Tier-0).
+      for (const u of this.units) {
+        if (u.kind === 'reporter' || u.kind === 'photog') continue;
+        if ((u.hp ?? 1) > 0) continue;
+        this.effects.push({ kind: 'death', at: tileToWorld(u.tile), unit_kind: u.kind });
+      }
       this.units = this.units.filter((u) =>
         u.kind === 'reporter' || u.kind === 'photog' || (u.hp ?? 1) > 0,
       );
@@ -633,6 +651,7 @@ export class World {
       printing.push(story);
     }
 
+    const printAnchor = darkroom ? tileToWorld(darkroom.tile) : { x: 0, y: 0, z: 0 };
     for (const story of printing) {
       // verified → plated → printed in one tick. Yields land at the plated step
       // and freeze there per ICD-05 §Notes.
@@ -643,6 +662,9 @@ export class World {
       story.ink_cost = inkCostFor(story);
       story.state = 'printed';
       story.printed_in = this.cycle.edition;
+      // 0.10.2 (C-07): FxEvent emit. ICD-01 v0.6 §FxEvent — `print` carries
+      // the edition number for the renderer's paper-page sprite cue.
+      this.effects.push({ kind: 'print', at: printAnchor, edition: this.cycle.edition });
     }
 
     const summary = this._buildEditionSummary(printing);
@@ -774,6 +796,10 @@ export class World {
         lead.picked_up_by = u.id;
         u.carrying = 'lead';
         u.carryingStoryId = lead.id;
+        // 0.10.2 (C-07): FxEvent emit. ICD-01 v0.6 §FxEvent — `pickup`
+        // carries the world-space tile anchor + story_id so the SFX layer
+        // can correlate. Drained queue: this.effects.splice(0) at snapshot.
+        this.effects.push({ kind: 'pickup', at: tileToWorld(u.tile), story_id: lead.id });
       }
       return;
     }
@@ -830,6 +856,10 @@ export class World {
           story.verified_by = u.id;
           story.held_by_building = darkroom.id;
           story.picked_up_by = null;
+          // 0.10.2 (C-07): FxEvent emit. ICD-01 v0.6 §FxEvent — `verify`
+          // carries the photog's tile + story_id. The renderer renders the
+          // camera-flash at the photog's position, not the darkroom's.
+          this.effects.push({ kind: 'verify', at: tileToWorld(u.tile), story_id: story.id });
         }
         u.carrying = null;
         u.carryingStoryId = null;
@@ -844,6 +874,16 @@ export class World {
     const storyCount = this.stories.filter(
       (s) => s.state === 'verified' || s.state === 'plated',
     ).length;
+    // 0.10.2 (C-06 + D-09): continuous rain/fog ramps derived from the
+    // cycle clock — see ICD-01 v0.6.2 §Notes. Rain intensity sits at 1
+    // and climbs to 2 across the last 30 s of the edition (audit C-06).
+    // Fog `near` pulls from 22 in to 14 across the last 60 s (audit D-09).
+    // Both clamp to baseline when the debrief panel pauses the cycle.
+    const remaining = this.cycle.remainingMs;
+    const rainPhase = Math.max(0, Math.min(1, (30000 - remaining) / 30000));
+    const fogPhase  = Math.max(0, Math.min(1, (60000 - remaining) / 60000));
+    const rainIntensity = 1 + rainPhase;            // 1 → 2
+    const fogNear       = 22 - 8 * fogPhase;        // 22 → 14
     return {
       cameraTarget: { x: 0, y: 0, z: 0 },
       buildings: this.buildings.map(buildingView),
@@ -854,8 +894,8 @@ export class World {
       // type is owned by ICD-02 — id/state/posture today; the dossier
       // Threats card reads this to render "Evening Star: scheming".
       rivals: this.rivals.map((r) => ({ id: r.id, state: r.state, posture: r.posture })),
-      rain: { intensity: 1 },
-      fog: { near: 22, far: 60, color: 0xc8c4bc },
+      rain: { intensity: rainIntensity },
+      fog: { near: fogNear, far: 60, color: 0xc8c4bc },
       hud: {
         edition: this.cycle.edition,
         deadline_ms: this.cycle.remainingMs,

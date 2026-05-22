@@ -11,7 +11,13 @@ import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { TILE } from '../sim/world-state.js';
 
 const FRUSTUM = 22;
+// 0.10.2 (C-06): baseline rain count is 600 lines per Design Doc §15 / the
+// 0.1 lift. The deadline ramp scales the draw-range up by `frame.rain.intensity`
+// (1 → 2 across the last 30 s), capped at 1500 lines. We allocate the full
+// 1500-line buffer once at boot so the ramp is a draw-range tweak, not a
+// geometry reallocation.
 const RAIN_COUNT = 600;
+const RAIN_MAX = 1500;
 
 // 0.10.1 (G-07): Block zoom step is the close-in counterpart to the City
 // frustum. Design Doc §12 "two steps: City (frustum ≈22) and Block (frustum
@@ -71,6 +77,19 @@ export class Renderer {
     this.unitMeshes = new Map();     // id → { group, interp:{prev,curr,tickStart,tickDur} }
     this.leadMeshes = new Map();     // id → THREE.Group  (0.3 LeadView)
 
+    // 0.10.2 (C-07): ephemeral FX mesh tracking. Each active effect carries
+    // its mesh, spawn time, ttl, and (optionally) anchor offset so _stepFx
+    // can animate it. Pool is unbounded but TTLs are short (200–1000 ms);
+    // the active set rarely exceeds ~10 in practice. ICD-01 v0.6 §FxEvent —
+    // renderer owns the visual lifetime; sim queue is drained-once.
+    this._fxActive = [];
+
+    // 0.10.2 (D-09): lit-window state. Each entry is { mesh, lit, nextFlipMs };
+    // the flicker tick toggles `lit` on a 5–15 s random period to keep ~40%
+    // of windows lit at any moment. Built lazily during _syncBuildings the
+    // first time each building is mounted.
+    this._windows = [];
+
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this.raycaster = new THREE.Raycaster();
 
@@ -104,7 +123,22 @@ export class Renderer {
     this._syncBuildings(frame.buildings);
     this._syncUnits(frame.units, alpha);
     this._syncLeads(frame.leads);
-    this._stepRain();
+    // 0.10.2 (D-09): fog.near is now sim-driven (ramp 22 → 14 over last 60 s).
+    // ICD-01 v0.6.2 §Notes — the ramp lives in World.snapshot(); the renderer
+    // just lifts the value onto the THREE.Fog uniform every frame.
+    if (frame.fog) {
+      this.scene.fog.near = frame.fog.near;
+      this.scene.fog.far = frame.fog.far;
+    }
+    // 0.10.2 (C-06): rain intensity is now sim-driven (ramp 1 → 2 over last 30 s).
+    this._stepRain(frame.rain?.intensity ?? 1);
+    // 0.10.2 (D-09): per-frame window flicker tick.
+    this._stepWindowFlicker(performance.now());
+    // 0.10.2 (C-07): drain WorldFrame.effects and spawn ephemeral FX meshes
+    // for the six FxEvent kinds. ICD-01 v0.6 §Notes — drained queue, lifetime
+    // one frame on the producer side; the renderer owns each effect's TTL.
+    if (frame.effects && frame.effects.length > 0) this._consumeEffects(frame.effects);
+    this._stepFx(performance.now());
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -186,6 +220,9 @@ export class Renderer {
         g = buildBuildingMesh(this.gradient, b.kind);
         this.buildingMeshes.set(b.id, g);
         this.scene.add(g);
+        // 0.10.2 (D-09): attach lit windows as children of each building group
+        // the first time it's mounted. Subsequent frames just translate.
+        this._attachWindows(g, b.kind);
       }
       g.position.set(b.pos.x, b.pos.y, b.pos.z);
     }
@@ -270,10 +307,13 @@ export class Renderer {
   }
 
   _buildRain() {
+    // 0.10.2 (C-06): allocate the full ramp-cap pool (1500 lines) at boot so
+    // the per-frame intensity ramp is a draw-range tweak. Baseline visible
+    // count is RAIN_COUNT (600); the deadline ramp scales up to RAIN_MAX.
     this.rainGeo = new THREE.BufferGeometry();
-    const rainPos = new Float32Array(RAIN_COUNT * 6);
-    this.rainVel = new Float32Array(RAIN_COUNT);
-    for (let i = 0; i < RAIN_COUNT; i++) {
+    const rainPos = new Float32Array(RAIN_MAX * 6);
+    this.rainVel = new Float32Array(RAIN_MAX);
+    for (let i = 0; i < RAIN_MAX; i++) {
       const x = (Math.random() - 0.5) * 60;
       const z = (Math.random() - 0.5) * 60;
       const y = Math.random() * 25;
@@ -286,18 +326,24 @@ export class Renderer {
       this.rainVel[i] = 0.5 + Math.random() * 0.4;
     }
     this.rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+    this.rainGeo.setDrawRange(0, RAIN_COUNT * 2); // *2 because each line = 2 vertices
     const rainMat = new THREE.LineBasicMaterial({ color: 0x6b6864, transparent: true, opacity: 0.55 });
     this.scene.add(new THREE.LineSegments(this.rainGeo, rainMat));
     this._lastRainTime = performance.now();
   }
 
-  _stepRain() {
+  _stepRain(intensity = 1) {
     const now = performance.now();
     const dt = Math.min(0.05, (now - this._lastRainTime) / 1000);
     this._lastRainTime = now;
+    // Scale visible line count by intensity, capped at RAIN_MAX (Design Doc §15).
+    const visibleLines = Math.max(0, Math.min(RAIN_MAX, Math.round(RAIN_COUNT * intensity)));
+    this.rainGeo.setDrawRange(0, visibleLines * 2);
     const posAttr = this.rainGeo.getAttribute('position');
     const arr = posAttr.array;
-    for (let i = 0; i < RAIN_COUNT; i++) {
+    // Only step the visible lines — off-screen lines stay put and rejoin
+    // the simulation when the ramp re-includes them.
+    for (let i = 0; i < visibleLines; i++) {
       arr[i * 6 + 1] -= this.rainVel[i] * 18 * dt;
       arr[i * 6 + 4] -= this.rainVel[i] * 18 * dt;
       if (arr[i * 6 + 4] < 0) {
@@ -307,6 +353,88 @@ export class Renderer {
       }
     }
     posAttr.needsUpdate = true;
+  }
+
+  // 0.10.2 (C-07): drain FxEvents into ephemeral meshes. ICD-01 v0.6 §FxEvent
+  // — six kinds, each anchored at `at: Vec3`. Visuals are deliberately
+  // minimal noir-palette beats; the audio cues authored at ICD-07 land later.
+  _consumeEffects(events) {
+    const now = performance.now();
+    for (const ev of events) {
+      const at = ev.at ?? { x: 0, y: 0, z: 0 };
+      if (ev.kind === 'pickup') this._spawnFx(buildPickupRing(),  at, now, 220, 'pickup');
+      else if (ev.kind === 'verify') this._spawnFx(buildVerifyFlash(),   at, now, 320, 'verify');
+      else if (ev.kind === 'print')  this._spawnFx(buildPrintSprite(),   at, now, 850, 'print');
+      else if (ev.kind === 'death')  this._spawnFx(buildDeathCross(),    at, now, 420, 'death');
+      else if (ev.kind === 'raid_warning') this._spawnFx(buildRaidWarning(), at, now, 1000, 'raid_warning');
+      // `flash` is reserved for future co-emit with `verify` — no Tier-0 visual.
+    }
+  }
+
+  _spawnFx(mesh, at, nowMs, ttlMs, kind) {
+    mesh.position.set(at.x, at.y ?? 0, at.z);
+    this.scene.add(mesh);
+    this._fxActive.push({ mesh, kind, spawnedMs: nowMs, ttlMs });
+  }
+
+  // Per-frame FX animation tick. Each kind interprets `t ∈ [0,1]` as the
+  // normalized lifetime (0 at spawn, 1 at expiry). At t≥1 the mesh is
+  // disposed and removed from the scene. Kept inline (not pooled) — TTLs
+  // are short enough that GC churn is negligible vs. the cost of pooling.
+  _stepFx(nowMs) {
+    if (this._fxActive.length === 0) return;
+    const survivors = [];
+    for (const entry of this._fxActive) {
+      const t = (nowMs - entry.spawnedMs) / entry.ttlMs;
+      if (t >= 1) {
+        this.scene.remove(entry.mesh);
+        disposeMesh(entry.mesh);
+        continue;
+      }
+      animateFx(entry, t);
+      survivors.push(entry);
+    }
+    this._fxActive = survivors;
+  }
+
+  // 0.10.2 (D-09): per-frame window flicker tick. Each window is independent;
+  // its visibility toggles on a random schedule so the building reads as
+  // "lights on inside" without a synchronized pulse. Convergence is ~40% lit
+  // at any moment (lit holds: 4–8 s; dark holds: 8–14 s).
+  _stepWindowFlicker(nowMs) {
+    for (const w of this._windows) {
+      if (nowMs >= w.nextFlipMs) {
+        w.lit = !w.lit;
+        w.mesh.visible = w.lit;
+        const holdMs = w.lit ? (4000 + Math.random() * 4000) : (8000 + Math.random() * 6000);
+        w.nextFlipMs = nowMs + holdMs;
+      }
+    }
+  }
+
+  _attachWindows(group, kind) {
+    // Per-building window placement. Each kind has 4 windows on its facade —
+    // small emissive quads at fixed offsets, child of the building group so
+    // they translate together. MeshBasicMaterial (no light reaction) reads
+    // as a self-lit panel against the toon-shaded body.
+    const layout = WINDOW_LAYOUTS[kind] ?? WINDOW_LAYOUTS.bureau;
+    const now = performance.now();
+    for (const [wx, wy, wz, ry] of layout) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xf6c860 });
+      const mesh = new THREE.Mesh(WINDOW_GEO, mat);
+      mesh.position.set(wx, wy, wz);
+      mesh.rotation.y = ry;
+      group.add(mesh);
+      // Initial lit state random so a fresh load doesn't show a synchronized
+      // first-frame all-on; staggered initial flip times achieve the same.
+      const lit = Math.random() < 0.4;
+      mesh.visible = lit;
+      this._windows.push({
+        mesh,
+        lit,
+        nextFlipMs: now + (lit ? 4000 + Math.random() * 4000 : 8000 + Math.random() * 6000),
+      });
+    }
   }
 
   _buildSelectionRing() {
@@ -598,4 +726,157 @@ function buildFixerMesh(gradient) {
   group.add(kerchief);
   group.add(makeSelectRing());
   return group;
+}
+
+// 0.10.2 (D-09): shared window geometry — small upright rectangles attached
+// to each building. Per-kind placement is in WINDOW_LAYOUTS. Materials are
+// MeshBasicMaterial (self-lit) so they read against fog regardless of light
+// direction. Outline lines would distract — bare quads only.
+const WINDOW_GEO = new THREE.PlaneGeometry(0.45, 0.55);
+
+// Tuples are [x, y, z, rotationY]. Y is local to the building group; the
+// building's body sits at varying heights so we hand-tune per kind.
+const WINDOW_LAYOUTS = {
+  bureau: [
+    [-1.3, 1.6, 2.26, 0],
+    [ 1.3, 1.6, 2.26, 0],
+    [-1.3, 2.7, 2.26, 0],
+    [ 1.3, 2.7, 2.26, 0],
+    [-2.26, 1.6, 0,  Math.PI / 2],
+    [-2.26, 2.7, 0,  Math.PI / 2],
+  ],
+  branch_bureau: [
+    [-0.9, 1.4, 1.61, 0],
+    [ 0.9, 1.4, 1.61, 0],
+    [-1.61, 1.4, 0,  Math.PI / 2],
+    [ 1.61, 1.4, 0,  Math.PI / 2],
+  ],
+  darkroom: [
+    // Darkroom has no big windows by design (it's a darkroom) — just one
+    // tiny safelight slit on each visible face.
+    [-1.2, 1.0, 2.11, 0],
+    [ 1.2, 1.0, 2.11, 0],
+    [-2.11, 1.0, 0,  Math.PI / 2],
+    [ 2.11, 1.0, 0,  Math.PI / 2],
+  ],
+};
+
+// 0.10.2 (C-07): FxEvent visual builders. Each returns a mesh ready to be
+// added to the scene at the emit's world-space anchor. Lifetimes are short
+// (200–1000 ms) and `animateFx` interprets `t ∈ [0,1]` per kind.
+
+function buildPickupRing() {
+  const geo = new THREE.RingGeometry(0.4, 0.6, 24);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xfff2c2, side: THREE.DoubleSide, transparent: true, opacity: 0.95,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.05;
+  return mesh;
+}
+
+function buildVerifyFlash() {
+  const geo = new THREE.PlaneGeometry(2.4, 2.4);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 1.0,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 1.2;
+  return mesh;
+}
+
+function buildPrintSprite() {
+  // White paper page that rises and scales — reads as "the front page just
+  // came off the press" hovering above the Darkroom.
+  const group = new THREE.Group();
+  const geo = new THREE.PlaneGeometry(1.0, 1.4);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xf3eee2, side: THREE.DoubleSide, transparent: true, opacity: 0.95,
+  });
+  const page = new THREE.Mesh(geo, mat);
+  page.position.y = 2.8;
+  // Subtle masthead bar so the page reads as "newspaper", not "blank rectangle".
+  const bar = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.85, 0.12),
+    new THREE.MeshBasicMaterial({ color: 0x141414, transparent: true, opacity: 0.95 }),
+  );
+  bar.position.set(0, 3.35, 0.01);
+  group.add(page);
+  group.add(bar);
+  return group;
+}
+
+function buildDeathCross() {
+  // Two crossed dark-red bars, lying flat on the ground at the death tile.
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0x8a1a1a, transparent: true, opacity: 0.95 });
+  const a = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.18), mat);
+  a.position.y = 0.05;
+  a.rotation.y = Math.PI / 4;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.18), mat);
+  b.position.y = 0.05;
+  b.rotation.y = -Math.PI / 4;
+  group.add(a);
+  group.add(b);
+  return group;
+}
+
+function buildRaidWarning() {
+  // Red exclamation: a vertical bar with a dot below, hovering over the
+  // raid's spawn tile. Pulses opacity over its 1-second lifetime.
+  const group = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0xc0212a, transparent: true, opacity: 0.95 });
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.2, 0.25), mat);
+  bar.position.y = 2.5;
+  const dot = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat);
+  dot.position.y = 1.6;
+  group.add(bar);
+  group.add(dot);
+  return group;
+}
+
+// 0.10.2 (C-07): animate one ephemeral FX mesh. `t` is the normalized
+// lifetime (0 at spawn, 1 at expiry). Each kind has its own beat — the
+// shared rule is "rises, expands, and fades."
+function animateFx(entry, t) {
+  const mesh = entry.mesh;
+  if (entry.kind === 'pickup') {
+    const scale = 1 + t * 2;
+    mesh.scale.set(scale, scale, scale);
+    setOpacity(mesh, 0.95 * (1 - t));
+  } else if (entry.kind === 'verify') {
+    // Bright snap → fast fade. Inverse-curve fade so the first 30% reads
+    // as "instant flash", the rest as decay.
+    setOpacity(mesh, 1.0 - Math.pow(t, 0.4));
+  } else if (entry.kind === 'print') {
+    // Rise + grow + fade out at the end.
+    const scale = 0.6 + t * 0.8;
+    mesh.scale.set(scale, scale, scale);
+    mesh.position.y = (entry.basePosY ?? 0) + t * 1.5;
+    setOpacity(mesh, t > 0.7 ? (1 - (t - 0.7) / 0.3) * 0.95 : 0.95);
+  } else if (entry.kind === 'death') {
+    setOpacity(mesh, 0.95 * (1 - t));
+  } else if (entry.kind === 'raid_warning') {
+    // Pulse: opacity oscillates twice over the lifetime.
+    const pulse = 0.5 + 0.5 * Math.cos(t * Math.PI * 4);
+    setOpacity(mesh, 0.4 + 0.55 * pulse);
+  }
+}
+
+function setOpacity(mesh, opacity) {
+  mesh.traverse((node) => {
+    if (node.material) node.material.opacity = opacity;
+  });
+}
+
+function disposeMesh(mesh) {
+  mesh.traverse((node) => {
+    if (node.geometry) node.geometry.dispose?.();
+    if (node.material) {
+      if (Array.isArray(node.material)) node.material.forEach((m) => m.dispose?.());
+      else node.material.dispose?.();
+    }
+  });
 }

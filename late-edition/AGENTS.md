@@ -51,6 +51,22 @@ working as designed, not a delay.
 
 ## Current state
 
+**v0.10.2 — PR-D visual feedback shipped.** The closing post-0.9 audit
+PR — rain ramp (C-06) · `WorldFrame.effects` wired end-to-end (C-07) ·
+newspaper-pages debrief (D-07) · lit windows + fog ramp (D-09). Five sim
+emit sites push `FxEvent`s into the drained queue authored at ICD-01 v0.6;
+renderer drains and spawns ephemeral FX meshes. ICD-01 → v0.6.2 (Constraint
+#4 in-PR bump — `rain.intensity` range-comment widen; no shape change).
+Tests at 199 cases (179 → 199). Tier-0 audit PR sequence A → B → C → D
+fully landed. Closes Gitea issue #299.
+
+**Next: Tier-0 → Tier-1 re-eval** (paper + code-aware) — the fourth and
+final re-eval in the original plan. Promotes the arc framework to strong,
+tightens Herald + Observer specs, authors ICDs 08+ for branch bureaus,
+switchboard, and archive.
+
+---
+
 **v0.9.2 — RE-EVAL after 0.9 (paper + code-aware).** Third re-eval in
 the Tier-0 plan, alongside [`architecture/re-eval-after-0.3.md`](architecture/re-eval-after-0.3.md)
 and [`architecture/re-eval-after-0.6.md`](architecture/re-eval-after-0.6.md).

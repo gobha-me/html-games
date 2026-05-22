@@ -34,7 +34,7 @@ definitions.
 | **PRE-0.10** | Author **ICD-01 v0.6** (`UnitView.stats` · `LeadView.district` · `WorldFrame.rivals: RivalStatusView[]` · `FxEvent` union) + **ICD-06 v0.4** (30 s minimum debrief wording per Design Doc §19) + **ICD-07 v0.1** (audio bus, new — channel vocabulary + ducking rules + press-silence beat) — *shipped v0.9.4* | Architecture session · paper-only · gates milestone 0.10 · also carries the HUD corkboard medium → strong band promotion (overview line 45) | strong |
 | **0.10.0** | Tier-0 closer — substrate · lead-spawn engine (C-04) · districts as data (G-04) · Branch Bureau (G-01) · slot-grammar headlines (G-05) · run-end summary + high-score persistence (G-13) — *shipped v0.10.0* | First half of the 0.10 closer per the authorized split (0.7 precedent). ICD-01 → v0.6.1 (BuildingKind widens for `'branch_bureau'`); ICD-04 → v0.1.1 (rng_seed semantics + lead_spawner + run_stats + scores key). Tests at 159 cases (124 → 159). | strong |
 | **0.10.1** | Tier-0 closer — onboarding · diegetic tutorial (G-09) · minimum control surface (WASD pan + Block zoom + slow-mo) (G-07) | Second half of the 0.10 closer. Tutorial copy references the new controls — coupled scope. No ICD bumps expected. | strong |
-| **0.10.x** | Visual feedback · rain ramp at deadline (C-06) · `WorldFrame.effects` wired end-to-end (C-07) · debrief panel as newspaper pages (D-07) · lit windows + fog-on-deadline (D-09) | Renderer-side polish on `FxEvent` contract from PRE-0.10 · post-0.10 | strong |
+| **0.10.2** | Visual feedback · rain ramp at deadline (C-06) · `WorldFrame.effects` wired end-to-end (C-07) · debrief panel as newspaper pages (D-07) · lit windows + fog-on-deadline (D-09) — *shipped v0.10.2* | PR-D from the post-0.9 re-eval. ICD-01 → v0.6.2 (`rain.intensity` range-comment widen; no shape change). Tests at 199 cases (179 → 199). Closes Gitea #299. | strong |
 | **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 08+ for branch bureaus, switchboard, archive. | re-eval |
 
 13 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10.x reserved for
@@ -120,10 +120,29 @@ tutorial beat is derived per-frame from existing WorldFrame fields. No
 ICD bumps as forecast. Tests at 179 cases (159 → 179; new
 `tutorial.test.mjs` + `slow-mo.test.mjs`).
 
-Next: **PR-D (0.10.x visual feedback)** lights up the `FxEvent`
-producers + consumers authored at PRE-0.10, the rain ramp at deadline,
-the newspaper-pages debrief layout, and the lit-windows + fog-on-deadline
-beats. Tracked as Gitea issue #299.
+**Milestone 0.10.2 — shipped (v0.10.2).** PR-D visual feedback. C-06
+rain ramp · C-07 `WorldFrame.effects` end-to-end (`pickup` · `verify` ·
+`print` · `death` · `raid_warning`) · D-07 debrief as newspaper pages
+with slap-down animation · D-09 lit windows (per-building emissive
+quads with 4–14 s random flicker → ~40% lit) + fog `near` ramp 22 → 14
+across the last 60 s. Five sim emit sites total; renderer drains the
+queue and spawns ephemeral noir-palette FX meshes (TTLs 200–1000 ms,
+disposed in place). Boot-time rain buffer sized to the 1500-line cap so
+the ramp is a `setDrawRange` tweak, not a reallocation. ICD-01 → v0.6.2
+(Constraint #4 in-PR bump — `rain.intensity` range comment widened from
+`0-1` to `0+ unbounded; 1 = baseline, ~2 at deadline`; §Notes paragraph
+pins both ramps as sim-side computations from `cycle.remainingMs`, not
+new `CycleEvent` kinds). Tests at 199 cases (179 → 199; new
+`effects-pickup-verify.test.mjs` · `effects-print.test.mjs` ·
+`effects-death-raid.test.mjs` · `rain-ramp.test.mjs` ·
+`fog-ramp.test.mjs`). Closes Gitea issue #299. Tier-0 audit (post-0.9)
+PR sequence A → B → C → D fully landed.
+
+Next: **Tier-0 → Tier-1 re-eval** (paper + code-aware) — fourth re-eval
+in the project plan, mirroring the post-0.3 / post-0.6 / post-0.9
+sessions. Promotes the arc framework to strong, tightens Herald +
+Observer specs, and authors ICDs 08+ for branch bureaus, switchboard,
+and archive.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -315,6 +334,21 @@ beats. Tracked as Gitea issue #299.
       (`rng_seed` carries live PRNG state; `lead_spawner` + `run_stats`
       blocks; `'late-edition.scores.v1'` key with `HighScoreBlobV1`).
       Tests at 159 cases (124 → 159).
+- [x] **Milestone 0.10.2** — PR-D visual feedback. Rain ramp (C-06)
+      `frame.rain.intensity` 1 → 2 across the last 30 s · `WorldFrame.effects`
+      end-to-end (C-07) with five sim emit sites (`pickup` on reporter
+      arrival on a lead · `verify` on photog drop at Darkroom · `print`
+      per admitted story at `DEADLINE_FIRE` · `death` on goon/fixer prune
+      · `raid_warning` once per RAID_BUREAU intent) and renderer-side
+      ephemeral FX meshes (yellow ring · white camera-flash · rising
+      newspaper sprite · red X · pulsing exclamation) · debrief panel as
+      newspaper pages (D-07) with masthead + two-column grid + drop caps
+      + slap-down keyframe · lit windows (D-09) instanced emissive quads
+      with random 4–14 s flicker + fog `near` ramp 22 → 14 across the
+      last 60 s. Boot-time rain buffer sized to the 1500-line cap (Design
+      Doc §15) so the ramp is a `setDrawRange` tweak. ICD-01 → v0.6.2
+      (range-comment widen; no shape change). Tests at 199 cases (179 →
+      199; new effects + ramp test files). Closes Gitea issue #299.
 - [x] **Milestone 0.10.1** — Onboarding. G-07 minimum control surface
       (WASD pan + `[`/`]` Block zoom + Space slow-mo per Design Doc §12
       + §19) and G-09 diegetic tutorial (four-note spine — "send a
