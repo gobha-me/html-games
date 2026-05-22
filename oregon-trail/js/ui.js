@@ -463,6 +463,16 @@ function renderDecisionPanel() {
     DOM.actionOptions.appendChild(btn);
   });
   
+  // Disable/enable decision group buttons based on game state
+  const decisionGroups = [DOM.paceOptions, DOM.rationOptions, DOM.actionOptions];
+  decisionGroups.forEach(group => {
+    if (gameState.gameOver) {
+      group.classList.add('disabled');
+    } else {
+      group.classList.remove('disabled');
+    }
+  });
+  
   // Update Next Day button state
   if (gameState.gameOver) {
     DOM.nextDayBtn.disabled = true;

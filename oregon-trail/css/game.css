@@ -288,6 +288,14 @@
   font-weight: bold;
 }
 
+/* Disabled decision group (game over) */
+.decision-group.disabled .option-btn {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+
 /* Next Day Button */
 .next-day-btn {
   display: block;
