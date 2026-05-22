@@ -8,6 +8,35 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v1.0.1 — Tier-1 opener · Archive UI + projectors + debrief gate.**
+Second half of the Tier-1 opener split (issue #317; 1.0.0 / 1.0.1
+precedent followed from 0.7 / 0.10). Four deliverables land here:
+(1) **Archive UI** (ICD-09) — `World.toggleArchive(storyId)` admits the
+fifth `Story.state` value `'archived'` with the medium-band
+`ARCHIVE_CAP = 5` cap rule + `ARCHIVE_DECAY_EDITIONS = 10` cold-news
+decay at `EDITION_DEBRIEF_END`; the dossier "Story queue" panel grows
+per-story rows + a `verified: N · archived: M/5` summary line; left-
+click on a row toggles state (ICD-09 v0.1.1 §Open Q1 close).
+(2) **`UnitView.stats` projector** for Reporters — the v0.6.3 *authored-
+but-deferred-projection* slot wires; the §13 Selected dossier shows
+*Nerve 6 · Nose 8 · Legs 4* on the Reporter row.
+(3) **`LeadView.district` projector read** — the dossier per-row
+rendering now consumes the district name (already lifted at
+[`js/sim/world-state.js:leadView`](js/sim/world-state.js) in the 0.10.0
+substrate); each Story-queue row reads *Headline · flavor · district*.
+(4) **30 s minimum debrief gate** (ICD-06 v0.4 §Cycle timing · audit
+C-05) — clicks within the first 30 s of the debrief are no-ops; the
+dismiss caption counts down via a panel-owned `requestAnimationFrame`
+loop. Save schema bumps v1.1 → v1.2 via `migrate_1_1_to_1_2`
+(pass-through; both new persisted fields are optional). **ICD bumps
+in-PR (Constraint #4):** ICD-01 v0.6.4 → v0.6.5 (`WorldFrame.stories` +
+`UnitView.stats` projector + `HudState.resources.archived`); ICD-04
+v0.1.2 → v0.1.3 (`StorySnap.state` widens · `archived_at_ms?` ·
+`UnitSnap.stats?` · `migrate_1_1_to_1_2`); ICD-05 v0.4.1 → v0.4.2
+(§Notes cross-reference to ICD-09); ICD-09 v0.1 → v0.1.1 (§Open Q1
+close). Tests at 281 cases (257 → 281). Closes Gitea issue #317. See
+[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+
 **v1.0.0 — Tier-1 opener · adversarial substrate (Herald + Observer
 + Switchboard).** First Tier-1 code session. The rival triangle
 completes: Herald lifts the IDLE | COURT | WIRED state-machine bodies

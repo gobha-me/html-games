@@ -101,6 +101,11 @@ export const SWITCHBOARD_TILE = { x: 3, y: 3 };   // 1.0.0 (ICD-08): NW-of-Burea
 export const SWITCHBOARD_HP = 30;                 // 1.0.0 defensive shape; no damage source targets the Switchboard at 1.0.0.
 export const SWITCHBOARD_LOS_RADIUS = 6;          // ICD-08 §LoS rect shape — ±6 axis-aligned (medium-band).
 export const BUREAU_REVEAL_RADIUS = 1;            // ICD-08 §Visibility projection rule — defensive default (Chebyshev ≤ 1 to any Bureau-family building).
+// 1.0.1 (ICD-09 v0.1): archive cap + cold-news decay. Both medium-band — playtest moves them.
+// Cap-full rejects the verified→archived transition (gesture silent at v0.1).
+// Decay culls archived stories at EDITION_DEBRIEF_END when editions_in_archive ≥ N (flips to 'printed' with zero yields).
+export const ARCHIVE_CAP = 5;                     // medium-band — ICD-09 §HUD surface
+export const ARCHIVE_DECAY_EDITIONS = 10;         // medium-band — ICD-09 §Effects on adjacent contracts (cold-news rule)
 
 // At 0.5 the print pipeline closes with no Editor unit yet — the verified →
 // plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
@@ -207,8 +212,14 @@ export class World {
     // unit stats table). The fields are sim-internal only — UnitView intentionally
     // omits them at 0.9.3; the stat-badge surface lands at ICD-01 v0.6 in PRE-0.10.
     // makeUnit threads `extras` straight into the unit object.
+    // 1.0.1 (ICD-01 v0.6 §UnitView.stats): the Reporter trio (Design Doc §08
+    // "three substats: nerve · nose · legs"; §13 mock — "Nerve 6 · Nose 8 ·
+    // Legs 4"). Medium-band starter values shared across all reporters at
+    // Tier-0; named reporters with rolled stats stay Tier-1.x. Non-reporter
+    // kinds carry no `stats` field on the Unit record — the projection
+    // naturally produces `stats: undefined` per the ICD-01 contract.
     this.units = [
-      makeUnit(mkId('u'), 'reporter', reporterStart,            { hp: 2, hp_max: 2 }),
+      makeUnit(mkId('u'), 'reporter', reporterStart,            { hp: 2, hp_max: 2, stats: { nerve: 6, nose: 8, legs: 4 } }),
       makeUnit(mkId('u'), 'photog',   photogStart,              { hp: 1, hp_max: 1 }),
       // 0.7.0: Fixer spawns east of Bureau. Walk 3.0 u/s (Design Doc §17).
       // One static fixer at 0.7 — hire cost is fuzzy until the economy buys it.
@@ -394,6 +405,43 @@ export class World {
     unit.pathIdx = 0;
     unit.state = unit.carrying ? 'carrying' : 'walking';
     return true;
+  }
+
+  // 1.0.1 (ICD-09 v0.1.1) — Archive UI player gesture. Toggles a story
+  // between 'verified' and 'archived' at the Darkroom. The gesture is
+  // player-initiated only (no rival action moves stories into / out of
+  // archive); the dossier wires this through the per-story row click
+  // listener in hud.js. Caps + decay-anchor enforced here so the HUD stays
+  // a projection-only read.
+  //
+  //   verified → archived: rejects if !at-Darkroom or cap is full.
+  //                        On success: stamps archived_at_ms = sim_time_ms,
+  //                        held_by_building unchanged (stays at Darkroom).
+  //   archived → verified: clears archived_at_ms. Story re-enters the
+  //                        ink-budget walk at next DEADLINE_FIRE.
+  //
+  // Returns { ok, reason? } so future toast UX can surface cap-full; at
+  // v0.1 the reject is silent per ICD-09 §HUD surface.
+  toggleArchive(storyId) {
+    const story = this.stories.find((s) => s.id === storyId);
+    if (!story) return { ok: false, reason: 'not_found' };
+    const darkroom = this.buildings.find((b) => b.kind === 'darkroom');
+    if (!darkroom || story.held_by_building !== darkroom.id) {
+      return { ok: false, reason: 'not_at_darkroom' };
+    }
+    if (story.state === 'verified') {
+      const archivedCount = this.stories.filter((s) => s.state === 'archived').length;
+      if (archivedCount >= ARCHIVE_CAP) return { ok: false, reason: 'cap_full' };
+      story.state = 'archived';
+      story.archived_at_ms = this.sim_time_ms;
+      return { ok: true };
+    }
+    if (story.state === 'archived') {
+      story.state = 'verified';
+      delete story.archived_at_ms;
+      return { ok: true };
+    }
+    return { ok: false, reason: story.state === 'lead' ? 'not_verified' : 'not_archived' };
   }
 
   tick(dt) {
@@ -720,6 +768,10 @@ export class World {
     const darkroom = this.buildings.find((b) => b.kind === 'darkroom');
     const editor   = this.units.find((u) => u.kind === 'editor');
     const platedBy = editor ? editor.id : AUTO_PLATE_SENTINEL;
+    // 1.0.1 (ICD-09 §Effects on adjacent contracts): the ink-budget walk
+    // pins state === 'verified', so archived stories (held at the same
+    // Darkroom under state 'archived') are naturally excluded. Player must
+    // explicitly release archive → verified to re-enter plating.
     const verifiedStories = darkroom
       ? this.stories.filter((s) => s.state === 'verified' && s.held_by_building === darkroom.id)
       : [];
@@ -794,6 +846,25 @@ export class World {
     // as bureau.hp > 0 on the morning side of the deadline.
     const bureau = this._bureau();
     if (bureau && bureau.hp > 0) bureau.hp = bureau.hp_max;
+
+    // 1.0.1 (ICD-09 §Effects on adjacent contracts): cold-news decay. Walk the
+    // archive at EDITION_DEBRIEF_END; any story whose editions-in-archive has
+    // reached the medium-band cap flips to 'printed' with zero yields (the
+    // "the news goes cold" beat — design-doc.html §06 line 888). editionAtArchive
+    // is recovered from archived_at_ms via cycle.editionFromMs(). The story
+    // becomes inert through the same terminal state the print rule uses; an
+    // alternative sixth Story.state value 'expired' was rejected at v0.1 for scope.
+    for (const story of this.stories) {
+      if (story.state !== 'archived') continue;
+      const editionAtArchive = this.cycle.editionFromMs(story.archived_at_ms ?? this.sim_time_ms);
+      const editionsInArchive = this.cycle.edition - editionAtArchive;
+      if (editionsInArchive < ARCHIVE_DECAY_EDITIONS) continue;
+      story.state = 'printed';
+      story.cash_yield = 0;
+      story.heat_yield = 0;
+      story.printed_in = this.cycle.edition;
+      delete story.archived_at_ms;
+    }
 
     // 0.7.0: rivals tick their edition-boundary state (ICD-02 §Notes
     // "rival manages it from … EDITION_DEBRIEF_END callbacks").
@@ -993,6 +1064,20 @@ export class World {
     const storyCount = this.stories.filter(
       (s) => s.state === 'verified' || s.state === 'plated',
     ).length;
+    // 1.0.1 (ICD-09 §HUD surface · ICD-01 v0.6.5 §WorldFrame.stories): project
+    // every verified + archived story held at Darkroom as a per-row entry so
+    // the Story queue dossier can render headline + state chip and route the
+    // left-click toggle gesture through World.toggleArchive(id). Plated and
+    // printed stories don't appear here — plated is mid-edition transit;
+    // printed is terminal.
+    const darkroomId = this.buildings.find((b) => b.kind === 'darkroom')?.id ?? null;
+    const storyRows = this.stories
+      .filter((s) =>
+        (s.state === 'verified' || s.state === 'archived') &&
+        s.held_by_building === darkroomId,
+      )
+      .map((s) => storyQueueView(s));
+    const archivedCount = this.stories.filter((s) => s.state === 'archived').length;
     // 0.10.2 (C-06 + D-09): continuous rain/fog ramps derived from the
     // cycle clock — see ICD-01 v0.6.2 §Notes. Rain intensity sits at 1
     // and climbs to 2 across the last 30 s of the edition (audit C-06).
@@ -1013,6 +1098,9 @@ export class World {
       // is a pure projection at snapshot time.
       units: this.units.filter((u) => this._isUnitVisible(u)).map(unitView),
       leads,
+      // 1.0.1 (ICD-01 v0.6.5 §WorldFrame.stories): top-level per-story rows
+      // for the Story queue dossier (see storyQueueView above for filter).
+      stories: storyRows,
       // 0.10.0 (audit G-12 · ICD-01 v0.6 line 23): RivalStatusView[] as a
       // top-level WorldFrame field (not nested in `hud`). RivalStatusView
       // type is owned by ICD-02 — id/state/posture today; the dossier
@@ -1026,9 +1114,12 @@ export class World {
         // ICD-01 v0.5 §HudState. leads/stories are derived from the live state
         // (same lead filter as frame.leads; stories = verified+plated count).
         // ink/cash/heat read from the running balances accumulated at print.
+        // 1.0.1 (ICD-09 §HUD surface): archived sibling-count surfaces the
+        // medium-band cap to the Story queue header.
         resources: {
           leads: leads.length,
           stories: storyCount,
+          archived: archivedCount,
           ink: this.resources.ink,
           cash: this.resources.cash,
           heat: this.resources.heat,
@@ -1090,6 +1181,7 @@ function restoreUnit(u) {
   };
   if (u.hp !== undefined)     live.hp = u.hp;
   if (u.hp_max !== undefined) live.hp_max = u.hp_max;
+  if (u.stats !== undefined)  live.stats = { ...u.stats };   // 1.0.1 (ICD-01 v0.6 · ICD-04 v0.1.3)
   return live;
 }
 
@@ -1108,13 +1200,14 @@ function restoreStory(s) {
     picked_up_by: s.picked_up_by,
     held_by_building: s.held_by_building,
   };
-  if (s.headline !== undefined)    live.headline = s.headline;
-  if (s.verified_by !== undefined) live.verified_by = s.verified_by;
-  if (s.plated_by !== undefined)   live.plated_by = s.plated_by;
-  if (s.printed_in !== undefined)  live.printed_in = s.printed_in;
-  if (s.cash_yield !== undefined)  live.cash_yield = s.cash_yield;
-  if (s.heat_yield !== undefined)  live.heat_yield = s.heat_yield;
-  if (s.ink_cost !== undefined)    live.ink_cost = s.ink_cost;
+  if (s.headline !== undefined)        live.headline = s.headline;
+  if (s.verified_by !== undefined)     live.verified_by = s.verified_by;
+  if (s.plated_by !== undefined)       live.plated_by = s.plated_by;
+  if (s.printed_in !== undefined)      live.printed_in = s.printed_in;
+  if (s.cash_yield !== undefined)      live.cash_yield = s.cash_yield;
+  if (s.heat_yield !== undefined)      live.heat_yield = s.heat_yield;
+  if (s.ink_cost !== undefined)        live.ink_cost = s.ink_cost;
+  if (s.archived_at_ms !== undefined)  live.archived_at_ms = s.archived_at_ms;   // 1.0.1 (ICD-09 §Save surface)
   return live;
 }
 
@@ -1149,7 +1242,13 @@ function buildingView(b) {
 }
 
 function unitView(u) {
-  return {
+  // 1.0.1 (ICD-01 v0.6 §UnitView.stats projector): the field is `undefined`-
+  // allowed by the contract — non-Reporter kinds carry no `stats` on the Unit
+  // record, so `u.stats ?? undefined` projects clean. Object spread keeps
+  // the field omitted entirely when undefined so frame.units[i].hasOwnProperty
+  // ('stats') stays correct for the §13 mock's "no line for Photog/Editor/etc"
+  // rendering rule.
+  const view = {
     id: u.id,
     pos: { x: u.pos.x, y: u.pos.y, z: u.pos.z },
     facing: u.facing,
@@ -1158,6 +1257,8 @@ function unitView(u) {
     selected: u.selected,
     carrying: u.carrying,
   };
+  if (u.stats !== undefined) view.stats = { ...u.stats };
+  return view;
 }
 
 function leadView(s, simTime) {
@@ -1172,6 +1273,21 @@ function leadView(s, simTime) {
     // central Docks via districts.js.
     district: resolveDistrictId(s.district),
     age_ms: simTime - s.spawned_at_ms,
+  };
+}
+
+// 1.0.1 (ICD-01 v0.6.5 §WorldFrame.stories · ICD-09 §HUD surface). One row per
+// Story sitting at the Darkroom in 'verified' or 'archived' state. The
+// dossier reads `id` to route the left-click toggle gesture, `state` to
+// render the HOLD chip, and `headline / flavor / district` for the row caption.
+function storyQueueView(s) {
+  return {
+    id: s.id,
+    state: s.state,
+    headline: s.headline ?? `${s.flavor.toUpperCase()} ${s.tier.toUpperCase()} HITS WIRE`,
+    flavor: s.flavor,
+    tier: s.tier,
+    district: resolveDistrictId(s.district),
   };
 }
 

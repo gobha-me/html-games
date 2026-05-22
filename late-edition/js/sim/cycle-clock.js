@@ -28,6 +28,14 @@ export class CycleClock {
     return { kind: 'CYCLE_BEGIN', edition };
   }
 
+  // 1.0.1 (ICD-09 §Save surface) — derive the edition that contained a given
+  // sim_time_ms. Edition N occupies the half-open interval
+  // [(N-1)*editionDurationMs, N*editionDurationMs). The archive decay walk
+  // recovers editionAtArchive from Story.archived_at_ms via this helper.
+  editionFromMs(simTimeMs) {
+    return Math.floor(simTimeMs / this.editionDurationMs) + 1;
+  }
+
   // 0.8 (ICD-04 v0.1) — restore an existing clock from a CycleSnap. Bypasses
   // start() so the warning_fired / fire_fired guards survive the round-trip
   // and DEADLINE_WARNING / DEADLINE_FIRE don't double-emit on resume.

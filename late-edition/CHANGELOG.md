@@ -1,5 +1,114 @@
 # Changelog — Late Edition
 
+## v1.0.1 — 2026-05-22 — Tier-1 opener · Archive UI + projectors + debrief gate
+
+Second half of the Tier-1 opener split (issue #317). The four deliverables
+the 1.0.0 PR forecast all land here: Archive UI per ICD-09, the deferred
+`UnitView.stats` projector for the Reporter trio, the dossier read of the
+already-projected `LeadView.district`, and the 30 s minimum debrief gate
+per ICD-06 v0.4. Closes Gitea issue #317. Tests at 281 cases (257 → 281).
+
+### Added
+
+- [`js/sim/world-state.js`](js/sim/world-state.js) — `World.toggleArchive(storyId)`
+  player gesture (ICD-09 v0.1.1 §Open Q1 close). Returns `{ ok, reason? }`
+  with reasons `not_found · not_at_darkroom · cap_full · not_verified ·
+  not_archived`. `'archived'` is admitted as the fifth `Story.state` value
+  (ICD-05 v0.4.2 §Notes); optional `archived_at_ms` field stamps the
+  decay anchor. Two new constants exported: `ARCHIVE_CAP = 5` and
+  `ARCHIVE_DECAY_EDITIONS = 10` (both medium-band).
+- `World.snapshot()` adds top-level `frame.stories: StoryQueueView[]`
+  (ICD-01 v0.6.5 §StoryQueueView) — per-row projection of every verified
+  + archived story sitting at the Darkroom. Also surfaces
+  `frame.hud.resources.archived` (sibling count to `stories`).
+- `World.snapshot()` projects `UnitView.stats` for Reporter kinds (ICD-01
+  v0.6 §UnitView.stats — *"Nerve 6 · Nose 8 · Legs 4"* Design Doc §08 +
+  §13 mock). Non-reporter kinds project no `stats` field. Wires the
+  v0.6.3 §Notes *"authored-but-deferred-projection"* pattern's load-
+  bearing case.
+- Cold-news decay (ICD-09 §Effects on adjacent contracts). At
+  `EDITION_DEBRIEF_END` the archive walks once; any story whose
+  `cycle.edition - editionAtArchive >= ARCHIVE_DECAY_EDITIONS` flips to
+  `'printed'` with `cash_yield = 0` and `heat_yield = 0`. New helper
+  [`CycleClock.editionFromMs`](js/sim/cycle-clock.js) recovers the
+  edition-at-archive from the saved sim-time anchor (single-line:
+  `Math.floor(simTimeMs / editionDurationMs) + 1`).
+- [`js/hud.js`](js/hud.js) — `HudCorkboard` constructor accepts a second
+  `actions` arg `{ toggleArchive(storyId) }` so the HUD stays projection-
+  only. `Dossier` rewrites `_applyQueue` to render per-story rows with a
+  delegated click listener routing through `actions.toggleArchive`. The
+  Selected pane gets a `.stats` mono-numeral line driven by
+  `UnitView.stats`.
+- [`js/debrief-panel.js`](js/debrief-panel.js) — 30 s minimum-elapsed
+  clamp on the dismiss click (ICD-06 v0.4 §Cycle timing · audit C-05).
+  Constructor accepts an optional `{ clock }` injection for testing
+  without DOM. A `requestAnimationFrame` loop owned by the panel updates
+  the dismiss caption from *"click to continue in NNs"* → *"click to
+  continue →"* when the gate releases. `MIN_DEBRIEF_MS = 30_000` exported.
+- [`index.html`](index.html) — new `.story-row` rules in the dossier
+  region (plus `.is-archived` accent + `.chip.is-hold` pill); new
+  `.stats` rule for the Reporter trio line; new `.np-dismiss.is-gated`
+  rule muting the dismiss caption while the 30 s gate is live.
+- New tests at 281 cases (257 → 281):
+  [`tests/archive-transitions.test.mjs`](tests/archive-transitions.test.mjs)
+  (toggleArchive happy path · cap reject · not-at-darkroom · decay cull
+  · ink-budget exclusion · save round-trip · constant exports);
+  [`tests/debrief-gate.test.mjs`](tests/debrief-gate.test.mjs) (gate
+  pre/post 30 s · pre-mount + post-unmount no-ops · repeat clicks);
+  [`tests/unit-stats.test.mjs`](tests/unit-stats.test.mjs) (reporter
+  trio present · non-reporters omit `stats` · save round-trip ·
+  per-frame object identity). Extensions to
+  [`tests/world-frame.test.mjs`](tests/world-frame.test.mjs) for the
+  new top-level `stories` key + `UnitView.stats` core/optional shape;
+  updates to `print-cycle`, `resources`, and `save-load` tests for the
+  `hud.resources.archived` field and the version bump.
+
+### Changed
+
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md)
+  v0.6.4 → **v0.6.5**. Three additions: new `WorldFrame.stories:
+  StoryQueueView[]` (per-row projection for the Archive UI), wiring of
+  the v0.6 `UnitView.stats` projector (was authored-but-deferred per
+  v0.6.3 §Notes), and new `HudState.resources.archived` field. The
+  v0.6.3 pattern note stays since future authored-but-deferred fields
+  may reuse it. Constraint #4 in-PR.
+- [`icds/ICD-04-save-schema.md`](icds/ICD-04-save-schema.md) v0.1.2 →
+  **v0.1.3**. `StorySnap.state` union widens with `'archived'`; optional
+  `archived_at_ms` per record. Optional `UnitSnap.stats` per Reporter
+  record. In-blob `version` bumps from `"1.1"` to `"1.2"`. New pass-
+  through migration `migrate_1_1_to_1_2` stamps the version (both new
+  fields are optional, so pre-1.0.1 saves resume cleanly). Constraint
+  #4 in-PR.
+- [`icds/ICD-05-story-lifecycle.md`](icds/ICD-05-story-lifecycle.md)
+  v0.4.1 → **v0.4.2**. §Notes-only amendment: cross-reference to
+  ICD-09 for the fifth `Story.state` value and the two new transition
+  rows; documents the two ICD-05-boundary effects (ink-budget walk
+  state filter · cold-news decay rule). In-memory `Story` interface
+  unchanged byte-for-byte. Constraint #4 in-PR.
+- [`icds/ICD-09-archive.md`](icds/ICD-09-archive.md) v0.1 →
+  **v0.1.1**. §Open question (1) close: hold/release gesture wires as
+  **left-click on the per-story dossier row**. The other three §Open
+  questions (cap soft/hard, Darkroom destruction, Tier-III UI) stay
+  open. Constraint #4 in-PR.
+- [`js/sim/save.js`](js/sim/save.js) — `CURRENT_VERSION = '1.2'`;
+  `runMigrations` chains `1.0 → 1.1 → 1.2`. `unitSnap` writes
+  optional `stats`; `storySnap` writes optional `archived_at_ms`.
+  `_loadFromSnap` in `world-state.js` mirrors both fields back.
+- [`js/main.js`](js/main.js) — wires
+  `new HudCorkboard(hudRoots, { toggleArchive: (id) => world.toggleArchive(id) })`
+  to bridge the HUD's row-click gesture to the sim mutator.
+
+### Migration
+
+A pre-1.0.1 save (version `"1.0"` or `"1.1"`) loads via the chain
+`migrate_1_0_to_1_1 → migrate_1_1_to_1_2` — both new fields
+(`archived_at_ms` and `stats`) are optional, so the load path reads
+them via `??` fallback. Reporters loaded from a pre-1.0.1 blob have no
+stats until the construction-time seed runs (in practice the only
+reporter is the starter, so this only matters for synthetic test blobs).
+
+---
+
 ## v1.0.0 — 2026-05-22 — Tier-1 opener · adversarial substrate (Herald + Observer + Switchboard)
 
 First Tier-1 code session against the ten authored ICDs (01 v0.6.4 · 02

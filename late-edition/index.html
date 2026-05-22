@@ -239,6 +239,62 @@
     color: var(--mid);
     font-style: italic;
   }
+  /* 1.0.1 (ICD-09 v0.1.1): Reporter trio stats line in the Selected pane.
+     Mono numerals match the §13 mock ("Nerve 6 · Nose 8 · Legs 4"). */
+  #hud-dossier .panel .body .stats {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--ink);
+  }
+  /* 1.0.1 (ICD-09 v0.1.1): per-story rows in the Story queue panel. Left-
+     click on a row toggles verified ↔ archived. Compact two-line layout —
+     headline (serif) + meta (mono caps). Archived rows pick up an accent
+     border + HOLD chip so the hold state is unambiguous. */
+  #hud-dossier .panel .story-row {
+    display: block;
+    margin-top: 6px;
+    padding: 4px 8px 6px;
+    border-left: 2px solid var(--rule);
+    cursor: pointer;
+    background: transparent;
+  }
+  #hud-dossier .panel .story-row:hover {
+    background: var(--paper);
+  }
+  #hud-dossier .panel .story-row.is-archived {
+    border-left-color: var(--ink);
+    background: var(--paper);
+  }
+  #hud-dossier .panel .story-row .hl {
+    display: block;
+    font-family: var(--serif);
+    font-size: 13px;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  #hud-dossier .panel .story-row .meta {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  #hud-dossier .panel .story-row .chip {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 5px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    background: var(--ink);
+    color: var(--paper);
+    vertical-align: 1px;
+  }
 
   /* 0.10.2 (D-07): debrief panel as newspaper pages. Each printed story
      is a column on a single broadsheet that slaps down onto the corkboard
@@ -361,6 +417,12 @@
     text-align: right;
     border-top: 1px solid var(--rule);
     padding-top: 8px;
+  }
+  /* 1.0.1 (ICD-06 v0.4 §Cycle timing · audit C-05): while the 30 s minimum
+     elapses, mute the dismiss caption so the player can read it as "not
+     clickable yet". Reverts to the live red when the gate releases. */
+  #debrief-panel .np-dismiss.is-gated {
+    color: var(--mid);
   }
 
   #gameover-overlay {

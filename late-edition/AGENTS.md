@@ -38,13 +38,15 @@ working as designed, not a delay.
 ## Hard rules for this game
 
 - **Don't commit code for milestones that haven't had their ICDs authored.**
-  All ten ICDs are now authored (01 v0.6.3 · 02 v0.3 · 03 v0.2 · 04
-  v0.1.1 · 05 v0.4.1 · 06 v0.4 · 07 v0.1 · 08 v0.1 · 09 v0.1 · 10 v0.1);
+  All ten ICDs are now authored (01 v0.6.5 · 02 v0.3.1 · 03 v0.2 · 04
+  v0.1.3 · 05 v0.4.2 · 06 v0.4 · 07 v0.1 · 08 v0.1 · 09 v0.1.1 · 10 v0.1);
   Tier-0 milestones 0.1 → 0.10.2 have shipped against their contracts;
   the Tier-0 → Tier-1 re-eval shipped at v0.10.3; **PRE-1.0** (paper-
-  only) shipped at v0.10.4 — authored Herald + Observer state machines,
-  Switchboard LoS, Archive inter-edition state, Arc framework. Milestone
-  1.0 (Tier-1 opener) is now code-ready.
+  only) shipped at v0.10.4; **milestone 1.0** shipped across two halves
+  — 1.0.0 (adversarial substrate: Herald + Observer + Switchboard) and
+  1.0.1 (Archive UI · Reporter trio projector · 30 s debrief gate).
+  Tier-1 content (authored arcs · investigation chains · Herald PUNISH /
+  BUYOUT · Observer DESPERATE / SILENCED) stays at Tier-1.x.
 - **When code deviates from an ICD, update the ICD in the same PR.** This
   is Constraint #4 of the methodology.
 - **Bands are not decoration.** Strong-band commitments are load-bearing.
@@ -54,6 +56,47 @@ working as designed, not a delay.
   (`architecture/`, `icds/`, `discussion/`) — never edit the source HTMLs.
 
 ## Current state
+
+**v1.0.1 — Tier-1 opener · second half shipped.** Closes the 1.0
+opener split scheduled by Gitea issue #317. Four deliverables landed:
+
+- **Archive UI** (ICD-09 v0.1.1) — `World.toggleArchive(storyId)`,
+  `'archived'` as the fifth `Story.state` value, `ARCHIVE_CAP = 5`
+  hard cap, `ARCHIVE_DECAY_EDITIONS = 10` cold-news decay at
+  `EDITION_DEBRIEF_END`. Player gesture wires as **left-click on the
+  per-story dossier row** (§Open Q1 close).
+- **`UnitView.stats` projector** (ICD-01 v0.6.5 + the v0.6.3 §Notes
+  pattern's load-bearing case) — Reporter trio renders in the §13
+  Selected dossier as *"Nerve 6 · Nose 8 · Legs 4"*.
+- **`LeadView.district` dossier read** — the projector itself shipped
+  in the 0.10.0 substrate; 1.0.1 wires the per-row caption in the
+  Story-queue dossier.
+- **30 s minimum debrief gate** (ICD-06 v0.4 §Cycle timing · audit
+  C-05) — renderer-side clamp on the dismiss click with a panel-owned
+  rAF countdown ribbon. `MIN_DEBRIEF_MS = 30_000` exported for testing.
+
+Save schema bumps v1.1 → v1.2 in-PR via `migrate_1_1_to_1_2`
+(pass-through; `archived_at_ms` and `stats` are optional fields). Four
+ICD bumps in-PR (Constraint #4): ICD-01 v0.6.4 → v0.6.5; ICD-04 v0.1.2
+→ v0.1.3; ICD-05 v0.4.1 → v0.4.2 (§Notes only); ICD-09 v0.1 → v0.1.1
+(§Open Q1 close). Tests at 281 cases (257 → 281). Closes Gitea #317.
+
+**Next: Tier-1.x content + adversarial maturation.** First authored
+arc (Longshoreman Strike or similar) · Investigation 3-step chain
+wiring (`Story.parent_story_id` lit by sim) · Herald PUNISH + BUYOUT
+state bodies · Observer DESPERATE + SILENCED state bodies · Star-vs-
+Observer raid mechanic (§06 matrix cell 3) · audio bus first caller
+against ICD-07.
+
+---
+
+**v1.0.0 — Tier-1 opener · adversarial substrate (Herald + Observer +
+Switchboard).** Shipped the rival triangle, Switchboard intel-defense
+building + goon LoS visibility filter, and save schema v1.0 → v1.1
+migration. ICD bumps: ICD-01 v0.6.3 → v0.6.4 · ICD-02 v0.3 → v0.3.1 ·
+ICD-04 v0.1.1 → v0.1.2. Tests at 257 cases.
+
+---
 
 **v0.10.4 — PRE-1.0 paper shipped.** Paper-only. Authored the four
 contract surfaces (plus one §Notes addition) that the Tier-0 → Tier-1
@@ -87,11 +130,6 @@ source-HTML-wins rule (Hard rules above). `discussion/observer-violence.md`
 status flipped from `pre-PRE-1.0 input` to `settled at PRE-1.0`.
 **Milestone 1.0 is now code-ready** — every required contract is in hand.
 
-**Next: milestone 1.0 (Tier-1 opener · code session).** Wires Herald +
-Observer + Switchboard building + Archive UI + `UnitView.stats` projector
-for named Reporters + `LeadView.district` projector + 30 s minimum
-debrief gate. Split 1.0.0/1.0.1 at session open per the 0.7 / 0.10
-precedent if scope creeps.
 
 ---
 

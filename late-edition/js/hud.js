@@ -21,6 +21,8 @@
 // exercise them in node without jsdom.
 
 import { currentTutorialBeat, BEAT_COPY } from './sim/tutorial.js';
+import { getDistrict } from './sim/districts.js';
+import { ARCHIVE_CAP } from './sim/world-state.js';
 
 // Aligned with cycle-clock's DEADLINE_WARNING fire at T-30s (Design Doc §13 strip-
 // turns-red beat). The optional CRITICAL_MS = 5_000 tighter pulse is deferred —
@@ -79,10 +81,14 @@ export function tierHistogram(leads) {
 }
 
 export class HudCorkboard {
-  constructor(roots) {
+  // 1.0.1 (ICD-09 §HUD surface): `actions` carries player-gesture callbacks
+  // the dossier wires to sim mutators. Today: { toggleArchive(storyId) }.
+  // The HUD stays projection-only; gestures route through callbacks instead
+  // of the HUD holding a World reference.
+  constructor(roots, actions = {}) {
     this.top      = new TopCards(roots.topCards);
     this.deadline = new DeadlineStrip(roots.deadline);
-    this.dossier  = new Dossier(roots.dossier);
+    this.dossier  = new Dossier(roots.dossier, actions);
     // 0.10.1 (G-09): the tutorial-note pin sits above the resource cards;
     // hides itself when currentTutorialBeat() returns null (edition ≥ 3
     // or after the 30 s welcome window). Re-derives every frame so a
@@ -196,8 +202,12 @@ class DeadlineStrip {
 }
 
 class Dossier {
-  constructor(rootEl) {
+  // 1.0.1: `actions` carries the HUD's player-gesture callbacks. Today only
+  // toggleArchive(storyId) is consumed; future row clicks (e.g., select-from-
+  // queue) attach the same way.
+  constructor(rootEl, actions = {}) {
     this.root = rootEl;
+    this.actions = actions;
     this.selectedEl = rootEl.querySelector('[data-panel="selected"]');
     this.selectedBody = this.selectedEl.querySelector('.body');
     this.queueEl = rootEl.querySelector('[data-panel="queue"]');
@@ -207,17 +217,29 @@ class Dossier {
     this._lastSelected = null;
     this._lastQueue = '';
     this._lastThreats = '';
+    // 1.0.1 (ICD-09 v0.1.1 §Open Q1 close): per-story row left-click toggles
+    // verified ↔ archived. Single delegated listener on the queue body so
+    // it survives every innerHTML rebuild in _applyQueue.
+    this.queueBody.addEventListener('click', (ev) => this._onQueueClick(ev));
   }
 
   apply(frame, bureauHp) {
     this._applySelected(frame.units);
-    this._applyQueue(frame.leads, frame.hud.resources.stories);
+    this._applyQueue(
+      frame.leads,
+      frame.stories ?? [],
+      frame.hud.resources.stories,
+      frame.hud.resources.archived ?? 0,
+    );
     this._applyThreats(frame.units, bureauHp);
   }
 
   _applySelected(units) {
     const u = pickSelected(units);
-    const key = u ? `${u.id}|${u.kind}|${u.state}|${u.carrying ?? ''}` : '';
+    // 1.0.1 (ICD-01 v0.6 §UnitView.stats projector): bake stats into the
+    // diff key so the Reporter trio change re-renders the pane.
+    const statsKey = u && u.stats ? `${u.stats.nerve}/${u.stats.nose}/${u.stats.legs}` : '';
+    const key = u ? `${u.id}|${u.kind}|${u.state}|${u.carrying ?? ''}|${statsKey}` : '';
     if (key === this._lastSelected) return;
     this._lastSelected = key;
     if (!u) {
@@ -229,10 +251,15 @@ class Dossier {
     const kindLabel = UNIT_KIND_LABEL[u.kind] ?? u.kind;
     const stateLabel = UNIT_STATE_LABEL[u.state] ?? u.state;
     const carryingNote = u.carrying === 'lead' ? ' · Carrying lead' : '';
-    this.selectedBody.innerHTML = `${escapeHtml(kindLabel)}<span class="note">${escapeHtml(stateLabel)}${escapeHtml(carryingNote)}</span>`;
+    // 1.0.1: §13 Selected · Reporter trio ("Nerve 6 · Nose 8 · Legs 4"). Only
+    // Reporter UnitView carries `stats` at Tier-0; other kinds skip the line.
+    const statsLine = u.stats
+      ? `<span class="stats">Nerve ${u.stats.nerve} · Nose ${u.stats.nose} · Legs ${u.stats.legs}</span>`
+      : '';
+    this.selectedBody.innerHTML = `${escapeHtml(kindLabel)}<span class="note">${escapeHtml(stateLabel)}${escapeHtml(carryingNote)}</span>${statsLine}`;
   }
 
-  _applyQueue(leads, storyCount) {
+  _applyQueue(leads, stories, storyCount, archivedCount) {
     const { tiers, flavors } = tierHistogram(leads);
     const tierLine = LEAD_TIER_ORDER
       .filter((t) => tiers[t] > 0)
@@ -242,20 +269,40 @@ class Dossier {
       .filter((f) => flavors[f] > 0)
       .map((f) => `${f} ${flavors[f]}`)
       .join(' · ');
+    const verifiedCount = storyCount;
     const headline = leads.length === 0
       ? 'No active leads'
       : `${leads.length} ${leads.length === 1 ? 'lead' : 'leads'} on the board`;
     const noteParts = [];
     if (tierLine) noteParts.push(tierLine);
     if (flavorLine) noteParts.push(flavorLine);
-    noteParts.push(`${storyCount} in flight`);
+    // 1.0.1 (ICD-09 §HUD surface): `verified: N · archived: M/5`. Cap surfaces
+    // so the player has feedback when the cap fills.
+    noteParts.push(`verified: ${verifiedCount}`);
+    noteParts.push(`archived: ${archivedCount}/${ARCHIVE_CAP}`);
     const note = noteParts.join(' · ');
-    const key = `${headline}||${note}`;
+    // Per-story rows for verified + archived held at Darkroom. Left-click on
+    // a row routes through this.actions.toggleArchive(storyId).
+    const rowsHtml = stories.map((s) => {
+      const districtName = getDistrict(s.district)?.name ?? s.district;
+      const chip = s.state === 'archived' ? '<span class="chip is-hold">HOLD</span>' : '';
+      const cls = s.state === 'archived' ? 'story-row is-archived' : 'story-row';
+      return `<div class="${cls}" data-action="toggle-archive" data-story-id="${escapeHtml(s.id)}">${chip}<span class="hl">${escapeHtml(s.headline)}</span><span class="meta">${escapeHtml(s.flavor)} · ${escapeHtml(districtName)}</span></div>`;
+    }).join('');
+    const key = `${headline}||${note}||${stories.map((s) => `${s.id}:${s.state}`).join('|')}`;
     if (key === this._lastQueue) return;
     this._lastQueue = key;
-    const isEmpty = leads.length === 0 && storyCount === 0;
+    const isEmpty = leads.length === 0 && storyCount === 0 && archivedCount === 0;
     this.queueEl.classList.toggle('empty', isEmpty);
-    this.queueBody.innerHTML = `${escapeHtml(headline)}<span class="note">${escapeHtml(note)}</span>`;
+    this.queueBody.innerHTML = `${escapeHtml(headline)}<span class="note">${escapeHtml(note)}</span>${rowsHtml}`;
+  }
+
+  _onQueueClick(ev) {
+    const target = ev.target instanceof Element ? ev.target.closest('[data-action="toggle-archive"]') : null;
+    if (!target) return;
+    const storyId = target.dataset.storyId;
+    if (!storyId || typeof this.actions.toggleArchive !== 'function') return;
+    this.actions.toggleArchive(storyId);
   }
 
   _applyThreats(units, bureauHp) {
@@ -270,6 +317,7 @@ class Dossier {
     this.threatsBody.innerHTML = `${escapeHtml(headline)}<span class="note">${escapeHtml(note)}</span>`;
   }
 }
+
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({

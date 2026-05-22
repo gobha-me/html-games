@@ -1,8 +1,9 @@
 # ICD-09 · Archive / Inter-Edition Story State
 
-**Status:** v0.1 (PRE-1.0 — initial draft)
+**Status:** v0.1.1 (milestone 1.0.1 — §Open Q1 close: hold/release gesture wires as left-click on the per-story dossier row)
+**Prior:** v0.1 (PRE-1.0 — initial draft)
 **Band:** strong
-**First caller:** milestone 1.0 (Tier-1 opener — Archive UI ships alongside Herald + Observer + Switchboard)
+**First caller:** milestone 1.0.1 (Tier-1 opener · second half — Archive UI ships alongside the deferred projectors + 30 s debrief gate)
 **Source:** [`../design/design-doc.html`](../design/design-doc.html) §06 line 888 ·
 [`../design/design-doc.html`](../design/design-doc.html) §15 line 1234 (save spec)
 
@@ -178,11 +179,25 @@ flips the state; the projection-side count updates next frame.
 
 ## Open questions
 
-- **Player gesture for hold/release.** Left-click? Long-press? A
+- ~~**Player gesture for hold/release.** Left-click? Long-press? A
   dedicated `[H]` hotkey paired with hover-target on the dossier
   row? Code-session call at milestone 1.0 — the projection-side
   contract (state transition + cap rule) is set here; the input
-  mapping is renderer/input layer.
+  mapping is renderer/input layer.~~ **Resolved at v0.1.1 (milestone
+  1.0.1).** The gesture wires as **left-click on the per-story
+  dossier row**. Implementation: `WorldFrame.stories: StoryQueueView[]`
+  ([`ICD-01 v0.6.5 §StoryQueueView`](ICD-01-world-renderer.md)) projects
+  every verified + archived story sitting at the Darkroom; the renderer
+  renders each as a row inside the Story-queue dossier panel with a
+  `data-story-id` attribute; a delegated click listener calls
+  `actions.toggleArchive(storyId)` which routes through `World.toggleArchive`
+  (see [`../js/sim/world-state.js`](../js/sim/world-state.js)). Cap-full
+  and not-at-Darkroom rejects are **silent** at v0.1.1; the return value's
+  `reason` channel exists for a future toast UX. Long-press / hotkey
+  alternatives were rejected as adding input-surface complexity without
+  unlocking new behavior — the gesture is unambiguous against the
+  existing left-click-to-select unit gesture because the dossier panel
+  is DOM (separate event surface from the 3D scene's click-to-select).
 - **Cap as soft or hard.** v0.1 commits hard cap (transition
   rejected). A future tech-tree branch may relax it (Tier-III
   "Archive" building lifts cap to 10; Tier-IV "Wire syndication"
@@ -217,6 +232,19 @@ comment; ICD update not required unless the new shape ships in a
 save (it doesn't — both are derived constants).
 
 ## Revision history
+
+- **v0.1.1** (milestone 1.0.1, 2026-05-22) — In-PR Constraint #4 bump
+  alongside the Archive UI code session. §Open question (1)
+  *"Player gesture for hold/release"* closes: **left-click on the per-
+  story dossier row**. Routes through `WorldFrame.stories: StoryQueueView[]`
+  ([`ICD-01 v0.6.5`](ICD-01-world-renderer.md) §StoryQueueView) +
+  delegated click listener +
+  [`World.toggleArchive(storyId)`](../js/sim/world-state.js). Cap-full
+  and not-at-Darkroom rejects stay silent at v0.1.1 (the return value's
+  `reason` channel is preserved for a future toast). The other three
+  §Open questions stay open (cap-as-soft, Darkroom destruction, Tier-III
+  UI). No shape change to the Story state machine, the cap, or the
+  decay rule; the v0.1 commitments are unchanged.
 
 - **v0.1** (PRE-1.0, 2026-05-22) — Initial draft. Authored ahead of
   milestone 1.0 (Tier-1 opener) to lift the ICD-05 v0.4.1 §Purpose

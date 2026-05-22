@@ -43,7 +43,7 @@ definitions.
 |---|---|---|---|
 | **PRE-1.0** | Author **ICD-02 v0.3** (Herald + Observer state machines · intent vocabulary · posture mapping) + **ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09** (Archive / inter-edition story state, new) + **ICD-10** (Arc framework formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-deferred-projection rule) — *shipped v0.10.4* | Architecture session · paper-only · gates milestone 1.0 · scheduled by the Tier-0 → Tier-1 re-eval | strong |
 | **1.0.0** | Tier-1 opener — adversarial substrate · Herald state machine (IDLE / COURT / WIRED bodies; PUNISH / BUYOUT caller-triggered) · Observer state machine (INVESTIGATE / PUBLISH / WARN bodies; DESPERATE / SILENCED caller-triggered) · Switchboard building + goon LoS visibility filter (ICD-08) — *shipped v1.0.0* | First half of the 1.0 opener per the authorized split (0.7 / 0.10 precedent). ICD-01 → v0.6.4 (`BuildingKind` widens for `'switchboard'`); ICD-02 → v0.3.1 (`RivalView.player.printed_lies` field added); ICD-04 → v0.1.2 (`RivalsSnap` widens; v1.0 → v1.1 migration). Tests at 257 cases (199 → 257). | strong |
-| **1.0.1** | Tier-1 opener — Archive UI (ICD-09 · `archived` Story state · cap=5 · decay=10 editions · dossier `archived: N/5`) · `UnitView.stats` projector for named Reporters · `LeadView.district` projector for per-district Story queue dossier · 30 s minimum debrief gate (ICD-06 v0.4 code-side) | Second half of the 1.0 opener. ICD-04 → v0.1.3 (`StorySnap.state` enum widens; `archived_at_ms`). No new ICDs expected. | strong |
+| **1.0.1** | Tier-1 opener — Archive UI (ICD-09 · `archived` Story state · cap=5 · decay=10 editions · dossier `archived: N/5` · left-click per-row gesture) · `UnitView.stats` projector for Reporter trio · `LeadView.district` dossier read · 30 s minimum debrief gate (ICD-06 v0.4 code-side) — *shipped v1.0.1* | Second half of the 1.0 opener. ICD-01 → v0.6.5 (`WorldFrame.stories` + `UnitView.stats` projector + `HudState.resources.archived`); ICD-04 → v0.1.3 (`StorySnap.state` widens + `archived_at_ms` + `UnitSnap.stats`; v1.1 → v1.2 migration); ICD-05 → v0.4.2 (§Notes cross-ref to ICD-09); ICD-09 → v0.1.1 (§Open Q1 close). Tests at 281 cases (257 → 281). Closes Gitea #317. | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -65,6 +65,26 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**v1.0.1 — Tier-1 opener · Archive UI + projectors + debrief gate.**
+Second Tier-1 code session, closing out the 1.0 split scheduled by issue
+#317. The four 1.0.1 deliverables ship intact: Archive UI per ICD-09
+(player gesture is left-click on per-story dossier rows · `archived:
+N/5` count line · `ARCHIVE_CAP = 5` hard cap · 10-edition cold-news
+decay walk at `EDITION_DEBRIEF_END`); the deferred `UnitView.stats`
+projector lights up the §13 Selected dossier's *"Nerve 6 · Nose 8 ·
+Legs 4"* line for Reporters (ICD-01 v0.6.3 §Notes pattern's load-bearing
+case wires); the Story-queue dossier now reads `LeadView.district` for
+the per-row caption (the projector itself shipped in the 0.10.0
+substrate); the 30 s minimum debrief gate clamps the dismiss click via
+a panel-owned rAF countdown ribbon (ICD-06 v0.4 §Cycle timing · audit
+C-05). Save schema bumps v1.1 → v1.2 in-PR via `migrate_1_1_to_1_2`
+(pure version stamp — both new fields are optional). **Four ICD bumps
+in-PR (Constraint #4):** ICD-01 v0.6.4 → v0.6.5; ICD-04 v0.1.2 → v0.1.3;
+ICD-05 v0.4.1 → v0.4.2 (§Notes only); ICD-09 v0.1 → v0.1.1 (§Open Q1
+close). Tests at 281 cases (257 → 281). Closes Gitea issue #317.
+
+---
 
 **v1.0.0 — Tier-1 opener · adversarial substrate (Herald + Observer +
 Switchboard).** First Tier-1 code session against the ten authored ICDs.

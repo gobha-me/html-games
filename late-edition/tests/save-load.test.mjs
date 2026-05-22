@@ -320,12 +320,14 @@ test('size guard: console.warn fires when serialized blob exceeds 500_000 bytes'
 
 // ---- 12. version field ----------------------------------------------------
 
-test('serialized blob carries version="1.1" at the top level', () => {
+test('serialized blob carries version="1.2" at the top level', () => {
   // 1.0.0 bumped schema to "1.1" — rivals widens to {evening_star, herald, observer}.
+  // 1.0.1 bumped schema to "1.2" — StorySnap.state widens with 'archived' +
+  // optional archived_at_ms field; UnitSnap gains optional stats (Reporter trio).
   const w = new World();
   const blob = serialize(w);
   assert.equal(blob.version, CURRENT_VERSION);
-  assert.equal(blob.version, '1.1');
+  assert.equal(blob.version, '1.2');
 });
 
 // ---- 13. 1.0.0 three-rival round-trip ------------------------------------

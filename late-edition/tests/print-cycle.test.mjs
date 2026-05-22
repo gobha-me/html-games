@@ -62,7 +62,7 @@ test('fresh World — hud.edition === 1, hud.deadline_ms === 720_000', () => {
   // Milestone 0.6: the seeded lead surfaces in frame.leads → leads count is 1;
   // ink starts at STARTING_INK (20); cash/heat/stories are zero until print.
   // Exact yield numbers are covered by tests/resources.test.mjs.
-  assert.deepEqual(f.hud.resources, { leads: 1, stories: 0, ink: 20, cash: 0, heat: 0 });
+  assert.deepEqual(f.hud.resources, { leads: 1, stories: 0, archived: 0, ink: 20, cash: 0, heat: 0 });
 });
 
 test('advancing 30 sim-seconds decrements hud.deadline_ms by ~30_000', () => {

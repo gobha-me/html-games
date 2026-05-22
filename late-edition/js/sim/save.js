@@ -28,7 +28,11 @@ export const SCORES_KEY = 'late-edition.scores.v1';   // 0.10.0 (G-13)
 // {evening_star, herald, observer}. migrate_1_0_to_1_1 synthesizes default
 // Herald + Observer state for pre-1.0.0 saves; the rest of the blob is
 // untouched (single-field migration, soft-restart of adversarial counters).
-export const CURRENT_VERSION = '1.1';
+// 1.0.1: schema bump to "1.2" — StorySnap.state widens to include
+// 'archived' + optional archived_at_ms field; UnitSnap.stats widens
+// (optional Reporter trio). migrate_1_1_to_1_2 is a pass-through — both
+// additions are optional and read safely on pre-1.0.1 blobs.
+export const CURRENT_VERSION = '1.2';
 export const SCORES_VERSION = 1;                       // 0.10.0 (G-13)
 export const STORY_VERSION = 1;
 export const MAX_HIGH_SCORES = 10;                     // 0.10.0 (G-13)
@@ -78,12 +82,17 @@ export function deserialize(blob) {
   return new World({ snap: blob });
 }
 
-// v0.1.2 migration chain. "1.0" → "1.1" synthesizes Herald + Observer
-// default snaps for pre-1.0.0 saves; rest of the blob is untouched. Future
-// bumps chain through the same surface.
+// v0.1.3 migration chain. "1.0" → "1.1" → "1.2".
+//   1.0 → 1.1 synthesizes Herald + Observer default snaps for pre-1.0.0
+//             saves; rest of the blob is untouched.
+//   1.1 → 1.2 is a pass-through (StorySnap.state widen + archived_at_ms +
+//             UnitSnap.stats are all optional; default-undefined reads
+//             cleanly through _loadFromSnap).
+// Future bumps chain through the same surface.
 export function runMigrations(raw) {
   if (!raw || typeof raw !== 'object') return null;
   if (raw.version === '1.0') raw = migrate_1_0_to_1_1(raw);
+  if (raw.version === '1.1') raw = migrate_1_1_to_1_2(raw);
   if (raw.version === CURRENT_VERSION) return raw;
   // Anything not matching the current version is a future blob — refuse.
   return null;
@@ -105,6 +114,13 @@ function migrate_1_0_to_1_1(blob) {
       observer:     rivals.observer ?? defaultObserverSnap(),
     },
   };
+}
+
+// 1.0.1: v1.1 saves predate the Archive state value and the Reporter trio.
+// Both additions are optional fields, so the migration is a pure version
+// stamp — the load path reads `archived_at_ms` and `stats` via ?? fallbacks.
+function migrate_1_1_to_1_2(blob) {
+  return { ...blob, version: '1.2' };
 }
 
 function defaultHeraldSnap() {
@@ -208,6 +224,7 @@ function unitSnap(u) {
   };
   if (u.hp !== undefined) snap.hp = u.hp;
   if (u.hp_max !== undefined) snap.hp_max = u.hp_max;
+  if (u.stats !== undefined) snap.stats = { ...u.stats };   // 1.0.1 (ICD-04 v0.1.3 · ICD-01 v0.6)
   return snap;
 }
 
@@ -235,6 +252,7 @@ function storySnap(s) {
   if (s.cash_yield !== undefined) snap.cash_yield = s.cash_yield;
   if (s.heat_yield !== undefined) snap.heat_yield = s.heat_yield;
   if (s.ink_cost !== undefined) snap.ink_cost = s.ink_cost;
+  if (s.archived_at_ms !== undefined) snap.archived_at_ms = s.archived_at_ms;  // 1.0.1 (ICD-04 v0.1.3 · ICD-09)
   return snap;
 }
 

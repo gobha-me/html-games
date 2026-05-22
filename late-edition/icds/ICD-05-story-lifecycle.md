@@ -1,6 +1,7 @@
 # ICD-05 · Story Lifecycle Object
 
-**Status:** v0.4.1 (PRE-0.8 §Open-Q-1 closure — `Story.version` deferred-to-ICD-04 resolved; per-record version captured by ICD-04 v0.1 `StorySnap.version`)
+**Status:** v0.4.2 (milestone 1.0.1 — §Notes cross-reference addition only; ICD-09 v0.1 widens the `Story.state` union to five values (`'archived'`) and adds two new transition rows (`verified ↔ archived`); ink-budget walk pins to `state === 'verified'` so archived stories naturally skip plating)
+**Prior:** v0.4.1 (PRE-0.8 §Open-Q-1 closure — `Story.version` deferred-to-ICD-04 resolved; per-record version captured by ICD-04 v0.1 `StorySnap.version`)
 **Band:** strong
 **First caller:** milestone 0.3 (lead spawn · pickup · return-to-bureau) — shipped in v0.3.0; row 3 (`lead → verified`) lit by milestone 0.4 (Photog · Darkroom) — shipped in v0.4.0; rows 4 + 5 (`verified → plated → printed`) auto-fired by milestone 0.5 via the pre-Editor `AUTO_PLATE_SENTINEL` path — shipped in v0.5.0
 **Source:** [`../design/phase-0-roadmap.html`](../design/phase-0-roadmap.html) §03
@@ -44,11 +45,15 @@ interface Story {
 | `verified` | `plated` | editor plates for the edition | 0.5 |
 | `plated` | `printed` | edition fires | 0.5 |
 
-Transitions out of a state are one-way. A story cannot move backward (a
-verified story doesn't become a lead again — it becomes a *killed* story,
-which is a separate archive state out of scope for the vertical slice). The
-`lead → lead` self-transition above changes the carrier pointers, not the
-state — the state didn't move, the one-way rule still holds.
+Transitions out of a state are one-way **except** the `verified ↔ archived`
+pair authored at [`ICD-09 v0.1`](ICD-09-archive.md) §State transitions —
+the only non-monotonic edges in the Story state machine. ICD-09 owns the
+fifth `Story.state` value (`'archived'`) and the two new transition rows;
+the rule is preserved at the state-machine level because an archived story
+goes back to `verified` (the immediately-preceding state), not to `lead`.
+The `lead → lead` self-transition above changes the carrier pointers, not
+the state — the state didn't move, the one-way rule still holds for that
+case.
 
 ## Notes
 
@@ -99,6 +104,23 @@ state — the state didn't move, the one-way rule still holds.
   (ICD-01 v0.5 §HudState) remains permitted until 0.7 ships the gate;
   after 0.7, ink cannot go negative through plating, but ink-purchase
   failures or rival actions at Tier-1+ may revisit the question.
+- **Archive interactions (v0.4.2 / 1.0.1 — ICD-09 v0.1).** The fifth
+  `Story.state` value `'archived'` is owned by [`ICD-09`](ICD-09-archive.md);
+  the two new transition rows (`verified → archived` on player hold gesture,
+  `archived → verified` on player release gesture) extend the table above.
+  Two adjacent-contract effects sit at the ICD-05 boundary: (1) the
+  **ink-budget walk at `DEADLINE_FIRE`** pins `state === 'verified'` and
+  thereby skips archived stories — the player must explicitly release
+  archive → verified for an archived story to re-enter the plating queue;
+  (2) the **cold-news decay** at `EDITION_DEBRIEF_END` culls archived
+  stories with `editionsInArchive ≥ 10` to `state = 'printed'` with
+  `cash_yield = 0` and `heat_yield = 0` (flows through the same terminal
+  state the print rule uses — a sixth `'expired'` value was rejected at
+  ICD-09 v0.1 for scope). Both are sim-side rules; the in-memory `Story`
+  interface §Shape above is unchanged at v0.4.2 — the new `'archived'`
+  value is added to the persisted union in `StorySnap.state`
+  ([`ICD-04 v0.1.3`](ICD-04-save-schema.md)) and read on the live Story
+  via the same `state` field.
 
 ## Open questions
 
@@ -123,6 +145,21 @@ If milestone 0.4/0.5 needs to change the shape or transitions, update this
 ICD **in the same PR**.
 
 ## Revision history
+
+- **v0.4.2** (milestone 1.0.1, 2026-05-22) — §Notes-only amendment; no
+  in-memory shape change. ICD-09 v0.1 widens the persisted
+  `StorySnap.state` union with `'archived'` (the fifth value) and adds
+  two new transition rows (`verified ↔ archived`); ICD-05's transition
+  table here gains a one-paragraph cross-reference to ICD-09 instead of
+  inlining the rows, since ICD-09 owns them. §Notes gains a single
+  paragraph documenting the two ICD-05-boundary effects: the ink-budget
+  walk's state-value filter (archived stories naturally skip plating)
+  and the cold-news decay rule (culls to `'printed'` with zero yields
+  at `editions_in_archive ≥ 10`). The in-memory `Story` interface in
+  §Shape stays byte-for-byte v0.4 — adding `'archived'` to the live
+  union there would duplicate ICD-09's authority; readers should treat
+  ICD-09 as the source of truth for the value and read the §Notes
+  cross-reference here.
 
 - **v0.4.1** (PRE-0.8, 2026-05-21) — §Open-questions closure only; no
   shape change. The "should `Story` carry a `version` field" question

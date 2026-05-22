@@ -1,6 +1,7 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6.4 (shipped against milestone 1.0.0 — `BuildingKind` vocabulary widens to include `'switchboard'`; no shape change)
+**Status:** v0.6.5 (shipped against milestone 1.0.1 — `WorldFrame.stories: StoryQueueView[]` top-level field authored + projected for the Archive UI per-story rows; `UnitView.stats` projector wires the Reporter trio; `HudState.resources.archived` field added)
+**Prior:** v0.6.4 (milestone 1.0.0 — `BuildingKind` vocabulary widens to include `'switchboard'`; no shape change)
 **Prior:** v0.6.3 (PRE-1.0 — §Notes addition only; pinned the authored-but-deferred-projection pattern surfaced at the post-Tier-0 → Tier-1 re-eval; no shape change)
 **Prior:** v0.6.2 (shipped against milestone 0.10.2 — `WorldFrame.rain.intensity` range comment widened from `0-1` to `0+ unbounded; 1 = baseline, ~2 at deadline`; no shape change)
 **Prior:** v0.6.1 (shipped against milestone 0.10.0 — `BuildingKind` vocabulary widens to include `'branch_bureau'`; no shape change)
@@ -23,6 +24,7 @@ interface WorldFrame {
   buildings: BuildingView[];
   units:     UnitView[];
   leads:     LeadView[];
+  stories:   StoryQueueView[];  // verified + archived at Darkroom; Archive UI per-row click target (v0.6.5)
   rivals:    RivalStatusView[]; // posture surface for Threats dossier (v0.6; type owned by ICD-02 v0.2)
   rain:      RainConfig;        // intensity 0+ unbounded; 1 = baseline, ~2 at deadline (PR-D — v0.6.2)
   fog:       { near: number, far: number, color: number };
@@ -162,6 +164,39 @@ interface LeadView {
   here. Whisper-tier histograms in the Dossier row read this field via
   the HUD's bucket helpers.
 
+### StoryQueueView (v0.6.5)
+
+`WorldFrame.stories: StoryQueueView[]` is the per-row projection the §13
+Story-queue dossier reads to render each verified + archived story sitting
+at the Darkroom. It's the input surface for the Archive UI left-click
+toggle gesture (ICD-09 §HUD surface — *"clicking an entry in the 'Story
+queue' region toggles its state"*); the renderer routes the click through
+a callback that calls `World.toggleArchive(id)`.
+
+```ts
+interface StoryQueueView {
+  id:       StoryId;                                  // same id as the underlying Story (ICD-05); gesture routes by this
+  state:    'verified' | 'archived';                  // v0.6.5 — admits ICD-09 v0.1's fifth Story.state value
+  headline: string;                                   // synthesized at spawn (ICD-10 / headlines.js)
+  flavor:   'vice' | 'violence' | 'money' | 'labor'; // matches LeadView.flavor
+  tier:     'whisper' | 'investigation' | 'arc';     // matches LeadView.tier
+  district: DistrictId;                               // for the per-district sort/render (matches LeadView.district)
+}
+```
+
+- **Filter rule.** Only stories with `state === 'verified' || state ===
+  'archived'` *and* `held_by_building === darkroom.id` project here. Leads
+  stay in `frame.leads`; plated/printed stories never appear (plated is
+  mid-edition transit; printed is terminal).
+- **Player gesture (ICD-09 v0.1.1 §Open Q1 close).** Left-click on a
+  per-row DOM element routes through the renderer's
+  `actions.toggleArchive(storyId)` callback. The cap-full / not-at-Darkroom
+  rejects are silent at v0.1.1; a future toast UX can read the `reason`
+  return from `World.toggleArchive`.
+- **No top-level cap or decay surface.** Both medium-band numbers live in
+  sim code (`ARCHIVE_CAP`, `ARCHIVE_DECAY_EDITIONS`); the HUD surfaces
+  only the *current* archive count via `HudState.resources.archived`.
+
 ### HudState (v0.5)
 
 Drives milestone 0.5 (deadline ticker) and milestone 0.6 (resource readouts).
@@ -175,11 +210,12 @@ interface HudState {
   edition:     number;          // 1, 2, 3, ... — matches CYCLE_BEGIN.edition (ICD-06)
   deadline_ms: number;          // ms remaining until DEADLINE_FIRE for the active edition
   resources: {
-    leads:   number;            // strong-band locked name (overview §Five resources)
-    stories: number;            // plated, awaiting print
-    ink:     number;            // remaining ink for the cycle
-    cash:    number;            // running balance
-    heat:    number;            // running rival/criminal pressure
+    leads:    number;           // strong-band locked name (overview §Five resources)
+    stories:  number;           // verified + plated, awaiting print
+    archived: number;           // v0.6.5 — archive count for the §13 dossier "archived: N/5" line (ICD-09)
+    ink:      number;           // remaining ink for the cycle
+    cash:     number;           // running balance
+    heat:     number;           // running rival/criminal pressure
   };
 }
 ```
@@ -402,6 +438,23 @@ they live here as implementation pins.
 
 ## Revision history
 
+- **v0.6.5** (milestone 1.0.1, 2026-05-22) — Three field additions wiring the
+  Tier-1 opener's deferred projectors and the Archive UI. **`WorldFrame.stories:
+  StoryQueueView[]`** — new top-level array; per-row projection of every
+  Story sitting at the Darkroom in `'verified'` or `'archived'` state
+  (six fields: `id`, `state`, `headline`, `flavor`, `tier`, `district`).
+  Filter rule, ICD-09 cross-reference, and left-click gesture surface
+  documented in §StoryQueueView (v0.6.5) above. **`UnitView.stats`
+  projector wires** — the v0.6 *authored-but-deferred-projection* slot
+  (pinned at v0.6.3 §Notes) lights up at milestone 1.0.1; `snapshot()`
+  now spreads `u.stats` into `UnitView` for Reporter kinds (other kinds
+  carry no `stats` field, matching the `| undefined` contract).
+  **`HudState.resources.archived`** — sibling count to `stories`,
+  surfaces the medium-band cap to the §13 dossier line "archived: N/5"
+  (ICD-09 §HUD surface). No new top-level `WorldFrame` removal; existing
+  fields unchanged. The v0.6.3 §Notes pattern note stays — future
+  authored-but-deferred fields may reuse it; the *current* load-bearing
+  case (`UnitView.stats`) now wires.
 - **v0.6.4** (milestone 1.0.0, 2026-05-22) — `BuildingKind` vocabulary
   widens to include `'switchboard'` (ICD-08 — Tier-1 intel-defense
   building gating goon visibility per design-doc.html §10 line 1088

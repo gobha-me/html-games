@@ -1,6 +1,7 @@
 # ICD-04 · Save Schema
 
-**Status:** v0.1.2 (milestone 1.0.0 — `RivalsSnap` widens to include `herald` + `observer` per Tier-1 opener; in-blob version bumps to `"1.1"`; `migrate_1_0_to_1_1` synthesizes default Herald + Observer state on load)
+**Status:** v0.1.3 (milestone 1.0.1 — `StorySnap.state` union widens to include `'archived'`; optional `archived_at_ms?: number` per record (decay anchor); optional `UnitSnap.stats?: { nerve, nose, legs }` (Reporter trio); in-blob version bumps to `"1.2"`; `migrate_1_1_to_1_2` pass-through stamps the new version)
+**Prior:** v0.1.2 (milestone 1.0.0 — `RivalsSnap` widens to include `herald` + `observer` per Tier-1 opener; in-blob version bumps to `"1.1"`; `migrate_1_0_to_1_1` synthesizes default Herald + Observer state on load)
 **Prior:** v0.1.1 (milestone 0.10.0 — `rng_seed` semantics settled (carries live PRNG state, not initial seed) · `lead_spawner` snap block added · `run_stats` block added · `'late-edition.scores.v1'` key documented)
 **Band:** strong (Design Doc §17 locks "single localStorage JSON · versioned · migrations defined")
 **First caller:** milestone 0.8 (save / load · resume mid-edition · version field)
@@ -59,7 +60,7 @@ interface HighScoreEntry {
 type SaveVersion = string; // semver-ish "MAJOR.MINOR" — v0.1 emits "1.0"
 
 interface SaveBlobV1 {
-  version:      SaveVersion;        // "1.1" at v0.1.2 (was "1.0" at v0.1)
+  version:      SaveVersion;        // "1.2" at v0.1.3 (was "1.1" at v0.1.2, "1.0" at v0.1)
   saved_at_ms:  number;             // Date.now() at write — wall-clock, for UI
   sim_time_ms:  number;             // absolute sim clock (World.sim_time_ms)
   rng_seed:     number;             // v0.1.1: the spawner stream's live PRNG state (renamed semantics — see §Notes)
@@ -132,13 +133,14 @@ interface UnitSnap {
   path_idx:  number;
   hp?:       number;                          // present on goon + fixer (combat-bearing kinds)
   hp_max?:   number;                          // same
+  stats?:    { nerve: number, nose: number, legs: number }; // v0.1.3 — Reporter trio (ICD-01 v0.6 §UnitView.stats); present on reporter kinds only
   // `selected` intentionally omitted — UI state, not sim state. Resets on load.
 }
 
 interface StorySnap {
   id:               StoryId;
   version:          number;                   // per-record schema version (see §Notes — Story.version)
-  state:            'lead' | 'verified' | 'plated' | 'printed';
+  state:            'lead' | 'verified' | 'plated' | 'printed' | 'archived';  // v0.1.3 — 'archived' admits ICD-09 v0.1
   district:         DistrictId;
   flavor:           'vice' | 'violence' | 'money' | 'labor';
   tier:             'whisper' | 'investigation' | 'arc';
@@ -153,6 +155,7 @@ interface StorySnap {
   cash_yield?:      number;                   // frozen at plated step (ICD-05 §Notes)
   heat_yield?:      number;                   // same
   ink_cost?:        number;                   // same
+  archived_at_ms?:  number;                   // v0.1.3 — decay anchor; set on verified → archived, cleared on archived → verified (ICD-09 §Save surface)
 }
 
 interface RivalsSnap {
@@ -350,6 +353,25 @@ the deviation lands.
   rule from §Open questions).
 
 ## Revision history
+
+- **v0.1.3** (milestone 1.0.1, 2026-05-22) — In-PR Constraint #4 bump
+  alongside the Tier-1 opener's second-half code session that wires the
+  Archive UI + Reporter trio projector. `StorySnap.state` widens to
+  include `'archived'` (admits ICD-09 v0.1's fifth Story.state value);
+  optional `archived_at_ms?: number` field added per record (decay anchor
+  — `cycle.editionFromMs(archived_at_ms)` recovers `editionAtArchive`).
+  Optional `UnitSnap.stats?: { nerve, nose, legs }` field added (Reporter
+  trio per ICD-01 v0.6 §UnitView.stats — surfaces on reporter kinds only,
+  matches `| undefined` on the live UnitView contract). In-blob `version`
+  bumps `"1.1" → "1.2"`. New `migrate_1_1_to_1_2` migration step appends
+  to the chain as a pure version stamp — both new fields are optional, so
+  pre-1.0.1 saves resume cleanly with `archived_at_ms === undefined` and
+  `stats === undefined` (reporters loaded from a pre-1.0.1 blob carry no
+  stats until their next mint cycle; in practice the only reporter is
+  the construction-time starter, which never reloads with stats missing
+  because the World's constructor seeds them — but the migration is the
+  safety net for save-format-stability and any future hot-load). Storage
+  key (`'late-edition.save.v1'`) unchanged.
 
 - **v0.1.2** (milestone 1.0.0, 2026-05-22) — In-PR Constraint #4 bump
   alongside the Tier-1 opener code session that wires Herald + Observer.

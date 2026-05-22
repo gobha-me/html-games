@@ -61,6 +61,7 @@ test('fresh World — hud.resources reads STARTING_INK with derived leads/storie
   assert.deepEqual(f.hud.resources, {
     leads: 1,
     stories: 0,
+    archived: 0,
     ink: STARTING_INK,
     cash: 0,
     heat: 0,

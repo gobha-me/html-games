@@ -49,7 +49,11 @@ try {
 // 0.8 (ICD-04 v0.1): attempt to restore from localStorage; fall through to
 // a fresh World on no-save / parse-fail / unknown-future-version.
 const world = loadSave() ?? new World();
-const hud = new HudCorkboard(hudRoots);
+// 1.0.1 (ICD-09 v0.1.1): wire the Archive UI hold/release gesture as a
+// callback so the HUD stays projection-only and the World holds the mutator.
+const hud = new HudCorkboard(hudRoots, {
+  toggleArchive: (storyId) => world.toggleArchive(storyId),
+});
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);
 

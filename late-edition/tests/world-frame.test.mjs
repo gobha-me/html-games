@@ -7,11 +7,14 @@ import { World } from '../js/sim/world-state.js';
 // Snapshot must match the ICD's WorldFrame / View struct field sets exactly.
 // v0.6 adds: WorldFrame.rivals · LeadView.district · FxEvent union (effects
 // shape stays the same — drained queue, kind+payload entries).
+// v0.6.5 (1.0.1) adds: WorldFrame.stories (per-row Story queue projection)
+// and UnitView.stats (Reporter trio; undefined for non-Reporter kinds).
 
-const FRAME_KEYS = ['cameraTarget', 'buildings', 'units', 'leads', 'rivals', 'rain', 'fog', 'hud', 'effects'];
+const FRAME_KEYS = ['cameraTarget', 'buildings', 'units', 'leads', 'stories', 'rivals', 'rain', 'fog', 'hud', 'effects'];
 const BUILDING_VIEW_KEYS = ['id', 'pos', 'kind', 'hp', 'hp_max', 'tier'];
-const UNIT_VIEW_KEYS = ['id', 'pos', 'facing', 'kind', 'state', 'selected', 'carrying'];
+const UNIT_VIEW_CORE_KEYS = ['id', 'pos', 'facing', 'kind', 'state', 'selected', 'carrying'];
 const LEAD_VIEW_KEYS = ['id', 'pos', 'tier', 'flavor', 'district', 'age_ms'];
+const STORY_QUEUE_VIEW_KEYS = ['id', 'state', 'headline', 'flavor', 'tier', 'district'];
 
 function keysOf(obj) { return Object.keys(obj).sort(); }
 
@@ -67,16 +70,53 @@ test('frame.leads excludes Stories with state !== lead (verified at Darkroom)', 
   assert.equal(f.leads.length, 0);
 });
 
-test('UnitView field set matches ICD-01 v0.2 exactly (no leaks)', () => {
+test('UnitView field set matches ICD-01 v0.6.5 exactly (core + optional stats)', () => {
+  // 1.0.1 (ICD-01 v0.6 §UnitView.stats projector): the Reporter trio is the
+  // only optional UnitView field at Tier-0. Every other kind carries exactly
+  // the v0.2 core set.
   const w = new World();
   const f = w.snapshot();
   assert.ok(f.units.length > 0);
   for (const u of f.units) {
-    assert.deepEqual(keysOf(u), [...UNIT_VIEW_KEYS].sort());
+    const expected = u.kind === 'reporter'
+      ? [...UNIT_VIEW_CORE_KEYS, 'stats'].sort()
+      : [...UNIT_VIEW_CORE_KEYS].sort();
+    assert.deepEqual(keysOf(u), expected);
     assert.ok(['idle', 'walking', 'carrying'].includes(u.state));
     assert.equal(typeof u.facing, 'number');
     assert.equal(typeof u.selected, 'boolean');
+    if (u.kind === 'reporter') {
+      assert.equal(typeof u.stats.nerve, 'number');
+      assert.equal(typeof u.stats.nose, 'number');
+      assert.equal(typeof u.stats.legs, 'number');
+    }
   }
+});
+
+test('frame.stories is empty in a fresh World (no verified+ stories at construction)', () => {
+  const w = new World();
+  const f = w.snapshot();
+  assert.deepEqual(f.stories, []);
+});
+
+test('frame.stories captures verified and archived held at Darkroom (ICD-01 v0.6.5)', () => {
+  const w = new World();
+  const darkroom = w.buildings.find((b) => b.kind === 'darkroom');
+  // Verify the starter story in place, then archive it.
+  w.stories[0].state = 'verified';
+  w.stories[0].held_by_building = darkroom.id;
+  let f = w.snapshot();
+  assert.equal(f.stories.length, 1);
+  assert.equal(f.stories[0].state, 'verified');
+  for (const row of f.stories) {
+    assert.deepEqual(keysOf(row), [...STORY_QUEUE_VIEW_KEYS].sort());
+  }
+  const res = w.toggleArchive(w.stories[0].id);
+  assert.equal(res.ok, true);
+  f = w.snapshot();
+  assert.equal(f.stories.length, 1);
+  assert.equal(f.stories[0].state, 'archived');
+  assert.equal(f.hud.resources.archived, 1);
 });
 
 test('snapshot does not expose sim-only fields (path, tile, pathIdx)', () => {
