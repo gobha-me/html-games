@@ -210,16 +210,24 @@ function resolveAction(action, state, rng) {
     }
 
     case 'trade': {
-      // Trade: spend money for supplies
+      // Trade: spend money for supplies (food or ammo)
       const tradeAmount = Math.floor(rng() * 3) + 1; // 1-3 trade events
       for (let i = 0; i < tradeAmount; i++) {
         if (state.resources.money >= 10) {
           const cost = Math.floor(rng() * 11) + 10; // $10-20
-          const foodGained = Math.floor(rng() * 31) + 20; // 20-50 lbs
           if (state.resources.money >= cost) {
-            deltas.money -= cost;
-            deltas.food += foodGained;
-            log.push(`Traded $${cost} for ${foodGained} lbs of food.`);
+            const buyAmmo = rng() < 0.4; // 40% chance to buy ammo
+            if (buyAmmo) {
+              const ammoGained = Math.floor(rng() * 16) + 10; // 10-25 rounds
+              deltas.money -= cost;
+              deltas.ammo += ammoGained;
+              log.push(`Traded $${cost} for ${ammoGained} rounds of ammo.`);
+            } else {
+              const foodGained = Math.floor(rng() * 31) + 20; // 20-50 lbs
+              deltas.money -= cost;
+              deltas.food += foodGained;
+              log.push(`Traded $${cost} for ${foodGained} lbs of food.`);
+            }
           }
         }
       }
@@ -227,6 +235,7 @@ function resolveAction(action, state, rng) {
         log.push('No money available for trading.');
       }
       break;
+    }
     }
 
     case 'rest': {

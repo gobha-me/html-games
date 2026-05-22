@@ -452,7 +452,7 @@ function renderDecisionPanel() {
     { value: 'none', label: 'None', desc: 'Just travel' },
     { value: 'hunt', label: 'Hunt', desc: 'Risk ammo for food' },
     { value: 'rest', label: 'Rest', desc: 'Recover health, no progress' },
-    { value: 'trade', label: 'Trade', desc: 'Buy/sell at outpost' }
+    { value: 'trade', label: 'Trade', desc: 'Buy supplies at outpost' }
   ];
   
   actions.forEach(action => {
