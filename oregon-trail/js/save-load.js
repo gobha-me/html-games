@@ -24,8 +24,10 @@ const SAVE_VERSION = 1;
  * Wrapped in try/catch — silently fails if localStorage is unavailable or full.
  *
  * @param {object} state — The current game state object.
+ * @param {object} [ledger] — Optional Trail Ledger to persist.
+ * @param {object} [stats] — Optional stats snapshot to persist.
  */
-export function saveGame(state) {
+export function saveGame(state, ledger, stats) {
   if (!state) return;
   try {
     const { rng, ...serializable } = state;
@@ -34,6 +36,8 @@ export function saveGame(state) {
       timestamp: Date.now(),
       state: serializable
     };
+    if (ledger) payload.ledger = ledger;
+    if (stats) payload.stats = stats;
     localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
   } catch (e) {
     // localStorage can be disabled, blocked, or full — saving is best-effort.
@@ -45,9 +49,11 @@ export function saveGame(state) {
  * Identical to `saveGame`; named for intent clarity at call sites.
  *
  * @param {object} state — The current game state object.
+ * @param {object} [ledger] — Optional Trail Ledger to persist.
+ * @param {object} [stats] — Optional stats snapshot to persist.
  */
-export function autoSave(state) {
-  saveGame(state);
+export function autoSave(state, ledger, stats) {
+  saveGame(state, ledger, stats);
 }
 
 /**
@@ -103,13 +109,15 @@ export function loadGame(createRNG) {
   };
 
   return {
-    ...saved,
-    rng: rngFactory(),
-    _turnLog: saved._turnLog || []
+    state: {
+      ...saved,
+      rng: rngFactory(),
+      _turnLog: saved._turnLog || []
+    },
+    ledger: payload.ledger ?? null,
+    stats: payload.stats ?? null
   };
 }
-
-/**
  * Check whether a valid, version-matching save exists in localStorage.
  *
  * @returns {boolean}

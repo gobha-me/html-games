@@ -39,7 +39,12 @@ import {
   hasSave,
   deleteSave,
 } from './save-load.js';
-
+import {
+  createStatsTracker,
+  createStatsPanelUI,
+  serializeStats,
+  deserializeStats
+} from './stats-panel.js';
 import {
   getLegForDistance,
   getLegLabel,
@@ -83,7 +88,8 @@ let gameState = null;
 let trailLedger = null;
 let currentEvent = null;
 let turnLog = [];
-
+let statsTracker = null;
+let statsPanel = null;
 // ─── DOM References ──────────────────────────────────────────────────────────
 
 const DOM = {};
@@ -131,9 +137,10 @@ function init() {
   // Try to load a saved game first
   if (hasSave()) {
     const saved = loadGame(createRNGStub);
-    if (saved && !saved.gameOver) {
-      gameState = deserializeState(saved);
-      trailLedger = createLedger();
+    if (saved && !saved.state.gameOver) {
+      gameState = deserializeState(saved.state);
+      trailLedger = saved.ledger ? createLedger(saved.ledger) : createLedger();
+      statsTracker = deserializeStats(saved.stats);
       turnLog = ['Loaded saved game.'];
     } else {
       startNewGame();
@@ -142,6 +149,8 @@ function init() {
     startNewGame();
   }
   
+  // Create stats panel UI
+  statsPanel = createStatsPanelUI(statsTracker);
   bindEvents();
   render();
 }
@@ -152,11 +161,11 @@ function init() {
 function startNewGame() {
   gameState = createInitialState();
   trailLedger = createLedger();
+  statsTracker = createStatsTracker();
   turnLog = ['Day 1: The journey begins from Independence, Missouri.'];
   currentEvent = null;
   hideEndScreen();
 }
-
 /**
  * Stub RNG factory for deserialization (turn-loop creates its own).
  */
@@ -202,6 +211,14 @@ function bindEvents() {
   
   // Next Day button
   DOM.nextDayBtn.addEventListener('click', handleNextDay);
+  
+  // Stats toggle button
+  const statsToggleBtn = document.getElementById('stats-toggle-btn');
+  if (statsToggleBtn) {
+    statsToggleBtn.addEventListener('click', () => {
+      if (statsPanel) statsPanel.toggle();
+    });
+  }
 }
 
 // ─── Turn Processing ─────────────────────────────────────────────────────────
@@ -219,6 +236,12 @@ function handleNextDay() {
   };
 
   gameState = advanceTurn(gameState, decisions);
+
+  // Record stats for this turn
+  if (statsTracker) {
+    statsTracker.recordTurn(gameState);
+    statsTracker.updatePartyDeaths(gameState);
+  }
 
   const lastTurn = gameState._turnLog && gameState._turnLog[gameState._turnLog.length - 1];
   if (lastTurn && lastTurn.events && lastTurn.events.length > 0) {
@@ -242,6 +265,14 @@ function handleNextDay() {
   gameState = { ...result.state, rng: gameState.rng, _turnLog: gameState._turnLog };
   trailLedger = result.ledger;
   currentEvent = result.event;
+
+  // Record the event category in stats
+  if (statsTracker) {
+    statsTracker.recordTurn(gameState, eventCategory);
+  }
+
+  // Auto-save with stats and ledger
+  saveGame(gameState, trailLedger, serializeStats(statsTracker));
 
   render();
 }
@@ -279,10 +310,8 @@ function handleEventChoice(choiceIndex) {
   // Clear the event
   currentEvent = null;
   
-  // Auto-save
-  saveGame(gameState);
-  
-  render();
+  // Auto-save with stats and ledger
+  saveGame(gameState, trailLedger, serializeStats(statsTracker));
 }
 
 /**
@@ -318,6 +347,7 @@ function render() {
   renderDecisionPanel();
   renderEventDisplay();
   renderTurnLog();
+  if (statsPanel) statsPanel.render(gameState, trailLedger);
 }
 
 /**

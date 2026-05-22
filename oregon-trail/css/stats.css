@@ -1,0 +1,277 @@
+/* ── Oregon Trail — Stats Panel Styles ── */
+
+/* ── Toggle Button ── */
+.stats-toggle-btn {
+  background: var(--earth-mid);
+  color: var(--parchment);
+  border: 1px solid var(--earth-dark);
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.stats-toggle-btn:hover {
+  background: var(--earth-dark);
+  transform: scale(1.03);
+}
+
+.stats-toggle-btn:active {
+  transform: scale(0.97);
+}
+
+/* ── Panel Overlay ── */
+.stats-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.stats-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Slide-out Panel ── */
+.stats-panel {
+  width: min(420px, 90vw);
+  height: 100vh;
+  background: var(--parchment);
+  border-left: 3px solid var(--trail-accent);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.25);
+  overflow-y: auto;
+  padding: 1.5rem;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stats-overlay.visible .stats-panel {
+  transform: translateX(0);
+}
+
+/* ── Panel Header ── */
+.stats-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--earth-mid);
+  padding-bottom: 0.75rem;
+}
+
+.stats-panel-title {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--earth-dark);
+  margin: 0;
+}
+
+.stats-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.stats-close-btn:hover {
+  background: var(--parchment-deep);
+  color: var(--earth-dark);
+}
+
+/* ── Stats Grid ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.stat-card {
+  background: var(--parchment-deep);
+  border: 1px solid var(--earth-light);
+  border-radius: 6px;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.stat-card .stat-icon {
+  font-size: 1.4rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.stat-card .stat-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--earth-dark);
+  display: block;
+}
+
+.stat-card .stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-top: 0.15rem;
+}
+
+/* ── Section Headers ── */
+.stats-section-title {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--earth-mid);
+  border-bottom: 1px solid var(--earth-light);
+  padding-bottom: 0.4rem;
+  margin: 0;
+}
+
+/* ── Events Log ── */
+.stats-events-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stats-events-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  background: var(--parchment-deep);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.stats-events-list .event-count {
+  font-weight: bold;
+  color: var(--earth-dark);
+  min-width: 2rem;
+  text-align: right;
+}
+
+/* ── Reputation Bars ── */
+.stats-reputation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.reputation-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.reputation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.reputation-faction {
+  font-weight: bold;
+  color: var(--earth-dark);
+}
+
+.reputation-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.reputation-bar-track {
+  height: 8px;
+  background: var(--parchment-deep);
+  border: 1px solid var(--earth-light);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.reputation-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  position: absolute;
+}
+
+.reputation-bar-fill.positive {
+  background: var(--grass);
+  left: 50%;
+}
+
+.reputation-bar-fill.negative {
+  background: #b94a48;
+  right: 50%;
+}
+
+/* ── Party Status ── */
+.stats-party-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stats-party-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  background: var(--parchment-deep);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.party-member-status.alive {
+  color: var(--grass);
+  font-weight: bold;
+}
+
+.party-member-status.deceased {
+  color: #b94a48;
+  font-weight: bold;
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .stats-panel {
+    width: 100vw;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .stat-card {
+    padding: 0.5rem;
+  }
+
+  .stat-card .stat-value {
+    font-size: 1rem;
+  }
+}
