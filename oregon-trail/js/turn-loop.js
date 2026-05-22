@@ -95,11 +95,11 @@ function createInitialState(overrides = {}, seed = undefined) {
     distanceTraveled: 0,
     totalDistance: TOTAL_DISTANCE,
     resources: {
-      food: 200,       // lbs
+      food: 800,       // lbs
       money: 200,      // dollars
-      ammo: 100,       // rounds
-      morale: 70,      // 0-100
-      wagonCondition: 100 // 0-100
+      ammo: 50,        // rounds
+      morale: 60,      // 0-100
+      wagonCondition: 80 // 0-100
     },
     party: {
       members: [

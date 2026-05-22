@@ -52,7 +52,7 @@ After decisions are made, the game:
 | **Food** | lbs | 800 | 2–5 lbs/day (pace + rationing) | Hunt can replenish 30–200 lbs |
 | **Money** | $ | $200 | 0 | Used at trading posts, ferries, repairs |
 | **Ammo** | rounds | 50 | 0 | Spent on hunting (5–15 rounds per hunt) |
-| **Health** | HP per member | 10 each | 0 (illness reduces) | 0 HP = member incapacitated; all dead = game over |
+| **Health** | HP per member | 100 each | 0 (illness reduces) | 0 HP = member incapacitated; all dead = game over |
 | **Morale** | 0–100 (party-wide) | 60 | −2/day baseline; modified by pace/rationing/events | < 20 → desertion risk; > 80 → bonus event outcomes |
 | **Wagon Condition** | 0–100 | 80 | −1/day baseline; terrain/events modify | 0 = stranded; must repair or game over |
 
