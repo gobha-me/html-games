@@ -206,3 +206,51 @@ test('Observer posture mapping never returns hostile', () => {
     assert.notEqual(o.posture, 'hostile', `state ${state} must not map to hostile (rival-ai-spec §05 — never hostile except via information)`);
   }
 });
+
+// 1.1.0 (ICD-02 v0.3.2 §Notes · ICD-10 v0.1.1 observer_silent_n_editions).
+test('Observer recentStates pushes each edition and caps at 5', () => {
+  const o = new Observer();
+  for (let i = 0; i < 7; i++) o.onEditionEnd(makeView({ edition: i + 1, leads: [] }));
+  assert.equal(o.recentStates.length, 5);
+  // All entries should be valid state names (no PASS / intent kinds).
+  for (const s of o.recentStates) {
+    assert.ok(
+      ['INVESTIGATE', 'PUBLISH', 'WARN', 'DESPERATE', 'SILENCED'].includes(s),
+      `unexpected entry: ${s}`,
+    );
+  }
+});
+
+test('Observer recentStates round-trips via snap (save.js shape)', () => {
+  const o = new Observer();
+  o.recentStates = ['INVESTIGATE', 'PUBLISH', 'INVESTIGATE'];
+  // Manually round-trip through the snap shape (the save.js helper writes
+  // recent_states; restore reads it).
+  const restored = Observer.fromSnap({
+    id: 'observer',
+    state: o.state,
+    cash: o.cash,
+    observing_lead_id: o.observingLeadId,
+    editions_in_state: o.editionsInState,
+    edition_tick: o._editionTick,
+    past_intents: o.pastIntents,
+    rng: { state: o.rng.state },
+    recent_states: o.recentStates,
+  });
+  assert.deepEqual(restored.recentStates, ['INVESTIGATE', 'PUBLISH', 'INVESTIGATE']);
+});
+
+test('Observer fromSnap defaults recentStates to [] for pre-1.1.0 saves', () => {
+  const restored = Observer.fromSnap({
+    id: 'observer',
+    state: 'INVESTIGATE',
+    cash: 500,
+    observing_lead_id: null,
+    editions_in_state: 0,
+    edition_tick: 0,
+    past_intents: [],
+    rng: { state: 1 },
+    // recent_states intentionally absent
+  });
+  assert.deepEqual(restored.recentStates, []);
+});

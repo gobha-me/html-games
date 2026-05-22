@@ -44,6 +44,7 @@ definitions.
 | **PRE-1.0** | Author **ICD-02 v0.3** (Herald + Observer state machines · intent vocabulary · posture mapping) + **ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09** (Archive / inter-edition story state, new) + **ICD-10** (Arc framework formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-deferred-projection rule) — *shipped v0.10.4* | Architecture session · paper-only · gates milestone 1.0 · scheduled by the Tier-0 → Tier-1 re-eval | strong |
 | **1.0.0** | Tier-1 opener — adversarial substrate · Herald state machine (IDLE / COURT / WIRED bodies; PUNISH / BUYOUT caller-triggered) · Observer state machine (INVESTIGATE / PUBLISH / WARN bodies; DESPERATE / SILENCED caller-triggered) · Switchboard building + goon LoS visibility filter (ICD-08) — *shipped v1.0.0* | First half of the 1.0 opener per the authorized split (0.7 / 0.10 precedent). ICD-01 → v0.6.4 (`BuildingKind` widens for `'switchboard'`); ICD-02 → v0.3.1 (`RivalView.player.printed_lies` field added); ICD-04 → v0.1.2 (`RivalsSnap` widens; v1.0 → v1.1 migration). Tests at 257 cases (199 → 257). | strong |
 | **1.0.1** | Tier-1 opener — Archive UI (ICD-09 · `archived` Story state · cap=5 · decay=10 editions · dossier `archived: N/5` · left-click per-row gesture) · `UnitView.stats` projector for Reporter trio · `LeadView.district` dossier read · 30 s minimum debrief gate (ICD-06 v0.4 code-side) — *shipped v1.0.1* | Second half of the 1.0 opener. ICD-01 → v0.6.5 (`WorldFrame.stories` + `UnitView.stats` projector + `HudState.resources.archived`); ICD-04 → v0.1.3 (`StorySnap.state` widens + `archived_at_ms` + `UnitSnap.stats`; v1.1 → v1.2 migration); ICD-05 → v0.4.2 (§Notes cross-ref to ICD-09); ICD-09 → v0.1.1 (§Open Q1 close). Tests at 281 cases (257 → 281). Closes Gitea #317. | strong |
+| **1.1.0** | Tier-1 content — first authored arc (Longshoreman Strike) + Investigation 3-step chain wiring · arc dispatcher in `_runSpawnerTick` (trigger predicate + district constraint + one-instance-per-arc-id) · `_handlePhotogArrival` chain hook (depth 3 cap, deterministic from parent.id) · `World.pickArcBranch` corkboard-chip player gesture · `_applyArcPlate` outcome application (cash/heat one-times + districtDispositions) · district-heat accumulator + flat -5/edition decay · Observer.recentStates ring (cap 5) — *shipped v1.1.0* | First Tier-1.x content session. Retires the `tier === 'arc'` lead-spawner collapse from 0.10.0. ICD-10 → v0.1.1 (negate-flag + StoryArc.district + arc registry + chain hook + observer_silent_n_editions semantics + §Save-surface lift + §Open-Qs Q1/Q3/Q4 closed). ICD-04 → v0.1.4 (`active_arcs`, `district_heat`, `district_dispositions`; `StorySnap` optional `parent_story_id` + `arc_episode_id` + `arc_branch_label`; `ObserverSnap.recent_states`; v1.2 → v1.3 migration). ICD-02 → v0.3.2 (§Notes Observer.recentStates). ICD-05 → v0.4.3 (§Notes cross-ref to ICD-10 v0.1.1). Tests at 334 cases (281 → 334). | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -65,6 +66,50 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**v1.1.0 — Tier-1 content · first authored arc (Longshoreman Strike) +
+Investigation 3-step chain.** First Tier-1.x content session against the
+ten authored ICDs. New `js/sim/arcs.js` lifts the `THE_LONGSHOREMAN_STRIKE`
+record verbatim from ICD-10 §Spec-validation (4 episodes · 4 outcomes ·
+trigger: docks heat > 60 AND docks covered AND observer silent ≥ 3
+editions). The lead-spawner's `tier === 'arc'` collapse line retires;
+`_runSpawnerTick` consults the arc registry, evaluates triggers against
+a pure context object (heat · edition · districtHeat · coveredDistricts
+· observerRecentStates · rivalStates), and either upgrades the spawn to
+an authored arc episode (one-instance-per-arc-id enforced) or downgrades
+to investigation as fallback. `_handlePhotogArrival` adds the
+Investigation 3-step chain hook — on `lead → verified` for tier
+'investigation' the sim spawns a successor in the same district with
+`parent_story_id` set, capped at depth 3, deterministic from parent.id
+via FNV-1a hash. `World.pickArcBranch(storyId, label)` records the
+player's intent (corkboard in-line chip click); the un-picked arc gate
+in `_fireDebrief` blocks plating until the player commits.
+`_applyArcPlate` fires at the verified → plated boundary: terminal
+choices write `cash_one_time` / `heat_one_time` to `World.resources` +
+`districtDispositions` (last-writer-wins per ICD-10 §Open-Q4 close);
+advance choices spawn the next episode's lead in the same district via
+`_spawnArcEpisode`. District-heat accumulator (`World.districtHeat`) +
+flat `-5 / edition` decay powers `district_heat_above`. Observer gains
+a `recentStates` ring (cap 5) pushed once per edition for
+`observer_silent_n_editions` ("not loud" semantics — loud = PUBLISH /
+WARN). Dossier story-queue rows render `Arc · Longshoreman Strike ·
+bury | splash` chips for un-picked arc stories, `Picked: splash` for
+picked, `Investigation 2/3` for chained investigations. **Four ICD
+bumps in-PR (Constraint #4):** ICD-10 v0.1 → v0.1.1 (six surface
+changes: StoryArc.district · negate flag · observer_silent
+semantics · district_heat lit · Story foreign keys · save-surface lift;
+three §Open-Qs closed Q1/Q3/Q4); ICD-04 v0.1.3 → v0.1.4 (three new
+top-level fields + three StorySnap optional fields + ObserverSnap
+recent_states + ActiveArcSnap interface + migrate_1_2_to_1_3); ICD-02
+v0.3.1 → v0.3.2 (§Notes Observer.recentStates); ICD-05 v0.4.2 → v0.4.3
+(§Notes cross-ref to ICD-10 v0.1.1). District-disposition mechanical
+effect (spawn-rate / raid-prob modifiers) stored + displayed but
+deferred to the 1.1.x balance pass per ICD-10 §Notes. Tests at 334
+cases (281 → 334; new arcs-trigger.test.mjs · arcs-episode.test.mjs ·
+investigation-chain.test.mjs + extensions to observer.test.mjs ·
+save-load.test.mjs · hud.test.mjs).
+
+---
 
 **v1.0.1 — Tier-1 opener · Archive UI + projectors + debrief gate.**
 Second Tier-1 code session, closing out the 1.0 split scheduled by issue

@@ -10,6 +10,7 @@ import {
   CURRENT_VERSION,
   STORY_VERSION,
 } from '../js/sim/save.js';
+import { ActiveArc } from '../js/sim/arcs.js';
 
 // Milestone 0.8 — save / load (ICD-04 v0.1).
 // Single versioned localStorage blob captures full sim state. Tests cover
@@ -320,14 +321,18 @@ test('size guard: console.warn fires when serialized blob exceeds 500_000 bytes'
 
 // ---- 12. version field ----------------------------------------------------
 
-test('serialized blob carries version="1.2" at the top level', () => {
+test('serialized blob carries version="1.3" at the top level', () => {
   // 1.0.0 bumped schema to "1.1" — rivals widens to {evening_star, herald, observer}.
   // 1.0.1 bumped schema to "1.2" — StorySnap.state widens with 'archived' +
   // optional archived_at_ms field; UnitSnap gains optional stats (Reporter trio).
+  // 1.1.0 bumped schema to "1.3" — SaveBlobV1 gains active_arcs[],
+  // district_heat, district_dispositions; StorySnap gains optional
+  // parent_story_id / arc_episode_id / arc_branch_label; ObserverSnap gains
+  // recent_states.
   const w = new World();
   const blob = serialize(w);
   assert.equal(blob.version, CURRENT_VERSION);
-  assert.equal(blob.version, '1.2');
+  assert.equal(blob.version, '1.3');
 });
 
 // ---- 13. 1.0.0 three-rival round-trip ------------------------------------
@@ -389,4 +394,101 @@ test('loadSave migrates a v1.0 blob (single-rival rivals) into 1.1 with default 
   assert.equal(h.isWired, false);
   assert.equal(o.state, 'INVESTIGATE');
   assert.equal(o.cash, 500);
+});
+
+// ---- 15. 1.1.0 — arc framework + chain + per-district trackers ----------
+
+test('arcs: active_arcs[] round-trips with current_episode and chosen_path', () => {
+  const w1 = new World();
+  w1.activeArcs.push(new ActiveArc({
+    arcId: 'longshoreman_strike',
+    currentEpisode: 'longshoreman_strike.foremans_wife',
+    chosenPath: ['splash'],
+    spawnEdition: 2,
+  }));
+  const w2 = deserialize(serialize(w1));
+  assert.equal(w2.activeArcs.length, 1);
+  assert.equal(w2.activeArcs[0].arcId, 'longshoreman_strike');
+  assert.equal(w2.activeArcs[0].currentEpisode, 'longshoreman_strike.foremans_wife');
+  assert.deepEqual(w2.activeArcs[0].chosenPath, ['splash']);
+  assert.equal(w2.activeArcs[0].spawnEdition, 2);
+});
+
+test('arcs: districtHeat + districtDispositions round-trip', () => {
+  const w1 = new World();
+  w1.districtHeat.docks = 42;
+  w1.districtHeat.hillside = 7;
+  w1.districtDispositions.docks = 'loyal';
+  const w2 = deserialize(serialize(w1));
+  assert.equal(w2.districtHeat.docks, 42);
+  assert.equal(w2.districtHeat.hillside, 7);
+  assert.equal(w2.districtDispositions.docks, 'loyal');
+});
+
+test('arcs: Story.parent_story_id + arc_episode_id + arc_branch_label round-trip', () => {
+  const w1 = new World();
+  w1.stories.push({
+    id: 's-chain-test',
+    state: 'lead',
+    district: 'docks',
+    flavor: 'labor',
+    tier: 'investigation',
+    truthful: true,
+    spawned_at_ms: 0,
+    tile: { x: 2, y: 2 },
+    picked_up_by: null,
+    held_by_building: null,
+    parent_story_id: 's-parent-x',
+  });
+  w1.stories.push({
+    id: 's-arc-test',
+    state: 'verified',
+    district: 'docks',
+    flavor: 'labor',
+    tier: 'arc',
+    truthful: true,
+    spawned_at_ms: 0,
+    tile: { x: 3, y: 3 },
+    picked_up_by: null,
+    held_by_building: w1.buildings.find((b) => b.kind === 'darkroom').id,
+    headline: 'THE WALKOUT — Longshoremen halt the harbor',
+    arc_episode_id: 'longshoreman_strike.walkout',
+    arc_branch_label: 'splash',
+  });
+  const w2 = deserialize(serialize(w1));
+  const chain = w2.stories.find((s) => s.id === 's-chain-test');
+  assert.equal(chain.parent_story_id, 's-parent-x');
+  const arc = w2.stories.find((s) => s.id === 's-arc-test');
+  assert.equal(arc.arc_episode_id, 'longshoreman_strike.walkout');
+  assert.equal(arc.arc_branch_label, 'splash');
+});
+
+test('arcs: observer.recentStates ring round-trips', () => {
+  const w1 = new World();
+  const observer = w1.rivals.find((r) => r.id === 'observer');
+  observer.recentStates = ['INVESTIGATE', 'PUBLISH', 'INVESTIGATE'];
+  const w2 = deserialize(serialize(w1));
+  const observer2 = w2.rivals.find((r) => r.id === 'observer');
+  assert.deepEqual(observer2.recentStates, ['INVESTIGATE', 'PUBLISH', 'INVESTIGATE']);
+});
+
+test('arcs: migrate_1_2_to_1_3 defaults active_arcs / district_heat / district_dispositions / observer.recent_states', () => {
+  const w1 = new World();
+  const blob = serialize(w1);
+  // Synthesize a v1.2 blob (strip the new collections + downgrade version).
+  const legacy = { ...blob, version: '1.2' };
+  delete legacy.active_arcs;
+  delete legacy.district_heat;
+  delete legacy.district_dispositions;
+  if (legacy.rivals?.observer) delete legacy.rivals.observer.recent_states;
+
+  const storage = memStorage();
+  storage.setItem(SAVE_KEY, JSON.stringify(legacy));
+  const w2 = loadSave(storage);
+  assert.ok(w2, 'v1.2 → v1.3 migration produced a World');
+  assert.deepEqual(w2.activeArcs, []);
+  assert.equal(w2.districtHeat.docks, 0);
+  assert.deepEqual(w2.districtDispositions, {});
+  const observer2 = w2.rivals.find((r) => r.id === 'observer');
+  assert.deepEqual(observer2.recentStates, []);
 });

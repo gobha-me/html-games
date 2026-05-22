@@ -24,6 +24,11 @@ export const OBSERVER_ID = 'observer';
 export const OBSERVER_KIND = 'observer';
 export const TWO_EDITIONS = 'TWO_EDITIONS';
 export const PAST_INTENTS_BUFFER_CAP = 20;
+// 1.1.0 (ICD-02 v0.3.2 §Notes · ICD-10 v0.1.1 observer_silent_n_editions):
+// rolling per-edition state ring. Pushed unconditionally inside onEditionEnd
+// (before the 1/2-EDITIONS cadence gate) so every edition contributes one
+// entry. Read by the arc trigger evaluator via ctx.observerRecentStates.
+export const RECENT_STATES_BUFFER_CAP = 5;
 
 // State→posture mapping (ICD-02 v0.3 §RivalStatusView — Observer).
 // Observer never reaches `hostile` — §05 "never hostile except via information."
@@ -60,6 +65,7 @@ export class Observer {
     this.editionsInState = 0;       // resets on every state transition
     this._editionTick = 0;          // counter for 1/2 editions cadence
     this.pastIntents = [];
+    this.recentStates = [];         // 1.1.0 — per-edition state ring (cap 5)
   }
 
   static fromSnap(snap) {
@@ -71,6 +77,7 @@ export class Observer {
     o._editionTick = snap.edition_tick;
     o.pastIntents = snap.past_intents.slice();
     o.rng.state = snap.rng.state;
+    o.recentStates = (snap.recent_states ?? []).slice();   // 1.1.0 (ICD-02 v0.3.2)
     return o;
   }
 
@@ -92,6 +99,14 @@ export class Observer {
   // posture / debrief reads for the full tick.
   onEditionEnd(view) {
     this._editionTick += 1;
+    // 1.1.0 (ICD-02 v0.3.2): record the state visible during this edition for
+    // arc trigger predicates. Pushed every edition (not gated by the 2-edition
+    // cadence) — the player perceives Observer's current state regardless of
+    // whether its state machine ticked. State transitions below this gate
+    // affect the NEXT edition's entry; this one captures what just was.
+    this.recentStates.push(this.state);
+    while (this.recentStates.length > RECENT_STATES_BUFFER_CAP) this.recentStates.shift();
+
     if (this._editionTick % 2 !== 0) return [];
 
     // Auto-flip one-edition states back to INVESTIGATE on the next tick.

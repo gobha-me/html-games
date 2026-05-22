@@ -32,7 +32,13 @@ export const SCORES_KEY = 'late-edition.scores.v1';   // 0.10.0 (G-13)
 // 'archived' + optional archived_at_ms field; UnitSnap.stats widens
 // (optional Reporter trio). migrate_1_1_to_1_2 is a pass-through — both
 // additions are optional and read safely on pre-1.0.1 blobs.
-export const CURRENT_VERSION = '1.2';
+// 1.1.0: schema bump to "1.3" — SaveBlobV1 gains active_arcs[],
+// district_heat, district_dispositions; StorySnap gains optional
+// parent_story_id / arc_episode_id / arc_branch_label; ObserverSnap gains
+// optional recent_states (cap 5). migrate_1_2_to_1_3 stamps the version and
+// fills the new collections with empty defaults — all fields are optional
+// so pre-1.1.0 blobs resume cleanly via _loadFromSnap's ?? fallbacks.
+export const CURRENT_VERSION = '1.3';
 export const SCORES_VERSION = 1;                       // 0.10.0 (G-13)
 export const STORY_VERSION = 1;
 export const MAX_HIGH_SCORES = 10;                     // 0.10.0 (G-13)
@@ -75,6 +81,14 @@ export function serialize(world) {
       editions_survived: world.runStats?.editions_survived ?? 0,
       top_story:         world.runStats?.top_story ?? null,
     },
+    // 1.1.0 (ICD-04 v0.1.4 · ICD-10 v0.1.1): arc framework persistence.
+    // ActiveArc snap carries {arc_id, current_episode, chosen_path,
+    // spawn_edition}. district_heat is a simple {[id]: number}. Disposition
+    // values follow ICD-10 §Spec-validation: 'loyal' | 'grudging' | 'bitter'
+    // | 'open hostility'.
+    active_arcs:           (world.activeArcs ?? []).map((a) => a.snap()),
+    district_heat:         { ...(world.districtHeat ?? {}) },
+    district_dispositions: { ...(world.districtDispositions ?? {}) },
   };
 }
 
@@ -82,17 +96,22 @@ export function deserialize(blob) {
   return new World({ snap: blob });
 }
 
-// v0.1.3 migration chain. "1.0" → "1.1" → "1.2".
+// v0.1.4 migration chain. "1.0" → "1.1" → "1.2" → "1.3".
 //   1.0 → 1.1 synthesizes Herald + Observer default snaps for pre-1.0.0
 //             saves; rest of the blob is untouched.
 //   1.1 → 1.2 is a pass-through (StorySnap.state widen + archived_at_ms +
 //             UnitSnap.stats are all optional; default-undefined reads
 //             cleanly through _loadFromSnap).
+//   1.2 → 1.3 fills active_arcs / district_heat / district_dispositions /
+//             observer.recent_states with empty defaults. StorySnap optional
+//             parent_story_id / arc_episode_id / arc_branch_label fields
+//             read as undefined on pre-1.1.0 blobs.
 // Future bumps chain through the same surface.
 export function runMigrations(raw) {
   if (!raw || typeof raw !== 'object') return null;
   if (raw.version === '1.0') raw = migrate_1_0_to_1_1(raw);
   if (raw.version === '1.1') raw = migrate_1_1_to_1_2(raw);
+  if (raw.version === '1.2') raw = migrate_1_2_to_1_3(raw);
   if (raw.version === CURRENT_VERSION) return raw;
   // Anything not matching the current version is a future blob — refuse.
   return null;
@@ -121,6 +140,27 @@ function migrate_1_0_to_1_1(blob) {
 // stamp — the load path reads `archived_at_ms` and `stats` via ?? fallbacks.
 function migrate_1_1_to_1_2(blob) {
   return { ...blob, version: '1.2' };
+}
+
+// 1.1.0: v1.2 saves predate active_arcs / district_heat / district_dispositions
+// and observer.recent_states. All collections default empty; the StorySnap
+// optional foreign-key fields (parent_story_id / arc_episode_id /
+// arc_branch_label) read as undefined on pre-1.1.0 blobs through the
+// restoreStory ?? fallbacks. Migration explicitly fills the new collection
+// fields so forward-compat readers don't see undefined where {}/[] is expected.
+function migrate_1_2_to_1_3(blob) {
+  const rivals = (blob.rivals && typeof blob.rivals === 'object') ? blob.rivals : {};
+  const observer = (rivals.observer && typeof rivals.observer === 'object') ? rivals.observer : null;
+  return {
+    ...blob,
+    version: '1.3',
+    active_arcs:           blob.active_arcs           ?? [],
+    district_heat:         blob.district_heat         ?? {},
+    district_dispositions: blob.district_dispositions ?? {},
+    rivals: observer
+      ? { ...rivals, observer: { ...observer, recent_states: observer.recent_states ?? [] } }
+      : rivals,
+  };
 }
 
 function defaultHeraldSnap() {
@@ -253,6 +293,12 @@ function storySnap(s) {
   if (s.heat_yield !== undefined) snap.heat_yield = s.heat_yield;
   if (s.ink_cost !== undefined) snap.ink_cost = s.ink_cost;
   if (s.archived_at_ms !== undefined) snap.archived_at_ms = s.archived_at_ms;  // 1.0.1 (ICD-04 v0.1.3 · ICD-09)
+  // 1.1.0 (ICD-04 v0.1.4 · ICD-10 v0.1.1): Investigation chain + arc-episode
+  // foreign keys + arc branch-pick intent. All optional — present only on
+  // chained / arc-tier stories. Round-trip via restoreStory's ?? fallbacks.
+  if (s.parent_story_id !== undefined) snap.parent_story_id = s.parent_story_id;
+  if (s.arc_episode_id !== undefined) snap.arc_episode_id = s.arc_episode_id;
+  if (s.arc_branch_label !== undefined) snap.arc_branch_label = s.arc_branch_label;
   return snap;
 }
 
@@ -352,5 +398,9 @@ function observerSnap(observer) {
     edition_tick: observer._editionTick,
     past_intents: observer.pastIntents.slice(),
     rng: { state: observer.rng.state },
+    // 1.1.0 (ICD-02 v0.3.2): per-edition state ring for the
+    // observer_silent_n_editions trigger predicate. Cap 5 enforced in
+    // observer.js; the snap carries whatever's there at write time.
+    recent_states: (observer.recentStates ?? []).slice(),
   };
 }

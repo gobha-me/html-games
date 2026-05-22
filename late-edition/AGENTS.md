@@ -38,15 +38,18 @@ working as designed, not a delay.
 ## Hard rules for this game
 
 - **Don't commit code for milestones that haven't had their ICDs authored.**
-  All ten ICDs are now authored (01 v0.6.5 · 02 v0.3.1 · 03 v0.2 · 04
-  v0.1.3 · 05 v0.4.2 · 06 v0.4 · 07 v0.1 · 08 v0.1 · 09 v0.1.1 · 10 v0.1);
+  All ten ICDs are now authored (01 v0.6.5 · 02 v0.3.2 · 03 v0.2 · 04
+  v0.1.4 · 05 v0.4.3 · 06 v0.4 · 07 v0.1 · 08 v0.1 · 09 v0.1.1 · 10 v0.1.1);
   Tier-0 milestones 0.1 → 0.10.2 have shipped against their contracts;
   the Tier-0 → Tier-1 re-eval shipped at v0.10.3; **PRE-1.0** (paper-
   only) shipped at v0.10.4; **milestone 1.0** shipped across two halves
   — 1.0.0 (adversarial substrate: Herald + Observer + Switchboard) and
-  1.0.1 (Archive UI · Reporter trio projector · 30 s debrief gate).
-  Tier-1 content (authored arcs · investigation chains · Herald PUNISH /
-  BUYOUT · Observer DESPERATE / SILENCED) stays at Tier-1.x.
+  1.0.1 (Archive UI · Reporter trio projector · 30 s debrief gate);
+  **milestone 1.1.0** shipped the first authored arc (Longshoreman
+  Strike) + Investigation 3-step chain wiring. Remaining Tier-1 content
+  (Herald PUNISH / BUYOUT · Observer DESPERATE / SILENCED · Star-vs-
+  Observer raid · audio bus first caller · further authored arcs)
+  stays at Tier-1.x.
 - **When code deviates from an ICD, update the ICD in the same PR.** This
   is Constraint #4 of the methodology.
 - **Bands are not decoration.** Strong-band commitments are load-bearing.
@@ -56,6 +59,57 @@ working as designed, not a delay.
   (`architecture/`, `icds/`, `discussion/`) — never edit the source HTMLs.
 
 ## Current state
+
+**v1.1.0 — Tier-1 content · first authored arc + Investigation chain.**
+First Tier-1.x content session. Seven deliverables landed:
+
+- **`js/sim/arcs.js`** (new) — `THE_LONGSHOREMAN_STRIKE` lifted verbatim
+  from ICD-10 §Spec-validation (4 episodes · 4 outcomes · trigger:
+  docks heat > 60 AND docks covered AND observer silent ≥ 3 editions).
+  Pure `evalTrigger` recursive evaluator handles 8 named predicate kinds
+  + 2 composers + the v0.1.1 `negate` flip flag.
+- **Arc dispatcher** in `_runSpawnerTick` — retires the
+  `tier === 'arc'` collapse from 0.10.0; upgrades to an authored arc
+  episode when trigger fires AND district matches AND no active
+  instance, downgrades to investigation otherwise.
+- **Investigation 3-step chain hook** in `_handlePhotogArrival` —
+  spawns successor in same district on `lead → verified` for
+  investigation-tier stories; depth 3 cap; deterministic from
+  `parent.id` via FNV-1a hash.
+- **`pickArcBranch` + `_applyArcPlate`** — corkboard-chip player
+  gesture records intent; effects fire at verified → plated (terminal
+  outcomes apply cash/heat one-times + `districtDispositions` write,
+  retire ActiveArc; advance outcomes spawn next-episode lead).
+- **District-heat accumulator** (`World.districtHeat`) — accumulated at
+  `_fireDebrief` (admitted printed stories' heat_yield by district);
+  decayed at `ackDebrief` (flat `-5 / edition`). Powers
+  `district_heat_above`.
+- **Observer recentStates ring** (cap 5) — pushed once per edition
+  inside `onEditionEnd`; powers `observer_silent_n_editions`
+  ("not loud" = anything but PUBLISH/WARN).
+- **Dossier breadcrumb** — story-queue rows render
+  `Arc · Longshoreman Strike · bury | splash` for un-picked arc
+  stories, `Picked: splash` for picked, `Investigation 2/3` for
+  chained investigations.
+
+Save schema bumps v1.2 → v1.3 in-PR via `migrate_1_2_to_1_3` (defaults
+the three new top-level collections + observer.recent_states). Four
+ICD bumps in-PR (Constraint #4): ICD-10 v0.1 → v0.1.1 (six surface
+changes + Q1/Q3/Q4 closed); ICD-04 v0.1.3 → v0.1.4
+(`active_arcs[]` + `district_heat` + `district_dispositions` + Story
+optional fields + ActiveArcSnap interface + migration); ICD-02 v0.3.1
+→ v0.3.2 (§Notes Observer.recentStates); ICD-05 v0.4.2 → v0.4.3
+(§Notes cross-ref). District-disposition mechanical effect deferred to
+1.1.x balance pass per ICD-10 §Notes. Tests at 334 cases (281 → 334).
+
+**Next: remaining Tier-1.x content + adversarial maturation.** Herald
+PUNISH + BUYOUT state bodies · Observer DESPERATE + SILENCED state
+bodies · Star-vs-Observer raid mechanic (§06 matrix cell 3) · audio
+bus first caller against ICD-07 · further authored arcs (Mayor's
+Mistress · Empty Vault · etc.) · district-disposition mechanical
+effect (spawn-rate / raid-prob modifiers) at the 1.1.x balance pass.
+
+---
 
 **v1.0.1 — Tier-1 opener · second half shipped.** Closes the 1.0
 opener split scheduled by Gitea issue #317. Four deliverables landed:
@@ -80,13 +134,6 @@ Save schema bumps v1.1 → v1.2 in-PR via `migrate_1_1_to_1_2`
 ICD bumps in-PR (Constraint #4): ICD-01 v0.6.4 → v0.6.5; ICD-04 v0.1.2
 → v0.1.3; ICD-05 v0.4.1 → v0.4.2 (§Notes only); ICD-09 v0.1 → v0.1.1
 (§Open Q1 close). Tests at 281 cases (257 → 281). Closes Gitea #317.
-
-**Next: Tier-1.x content + adversarial maturation.** First authored
-arc (Longshoreman Strike or similar) · Investigation 3-step chain
-wiring (`Story.parent_story_id` lit by sim) · Herald PUNISH + BUYOUT
-state bodies · Observer DESPERATE + SILENCED state bodies · Star-vs-
-Observer raid mechanic (§06 matrix cell 3) · audio bus first caller
-against ICD-07.
 
 ---
 

@@ -1,6 +1,7 @@
 # ICD-02 · Rival ↔ World
 
-**Status:** v0.3.1 (milestone 1.0.0 — in-PR Constraint #4 bump; `RivalView.player.printed_lies` field added for Observer's INVESTIGATE → PUBLISH transition; no other shape change)
+**Status:** v0.3.2 (milestone 1.1.0 — §Notes only; pins `Observer.recentStates: string[]` (cap 5) as a rival-internal per-edition ring read by ICD-10 v0.1.1 `observer_silent_n_editions` predicate; no in-memory shape change beyond Observer.recentStates; ICD-04 v0.1.4 carries the `recent_states` snap field)
+**Prior:** v0.3.1 (milestone 1.0.0 — in-PR Constraint #4 bump; `RivalView.player.printed_lies` field added for Observer's INVESTIGATE → PUBLISH transition; no other shape change)
 **Prior:** v0.3 (PRE-1.0 — Herald + Observer state machines authored; two Intent kinds added; `RivalStatusView` posture mapping extended to all three rivals; inter-rival §Notes paragraph lifted from rival-ai-spec.html §06)
 **Prior:** v0.2.2 (in-PR §Notes addition at 0.9.3 — `RivalEventDigest.kind` vocabulary enumeration to cover `raid_succeeded` + `raid_wiped` emissions)
 **Band:** strong
@@ -412,6 +413,15 @@ without an ICD revision.
 
 ## Notes
 
+- **Observer per-edition state ring (v0.3.2 · 1.1.0).** `Observer.recentStates:
+  string[]` (cap 5) tracks the state visible during each edition.
+  Pushed inside `onEditionEnd` BEFORE the 1/2-EDITIONS cadence gate
+  (so every edition contributes one entry, regardless of whether the
+  state-machine pass ticks). Read by ICD-10 v0.1.1's
+  `observer_silent_n_editions` trigger predicate ("not loud" semantics —
+  loud = `PUBLISH` / `WARN`; every other state counts as silent).
+  Round-trips via ICD-04 v0.1.4 `ObserverSnap.recent_states?: string[]`
+  (optional; pre-1.1.0 saves default to `[]`).
 - **The 0.7 slice is two states + one Intent.** Evening Star runs SCAVENGE
   and RAID; the bodies emit `PASS` (SCAVENGE) and `RAID_BUREAU` (RAID-entry
   tick). Every other state in the §Evening Star state machine table is
@@ -536,6 +546,18 @@ strong-band — changing a state, a transition predicate, or the goon-count
 table is an architecture session, not a deviation.
 
 ## Revision history
+
+- **v0.3.2** (milestone 1.1.0, 2026-05-22) — §Notes-only addition for the
+  Longshoreman Strike + Investigation chain code session. Pins
+  `Observer.recentStates: string[]` (cap 5) — a rival-internal per-edition
+  state ring pushed inside `onEditionEnd` before the 1/2-EDITIONS cadence
+  gate. ICD-10 v0.1.1's `observer_silent_n_editions` trigger predicate
+  reads this ring with "not loud" semantics (loud = `PUBLISH` or `WARN`;
+  everything else counts as silent). No in-memory shape change to
+  `RivalView` or any other ICD-02 export — `recentStates` is purely a
+  rival-internal additive field. ICD-04 v0.1.4 in-PR carries the
+  `ObserverSnap.recent_states?: string[]` save field (optional; pre-1.1.0
+  saves default-fill via `migrate_1_2_to_1_3`).
 
 - **v0.3.1** (milestone 1.0.0, 2026-05-22) — In-PR Constraint #4 bump
   alongside the Tier-1 opener code session that wires the Observer

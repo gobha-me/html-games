@@ -10,10 +10,11 @@
 //     boost is Tier-1; not in 0.10.0)
 //   - ×0.5 per district with no covering bureau ("rumors only")
 //
-// Tier roll (§19): 70% Whisper / 25% Investigation / 5% Arc. Arc is
-// treated as Investigation at Tier-0 — full arc hand-written chains are
-// Tier-1 (Design Doc §18 line 1354). The roll table stays correct in
-// shape so the Tier-1 arc engine can swap the substitution out.
+// Tier roll (§19): 70% Whisper / 25% Investigation / 5% Arc. 1.1.0 retires
+// the Tier-0 placeholder collapse — `tier === 'arc'` now flows through to
+// the World, which consults the ICD-10 arc registry and either fires an
+// authored arc (if any arc's trigger predicate + district constraint matches)
+// or downgrades to investigation as the no-arc fallback.
 //
 // Decay (§19 line 887): leads expire 180s after spawned_at_ms if not picked
 // up. The spawner returns expired ids; World prunes from this.stories.
@@ -97,8 +98,10 @@ export class LeadSpawner {
   _rollSpawn(district, ctx) {
     const tile = pickSpawnTile(district, ctx, ctx.rng);
     if (!tile) return null;
-    let tier = pickWeighted(TIER_WEIGHTS, ctx.rng);
-    if (tier === 'arc') tier = 'investigation';
+    // 1.1.0 (ICD-10 v0.1.1): tier='arc' flows through to the World; the
+    // dispatch in _runSpawnerTick decides whether to upgrade to an authored
+    // arc instance or downgrade to investigation (no-arc fallback).
+    const tier = pickWeighted(TIER_WEIGHTS, ctx.rng);
     const flavor = pickWeighted(district.flavorWeights, ctx.rng);
     const story = {
       state: 'lead',

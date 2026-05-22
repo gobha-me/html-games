@@ -53,6 +53,10 @@ const world = loadSave() ?? new World();
 // callback so the HUD stays projection-only and the World holds the mutator.
 const hud = new HudCorkboard(hudRoots, {
   toggleArchive: (storyId) => world.toggleArchive(storyId),
+  // 1.1.0 (ICD-10 v0.1.1 §Open-Q3 close): arc branch-pick gesture from the
+  // dossier chip strip. World records the label; effects fire at the
+  // verified → plated boundary in _fireDebrief.
+  pickArcBranch: (storyId, label) => world.pickArcBranch(storyId, label),
 });
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);

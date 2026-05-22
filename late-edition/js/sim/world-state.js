@@ -61,11 +61,21 @@ import { LeadSpawner } from './lead-spawner.js';
 import {
   DISTRICTS,
   DEFAULT_DISTRICT_ID,
+  getDistrict,
   resolveDistrictId,
+  pickSpawnTile,
   pickWeighted,
   districtForTile,
 } from './districts.js';
 import { synthesizeHeadline } from './headlines.js';
+import {
+  ARCS,
+  ActiveArc,
+  evalTrigger,
+  findArc,
+  findArcEpisode,
+  findArcOutcome,
+} from './arcs.js';
 
 // 0.8: id-mint module state. Both fresh-construct (constructor) and the
 // snap restore path explicitly call setIdMint — fresh = 1, restore =
@@ -106,6 +116,11 @@ export const BUREAU_REVEAL_RADIUS = 1;            // ICD-08 §Visibility project
 // Decay culls archived stories at EDITION_DEBRIEF_END when editions_in_archive ≥ N (flips to 'printed' with zero yields).
 export const ARCHIVE_CAP = 5;                     // medium-band — ICD-09 §HUD surface
 export const ARCHIVE_DECAY_EDITIONS = 10;         // medium-band — ICD-09 §Effects on adjacent contracts (cold-news rule)
+// 1.1.0 (ICD-10 v0.1.1 §Notes — district-heat decay rate). Flat per-edition
+// decay; simpler than mirroring global heat's quiet/stall schedule. Easy to
+// tune at the 1.1.x balance pass. Used by the arc trigger predicate
+// `district_heat_above` (Longshoreman's "Docks heat > 60").
+export const DISTRICT_HEAT_DECAY_PER_EDITION = 5;
 
 // At 0.5 the print pipeline closes with no Editor unit yet — the verified →
 // plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
@@ -131,6 +146,17 @@ const mkId = (prefix) => `${prefix}-${nextId++}`;
 
 export function setIdMint(n) { nextId = n; }
 export function getIdMint() { return nextId; }
+
+// 1.1.0 (ICD-10 v0.1.1) — stable 32-bit hash of a story id. Used to seed the
+// per-parent RNG for Investigation chain follow-up spawns so save/load
+// reproduces the successor's tile + headline word picks. FNV-1a 32-bit.
+function hashId(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  }
+  return h >>> 0;
+}
 
 export class World {
   constructor(opts = {}) {
@@ -299,6 +325,24 @@ export class World {
       editions_survived: 0,
       top_story:         null, // { headline, cash } | null
     };
+
+    // 1.1.0 (ICD-10 v0.1.1): arc framework + per-district trackers.
+    //
+    // - activeArcs: one ActiveArc per in-progress arc; one-instance-per-arc-id
+    //   enforced at dispatch in _runSpawnerTick. Snap → ICD-04 v0.1.4
+    //   §SaveBlobV1.active_arcs[].
+    // - districtHeat: per-district accumulator powering the
+    //   `district_heat_above` trigger predicate. Accumulated at _fireDebrief
+    //   (sum admitted printed stories' heat_yield partitioned by Story.district);
+    //   decayed at ackDebrief (flat DISTRICT_HEAT_DECAY_PER_EDITION = 5).
+    // - districtDispositions: terminal-state effect of arc outcomes
+    //   (loyal | grudging | bitter | open hostility); stored + displayed at
+    //   1.1.0; spawn-rate / raid-prob modifiers deferred to the 1.1.x
+    //   balance pass per ICD-10 v0.1.1 §Notes.
+    this.activeArcs = [];
+    this.districtHeat = {};
+    for (const d of DISTRICTS) this.districtHeat[d.id] = 0;
+    this.districtDispositions = {};
   }
 
   // 0.8 restore path (ICD-04 v0.1). Rebuilds every authoritative field from
@@ -363,6 +407,18 @@ export class World {
           top_story:         blob.run_stats.top_story         ?? null,
         }
       : { total_revenue: 0, editions_survived: 0, top_story: null };
+
+    // 1.1.0 (ICD-04 v0.1.4 · ICD-10 v0.1.1): arc framework restore.
+    // All three blocks are optional on the wire — pre-1.1.0 saves resume
+    // cleanly with empty activeArcs / all-zero districtHeat / empty
+    // dispositions via the ?? fallbacks. migrate_1_2_to_1_3 in save.js
+    // pre-fills the blob shape for forward-compat readers.
+    this.activeArcs = (blob.active_arcs ?? []).map(ActiveArc.fromSnap);
+    this.districtHeat = {};
+    for (const d of DISTRICTS) {
+      this.districtHeat[d.id] = blob.district_heat?.[d.id] ?? 0;
+    }
+    this.districtDispositions = { ...(blob.district_dispositions ?? {}) };
   }
 
   subscribeCycle(fn) {
@@ -442,6 +498,28 @@ export class World {
       return { ok: true };
     }
     return { ok: false, reason: story.state === 'lead' ? 'not_verified' : 'not_archived' };
+  }
+
+  // 1.1.0 (ICD-10 v0.1.1 §Open-Q3 close): branch-choice gesture for an arc
+  // story. Records intent; effects fire at the verified → plated boundary
+  // inside _fireDebrief. Un-picked arc stories are gated out of the plating
+  // queue (§HUD surface — "the player must pick a branch before the story
+  // can plate"). Returns { ok, reason? } so the dossier click handler can
+  // surface future toast UX; v1.1.0 is silent on reject.
+  pickArcBranch(storyId, label) {
+    const story = this.stories.find((s) => s.id === storyId);
+    if (!story) return { ok: false, reason: 'not_found' };
+    if (story.tier !== 'arc' || !story.arc_episode_id) {
+      return { ok: false, reason: 'not_arc' };
+    }
+    // Validate the label against the current episode's branch table.
+    const arcId = story.arc_episode_id.split('.')[0];
+    const episode = findArcEpisode(arcId, story.arc_episode_id);
+    if (!episode) return { ok: false, reason: 'no_episode' };
+    const choice = episode.branch_table.choices.find((c) => c.label === label);
+    if (!choice) return { ok: false, reason: 'invalid_choice' };
+    story.arc_branch_label = label;
+    return { ok: true };
   }
 
   tick(dt) {
@@ -746,12 +824,150 @@ export class World {
     };
     const { spawns, expiredIds } = this.leadSpawner.tick(dtMs, ctx);
     for (const partial of spawns) {
-      this.stories.push({ id: mkId('s'), ...partial });
+      this.stories.push({ id: mkId('s'), ...this._dispatchArcSpawn(partial) });
     }
     if (expiredIds.length > 0) {
       const dead = new Set(expiredIds);
       this.stories = this.stories.filter((s) => !dead.has(s.id));
     }
+  }
+
+  // 1.1.0 (ICD-10 v0.1.1): arc dispatch. When the spawner returns a
+  // tier='arc' partial story, consult the registry. Fire the first arc whose
+  // (a) trigger predicate is satisfied, (b) target district matches (or has
+  // no constraint), and (c) is not already active. On success, override the
+  // headline with the episode's authored string and stamp arc_episode_id on
+  // the Story; an ActiveArc joins this.activeArcs. On miss, downgrade to
+  // tier='investigation' (preserving the 70/25/5 distribution behavior the
+  // placeholder collapse approximated).
+  _dispatchArcSpawn(partial) {
+    if (partial.tier !== 'arc') return partial;
+    const ctx = this._buildArcContext();
+    const eligible = ARCS.find((arc) => {
+      if (arc.district && arc.district !== partial.district) return false;
+      if (this.activeArcs.some((a) => a.arcId === arc.id)) return false;
+      return evalTrigger(arc.trigger, ctx);
+    });
+    if (!eligible) {
+      // No arc fires here — downgrade. Headline was synthesized as 'arc'
+      // tier (FRONT PAGE prefix); resynthesize for the investigation tier
+      // so the readout matches.
+      const fallback = { ...partial, tier: 'investigation' };
+      fallback.headline = synthesizeHeadline(fallback, this.spawnerRng);
+      return fallback;
+    }
+    const firstEpisode = eligible.episodes[0];
+    this.activeArcs.push(new ActiveArc({
+      arcId:          eligible.id,
+      currentEpisode: firstEpisode.id,
+      spawnEdition:   this.cycle.edition,
+    }));
+    return {
+      ...partial,
+      headline:       firstEpisode.headline,
+      arc_episode_id: firstEpisode.id,
+    };
+  }
+
+  // 1.1.0 (ICD-10 v0.1.1 §Open-Q3): apply a plated arc story's outcome.
+  // The branch label was set by pickArcBranch; the plate step fires the
+  // ActiveArc.pickBranch advance/terminal result here. Terminal outcomes
+  // mutate the world (cash / heat / districtDispositions) and retire the
+  // ActiveArc; advance outcomes spawn the next episode's lead in the same
+  // district.
+  _applyArcPlate(story) {
+    const arcId = story.arc_episode_id.split('.')[0];
+    const arc = findArc(arcId);
+    if (!arc) return;
+    const activeArc = this.activeArcs.find((a) => a.arcId === arcId);
+    if (!activeArc) return;
+    const result = activeArc.pickBranch(story.arc_branch_label);
+    if (!result.ok) return;
+    if (result.kind === 'terminal') {
+      const outcome = findArcOutcome(arcId, result.outcomeId);
+      if (outcome) {
+        if (outcome.cash_one_time) this.resources.cash += outcome.cash_one_time;
+        if (outcome.heat_one_time) this.resources.heat += outcome.heat_one_time;
+        if (outcome.district_disposition) {
+          // ICD-10 v0.1.1 §Open-Q4 close (last-writer-wins). Mechanical
+          // effect of disposition (spawn-rate / raid-prob modifiers) is
+          // deferred to the 1.1.x balance pass per §Notes; at 1.1.0 we
+          // store + display only.
+          this.districtDispositions[outcome.district_disposition.district] =
+            outcome.district_disposition.value;
+        }
+      }
+      // Retire the arc instance — one-arc-per-id rule clears here so the
+      // arc can fire again on a future trigger evaluation.
+      this.activeArcs = this.activeArcs.filter((a) => a !== activeArc);
+    } else if (result.kind === 'advance') {
+      // Advance: spawn the next episode's lead in the same district. The
+      // spawn uses spawnerRng so it's deterministic across save round-trips
+      // (the RNG state is captured in the save blob).
+      this._spawnArcEpisode(arc, activeArc.currentEpisode, story.district);
+    }
+  }
+
+  // 1.1.0 (ICD-10 v0.1.1): mint a fresh 'lead'-state story for the named
+  // arc episode. Headline is the episode's authored canonical string (slot
+  // grammar does NOT apply per ICD-10 §ArcEpisode shape). Tile + flavor
+  // drawn from the district via spawnerRng for determinism.
+  _spawnArcEpisode(arc, episodeId, districtId) {
+    const district = getDistrict(districtId);
+    if (!district) return;
+    const episode = findArcEpisode(arc.id, episodeId);
+    if (!episode) return;
+    const occupied = new Set();
+    for (const s of this.stories) {
+      if (s.state === 'lead' && !s.picked_up_by && !s.held_by_building) {
+        occupied.add(`${s.tile.x},${s.tile.y}`);
+      }
+    }
+    const tile = pickSpawnTile(
+      district,
+      { grid: this.grid, occupiedTiles: occupied },
+      this.spawnerRng,
+    );
+    if (!tile) return;
+    const flavor = pickWeighted(district.flavorWeights, this.spawnerRng);
+    this.stories.push({
+      id:               mkId('s'),
+      state:            'lead',
+      district:         districtId,
+      flavor,
+      tier:             'arc',
+      truthful:         true,
+      spawned_at_ms:    this.sim_time_ms,
+      tile,
+      picked_up_by:     null,
+      held_by_building: null,
+      headline:         episode.headline,
+      arc_episode_id:   episodeId,
+    });
+  }
+
+  // 1.1.0 (ICD-10 v0.1.1): arc trigger evaluation context. Pure projection
+  // of the world's current state for the arcs.js evaluator. Built once per
+  // spawn dispatch call so per-arc trigger evaluations share the snapshot.
+  _buildArcContext() {
+    const coveredDistricts = new Set();
+    for (const d of DISTRICTS) {
+      const covered = this.buildings.some(
+        (b) => b.kind === d.coveredByKind && (b.hp === undefined || b.hp > 0),
+      );
+      if (covered) coveredDistricts.add(d.id);
+    }
+    const observer = this.rivals.find((r) => r.id === 'observer');
+    const rivalStates = {};
+    for (const r of this.rivals) rivalStates[r.id] = r.state;
+    return {
+      heat:                 this.resources.heat,
+      edition:              this.cycle.edition,
+      districtHeat:         this.districtHeat,
+      coveredDistricts,
+      observerRecentStates: observer?.recentStates ?? [],
+      rivalStates,
+    };
   }
 
   // Triggered exactly once per edition on DEADLINE_FIRE. Walks each verified
@@ -772,8 +988,15 @@ export class World {
     // pins state === 'verified', so archived stories (held at the same
     // Darkroom under state 'archived') are naturally excluded. Player must
     // explicitly release archive → verified to re-enter plating.
+    // 1.1.0 (ICD-10 v0.1.1 §HUD surface): arc stories need a branch pick
+    // to plate. Un-picked arc stories stay verified at the Darkroom and
+    // wait for the player's click (or for archive, which freezes the chain).
     const verifiedStories = darkroom
-      ? this.stories.filter((s) => s.state === 'verified' && s.held_by_building === darkroom.id)
+      ? this.stories.filter((s) =>
+          s.state === 'verified' &&
+          s.held_by_building === darkroom.id &&
+          (s.tier !== 'arc' || s.arc_branch_label),
+        )
       : [];
 
     // 0.7.1 ink hard gate (ICD-05 v0.4 §Notes). Walk the verified queue in order
@@ -803,6 +1026,27 @@ export class World {
       // 0.10.2 (C-07): FxEvent emit. ICD-01 v0.6 §FxEvent — `print` carries
       // the edition number for the renderer's paper-page sprite cue.
       this.effects.push({ kind: 'print', at: printAnchor, edition: this.cycle.edition });
+    }
+
+    // 1.1.0 (ICD-10 v0.1.1 §Notes): per-district heat accumulator. Sum the
+    // admitted printed stories' heat_yield partitioned by Story.district.
+    // Trigger predicate `district_heat_above` reads this map at the next
+    // spawn-cycle tick. Decay at ackDebrief, below.
+    for (const story of printing) {
+      if (this.districtHeat[story.district] !== undefined) {
+        this.districtHeat[story.district] += (story.heat_yield ?? 0);
+      }
+    }
+
+    // 1.1.0 (ICD-10 v0.1.1 §Open-Q3 close): apply arc outcomes / advance
+    // arc chains for any arc story that just plated. Iterate `printing`
+    // (only arc stories with arc_branch_label reach here per the gate
+    // above). Terminal outcomes mutate cash / heat / districtDispositions
+    // and retire the ActiveArc; advance outcomes spawn the next episode's
+    // lead in the same district.
+    for (const story of printing) {
+      if (story.tier !== 'arc' || !story.arc_branch_label) continue;
+      this._applyArcPlate(story);
     }
 
     const summary = this._buildEditionSummary(printing);
@@ -846,6 +1090,17 @@ export class World {
     // as bureau.hp > 0 on the morning side of the deadline.
     const bureau = this._bureau();
     if (bureau && bureau.hp > 0) bureau.hp = bureau.hp_max;
+
+    // 1.1.0 (ICD-10 v0.1.1 §Notes — district-heat decay): flat per-edition
+    // decay on each district's accumulator, clamped at zero. Decay is
+    // symmetric across all districts at 1.1.0; the 1.1.x balance pass may
+    // differentiate by districtDispositions.
+    for (const id of Object.keys(this.districtHeat)) {
+      this.districtHeat[id] = Math.max(
+        0,
+        this.districtHeat[id] - DISTRICT_HEAT_DECAY_PER_EDITION,
+      );
+    }
 
     // 1.0.1 (ICD-09 §Effects on adjacent contracts): cold-news decay. Walk the
     // archive at EDITION_DEBRIEF_END; any story whose editions-in-archive has
@@ -1027,11 +1282,71 @@ export class World {
           // carries the photog's tile + story_id. The renderer renders the
           // camera-flash at the photog's position, not the darkroom's.
           this.effects.push({ kind: 'verify', at: tileToWorld(u.tile), story_id: story.id });
+          // 1.1.0 (ICD-10 v0.1.1 — Investigation 3-step chain): on
+          // `lead → verified` for an investigation-tier story, spawn the
+          // chain successor in the same district. Capped at chain depth 3
+          // (parent → child → grandchild); deterministic from parent.id so
+          // save/load reproduces the chain.
+          this._maybeSpawnInvestigationFollowup(story);
         }
         u.carrying = null;
         u.carryingStoryId = null;
       }
     }
+  }
+
+  // 1.1.0 (ICD-10 v0.1.1): Investigation chain follow-up spawn. Fired from
+  // the `lead → verified` transition in _handlePhotogArrival. Procedural-
+  // not-authored — the chain has no StoryArc record, no branches, no
+  // outcomes; the spawner emits one successor per verify until the chain
+  // caps at depth 3.
+  _maybeSpawnInvestigationFollowup(parent) {
+    if (parent.tier !== 'investigation') return;
+    // Walk the parent_story_id chain to count depth. Cap at 3.
+    if (this._chainDepth(parent) >= 3) return;
+    const district = getDistrict(parent.district);
+    if (!district) return;
+    // Deterministic per-parent RNG so save/load reproduces the successor
+    // tile + headline word picks.
+    const rng = new SeededRng(hashId(parent.id) || 1);
+    const occupied = new Set();
+    for (const s of this.stories) {
+      if (s.state === 'lead' && !s.picked_up_by && !s.held_by_building) {
+        occupied.add(`${s.tile.x},${s.tile.y}`);
+      }
+    }
+    const tile = pickSpawnTile(district, { grid: this.grid, occupiedTiles: occupied }, rng);
+    if (!tile) return;
+    const child = {
+      id:               mkId('s'),
+      state:            'lead',
+      district:         parent.district,
+      flavor:           parent.flavor,
+      tier:             'investigation',
+      truthful:         parent.truthful,
+      spawned_at_ms:    this.sim_time_ms,
+      tile,
+      picked_up_by:     null,
+      held_by_building: null,
+      parent_story_id:  parent.id,
+    };
+    child.headline = synthesizeHeadline(child, rng);
+    this.stories.push(child);
+  }
+
+  // Walks parent_story_id pointers up the chain; returns 1 for a root story,
+  // 2 for one-with-parent, 3 for the third in a chain. Stops at the first
+  // root or at depth 4 (defensive against cycles, which shouldn't happen).
+  _chainDepth(story) {
+    let depth = 1;
+    let current = story;
+    while (current && current.parent_story_id && depth < 4) {
+      depth += 1;
+      const parent = this.stories.find((s) => s.id === current.parent_story_id);
+      if (!parent) break;
+      current = parent;
+    }
+    return depth;
   }
 
   // ICD-08 §Visibility projection rule. Returns true if the unit is not a
@@ -1076,7 +1391,7 @@ export class World {
         (s.state === 'verified' || s.state === 'archived') &&
         s.held_by_building === darkroomId,
       )
-      .map((s) => storyQueueView(s));
+      .map((s) => storyQueueView(s, this));
     const archivedCount = this.stories.filter((s) => s.state === 'archived').length;
     // 0.10.2 (C-06 + D-09): continuous rain/fog ramps derived from the
     // cycle clock — see ICD-01 v0.6.2 §Notes. Rain intensity sits at 1
@@ -1208,6 +1523,9 @@ function restoreStory(s) {
   if (s.heat_yield !== undefined)      live.heat_yield = s.heat_yield;
   if (s.ink_cost !== undefined)        live.ink_cost = s.ink_cost;
   if (s.archived_at_ms !== undefined)  live.archived_at_ms = s.archived_at_ms;   // 1.0.1 (ICD-09 §Save surface)
+  if (s.parent_story_id !== undefined) live.parent_story_id = s.parent_story_id; // 1.1.0 (ICD-10 §Investigation chain)
+  if (s.arc_episode_id !== undefined)  live.arc_episode_id = s.arc_episode_id;   // 1.1.0 (ICD-10 §Save surface)
+  if (s.arc_branch_label !== undefined) live.arc_branch_label = s.arc_branch_label; // 1.1.0 (ICD-10 §Open-Q3 close)
   return live;
 }
 
@@ -1280,8 +1598,15 @@ function leadView(s, simTime) {
 // Story sitting at the Darkroom in 'verified' or 'archived' state. The
 // dossier reads `id` to route the left-click toggle gesture, `state` to
 // render the HOLD chip, and `headline / flavor / district` for the row caption.
-function storyQueueView(s) {
-  return {
+//
+// 1.1.0 (ICD-10 v0.1.1 §HUD surface): arc + chain breadcrumb extension.
+// Arc stories surface arc_episode_id and the available branch choices (until
+// picked, then arc_branch_label appears). Investigation-tier stories with a
+// parent_story_id surface their chain_depth (1/3 = root, 2/3 = middle, 3/3 =
+// terminal step). HUD reads these to render the breadcrumb chip and route
+// branch-pick clicks through World.pickArcBranch.
+function storyQueueView(s, world) {
+  const out = {
     id: s.id,
     state: s.state,
     headline: s.headline ?? `${s.flavor.toUpperCase()} ${s.tier.toUpperCase()} HITS WIRE`,
@@ -1289,6 +1614,22 @@ function storyQueueView(s) {
     tier: s.tier,
     district: resolveDistrictId(s.district),
   };
+  if (s.tier === 'investigation' && s.parent_story_id) {
+    out.chain_depth = world._chainDepth(s);
+  }
+  if (s.tier === 'arc' && s.arc_episode_id) {
+    out.arc_episode_id = s.arc_episode_id;
+    if (s.arc_branch_label) {
+      out.arc_branch_label = s.arc_branch_label;
+    } else {
+      const arcId = s.arc_episode_id.split('.')[0];
+      const episode = findArcEpisode(arcId, s.arc_episode_id);
+      if (episode) {
+        out.branch_choices = episode.branch_table.choices.map((c) => ({ label: c.label }));
+      }
+    }
+  }
+  return out;
 }
 
 // ICD-06 v0.2 StoryDigest projection. Headline grammar lives in

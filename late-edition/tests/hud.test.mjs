@@ -6,6 +6,7 @@ import {
   pickSelected,
   countByKind,
   tierHistogram,
+  renderStoryRow,
 } from '../js/hud.js';
 import { World } from '../js/sim/world-state.js';
 
@@ -66,6 +67,92 @@ test('tierHistogram on an empty leads array returns zeroed buckets', () => {
   const { tiers, flavors } = tierHistogram([]);
   assert.deepEqual(tiers,   { whisper: 0, investigation: 0, arc: 0 });
   assert.deepEqual(flavors, { vice: 0, violence: 0, money: 0, labor: 0 });
+});
+
+// 1.1.0 (ICD-10 v0.1.1 §HUD surface) — Story queue row renderer covers the
+// archive HOLD chip, arc breadcrumb + branch chips, and Investigation chain
+// depth suffix. Renderer is jsdom-free; checks the HTML string output.
+
+test('renderStoryRow: plain verified story renders headline + flavor · district', () => {
+  const html = renderStoryRow({
+    id: 's-1',
+    state: 'verified',
+    headline: 'DOCKHAND NAMES FENCE',
+    flavor: 'vice',
+    tier: 'whisper',
+    district: 'docks',
+  });
+  assert.match(html, /story-row/);
+  assert.match(html, /data-story-id="s-1"/);
+  assert.match(html, /DOCKHAND NAMES FENCE/);
+  assert.match(html, /vice · The Docks/);
+  assert.doesNotMatch(html, /is-archived/);
+  assert.doesNotMatch(html, /HOLD/);
+  assert.doesNotMatch(html, /arc-line/);
+  assert.doesNotMatch(html, /Investigation /);
+});
+
+test('renderStoryRow: archived story carries the HOLD chip + is-archived class', () => {
+  const html = renderStoryRow({
+    id: 's-2',
+    state: 'archived',
+    headline: 'JUDGE TAKES BRIBE',
+    flavor: 'money',
+    tier: 'investigation',
+    district: 'hillside',
+  });
+  assert.match(html, /is-archived/);
+  assert.match(html, /chip is-hold/);
+  assert.match(html, /HOLD/);
+});
+
+test('renderStoryRow: investigation chain depth appears in the meta line', () => {
+  const html = renderStoryRow({
+    id: 's-c2',
+    state: 'verified',
+    headline: 'MAYOR LIES ABOUT MISTRESS',
+    flavor: 'money',
+    tier: 'investigation',
+    district: 'hillside',
+    chain_depth: 2,
+  });
+  assert.match(html, /Investigation 2\/3/);
+});
+
+test('renderStoryRow: un-picked arc story renders branch chips with pick-branch action', () => {
+  const html = renderStoryRow({
+    id: 's-arc-1',
+    state: 'verified',
+    headline: 'THE WALKOUT — Longshoremen halt the harbor',
+    flavor: 'labor',
+    tier: 'arc',
+    district: 'docks',
+    arc_episode_id: 'longshoreman_strike.walkout',
+    branch_choices: [{ label: 'bury' }, { label: 'splash' }],
+  });
+  assert.match(html, /arc-line/);
+  assert.match(html, /Arc · Longshoreman Strike/);
+  assert.match(html, /data-action="pick-branch"/);
+  assert.match(html, /data-story-id="s-arc-1"/);
+  assert.match(html, /data-branch-label="bury"/);
+  assert.match(html, /data-branch-label="splash"/);
+  assert.doesNotMatch(html, /Picked:/);
+});
+
+test('renderStoryRow: picked arc story shows the chosen label and hides chips', () => {
+  const html = renderStoryRow({
+    id: 's-arc-2',
+    state: 'verified',
+    headline: 'THE WALKOUT — Longshoremen halt the harbor',
+    flavor: 'labor',
+    tier: 'arc',
+    district: 'docks',
+    arc_episode_id: 'longshoreman_strike.walkout',
+    arc_branch_label: 'splash',
+  });
+  assert.match(html, /arc-line/);
+  assert.match(html, /Picked: splash/);
+  assert.doesNotMatch(html, /data-action="pick-branch"/);
 });
 
 test('a fresh World snapshot drives the projection helpers without changes', () => {

@@ -1,6 +1,7 @@
 # ICD-05 · Story Lifecycle Object
 
-**Status:** v0.4.2 (milestone 1.0.1 — §Notes cross-reference addition only; ICD-09 v0.1 widens the `Story.state` union to five values (`'archived'`) and adds two new transition rows (`verified ↔ archived`); ink-budget walk pins to `state === 'verified'` so archived stories naturally skip plating)
+**Status:** v0.4.3 (milestone 1.1.0 — §Notes cross-reference addition only; ICD-10 v0.1.1 adds three optional Story fields on the persistence boundary — `parent_story_id?: StoryId` (Investigation 3-step chain), `arc_episode_id?: ArcEpisodeId` (arc-tier stories), `arc_branch_label?: string` (pickArcBranch intent); in-memory Story shape unchanged from v0.4)
+**Prior:** v0.4.2 (milestone 1.0.1 — §Notes cross-reference addition only; ICD-09 v0.1 widens the `Story.state` union to five values (`'archived'`) and adds two new transition rows (`verified ↔ archived`); ink-budget walk pins to `state === 'verified'` so archived stories naturally skip plating)
 **Prior:** v0.4.1 (PRE-0.8 §Open-Q-1 closure — `Story.version` deferred-to-ICD-04 resolved; per-record version captured by ICD-04 v0.1 `StorySnap.version`)
 **Band:** strong
 **First caller:** milestone 0.3 (lead spawn · pickup · return-to-bureau) — shipped in v0.3.0; row 3 (`lead → verified`) lit by milestone 0.4 (Photog · Darkroom) — shipped in v0.4.0; rows 4 + 5 (`verified → plated → printed`) auto-fired by milestone 0.5 via the pre-Editor `AUTO_PLATE_SENTINEL` path — shipped in v0.5.0
@@ -104,6 +105,20 @@ case.
   (ICD-01 v0.5 §HudState) remains permitted until 0.7 ships the gate;
   after 0.7, ink cannot go negative through plating, but ink-purchase
   failures or rival actions at Tier-1+ may revisit the question.
+- **Arc + chain foreign keys (v0.4.3 / 1.1.0 — ICD-10 v0.1.1).** Three new
+  optional Story fields land on the persistence boundary (ICD-04 v0.1.4):
+  `parent_story_id?: StoryId` (Investigation 3-step chain pointer — set by
+  the sim-side spawn hook in `_handlePhotogArrival` on `lead → verified`
+  for `tier === 'investigation'` stories), `arc_episode_id?: ArcEpisodeId`
+  (set on arc-tier stories at spawn — minted by the arc dispatcher in
+  `_runSpawnerTick` and re-minted at the next-episode spawn inside
+  `_applyArcPlate`), `arc_branch_label?: string` (player's pickArcBranch
+  intent — recorded at click; the verified-→-plated gate filters out
+  arc stories without it). All three fields are sim-side spawner/UI
+  minted, NOT state-machine-driven — the §State transitions table above
+  is unchanged. The in-memory Story interface §Shape stays byte-for-byte
+  identical to v0.4; the new fields exist on real Story records only
+  when the spawner / pickArcBranch / chain hook sets them.
 - **Archive interactions (v0.4.2 / 1.0.1 — ICD-09 v0.1).** The fifth
   `Story.state` value `'archived'` is owned by [`ICD-09`](ICD-09-archive.md);
   the two new transition rows (`verified → archived` on player hold gesture,
@@ -145,6 +160,14 @@ If milestone 0.4/0.5 needs to change the shape or transitions, update this
 ICD **in the same PR**.
 
 ## Revision history
+
+- **v0.4.3** (milestone 1.1.0, 2026-05-22) — §Notes-only amendment; no
+  in-memory shape change. Adds the "Arc + chain foreign keys" paragraph
+  cross-referencing ICD-10 v0.1.1. Three new optional Story fields
+  (`parent_story_id?`, `arc_episode_id?`, `arc_branch_label?`) land on
+  the persistence boundary via ICD-04 v0.1.4; the live Story interface
+  is untouched at v0.4. State transitions table is unchanged — the new
+  fields are spawner / chain-hook / UI minted, not state-machine driven.
 
 - **v0.4.2** (milestone 1.0.1, 2026-05-22) — §Notes-only amendment; no
   in-memory shape change. ICD-09 v0.1 widens the persisted

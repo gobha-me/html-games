@@ -1,6 +1,7 @@
 # ICD-04 · Save Schema
 
-**Status:** v0.1.3 (milestone 1.0.1 — `StorySnap.state` union widens to include `'archived'`; optional `archived_at_ms?: number` per record (decay anchor); optional `UnitSnap.stats?: { nerve, nose, legs }` (Reporter trio); in-blob version bumps to `"1.2"`; `migrate_1_1_to_1_2` pass-through stamps the new version)
+**Status:** v0.1.4 (milestone 1.1.0 — `SaveBlobV1` gains `active_arcs: ActiveArcSnap[]` + `district_heat: { [DistrictId]: number }` + `district_dispositions: { [DistrictId]: 'loyal'|'grudging'|'bitter'|'open hostility' }`; `StorySnap` gains optional `parent_story_id?: StoryId` + `arc_episode_id?: ArcEpisodeId` + `arc_branch_label?: string`; `ObserverSnap` gains optional `recent_states?: string[]` (cap 5); in-blob version bumps to `"1.3"`; `migrate_1_2_to_1_3` pre-fills the new collections + observer.recent_states)
+**Prior:** v0.1.3 (milestone 1.0.1 — `StorySnap.state` union widens to include `'archived'`; optional `archived_at_ms?: number` per record (decay anchor); optional `UnitSnap.stats?: { nerve, nose, legs }` (Reporter trio); in-blob version bumps to `"1.2"`; `migrate_1_1_to_1_2` pass-through stamps the new version)
 **Prior:** v0.1.2 (milestone 1.0.0 — `RivalsSnap` widens to include `herald` + `observer` per Tier-1 opener; in-blob version bumps to `"1.1"`; `migrate_1_0_to_1_1` synthesizes default Herald + Observer state on load)
 **Prior:** v0.1.1 (milestone 0.10.0 — `rng_seed` semantics settled (carries live PRNG state, not initial seed) · `lead_spawner` snap block added · `run_stats` block added · `'late-edition.scores.v1'` key documented)
 **Band:** strong (Design Doc §17 locks "single localStorage JSON · versioned · migrations defined")
@@ -60,7 +61,7 @@ interface HighScoreEntry {
 type SaveVersion = string; // semver-ish "MAJOR.MINOR" — v0.1 emits "1.0"
 
 interface SaveBlobV1 {
-  version:      SaveVersion;        // "1.2" at v0.1.3 (was "1.1" at v0.1.2, "1.0" at v0.1)
+  version:      SaveVersion;        // "1.3" at v0.1.4 (was "1.2" at v0.1.3, "1.1" at v0.1.2, "1.0" at v0.1)
   saved_at_ms:  number;             // Date.now() at write — wall-clock, for UI
   sim_time_ms:  number;             // absolute sim clock (World.sim_time_ms)
   rng_seed:     number;             // v0.1.1: the spawner stream's live PRNG state (renamed semantics — see §Notes)
@@ -84,6 +85,20 @@ interface SaveBlobV1 {
   debrief_open: boolean;            // World.debriefOpen — saves taken during the debrief pause restore the paused state
 
   run_stats:    RunStatsSnap;       // v0.1.1: rolling run totals for the run-end summary + high-score write (audit G-13)
+
+  // v0.1.4 (1.1.0 · ICD-10 v0.1.1): arc framework persistence. All three
+  // blocks default-empty for pre-1.1.0 saves through migrate_1_2_to_1_3.
+  active_arcs:           ActiveArcSnap[];     // ICD-10 §Save surface — one entry per in-progress arc
+  district_heat:         { [districtId: string]: number };   // per-district heat accumulator powering district_heat_above
+  district_dispositions: { [districtId: string]: 'loyal' | 'grudging' | 'bitter' | 'open hostility' };  // terminal arc outcome storage
+}
+
+// v0.1.4 (1.1.0 · ICD-10 v0.1.1). Lifted verbatim from ICD-10 §Save surface.
+interface ActiveArcSnap {
+  arc_id:          string;          // ArcId (e.g. 'longshoreman_strike')
+  current_episode: string;          // ArcEpisodeId (e.g. 'longshoreman_strike.walkout')
+  chosen_path:     string[];        // labels picked so far ('splash', 'humanize', …)
+  spawn_edition:   number;          // edition the arc fired its trigger
 }
 
 interface LeadSpawnerSnap {
@@ -156,6 +171,9 @@ interface StorySnap {
   heat_yield?:      number;                   // same
   ink_cost?:        number;                   // same
   archived_at_ms?:  number;                   // v0.1.3 — decay anchor; set on verified → archived, cleared on archived → verified (ICD-09 §Save surface)
+  parent_story_id?: StoryId;                  // v0.1.4 — Investigation 3-step chain pointer (ICD-10 §Investigation chain)
+  arc_episode_id?:  string;                   // v0.1.4 — ArcEpisodeId; populated on arc-tier stories (ICD-10 §Save surface)
+  arc_branch_label?: string;                  // v0.1.4 — player's pickArcBranch intent (ICD-10 §Open-Q3 close)
 }
 
 interface RivalsSnap {
@@ -200,6 +218,7 @@ interface ObserverSnap {
   edition_tick:        number;                // internal cadence counter (1/2 editions gate)
   past_intents:        Intent[];
   rng:                 { state: number };
+  recent_states?:      string[];              // v0.1.4 — last 5 state-machine ticks (ICD-02 v0.3.2 · ICD-10 observer_silent_n_editions)
 }
 
 interface EditionDigestSnap {
@@ -353,6 +372,30 @@ the deviation lands.
   rule from §Open questions).
 
 ## Revision history
+
+- **v0.1.4** (milestone 1.1.0, 2026-05-22) — In-PR Constraint #4 bump
+  alongside the first-arc code session (Longshoreman Strike +
+  Investigation 3-step chain). Three top-level `SaveBlobV1` fields
+  added: `active_arcs: ActiveArcSnap[]` (lifted from ICD-10 v0.1's
+  deferred slot — first authored-arc-content milestone), `district_heat:
+  { [DistrictId]: number }` (per-district heat accumulator powering
+  ICD-10 v0.1.1's `district_heat_above` predicate; flat
+  `DISTRICT_HEAT_DECAY_PER_EDITION = 5`), `district_dispositions:
+  { [DistrictId]: 'loyal' | 'grudging' | 'bitter' | 'open hostility' }`
+  (terminal arc outcome storage; mechanical effect deferred to 1.1.x
+  balance pass per ICD-10 §Notes). `StorySnap` gains three optional
+  fields: `parent_story_id?` (Investigation 3-step chain via ICD-10
+  §Investigation chain), `arc_episode_id?` (ArcEpisodeId set on
+  arc-tier stories), `arc_branch_label?` (player's pickArcBranch
+  intent — ICD-10 §Open-Q3 close, fires at verified → plated).
+  `ObserverSnap` gains optional `recent_states?: string[]` (cap 5;
+  ICD-02 v0.3.2 in-PR; powers `observer_silent_n_editions` predicate).
+  New `ActiveArcSnap` interface authored against ICD-10 §Save surface.
+  In-blob `version` bumps `"1.2" → "1.3"`. New migration
+  `migrate_1_2_to_1_3` pre-fills the three new top-level collections
+  + `observer.recent_states` with empty defaults (all optional in the
+  load path; pre-1.1.0 saves resume cleanly through `_loadFromSnap`'s
+  `??` fallbacks). Storage key (`'late-edition.save.v1'`) unchanged.
 
 - **v0.1.3** (milestone 1.0.1, 2026-05-22) — In-PR Constraint #4 bump
   alongside the Tier-1 opener's second-half code session that wires the

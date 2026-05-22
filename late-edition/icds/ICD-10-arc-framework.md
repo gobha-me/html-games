@@ -1,8 +1,9 @@
 # ICD-10 · Arc Framework
 
-**Status:** v0.1 (PRE-1.0 — initial draft)
+**Status:** v0.1.1 (milestone 1.1.0 — first authored arc lands · §Save surface deferral lifted · §Notes pins registry surface · negate-flag predicate idiom · per-district heat decay · disposition mechanics-deferred · §Open-Qs Q1/Q3/Q4 closed)
+**Prior:** v0.1 (PRE-1.0 — initial draft)
 **Band:** strong (framework only; arc content stays fuzzy at Tier-1.x / Tier-2)
-**First caller:** milestone 1.0 (Tier-1 opener — framework lit; first authored arc content lands at milestone 1.1 or 1.2)
+**First caller:** milestone 1.1.0 (Longshoreman Strike + Investigation chain wiring); framework lit at 1.0 (Tier-1 opener)
 **Source:** [`../design/design-doc.html`](../design/design-doc.html) §18 (story engine · three-tier shape · slot grammar · Investigation 3-step chain · authored arc spec)
 
 ## Purpose
@@ -45,6 +46,7 @@ type ArcEpisodeId = string;   // 'longshoreman_strike.walkout' | 'longshoreman_s
 
 interface StoryArc {
   id:        ArcId;
+  district?: DistrictId;              // v0.1.1 — optional geographic constraint (see §Notes)
   trigger:   ArcTriggerPredicate;     // composable; see §Trigger predicate vocabulary
   episodes:  ArcEpisode[];            // ordered; first is the entry
   outcomes:  ArcOutcome[];            // terminal-state effects on world
@@ -144,15 +146,16 @@ the world state at lead-spawner roll time (per the ICD-04 v0.1.1
 pure function `(world: WorldSnap) → boolean`.
 
 ```ts
-type ArcTriggerPredicate =
+type ArcTriggerPredicate = (
   | { kind: 'heat_above',               threshold: number }                  // world.heat > threshold
   | { kind: 'district_uncovered',       district: DistrictId }               // no Bureau-family covers it
-  | { kind: 'observer_silent_n_editions', n: number }                        // Observer in SILENCED or PASS for ≥ n editions
+  | { kind: 'observer_silent_n_editions', n: number }                        // Observer NOT in PUBLISH/WARN for ≥ n editions
   | { kind: 'rival_state',              rival: RivalId, state: string }      // RivalView.own.state === state
-  | { kind: 'district_heat_above',      district: DistrictId, threshold: number }  // per-district heat (Tier-1.x)
+  | { kind: 'district_heat_above',      district: DistrictId, threshold: number }  // per-district heat (lit at 1.1.0)
   | { kind: 'edition_at_least',         edition: number }                    // world.cycle.edition ≥ edition
   | { kind: 'all_of',                   children: ArcTriggerPredicate[] }    // composer: AND
-  | { kind: 'any_of',                   children: ArcTriggerPredicate[] };   // composer: OR
+  | { kind: 'any_of',                   children: ArcTriggerPredicate[] }    // composer: OR
+) & { negate?: boolean };                                                    // v0.1.1 — flip-flag (nested-NOT idiom)
 ```
 
 - **Per-rival reads.** `rival_state` reads against the rival's own
@@ -161,11 +164,19 @@ type ArcTriggerPredicate =
   (unlike rivals, which see each other through `edition_history` per
   ICD-02 §Notes inter-rival paragraph).
 - **District-heat (Tier-1.x).** The `district_heat_above` predicate
-  depends on a per-district heat accumulator that does not exist at
-  Tier-0 (heat is global). v0.1 commits the predicate shape; the
-  sim-side accumulator wires when the first arc that needs it lands
-  (Longshoreman Strike, per the canonical example below — *"Docks
-  heat > 60"*).
+  depends on a per-district heat accumulator. v0.1.1 lights the
+  accumulator alongside the Longshoreman Strike caller — `World.districtHeat`
+  is a `{ [DistrictId]: number }` map populated at `_fireDebrief` (sum of
+  admitted printed stories' `heat_yield` partitioned by `Story.district`)
+  and decayed at `ackDebrief` (flat `DISTRICT_HEAT_DECAY_PER_EDITION = 5`,
+  clamped at zero). See §Notes — "district-heat accumulator."
+- **Observer `observer_silent_n_editions` semantics.** v0.1's "SILENCED or
+  PASS for ≥ n editions" mixes a state name with an intent kind. v0.1.1
+  pins the implementation as **"not loud"** — Observer's loud states are
+  `PUBLISH` (fires `PUBLISH_COUNTER`) and `WARN` (fires `POISON_LEAD`).
+  Every other state (`INVESTIGATE` / `DESPERATE` / `SILENCED`) reads as
+  silent. Reads against the `Observer.recentStates` ring (cap 5, ICD-02
+  v0.3.2) pushed once per edition.
 - **Composers.** `all_of` / `any_of` accept any list of children;
   arbitrary nesting allowed. The trigger evaluator is a pure
   recursive walk; depth is unlikely to exceed 3-4 layers across the
@@ -184,15 +195,17 @@ table. Lifted verbatim into ICD-10's shape:
 ```ts
 const THE_LONGSHOREMAN_STRIKE: StoryArc = {
   id: 'longshoreman_strike',
+  district: 'docks',                                  // v0.1.1 geographic constraint (§Notes)
   trigger: {
     kind: 'all_of',
     children: [
       { kind: 'district_heat_above',          district: 'docks', threshold: 60 },
-      // "player has 1+ Bureau in Docks" — encoded as district-uncovered NOT firing:
-      { kind: 'all_of', children: [
+      // "player has 1+ Bureau in Docks" — negate-flag idiom (§Notes); reads
+      // as "Docks must NOT be uncovered" → "Docks must have a covering Bureau."
+      { kind: 'all_of', negate: true, children: [
         { kind: 'district_uncovered', district: 'docks' }
-      ]},  // (this nested predicate is intentionally negated in code — see §Notes)
-      { kind: 'observer_silent_n_editions',   n: 3 },  // approximates "Observer has not run the strike story in the last 3 editions"
+      ]},
+      { kind: 'observer_silent_n_editions',   n: 3 },  // Observer not in PUBLISH/WARN for the last 3 editions
     ],
   },
   episodes: [
@@ -244,9 +257,9 @@ table, outcome table, and trigger predicate.
 
 ## Save surface
 
-Arc episode progress lives in a new `SaveBlobV1.active_arcs[]` block
-authored at ICD-04 v0.1.2 (in-PR at the first milestone that wires an
-authored arc — milestone 1.1 or 1.2). The block carries one entry per
+**v0.1.1 (1.1.0) — live.** Arc episode progress lives in a new
+`SaveBlobV1.active_arcs[]` block authored at ICD-04 v0.1.4 in-PR with
+the Longshoreman Strike code session. The block carries one entry per
 arc currently in progress:
 
 ```ts
@@ -259,19 +272,19 @@ interface ActiveArcSnap {
 ```
 
 A Story carrying `arc_episode_id` round-trips via the existing
-`SaveBlobV1.stories[]` array (the `arc_episode_id` joins
-`StorySnap` as a sibling optional field at ICD-04 v0.1.2). The
-`active_arcs[]` block is the parallel record of arc-level state
-(which episode the player is on; which branches were picked).
+`SaveBlobV1.stories[]` array (`arc_episode_id`, `parent_story_id`, and
+`arc_branch_label` join `StorySnap` as sibling optional fields at
+ICD-04 v0.1.4). The `active_arcs[]` block is the parallel record of
+arc-level state (which episode the player is on; which branches were
+picked).
 
-**Note:** v0.1 of ICD-10 ships **only the framework shape**. The
-`active_arcs[]` save block is committed at ICD-04 v0.1.2 in-PR with
-the first arc-content milestone — milestone 1.0 (Tier-1 opener)
-does **not** wire arcs (no authored content lands then), so the
-save block does not yet need to exist. The lead-spawner's `tier ===
-'arc'` collapse rule from 0.10.0 stays in effect at milestone 1.0
-under a tighter condition: "if no `StoryArc` is registered, collapse
-to investigation." The registry surface is a milestone 1.1+ concern.
+**Parallel blocks added at 1.1.0** alongside `active_arcs[]`:
+`district_heat: { [DistrictId]: number }` powers
+`district_heat_above`; `district_dispositions: { [DistrictId]: 'loyal' |
+'grudging' | 'bitter' | 'open hostility' }` records terminal outcomes;
+`ObserverSnap.recent_states: string[]` (cap 5) powers
+`observer_silent_n_editions`. All optional; pre-1.1.0 saves default-fill
+via `migrate_1_2_to_1_3` (pass-through stamp).
 
 ## HUD surface
 
@@ -289,10 +302,16 @@ Arc episodes surface through two existing channels:
   [`../js/debrief-panel.js`](../js/debrief-panel.js) at the first
   arc milestone widens to handle the larger card.
 
-**Branch-choice UI gesture** — at the `verified → plated` transition
-for an arc story, the player must pick a branch before the story
-can plate. The UI gesture for the choice (a modal? a corkboard
-in-line picker?) is a milestone 1.1+ code-session call.
+**Branch-choice UI gesture (v0.1.1 close — §Open-Q3)** — corkboard
+in-line picker. The dossier's per-story row for an arc story renders
+the branch labels as clickable chips (`<button class="arc-chip">…`)
+below the headline. Click → `World.pickArcBranch(storyId, label)` —
+records the intent on the story (`Story.arc_branch_label`). Effects
+fire at the `verified → plated` boundary inside `_fireDebrief`: a
+terminal pick applies the outcome (cash / heat one-times +
+`districtDispositions` write); an `advance` pick spawns the next
+episode's lead in the same district. Un-picked arc stories stay
+verified at the Darkroom (the ink-budget walk filters them out).
 
 ## Notes
 
@@ -329,36 +348,72 @@ in-line picker?) is a milestone 1.1+ code-session call.
   STRIKE would conflict on outcomes; the rule prevents the dispatch.
   Different arcs may overlap (Longshoreman + Mayor's Mistress in
   parallel is fine).
-- **The Longshoreman example's nested-NOT predicate (§Spec-validation).**
-  The example encodes *"player has 1+ Bureau in Docks"* as a nested
-  `all_of` with `district_uncovered: docks` — read as "Docks **must
-  not** be uncovered" → "Docks must have a covering Bureau."
-  Predicate negation is not a first-class vocabulary kind at v0.1;
-  the example uses an idiom (an `all_of` with a NOT semantic on its
-  child) that the evaluator handles via a `! result` flip flag in
-  the AST node. A `not` predicate kind is a §Open question.
+- **Negate flag (v0.1.1 — closes §Open-Q1).** Every predicate AST node
+  carries an optional `negate?: boolean` field; when `true`, the
+  evaluator flips its result. The Longshoreman example's
+  *"player has 1+ Bureau in Docks"* is encoded as a nested `all_of`
+  with `negate: true` around `district_uncovered: docks` — read as
+  "Docks must NOT be uncovered" → "Docks must have a covering Bureau."
+  A first-class `not` predicate kind stays deferred until an arc
+  surfaces a use the flag doesn't cover cleanly. The flag is a
+  one-line evaluator change; the explicit kind would widen the
+  vocabulary.
+- **Arc registry surface (v0.1.1).** The set of authored arcs lives in
+  the `ARCS` const export from `js/sim/arcs.js`. World imports `ARCS`
+  + the `evalTrigger` / `findArc` / `findArcEpisode` / `findArcOutcome`
+  helpers + `ActiveArc` class. Adding a new arc is a `js/sim/arcs.js`
+  edit; no ICD bump unless the arc surfaces a vocabulary gap.
+- **District constraint (v0.1.1 — `StoryArc.district`).** Optional. When
+  set, the arc only fires from spawn cycles in the named district —
+  Longshoreman never spawns from a Hillside spawn cycle, even if its
+  trigger predicate would pass. Geographic locality matters for
+  narrative coherence (the Longshoreman Strike happens in the harbor,
+  not on the hill). Arcs with no `district` field fire from any
+  district that the spawn-cycle's tier-roll lands in.
+- **Investigation chain (v0.1.1 — closes §Notes ambiguity).** Chain
+  successor spawn fires inside `World._handlePhotogArrival` on the
+  `lead → verified` transition (NOT in the lead-spawner — chain is
+  procedural, not authored). Cap is depth 3 (parent → child → grandchild;
+  no fourth). Successor tile + headline word picks are deterministic
+  from `parent.id` via a 32-bit FNV-1a hash seeding a per-parent
+  `SeededRng`, so save/load reproduces the chain.
+- **District-heat accumulator (v0.1.1).** Lit alongside Longshoreman.
+  `World.districtHeat: { [id]: number }`. Accumulated at `_fireDebrief`
+  (sum admitted printed stories' `heat_yield` by `Story.district`);
+  decayed at `ackDebrief` (flat `DISTRICT_HEAT_DECAY_PER_EDITION = 5`).
+  Symmetric across districts at 1.1.0; the 1.1.x balance pass may
+  differentiate by `districtDispositions`.
+- **District-disposition mechanics deferred (v0.1.1).** Terminal arc
+  outcomes write to `World.districtDispositions: { [id]: 'loyal' |
+  'grudging' | 'bitter' | 'open hostility' }`. v0.1.1 stores +
+  displays the disposition (debrief panel flavor text) but does NOT
+  yet wire the design-doc §18 mechanical effects (spawn-rate +
+  goon-raid-probability modifiers). Those land at a 1.1.x balance pass.
+- **Multi-arc disposition conflict (v0.1.1 — closes §Open-Q4).**
+  Last-writer-wins. When two arcs both terminate this edition and
+  both set `districtDispositions.docks`, the last `_applyArcPlate`
+  call wins (iteration order = `printing` order = ink-budget admit
+  order). Playtest may want priority-by-arc-weight; deferred until
+  it surfaces as a problem.
 
 ## Open questions
 
-- **`not` predicate kind.** v0.1's vocabulary lacks explicit
-  negation. Adding `{ kind: 'not', child: ArcTriggerPredicate }`
-  cleans up the Longshoreman-example idiom. Defer to the milestone
-  that authors the first arc requiring negation — likely Longshoreman
-  itself at 1.1 or 1.2.
+- ~~**`not` predicate kind.**~~ Closed at v0.1.1 — `negate?: boolean`
+  AST-node flag covers the Longshoreman idiom. Explicit `not` kind
+  stays deferred until an arc surfaces a case the flag can't cover.
 - **Per-episode balance hint policy.** v0.1 makes `cash_yield` /
   `heat_yield` / `ink_cost` optional per episode (override of §19
-  defaults). The §18 spec is silent on whether arcs use the §19
-  yield table or carry per-arc economics. Playtest at first arc
-  content milestone will settle it; the field shape stays.
-- **Branch-choice timing.** At v0.1 the choice fires at `verified
-  → plated` (the plating moment, when the story commits). An
-  alternative is to fire it at `verified` arrival (the moment the
-  story enters the queue). Code-session call at first arc milestone.
-- **Multi-arc interaction.** When two arcs in parallel both want
-  to set `district_disposition.docks`, last-writer-wins or
-  vetoing? v0.1 commits last-writer-wins (the more-recently-finished
-  arc dictates Docks disposition); playtest may want priority by
-  arc weight.
+  defaults). Longshoreman at 1.1.0 uses none of them — the standard
+  §19 arc-tier yields apply, and outcomes add their `cash_one_time` /
+  `heat_one_time` bonuses on top. Playtest at the 1.1.x balance pass
+  will settle whether per-episode overrides are useful.
+- ~~**Branch-choice timing.**~~ Closed at v0.1.1 — fires at `verified
+  → plated` (the v0.1 default). The corkboard in-line picker is the
+  player gesture; pickArcBranch records intent at click, effects
+  apply at plate.
+- ~~**Multi-arc interaction.**~~ Closed at v0.1.1 — last-writer-wins
+  on `district_disposition`. The more-recently-plated arc dictates
+  the district. Playtest may differentiate by arc weight later.
 
 ## Deviation policy
 
@@ -372,6 +427,41 @@ numbers, or the trigger thresholds, is content authoring — no ICD
 update unless the shape moves.
 
 ## Revision history
+
+- **v0.1.1** (milestone 1.1.0, 2026-05-22) — First authored arc lands.
+  Six surface changes in-PR alongside the Longshoreman Strike +
+  Investigation 3-step chain code session:
+  (1) `StoryArc.district?: DistrictId` optional geographic constraint
+  added — Longshoreman pinned to `'docks'` (§Notes — "District constraint").
+  (2) `ArcTriggerPredicate.negate?: boolean` flip-flag added to every
+  AST node — closes §Open-Q1 (the explicit `not` kind stays deferred).
+  Longshoreman's nested-NOT idiom now carries `negate: true` explicitly.
+  (3) `observer_silent_n_editions` semantics pinned as "not loud" —
+  loud = `PUBLISH` or `WARN`, every other state counts as silent.
+  Reads `Observer.recentStates` (cap 5; ICD-02 v0.3.2 §Notes).
+  (4) `district_heat_above` lit — `World.districtHeat` accumulator
+  + flat `-5/edition` decay. Powers Longshoreman's "Docks heat > 60."
+  (5) `Story.parent_story_id` / `arc_episode_id` / `arc_branch_label`
+  optional fields lit — chain hook fires in `_handlePhotogArrival`
+  (procedural, depth-3 cap, deterministic from parent.id).
+  (6) `active_arcs[]` save block lifted from deferral — ICD-04 v0.1.4
+  authors the snap. Parallel save blocks: `district_heat`,
+  `district_dispositions`, `ObserverSnap.recent_states`.
+  Three §Open-Qs closed: Q1 (negate-flag idiom), Q3 (branch-choice
+  timing at `verified → plated` via corkboard in-line picker;
+  `World.pickArcBranch` records intent, `_applyArcPlate` fires
+  effects), Q4 (last-writer-wins on multi-arc disposition).
+  HUD surface: dossier per-story row renders `Arc · Longshoreman
+  Strike · bury | splash` chips for un-picked stories,
+  `Picked: splash` for picked, `Investigation 2/3` suffix for
+  chained investigation rows. Wired through `js/hud.js` `renderStoryRow`
+  + delegated `pick-branch` click handler; main.js threads
+  `pickArcBranch` callback into HudCorkboard actions. Tests at 334
+  cases (281 → 334 = +53; new arcs-trigger.test.mjs · arcs-episode.test.mjs
+  · investigation-chain.test.mjs + extensions to observer.test.mjs
+  · save-load.test.mjs · hud.test.mjs). One disposition deferral
+  retained (§Notes — "District-disposition mechanics deferred"):
+  spawn-rate / raid-prob modifiers land at the 1.1.x balance pass.
 
 - **v0.1** (PRE-1.0, 2026-05-22) — Initial draft. Authored ahead of
   milestone 1.0 (Tier-1 opener) to retire the

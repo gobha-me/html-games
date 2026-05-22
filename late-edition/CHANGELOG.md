@@ -1,5 +1,162 @@
 # Changelog — Late Edition
 
+## v1.1.0 — 2026-05-22 — Tier-1 content · first authored arc (Longshoreman Strike) + Investigation 3-step chain
+
+First Tier-1.x content session against the ten authored ICDs. Lights up
+the arc framework authored at PRE-1.0 with concrete content, retiring
+the `tier === 'arc'` placeholder collapse at
+[`js/sim/lead-spawner.js`](js/sim/lead-spawner.js) line 101 from milestone
+0.10.0. Closes Gitea issue #330. Tests at 334 cases (281 → 334).
+
+### Added
+
+- [`js/sim/arcs.js`](js/sim/arcs.js) — new pure module. `THE_LONGSHOREMAN_STRIKE`
+  lifted verbatim from ICD-10 v0.1 §Spec-validation (4 episodes · 4
+  outcomes · trigger: `district_heat_above docks > 60` AND nested-NOT
+  `district_uncovered docks` AND `observer_silent_n_editions n=3`). Pure
+  `evalTrigger(predicate, ctx)` recursive evaluator handles 8 named
+  predicate kinds (`heat_above` · `district_heat_above` ·
+  `district_uncovered` · `observer_silent_n_editions` · `rival_state` ·
+  `edition_at_least` · `all_of` · `any_of`) + the v0.1.1 `negate: boolean`
+  AST-node flip flag (ICD-10 §Open-Q1 close — nested-NOT idiom). `ActiveArc`
+  class tracks one in-progress arc instance with snap / fromSnap /
+  pickBranch helpers. `findArc` / `findArcEpisode` / `findArcOutcome`
+  registry lookups.
+- [`js/sim/world-state.js`](js/sim/world-state.js) — arc dispatcher in
+  `_runSpawnerTick` (`_dispatchArcSpawn`). When the spawner returns a
+  `tier === 'arc'` partial, consults the registry; fires the first arc
+  whose (a) trigger predicate is true against `_buildArcContext()`,
+  (b) target district matches the spawn's district (or has no constraint),
+  and (c) is not already active. On success the spawn's headline is
+  overwritten with the episode's authored canonical string and
+  `arc_episode_id` is stamped; an `ActiveArc` joins `this.activeArcs`.
+  On miss the spawn downgrades to `tier === 'investigation'`.
+- `_handlePhotogArrival` — Investigation 3-step chain hook
+  (`_maybeSpawnInvestigationFollowup`). On `lead → verified` for
+  investigation-tier stories, spawns a successor in the same district
+  with `parent_story_id` set. Depth 3 cap enforced via `_chainDepth`.
+  Successor tile + headline word picks are deterministic from
+  `parent.id` via a 32-bit FNV-1a hash seeding a per-parent `SeededRng`
+  so save/load reproduces the chain.
+- `World.pickArcBranch(storyId, label)` — player gesture API (ICD-10
+  §Open-Q3 close). Validates label against the current episode's
+  `branch_table.choices`; records intent on `story.arc_branch_label`.
+  Effects fire at the verified → plated boundary, not at click — keeps
+  cash arrival aligned with the deadline cadence.
+- `_applyArcPlate(story)` — fires inside `_fireDebrief` for every printed
+  arc story with `arc_branch_label`. Terminal outcomes apply
+  `cash_one_time` + `heat_one_time` to `World.resources` and write
+  `districtDispositions[district] = value` (last-writer-wins per ICD-10
+  §Open-Q4 close); advance outcomes call `_spawnArcEpisode` to mint the
+  next episode's lead in the same district. Retires the `ActiveArc` on
+  terminal so the same arc can re-trigger.
+- `World.districtHeat: { [districtId]: number }` — per-district heat
+  accumulator powering ICD-10 v0.1.1's `district_heat_above` predicate.
+  Accumulated at `_fireDebrief` (sum of admitted printed stories'
+  `heat_yield` partitioned by `Story.district`); decayed at `ackDebrief`
+  (flat `DISTRICT_HEAT_DECAY_PER_EDITION = 5`, clamped at zero).
+- `World.districtDispositions: { [districtId]: 'loyal' | 'grudging' |
+  'bitter' | 'open hostility' }` — terminal arc outcome storage. v1.1.0
+  stores + round-trips through save; mechanical effect (spawn-rate /
+  raid-prob modifiers per design-doc §18) deferred to 1.1.x balance pass.
+- [`js/sim/observer.js`](js/sim/observer.js) — `Observer.recentStates`
+  ring (cap 5). Pushed unconditionally inside `onEditionEnd` BEFORE the
+  1/2-EDITIONS cadence gate so every edition contributes one entry.
+  Read by ICD-10 `observer_silent_n_editions` predicate with "not loud"
+  semantics (loud = `PUBLISH` or `WARN`; every other state counts as
+  silent).
+- [`js/sim/save.js`](js/sim/save.js) — `SaveBlobV1` gains three top-level
+  fields (`active_arcs` · `district_heat` · `district_dispositions`).
+  `StorySnap` gains three optional fields (`parent_story_id?` ·
+  `arc_episode_id?` · `arc_branch_label?`). `ObserverSnap` gains optional
+  `recent_states?: string[]`. New `migrate_1_2_to_1_3` pre-fills the
+  three new collections + `observer.recent_states` for pre-1.1.0 saves
+  (all fields read as defaulted on `_loadFromSnap` so the migration is
+  belt-and-braces). In-blob `version` bumps `"1.2" → "1.3"`.
+- [`js/hud.js`](js/hud.js) — `renderStoryRow(s)` extracted as an exported
+  helper. Story queue rows now render an arc breadcrumb line
+  (`Arc · Longshoreman Strike · bury | splash`) above the headline for
+  un-picked arc stories, a `Picked: splash` note for picked stories, and
+  an `Investigation 2/3` suffix on the meta line for chained
+  investigations. Delegated click handler dispatches
+  `data-action="pick-branch"` chip clicks through
+  `actions.pickArcBranch(storyId, label)`.
+- [`js/main.js`](js/main.js) — `pickArcBranch` callback wired into the
+  HudCorkboard `actions` arg (same shape as `toggleArchive`).
+- New tests: [`tests/arcs-trigger.test.mjs`](tests/arcs-trigger.test.mjs)
+  (19 cases — predicate evaluator + composer short-circuits + negate
+  flag + Longshoreman trigger + ActiveArc snap/restore/pickBranch),
+  [`tests/arcs-episode.test.mjs`](tests/arcs-episode.test.mjs) (15 cases
+  — dispatcher upgrade/downgrade + district constraint + one-arc-per-id
+  + context builder + pickArcBranch + plate-time outcome application
+  + spawn-cycle integration),
+  [`tests/investigation-chain.test.mjs`](tests/investigation-chain.test.mjs)
+  (6 cases — successor spawn + tier gating + depth cap + same-district
+  rule + determinism).
+- Extensions: [`tests/observer.test.mjs`](tests/observer.test.mjs) gains
+  3 cases (recentStates push + snap round-trip + default-empty for
+  pre-1.1.0). [`tests/save-load.test.mjs`](tests/save-load.test.mjs)
+  gains 5 cases (`active_arcs[]` round-trip · districtHeat +
+  districtDispositions round-trip · Story foreign-keys round-trip ·
+  observer.recentStates round-trip · `migrate_1_2_to_1_3` defaults).
+  [`tests/hud.test.mjs`](tests/hud.test.mjs) gains 5 `renderStoryRow`
+  cases (plain · archived chip · chain depth suffix · un-picked arc
+  chips · picked arc note).
+
+### Changed
+
+- [`js/sim/lead-spawner.js`](js/sim/lead-spawner.js) — `_rollSpawn` no
+  longer collapses `tier === 'arc'` to `'investigation'` (the 0.10.0
+  placeholder). The tier value flows through to the World, which
+  dispatches via `_dispatchArcSpawn` (upgrade-or-downgrade decision now
+  contract-driven rather than constant).
+- [`js/sim/world-state.js`](js/sim/world-state.js) `_fireDebrief` — the
+  ink-budget verified-queue walk now filters out arc stories without
+  `arc_branch_label` (ICD-10 §HUD surface — "the player must pick a
+  branch before the story can plate"). Un-picked arc stories stay
+  verified at the Darkroom; archive or pick to advance them.
+- `ackDebrief` decays `World.districtHeat` symmetrically by
+  `DISTRICT_HEAT_DECAY_PER_EDITION` (5).
+- [`js/sim/world-state.js`](js/sim/world-state.js) `storyQueueView` now
+  takes the World as a second arg so it can compute `chain_depth` for
+  investigation rows and the arc breadcrumb fields for arc rows.
+- [`js/sim/save.js`](js/sim/save.js) — `CURRENT_VERSION` bumped to
+  `"1.3"`. `runMigrations` chain extends with `migrate_1_2_to_1_3`.
+- [`index.html`](index.html) masthead — title + meta banner refreshed
+  for the 1.1.0 shape (Tier-1 content · Longshoreman Strike +
+  Investigation chain).
+- ICD bumps in-PR (Constraint #4):
+  - **ICD-10 v0.1 → v0.1.1** — six surface changes (`StoryArc.district?`
+    optional constraint; `ArcTriggerPredicate.negate?: boolean` flip
+    flag; `observer_silent_n_editions` "not loud" semantics;
+    `district_heat_above` lit end-to-end; Story optional foreign-key
+    fields; §Save surface deferral lifted). §Open-Qs Q1/Q3/Q4 closed.
+  - **ICD-04 v0.1.3 → v0.1.4** — three new top-level `SaveBlobV1`
+    fields + three StorySnap optional fields + ObserverSnap
+    `recent_states?` + new ActiveArcSnap interface + v1.2 → v1.3
+    migration.
+  - **ICD-02 v0.3.1 → v0.3.2** — §Notes only; pins
+    `Observer.recentStates: string[]` (cap 5) as the per-edition state
+    ring read by ICD-10 `observer_silent_n_editions`.
+  - **ICD-05 v0.4.2 → v0.4.3** — §Notes only; cross-references the
+    three new optional Story fields (sim-side spawner/UI minted, not
+    state-machine driven).
+
+### Deferred
+
+- **District-disposition mechanical effect** (spawn-rate + goon-raid-
+  probability modifiers per design-doc §18 line 1390). v1.1.0 stores
+  + displays only. Lands at the 1.1.x balance pass per ICD-10 v0.1.1
+  §Notes.
+- **Explicit `not` predicate kind** — the v0.1.1 `negate: boolean`
+  flag covers the Longshoreman idiom; the dedicated `{ kind: 'not',
+  child }` shape stays deferred until an arc surfaces a case the flag
+  cannot cover cleanly.
+- **Per-episode balance overrides** — Longshoreman uses none of the
+  optional `cash_yield` / `heat_yield` / `ink_cost` per-episode fields.
+  Playtest at 1.1.x balance pass will settle whether per-episode
+  overrides are useful.
+
 ## v1.0.1 — 2026-05-22 — Tier-1 opener · Archive UI + projectors + debrief gate
 
 Second half of the Tier-1 opener split (issue #317). The four deliverables

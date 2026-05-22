@@ -283,13 +283,12 @@ class Dossier {
     const note = noteParts.join(' · ');
     // Per-story rows for verified + archived held at Darkroom. Left-click on
     // a row routes through this.actions.toggleArchive(storyId).
-    const rowsHtml = stories.map((s) => {
-      const districtName = getDistrict(s.district)?.name ?? s.district;
-      const chip = s.state === 'archived' ? '<span class="chip is-hold">HOLD</span>' : '';
-      const cls = s.state === 'archived' ? 'story-row is-archived' : 'story-row';
-      return `<div class="${cls}" data-action="toggle-archive" data-story-id="${escapeHtml(s.id)}">${chip}<span class="hl">${escapeHtml(s.headline)}</span><span class="meta">${escapeHtml(s.flavor)} · ${escapeHtml(districtName)}</span></div>`;
-    }).join('');
-    const key = `${headline}||${note}||${stories.map((s) => `${s.id}:${s.state}`).join('|')}`;
+    // 1.1.0 (ICD-10 v0.1.1 §HUD surface): arc stories surface a branch-pick
+    // chip-strip; investigation chain stories surface their depth as
+    // "Investigation N/3" in the meta line. Arc breadcrumb sits above the
+    // headline so the player sees the arc name before the episode title.
+    const rowsHtml = stories.map((s) => renderStoryRow(s)).join('');
+    const key = `${headline}||${note}||${stories.map((s) => `${s.id}:${s.state}:${s.arc_branch_label ?? ''}`).join('|')}`;
     if (key === this._lastQueue) return;
     this._lastQueue = key;
     const isEmpty = leads.length === 0 && storyCount === 0 && archivedCount === 0;
@@ -298,7 +297,22 @@ class Dossier {
   }
 
   _onQueueClick(ev) {
-    const target = ev.target instanceof Element ? ev.target.closest('[data-action="toggle-archive"]') : null;
+    if (!(ev.target instanceof Element)) return;
+    // 1.1.0 (ICD-10 v0.1.1 §Open-Q3): arc branch-pick chip click. Routes
+    // through this.actions.pickArcBranch(storyId, label). The chip carries
+    // both data-story-id and data-branch-label; check the more-specific
+    // action first so the outer toggle-archive listener doesn't swallow it.
+    const branchChip = ev.target.closest('[data-action="pick-branch"]');
+    if (branchChip) {
+      ev.stopPropagation();
+      const storyId = branchChip.dataset.storyId;
+      const label = branchChip.dataset.branchLabel;
+      if (storyId && label && typeof this.actions.pickArcBranch === 'function') {
+        this.actions.pickArcBranch(storyId, label);
+      }
+      return;
+    }
+    const target = ev.target.closest('[data-action="toggle-archive"]');
     if (!target) return;
     const storyId = target.dataset.storyId;
     if (!storyId || typeof this.actions.toggleArchive !== 'function') return;
@@ -323,4 +337,41 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[c]);
+}
+
+// 1.1.0 (ICD-10 v0.1.1 §HUD surface): one Story queue row. Renders the base
+// row (headline + meta), then layers HOLD chip, Investigation chain depth,
+// and Arc breadcrumb + branch chips when the corresponding fields are set.
+// Exported for hud.test.mjs.
+export function renderStoryRow(s) {
+  const districtName = getDistrict(s.district)?.name ?? s.district;
+  const archivedChip = s.state === 'archived' ? '<span class="chip is-hold">HOLD</span>' : '';
+  const cls = s.state === 'archived' ? 'story-row is-archived' : 'story-row';
+  // Investigation chain depth — "Investigation 2/3" appended to meta line.
+  const chainSuffix = s.chain_depth
+    ? ` · Investigation ${s.chain_depth}/3`
+    : '';
+  // Arc breadcrumb + branch chip strip. The arc id is encoded in the episode
+  // id prefix (e.g. 'longshoreman_strike.walkout' → 'Longshoreman Strike').
+  let arcLine = '';
+  if (s.arc_episode_id) {
+    const arcLabel = arcDisplayName(s.arc_episode_id.split('.')[0]);
+    const pickedNote = s.arc_branch_label
+      ? `<span class="arc-picked">Picked: ${escapeHtml(s.arc_branch_label)}</span>`
+      : '';
+    const chipsHtml = (s.branch_choices ?? []).map((c) =>
+      `<button type="button" class="arc-chip" data-action="pick-branch" data-story-id="${escapeHtml(s.id)}" data-branch-label="${escapeHtml(c.label)}">${escapeHtml(c.label)}</button>`,
+    ).join('');
+    arcLine = `<div class="arc-line">Arc · ${escapeHtml(arcLabel)}${pickedNote}${chipsHtml ? `<span class="arc-chips">${chipsHtml}</span>` : ''}</div>`;
+  }
+  return `<div class="${cls}" data-action="toggle-archive" data-story-id="${escapeHtml(s.id)}">${arcLine}${archivedChip}<span class="hl">${escapeHtml(s.headline)}</span><span class="meta">${escapeHtml(s.flavor)} · ${escapeHtml(districtName)}${escapeHtml(chainSuffix)}</span></div>`;
+}
+
+function arcDisplayName(arcId) {
+  // 'longshoreman_strike' → 'Longshoreman Strike'. Title-case each underscore
+  // segment; defensive against unknown arc ids (returns the raw id).
+  return arcId
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
