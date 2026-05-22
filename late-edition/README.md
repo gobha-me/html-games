@@ -8,6 +8,31 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v0.10.4 — PRE-1.0 paper (ICD-02 v0.3 · ICDs 08 / 09 / 10).**
+Paper-only architecture session. Authored **ICD-02 v0.3** (Herald +
+Observer five-state machines lifted from
+[`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03 + §05;
+two new Intent kinds — `PUBLISH_COUNTER` + `INVESTIGATE_LEAD`;
+`RivalStatusView` posture mapping extended to all three rivals;
+§Notes inter-rival paragraph against §06 interaction matrix), **ICD-08**
+(new — Switchboard line-of-sight contract; ±6-tile medium-band rect;
+no top-level `WorldFrame` field), **ICD-09** (new — Archive
+inter-edition story state; new `'archived'` value extending ICD-05's
+state union; cap 5 + decay 10 editions, both medium-band), **ICD-10**
+(new — Arc framework formalization; `StoryArc` record + Investigation
+3-step chain + trigger predicate vocabulary; THE LONGSHOREMAN STRIKE
+encoded as the spec-validation reference), and **ICD-01 v0.6.3**
+(single §Notes paragraph pinning the authored-but-deferred-projection
+pattern). **Ten ICDs authored.** Milestone 1.0 is now code-ready.
+Closes Gitea issue #315. See [`roadmap.md`](roadmap.md) and
+[`CHANGELOG.md`](CHANGELOG.md).
+
+**v0.10.3 — Tier-0 → Tier-1 RE-EVAL (paper + code-aware).**
+Fourth and final re-eval in the project plan. Seven ICDs survived
+0.10.x code-aware re-read with zero interface drift. Arc framework
+band promoted Fuzzy → Strong. Herald + Observer state machines
+scheduled to PRE-1.0.
+
 **v0.10.2 — PR-D visual feedback (Tier-0 closes).**
 The closing post-0.9 audit PR — rain ramp at deadline (C-06), the
 `WorldFrame.effects` channel wired end-to-end (C-07 — `pickup` · `verify` ·
@@ -16,8 +41,7 @@ The closing post-0.9 audit PR — rain ramp at deadline (C-06), the
 DOM/CSS layered on top of five small sim emit sites. ICD-01 → v0.6.2
 (`rain.intensity` range-comment widen; no shape change). Tests at
 199 cases (179 → 199). Closes Gitea issue #299; Tier-0 audit (post-0.9)
-fully landed. Next: Tier-0 → Tier-1 re-eval slot. See
-[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+fully landed.
 
 **v0.10.1 — Onboarding (WASD pan · Block zoom · slow-mo · diegetic tutorial).**
 G-07 minimum control surface and G-09 diegetic tutorial coupled as the
@@ -107,9 +131,11 @@ pan / Block zoom / slow-mo control surface. See
 3. Read [`roadmap.md`](roadmap.md) for the milestone list in plain markdown.
 4. Read [`architecture/00-overview.md`](architecture/00-overview.md) for the
    strong/medium/fuzzy banding in markdown.
-5. Open the [`icds/`](icds) directory for the six interface contracts (01,
-   02, 03, 04, 05, 06) that gate the code sessions. All six are now
-   authored — ICD-04 (save schema) shipped at PRE-0.8.
+5. Open the [`icds/`](icds) directory for the ten interface contracts
+   (01–10) that gate the code sessions. All ten are now authored —
+   ICDs 01–06 shipped across PRE-0.1 → PRE-0.7; ICD-04 (save schema) at
+   PRE-0.8; ICDs 01 v0.6 / 06 v0.4 / 07 v0.1 at PRE-0.10; ICDs 01 v0.6.3
+   / 02 v0.3 / 08 / 09 / 10 at PRE-1.0.
 
 ## Tech stack (planned)
 
@@ -135,13 +161,17 @@ late-edition/
 ├── roadmap.md              # milestone list (markdown mirror of §04)
 ├── architecture/
 │   └── 00-overview.md      # strong/medium/fuzzy banding (markdown)
-├── icds/                   # interface control documents (draft)
+├── icds/                   # interface control documents
 │   ├── ICD-01-world-renderer.md
 │   ├── ICD-02-rival-world.md
 │   ├── ICD-03-unit-pathfinder.md
 │   ├── ICD-04-save-schema.md
 │   ├── ICD-05-story-lifecycle.md
-│   └── ICD-06-print-cycle.md
+│   ├── ICD-06-print-cycle.md
+│   ├── ICD-07-audio-bus.md
+│   ├── ICD-08-switchboard.md          # PRE-1.0
+│   ├── ICD-09-archive.md              # PRE-1.0
+│   └── ICD-10-arc-framework.md        # PRE-1.0
 ├── discussion/             # pre-architecture parking spots
 │   ├── observer-violence.md
 │   ├── rival-state-visibility.md

@@ -1,5 +1,160 @@
 # Changelog — Late Edition
 
+## v0.10.4 — 2026-05-22 — PRE-1.0 paper (ICD-02 v0.3 · ICDs 08 / 09 / 10 · ICD-01 v0.6.3)
+
+Paper-only architecture session. Authored the four contract surfaces
+(plus one ICD-01 §Notes addition) that the Tier-0 → Tier-1 re-eval
+scheduled at PRE-1.0. **Milestone 1.0 (Tier-1 opener) is now code-ready.**
+
+This is the eighth paper-only changelog entry (v0.1.1 PRE-0.2 · v0.3.1
+RE-EVAL after 0.3 · v0.4.1 PRE-0.5 · v0.6.1 RE-EVAL after 0.6 · v0.7.2
+PRE-0.8 · v0.9.2 RE-EVAL after 0.9 · v0.9.4 PRE-0.10 · v0.10.3 RE-EVAL
+Tier-0 → Tier-1 are the prior paper sessions). PRE-1.0 mirrors the
+PRE-0.7 / PRE-0.8 / PRE-0.10 shape: paper-only, gates the next code
+milestone, ships at a `.N+1` patch after the preceding re-eval.
+
+### Added
+
+- [`icds/ICD-08-switchboard.md`](icds/ICD-08-switchboard.md) v0.1 —
+  new. Switchboard line-of-sight contract anchored on design-doc.html
+  §10 line 1088 (*"Information about the threat is itself a defense
+  resource"*). Visibility projection rule extends the existing
+  snapshot-layer filter — no new top-level `WorldFrame` field.
+  Rectangular axis-aligned LoS with **±6-tile medium-band radius**.
+  "No Switchboard → reveal at 1-tile Bureau radius" defensive default
+  lifts the design HTML's *"window breaking"* beat. Save surface
+  stays value-level widening on `SaveBlobV1.buildings[]` (`BuildingKind`
+  widens to include `'switchboard'`; ICD-01 bump-in-PR rule at milestone
+  1.0 per Constraint #4 precedent from 0.10.0). Four §Open questions
+  parked (count cap · occlusion · rotational variants · retroactive
+  visibility on placement).
+- [`icds/ICD-09-archive.md`](icds/ICD-09-archive.md) v0.1 — new.
+  Archive / inter-edition story state contract anchored on
+  design-doc.html §06 line 888 (*"Stories live in your archive until
+  you commit them to the next edition"*). Lifts the ICD-05 v0.4.1
+  §Purpose archive deferral. New `'archived'` value extends ICD-05's
+  `Story.state` union to five values; two new transition rows
+  (`verified ↔ archived`) — the only non-monotonic edges in the Story
+  state machine. **Archive cap = 5** stories simultaneously (medium-
+  band); **cold-news decay = 10 editions** (medium-band); cap and
+  decay both lift the §06 *"news goes cold"* mechanism. HUD surface
+  is a single dossier-row count addition (`archived: N/5`). Save
+  surface is value-level widening on `SaveBlobV1.stories[]` (`StorySnap.state`
+  enum widens; `archived_at_ms?: number` optional field added; ICD-04
+  v0.1.1 → v0.1.2 in-PR at milestone 1.0). Four §Open questions parked
+  (player gesture · cap policy · Darkroom-destruction interaction ·
+  Tier-III front-page UI).
+- [`icds/ICD-10-arc-framework.md`](icds/ICD-10-arc-framework.md) v0.1
+  — new. Arc framework formalization anchored on design-doc.html §18.
+  Five core shape commitments: (1) **`StoryArc`** record (id ·
+  trigger · episodes · outcomes); (2) **`ArcEpisode`** shape (id ·
+  headline · branch table · optional per-episode balance hints); (3)
+  **`ArcTriggerPredicate`** vocabulary with eight named kinds
+  (`heat_above` · `district_uncovered` · `observer_silent_n_editions`
+  · `rival_state` · `district_heat_above` · `edition_at_least`) plus
+  two composers (`all_of` / `any_of`); (4) **Investigation 3-step
+  chain** semantics via `Story.parent_story_id` threading (the
+  spawner emits next-in-chain on `verified` arrival; rival RUSH +
+  INVESTIGATE may scoop); (5) **Arc save block** `SaveBlobV1.active_arcs[]`
+  deferred to ICD-04 v0.1.2 in-PR at the first arc-content milestone
+  (1.1+). **Spec-validation reference: THE LONGSHOREMAN STRIKE**
+  (design-doc.html §18 lines 1382-1422) encoded against the framework
+  — the four episodes (`THE WALKOUT` → `THE FOREMAN'S WIFE` → `THE
+  COMPANY MAN` → `THE DEAL`) and the four outcomes (loyal · grudging
+  · bitter · open hostility Docks dispositions) all accommodate the
+  framework shape without contortion. ICD-05 widens by two optional
+  fields (`parent_story_id`, `arc_episode_id`) in-PR at the first
+  arc-content milestone. Lead-spawner placeholder at
+  [`js/sim/lead-spawner.js:101`](js/sim/lead-spawner.js) (`if (tier
+  === 'arc') tier = 'investigation';`) is the slot ICD-10's `'arc'`
+  tier value retires. Four §Open questions parked (negation predicate
+  kind · per-episode balance policy · branch-choice timing · multi-arc
+  disposition conflict).
+
+### Changed
+
+- [`icds/ICD-02-rival-world.md`](icds/ICD-02-rival-world.md) v0.2.2 →
+  v0.3. **Herald five-state machine** authored (`IDLE | COURT | WIRED
+  | PUNISH | BUYOUT`, tick `1/EDITION`, 8 transitions). **Observer
+  five-state machine** authored (`INVESTIGATE | PUBLISH | WARN |
+  DESPERATE | SILENCED`, tick `1/2 EDITIONS`, 8 transitions). Both
+  lifted verbatim from
+  [`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03 FIG.
+  H1 + state-definition table and §05 FIG. O1 + state-definition
+  table respectively. **Two new Intent kinds** added to the per-tick
+  union: `PUBLISH_COUNTER` (Observer PUBLISH state — `{storyId}`
+  shape; effect rule +25 player heat, discredit lie, burn source)
+  and `INVESTIGATE_LEAD` (Observer INVESTIGATE state — `{leadId,
+  editions}` shape; `editions` defaults to 3 per §05). **`RivalStatusView`
+  posture mapping extended** to all three rivals — Herald never
+  reaches `hostile` (design-load-bearing §03 *"Never sends goons"*);
+  Observer never reaches `hostile` (§05 *"never hostile except via
+  information"*). **§Notes inter-rival paragraph** added against
+  rival-ai-spec.html §06 interaction matrix — three matrix cells
+  named; only cell (1) wires at milestone 1.0, cells (2) + (3) ship
+  with Herald `FILE_STORY` body + Star-vs-Observer raid mechanic at
+  Tier-1.x. Observer DESPERATE state's `PARTNER_REQUEST` formally
+  settles the
+  [`discussion/observer-violence.md`](discussion/observer-violence.md)
+  partner-fund-violence parking note — out-of-scope for Tier-1.
+  Two source-HTML-name reconciliations against
+  [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md)
+  §3 informal naming: re-eval used `LURK` for Herald's entry state
+  (HTML names it `IDLE`); re-eval used `WATCH` for Observer's entry
+  state (HTML names it `INVESTIGATE`). Per
+  [`AGENTS.md`](AGENTS.md) hard rules, **source HTML wins**.
+- [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md)
+  v0.6.2 → v0.6.3. **Single §Notes paragraph addition only.** Pins the
+  *"authored-but-deferred-projection"* pattern surfaced at the
+  post-Tier-0 → Tier-1 re-eval
+  ([`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md)
+  §1.5). The render-only projection rule's near-horizon allowance
+  (v0.5 §Notes) admits a borderline case where the field's contract
+  is authored one milestone ahead of its `snapshot()` projector;
+  `UnitView.stats` + `LeadView.district` are the canonical pair (both
+  authored at v0.6 / PRE-0.10; projector wires at milestone 1.0).
+  No View shape change; no `HudState` change; no `WorldFrame`
+  change. Pattern becomes moot at milestone 1.0 when both deferred
+  projectors wire.
+- [`discussion/observer-violence.md`](discussion/observer-violence.md)
+  — status flipped from `pre-PRE-1.0 input · Observer milestone in
+  the N-window` to **`settled at PRE-1.0 (v0.10.4)`**. Closing
+  paragraph cites ICD-02 v0.3 §Observer state machine + §Notes
+  inter-rival paragraph as the resolution surface. Partner-fund-
+  violence variant **rejected for Tier-1** (three reasons: §06
+  matrix points the other direction; §05 *"never hostile except via
+  information"* commitment; PARTNER_REQUEST already provides the
+  teeth-baring move). Tier-2 reopen if playtest finds Observer
+  pressure stale.
+- [`roadmap.md`](roadmap.md) — PRE-1.0 row in the Tier-1 table ticked
+  with `— *shipped v0.10.4*` annotation. "Current status" advances to
+  v0.10.4 with the deliverables block. New `- [x] **PRE-1.0**` history
+  entry appended below the Tier-0 → Tier-1 re-eval entry. "Out of
+  scope" note about Tier-1 architecture updated to reflect PRE-1.0
+  shipping.
+- [`AGENTS.md`](AGENTS.md) — "Hard rules" ICD inventory line updated
+  from seven ICDs to ten. "Current state" block bumped to v0.10.4
+  with the five-deliverable summary. v0.10.3 entry preserved below as
+  history.
+- [`README.md`](README.md) — Status block advances to v0.10.4 with
+  the PRE-1.0 deliverables summary; v0.10.3 + v0.10.2 entries kept
+  as recent history. "How to navigate" §5 updated from six to ten
+  ICDs. File-layout `icds/` block updated to list all ten files.
+
+### ICD inventory after this PR
+
+`01 v0.6.3 · 02 v0.3 · 03 v0.2 · 04 v0.1.1 · 05 v0.4.1 · 06 v0.4 · 07
+v0.1 · 08 v0.1 · 09 v0.1 · 10 v0.1` — ten ICDs authored.
+
+### Next
+
+Milestone 1.0 (Tier-1 opener) opens as a code session against the
+contracts authored here plus the two carry-over design-doc-to-code
+drifts from the post-0.9 audit (`UnitView.stats` + `LeadView.district`
+projector wiring · 30 s minimum debrief gate). Split 1.0.0/1.0.1 at
+session open per the 0.7 / 0.10 precedent if scope creeps. New Gitea
+ticket opened for milestone 1.0 with the scope summary.
+
 ## v0.10.3 — 2026-05-22 — RE-EVAL Tier-0 → Tier-1 (paper + code-aware)
 
 Paper-only, no code. The **fourth and final re-eval** in the original

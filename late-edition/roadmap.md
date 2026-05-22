@@ -41,7 +41,7 @@ definitions.
 
 | Milestone | Description | Notes | Band |
 |---|---|---|---|
-| **PRE-1.0** | Author **ICD-02 v0.3** (Herald + Observer state machines · intent vocabulary · posture mapping) + **ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09** (Archive / inter-edition story state, new) + **ICD-10** (Arc framework formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-deferred-projection rule) | Architecture session · paper-only · gates milestone 1.0 · scheduled by the Tier-0 → Tier-1 re-eval | strong |
+| **PRE-1.0** | Author **ICD-02 v0.3** (Herald + Observer state machines · intent vocabulary · posture mapping) + **ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09** (Archive / inter-edition story state, new) + **ICD-10** (Arc framework formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-deferred-projection rule) — *shipped v0.10.4* | Architecture session · paper-only · gates milestone 1.0 · scheduled by the Tier-0 → Tier-1 re-eval | strong |
 | **1.0** | Tier-1 opener — Herald + Observer wired (the rival triangle completes) · Switchboard building (LoS intel for raid ETA visibility) · Archive UI (intentional inter-edition story hold) · `UnitView.stats` projector for named Reporters · `LeadView.district` projector for per-district Story queue dossier · 30 s minimum debrief gate (ICD-06 v0.4 code-side) | Couples to PRE-1.0 contract authoring; split 1.0.0/1.0.1 at session open per 0.7 / 0.10 precedent if scope creeps | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
@@ -64,6 +64,45 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**PRE-1.0 — shipped (v0.10.4).** Paper-only architecture session. Authored
+**ICD-02 v0.3** (Herald five-state machine `IDLE | COURT | WIRED | PUNISH |
+BUYOUT` lifted verbatim from
+[`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03 FIG. H1 with
+tick cadence `1/EDITION`; Observer five-state machine `INVESTIGATE |
+PUBLISH | WARN | DESPERATE | SILENCED` lifted from §05 FIG. O1 with tick
+cadence `1/2 EDITIONS`; two new Intent kinds added —`PUBLISH_COUNTER` +
+`INVESTIGATE_LEAD`; `RivalStatusView` posture mapping extended to all
+three rivals; §Notes inter-rival paragraph against §06 interaction matrix
+naming three matrix cells, only cell (1) wiring at milestone 1.0;
+Observer DESPERATE `PARTNER_REQUEST` formally settles the
+[`discussion/observer-violence.md`](discussion/observer-violence.md)
+partner-fund-violence parking note), **ICD-08** (new — Switchboard
+line-of-sight contract; rectangular axis-aligned LoS at ±6-tile
+medium-band radius; "no Switchboard → reveal at 1-tile Bureau radius"
+defensive default lifting the design HTML §10 *"window breaking"* beat;
+no top-level WorldFrame field — extends the existing snapshot-layer
+filter), **ICD-09** (new — Archive / inter-edition story state; new
+`Story.state` value `'archived'` extending ICD-05's four-state union to
+five; two new transition rows `verified ↔ archived`; archive cap = 5
+medium-band; cold-news decay = 10 editions medium-band; HUD surface is
+a single dossier-row count addition), **ICD-10** (new — Arc framework
+formalization; `StoryArc` record (id · trigger · episodes · outcomes);
+Investigation 3-step chain semantics via `Story.parent_story_id`;
+trigger predicate vocabulary with eight named kinds + two composers
+(`all_of` / `any_of`); THE LONGSHOREMAN STRIKE encoded as the
+spec-validation reference per design-doc.html §18 lines 1382-1392),
+and **ICD-01 v0.6.3** (single §Notes paragraph addition pinning the
+*"authored-but-deferred-projection"* pattern surfaced at the
+post-Tier-0 → Tier-1 re-eval). **Milestone 1.0 is now code-ready** —
+every required contract is in hand. Two source-HTML-name
+reconciliations against the re-eval doc's informal naming (`LURK` →
+`IDLE`; `WATCH` → `INVESTIGATE`) per the source-HTML-wins rule. One
+Gitea ticket opened for milestone 1.0 (Tier-1 opener). See
+[`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md)
+§3 for the deliverable list this PR closes against.
+
+---
 
 **RE-EVAL Tier-0 → Tier-1 — shipped (v0.10.3).** Paper + code-aware session.
 Fourth and final re-eval in the original Tier-0 plan, mirroring
@@ -419,14 +458,65 @@ top of this file. Next: **PRE-1.0** (paper-only) — authors ICD-02 v0.3
       + the 30 s debrief gate, all at milestone 1.0; split 1.0.0/1.0.1
       if scope creeps. One Gitea ticket opened for PRE-1.0 paper. See
       [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md).
+- [x] **PRE-1.0** — paper-only. Authored **ICD-02 v0.3** (Herald five-state
+      machine `IDLE | COURT | WIRED | PUNISH | BUYOUT` lifted verbatim
+      from [`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03
+      FIG. H1 with tick cadence `1/EDITION`; Observer five-state machine
+      `INVESTIGATE | PUBLISH | WARN | DESPERATE | SILENCED` lifted from
+      §05 FIG. O1 with tick cadence `1/2 EDITIONS`; two new Intent kinds
+      added — `PUBLISH_COUNTER` + `INVESTIGATE_LEAD`; `RivalStatusView`
+      posture mapping extended to all three rivals — Herald never reaches
+      `hostile` per §03 *"Never sends goons"*, Observer never reaches
+      `hostile` per §05 *"never hostile except via information"*; §Notes
+      inter-rival paragraph against §06 interaction matrix naming three
+      matrix cells, only cell (1) wiring at milestone 1.0; Observer
+      DESPERATE `PARTNER_REQUEST` formally settles the
+      [`discussion/observer-violence.md`](discussion/observer-violence.md)
+      partner-fund-violence parking note). Authored **ICD-08** (new —
+      Switchboard line-of-sight contract; rectangular axis-aligned LoS
+      at ±6-tile medium-band radius; "no Switchboard → reveal at 1-tile
+      Bureau radius" defensive default lifting design-doc.html §10 line
+      1088 *"Information about the threat is itself a defense resource"*;
+      no top-level `WorldFrame` field — extends the existing snapshot-
+      layer filter; save surface is value-level widening on
+      `SaveBlobV1.buildings[]` with `BuildingKind` widening landing
+      in-PR on ICD-01 at milestone 1.0). Authored **ICD-09** (new —
+      Archive / inter-edition story state; new `Story.state` value
+      `'archived'` extending ICD-05's four-state union to five; two new
+      transition rows `verified ↔ archived` — the only non-monotonic
+      edges in the Story state machine, explicitly authorized by ICD-09
+      per design-doc.html §06 line 888 *"Stories live in your archive
+      until you commit them to the next edition"*; archive cap = 5
+      medium-band; cold-news decay = 10 editions medium-band; HUD
+      surface is a single dossier-row count addition `archived: N/5`).
+      Authored **ICD-10** (new — Arc framework formalization; `StoryArc`
+      record with id · trigger · episodes · outcomes; Investigation
+      3-step chain semantics via `Story.parent_story_id` plus optional
+      `arc_episode_id` foreign keys on Story; trigger predicate
+      vocabulary with eight named kinds plus two composers `all_of` /
+      `any_of`; THE LONGSHOREMAN STRIKE encoded as the spec-validation
+      reference per design-doc.html §18 lines 1382-1422; arc save block
+      `SaveBlobV1.active_arcs[]` deferred to ICD-04 v0.1.2 in-PR at the
+      first arc-content milestone). Authored **ICD-01 v0.6.3** (single
+      §Notes paragraph pinning the *"authored-but-deferred-projection"*
+      pattern surfaced at the post-Tier-0 → Tier-1 re-eval §1.5; no
+      shape change). Same PR carries the
+      [`discussion/observer-violence.md`](discussion/observer-violence.md)
+      status flip from `pre-PRE-1.0 input` to `settled at PRE-1.0`. Two
+      source-HTML-name reconciliations against the re-eval doc's
+      informal naming (`LURK` → `IDLE`; `WATCH` → `INVESTIGATE`) per the
+      [`AGENTS.md`](AGENTS.md) source-HTML-wins rule. Milestone 1.0
+      Gitea ticket opened. Milestone 1.0 (Tier-1 opener) is now
+      code-ready.
 
 ## Out of scope until called
 
 - ~~**ICD-04** — explicitly deferred to PRE-0.8 by the supplement.~~ Authored
   at v0.1 in PRE-0.8 (shipped v0.7.2); no longer out of scope.
 - ~~**Tier-1 architecture** — gated behind the Tier-0 → Tier-1 RE-EVAL slot.~~
-  Re-eval shipped (v0.10.3); Tier-1 architecture surface is no longer out
-  of scope. PRE-1.0 (paper-only) is the next slot — authors ICD-02 v0.3
-  + ICDs 08 / 09 / 10. Tier-2 (procedural city · MP · accounts · audio
-  asset pipeline · cumulative tech-tree branches) remains out of scope
-  until a later re-eval calls it in.
+  Re-eval shipped (v0.10.3); PRE-1.0 (paper-only) shipped (v0.10.4) —
+  authored ICD-02 v0.3 + ICDs 08 / 09 / 10 + ICD-01 v0.6.3. Tier-1
+  architecture surface is no longer out of scope. Milestone 1.0
+  (Tier-1 opener) is the next code session. Tier-2 (procedural city ·
+  MP · accounts · audio asset pipeline · cumulative tech-tree
+  branches) remains out of scope until a later re-eval calls it in.

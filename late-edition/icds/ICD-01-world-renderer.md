@@ -1,6 +1,7 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6.2 (shipped against milestone 0.10.2 — `WorldFrame.rain.intensity` range comment widened from `0-1` to `0+ unbounded; 1 = baseline, ~2 at deadline`; no shape change)
+**Status:** v0.6.3 (PRE-1.0 — §Notes addition only; pins the authored-but-deferred-projection pattern surfaced at the post-Tier-0 → Tier-1 re-eval; no shape change)
+**Prior:** v0.6.2 (shipped against milestone 0.10.2 — `WorldFrame.rain.intensity` range comment widened from `0-1` to `0+ unbounded; 1 = baseline, ~2 at deadline`; no shape change)
 **Prior:** v0.6.1 (shipped against milestone 0.10.0 — `BuildingKind` vocabulary widens to include `'branch_bureau'`; no shape change)
 **Band:** strong
 **First caller:** milestone 0.1 (scene, camera, toon pipeline) — shipped in v0.1.0
@@ -302,6 +303,26 @@ type FxEvent =
   per-frame use ("…the renderer doesn't use this frame"); v0.5 widens the
   window to the next-N horizon to legitimize the `age_ms` case without
   loosening intent.
+- **Authored-but-deferred-projection pattern (v0.6.3 · PRE-1.0).** The
+  render-only projection rule above admits a borderline case: a View
+  field whose **contract** is authored exactly one milestone ahead of
+  its **projector** in `World.snapshot()`. PRE-0.10 authored
+  `UnitView.stats` and `LeadView.district` at v0.6 against milestone
+  1.0 callers (the §13 Selected dossier's Reporter trio + the per-
+  district Story queue), but the `snapshot()` projector at
+  [`../js/sim/world-state.js`](../js/sim/world-state.js) omitted both
+  fields across the three 0.10.x milestones because no HUD region read
+  them yet. This is permitted under the rule's *"committed near-horizon
+  caller"* allowance — the caller is committed (the contract authoring
+  is the commitment); the projector wires when the caller's milestone
+  opens. The pattern is **not** drift: the field is `undefined`-allowed
+  by the contract (e.g. `UnitView.stats: {nerve, nose, legs} | undefined`),
+  and reading-an-undefined-field returns `undefined` without violating
+  the projection rule. Future readers of `world-state.js` should not
+  read an authored field's absence from `snapshot()` as a missing
+  projector — they should read it as a milestone-1.0 wiring slot.
+  When the projector ships, the field becomes populated; the contract
+  shape does not change.
 
 ## Open questions
 
@@ -380,6 +401,18 @@ they live here as implementation pins.
 
 ## Revision history
 
+- **v0.6.3** (PRE-1.0, 2026-05-22) — §Notes one-paragraph addition only;
+  no shape change. Pins the *"authored-but-deferred-projection"*
+  pattern surfaced by the post-Tier-0 → Tier-1 re-eval
+  ([`../architecture/re-eval-tier-0-to-1.md`](../architecture/re-eval-tier-0-to-1.md)
+  §1.5) — `UnitView.stats` and `LeadView.district` were authored at
+  v0.6 (PRE-0.10) against milestone 1.0 callers but the `snapshot()`
+  projector omitted them across 0.10.x because no HUD region read
+  them yet. The new paragraph slots after the v0.6.2 rain/fog ramp
+  note, before §Open questions, and is a single sentence pinning the
+  rule's borderline allowance. No View shape change; no `HudState`
+  change; no `WorldFrame` change. The pattern's load-bearing-ness
+  becomes moot at milestone 1.0 when both deferred projectors wire.
 - **v0.6.2** (milestone 0.10.2, 2026-05-22) — `WorldFrame.rain.intensity`
   inline range comment widened from `0-1` to `0+ unbounded; 1 = baseline,
   ~2 at deadline (PR-D)` to match the rain-ramp consumer wired in

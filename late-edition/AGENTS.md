@@ -38,12 +38,13 @@ working as designed, not a delay.
 ## Hard rules for this game
 
 - **Don't commit code for milestones that haven't had their ICDs authored.**
-  All seven ICDs are authored (01 v0.6.2 · 02 v0.2.2 · 03 v0.2 · 04
-  v0.1.1 · 05 v0.4.1 · 06 v0.4 · 07 v0.1); Tier-0 milestones 0.1 →
-  0.10.2 have shipped against their contracts; the Tier-0 → Tier-1
-  re-eval shipped at v0.10.3. The next slot is **PRE-1.0** (paper-only)
-  authoring ICD-02 v0.3 + ICDs 08 / 09 / 10 before milestone 1.0
-  (Tier-1 opener) can open as a code session.
+  All ten ICDs are now authored (01 v0.6.3 · 02 v0.3 · 03 v0.2 · 04
+  v0.1.1 · 05 v0.4.1 · 06 v0.4 · 07 v0.1 · 08 v0.1 · 09 v0.1 · 10 v0.1);
+  Tier-0 milestones 0.1 → 0.10.2 have shipped against their contracts;
+  the Tier-0 → Tier-1 re-eval shipped at v0.10.3; **PRE-1.0** (paper-
+  only) shipped at v0.10.4 — authored Herald + Observer state machines,
+  Switchboard LoS, Archive inter-edition state, Arc framework. Milestone
+  1.0 (Tier-1 opener) is now code-ready.
 - **When code deviates from an ICD, update the ICD in the same PR.** This
   is Constraint #4 of the methodology.
 - **Bands are not decoration.** Strong-band commitments are load-bearing.
@@ -53,6 +54,46 @@ working as designed, not a delay.
   (`architecture/`, `icds/`, `discussion/`) — never edit the source HTMLs.
 
 ## Current state
+
+**v0.10.4 — PRE-1.0 paper shipped.** Paper-only. Authored the four
+contract surfaces (plus one §Notes addition) that the Tier-0 → Tier-1
+re-eval scheduled:
+
+- **ICD-02 v0.3** — Herald five-state machine (`IDLE | COURT | WIRED |
+  PUNISH | BUYOUT`, tick 1/edition) + Observer five-state machine
+  (`INVESTIGATE | PUBLISH | WARN | DESPERATE | SILENCED`, tick 1/2
+  editions) both lifted verbatim from
+  [`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03 + §05.
+  Two new Intent kinds (`PUBLISH_COUNTER` · `INVESTIGATE_LEAD`).
+  `RivalStatusView` posture mapping extended to all three rivals.
+  §Notes inter-rival paragraph against §06 interaction matrix.
+- **ICD-08** — new. Switchboard line-of-sight contract. Rectangular
+  axis-aligned LoS, ±6-tile medium-band radius. No top-level
+  `WorldFrame` field — extends the existing snapshot-layer filter.
+- **ICD-09** — new. Archive `Story.state` value. Two new transition
+  rows (`verified ↔ archived`). Archive cap = 5 medium-band; cold-
+  news decay = 10 editions medium-band.
+- **ICD-10** — new. Arc framework. `StoryArc` record + `ArcEpisode`
+  + `ArcTriggerPredicate` vocabulary with eight kinds + two
+  composers. Investigation 3-step chain semantics via
+  `Story.parent_story_id`. THE LONGSHOREMAN STRIKE encoded as the
+  spec-validation reference.
+- **ICD-01 v0.6.3** — single §Notes paragraph addition only.
+  Authored-but-deferred-projection pattern pinned.
+
+Two source-HTML-name reconciliations against the re-eval doc's
+informal naming (`LURK` → `IDLE`; `WATCH` → `INVESTIGATE`) per the
+source-HTML-wins rule (Hard rules above). `discussion/observer-violence.md`
+status flipped from `pre-PRE-1.0 input` to `settled at PRE-1.0`.
+**Milestone 1.0 is now code-ready** — every required contract is in hand.
+
+**Next: milestone 1.0 (Tier-1 opener · code session).** Wires Herald +
+Observer + Switchboard building + Archive UI + `UnitView.stats` projector
+for named Reporters + `LeadView.district` projector + 30 s minimum
+debrief gate. Split 1.0.0/1.0.1 at session open per the 0.7 / 0.10
+precedent if scope creeps.
+
+---
 
 **v0.10.3 — Tier-0 → Tier-1 re-eval shipped.** Paper-only. Fourth and
 final re-eval in the original plan. The seven ICDs (01 v0.6.2 · 02
@@ -68,18 +109,6 @@ Whisper level. **One band tightening:** "Rival AI state machines" —
 Herald + Observer enter the N-window with the Tier-1 opener. **One
 discussion-doc move:** [`discussion/observer-violence.md`](discussion/observer-violence.md)
 becomes a pre-PRE-1.0 input. See [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md).
-
-**Next: PRE-1.0** (paper-only) — authors **ICD-02 v0.3** (Herald +
-Observer state machines lifted from
-[`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03 + §05) +
-**ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09**
-(Archive / inter-edition story state, new) + **ICD-10** (Arc framework
-formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-
-deferred-projection rule). Tier-1 opener (milestone 1.0) direction
-confirmed: rivals + switchboard + archive UI + `UnitView.stats`
-projector + `LeadView.district` projector + the 30 s minimum debrief
-gate, all at milestone 1.0; split 1.0.0/1.0.1 at session open per the
-0.7 / 0.10 precedent if scope creeps.
 
 ---
 
