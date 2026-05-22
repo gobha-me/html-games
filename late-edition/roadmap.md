@@ -35,24 +35,64 @@ definitions.
 | **0.10.0** | Tier-0 closer — substrate · lead-spawn engine (C-04) · districts as data (G-04) · Branch Bureau (G-01) · slot-grammar headlines (G-05) · run-end summary + high-score persistence (G-13) — *shipped v0.10.0* | First half of the 0.10 closer per the authorized split (0.7 precedent). ICD-01 → v0.6.1 (BuildingKind widens for `'branch_bureau'`); ICD-04 → v0.1.1 (rng_seed semantics + lead_spawner + run_stats + scores key). Tests at 159 cases (124 → 159). | strong |
 | **0.10.1** | Tier-0 closer — onboarding · diegetic tutorial (G-09) · minimum control surface (WASD pan + Block zoom + slow-mo) (G-07) | Second half of the 0.10 closer. Tutorial copy references the new controls — coupled scope. No ICD bumps expected. | strong |
 | **0.10.2** | Visual feedback · rain ramp at deadline (C-06) · `WorldFrame.effects` wired end-to-end (C-07) · debrief panel as newspaper pages (D-07) · lit windows + fog-on-deadline (D-09) — *shipped v0.10.2* | PR-D from the post-0.9 re-eval. ICD-01 → v0.6.2 (`rain.intensity` range-comment widen; no shape change). Tests at 199 cases (179 → 199). Closes Gitea #299. | strong |
-| **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper | Promote arc framework to strong. Tighten Herald + Observer specs. Author ICDs 08+ for branch bureaus, switchboard, archive. | re-eval |
+| **RE-EVAL** | Tier-0 → Tier-1 gate · full code-aware + paper — *shipped v0.10.3* | Seven ICDs survived 0.10.x code-aware re-read with zero interface drift. Arc framework promoted Fuzzy → Strong (§18 three-tier shape + slot grammar + spawn engine all shipped at 0.10.0). Herald + Observer enter the N-window with the Tier-1 opener; ICD-02 v0.3 scheduled to PRE-1.0 alongside ICDs 08 (Switchboard) / 09 (Archive) / 10 (Arc framework). See [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md). | re-eval |
 
-13 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10.x reserved for
-post-0.10 visual feedback), 4 re-evaluation slots, 5 architecture-session-
+## Tier 1 — content + adversarial maturation
+
+| Milestone | Description | Notes | Band |
+|---|---|---|---|
+| **PRE-1.0** | Author **ICD-02 v0.3** (Herald + Observer state machines · intent vocabulary · posture mapping) + **ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09** (Archive / inter-edition story state, new) + **ICD-10** (Arc framework formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-deferred-projection rule) | Architecture session · paper-only · gates milestone 1.0 · scheduled by the Tier-0 → Tier-1 re-eval | strong |
+| **1.0** | Tier-1 opener — Herald + Observer wired (the rival triangle completes) · Switchboard building (LoS intel for raid ETA visibility) · Archive UI (intentional inter-edition story hold) · `UnitView.stats` projector for named Reporters · `LeadView.district` projector for per-district Story queue dossier · 30 s minimum debrief gate (ICD-06 v0.4 code-side) | Couples to PRE-1.0 contract authoring; split 1.0.0/1.0.1 at session open per 0.7 / 0.10 precedent if scope creeps | strong |
+
+13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
+0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
 only items (PRE-0.1, PRE-0.5, PRE-0.7, PRE-0.8, and PRE-0.10). That's the
 ratio the methodology asks for: re-eval every ~3 code milestones,
 architecture sessions wherever a contract crosses a code-session boundary
 that hasn't been authored yet. PRE-0.5 was inserted by the post-0.3 re-eval's
 forward ICD presence check; PRE-0.7 was inserted by the post-0.6 re-eval's
-same check; PRE-0.10 is inserted by the post-0.9 re-eval (this slot) to
-author ICD-01 v0.6 + ICD-06 v0.4 + ICD-07 v0.1 ahead of the Tier-0 closer.
-The 0.7 split (0.7.0 adversarial ring · 0.7.1 Editor + ink gate) was made
-at 0.7.0 open to keep each code session inside one milestone's worth of
-scope — both halves of 0.7 are ICD-ready (ICD-02 v0.2 and ICD-05 v0.4
-cover them). The 0.10 split (0.10.0 substrate · 0.10.1 onboarding + controls)
-is reserved for session-open use under the same precedent.
+same check; PRE-0.10 was inserted by the post-0.9 re-eval to author ICD-01
+v0.6 + ICD-06 v0.4 + ICD-07 v0.1 ahead of the Tier-0 closer; **PRE-1.0**
+is inserted by the Tier-0 → Tier-1 re-eval (this slot) to author ICD-02
+v0.3 + ICDs 08 / 09 / 10 ahead of the Tier-1 opener. The 0.7 split (0.7.0
+adversarial ring · 0.7.1 Editor + ink gate) was made at 0.7.0 open to keep
+each code session inside one milestone's worth of scope — both halves of
+0.7 are ICD-ready (ICD-02 v0.2 and ICD-05 v0.4 cover them). The 0.10 split
+(0.10.0 substrate · 0.10.1 onboarding + controls · 0.10.2 visual feedback)
+shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
+1.0.0 / 1.0.1 split is reserved for session-open use under the same
+precedent.
 
 ## Current status
+
+**RE-EVAL Tier-0 → Tier-1 — shipped (v0.10.3).** Paper + code-aware session.
+Fourth and final re-eval in the original Tier-0 plan, mirroring
+re-eval-after-0.3 + re-eval-after-0.6 + re-eval-after-0.9. The seven ICDs
+(01 v0.6.2 · 02 v0.2.2 · 03 v0.2 · 04 v0.1.1 · 05 v0.4.1 · 06 v0.4 ·
+07 v0.1) survived 0.10.0 / 0.10.1 / 0.10.2 code-aware re-read with **zero
+interface drift**. Constraint #4 honored across the three 0.10.x
+milestones (ICD-01 v0.6 → v0.6.1 → v0.6.2 + ICD-04 v0.1 → v0.1.1 all
+in-PR). Two design-doc-to-code drifts carried forward from the post-0.9
+audit (`UnitView.stats` + `LeadView.district` authored-but-deferred
+projections · 30 s minimum debrief gate); all three land at milestone
+1.0. **One band promotion:** arc framework Fuzzy → Strong (overview line
+54 → §Strong; line 44 "Story slot grammar" subsumed and struck) — the
+three 0.10.0 substrate modules ([`js/sim/headlines.js`](js/sim/headlines.js)
++ [`js/sim/districts.js`](js/sim/districts.js) +
+[`js/sim/lead-spawner.js`](js/sim/lead-spawner.js)) implement the §18
+three-tier shape + slot grammar + §19 spawn engine end-to-end at the
+Whisper level. **One band tightening:** "Rival AI state machines" (line
+43) — Herald + Observer enter the N-window with the Tier-1 opener.
+**One discussion-doc move:** [`discussion/observer-violence.md`](discussion/observer-violence.md)
+becomes a pre-PRE-1.0 input. **One scheduled paper slot — PRE-1.0** —
+authors ICD-02 v0.3 (Herald + Observer) + ICD-08 (Switchboard, new) +
+ICD-09 (Archive, new) + ICD-10 (Arc framework, new). Tier-1 opener
+direction confirmed: rivals + switchboard + archive UI + the two
+deferred projectors + the 30 s debrief gate, all at milestone 1.0;
+split 1.0.0/1.0.1 if scope creeps. One Gitea ticket opened for PRE-1.0
+paper. See [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md).
+
+---
 
 **RE-EVAL after 0.9 — shipped (v0.9.2).** Paper + code-aware session.
 Third re-eval in the Tier-0 plan, mirroring re-eval-after-0.3 +
@@ -138,11 +178,10 @@ new `CycleEvent` kinds). Tests at 199 cases (179 → 199; new
 `fog-ramp.test.mjs`). Closes Gitea issue #299. Tier-0 audit (post-0.9)
 PR sequence A → B → C → D fully landed.
 
-Next: **Tier-0 → Tier-1 re-eval** (paper + code-aware) — fourth re-eval
-in the project plan, mirroring the post-0.3 / post-0.6 / post-0.9
-sessions. Promotes the arc framework to strong, tightens Herald +
-Observer specs, and authors ICDs 08+ for branch bureaus, switchboard,
-and archive.
+**RE-EVAL Tier-0 → Tier-1 — shipped (v0.10.3).** Fourth and final
+re-eval in the project plan. Detail in the "Current status" block at the
+top of this file. Next: **PRE-1.0** (paper-only) — authors ICD-02 v0.3
++ ICDs 08 / 09 / 10 ahead of the Tier-1 opener.
 
 - [x] Drop the design package + `METHODOLOGY.md`.
 - [x] Create `architecture/`, `icds/`, `discussion/`, `deferred/`.
@@ -362,9 +401,32 @@ and archive.
       fields ([`js/sim/tutorial.js`](js/sim/tutorial.js) — no ICD bump,
       no new projection). Tests at 179 cases (159 → 179; new
       `tutorial.test.mjs` + `slow-mo.test.mjs`).
+- [x] **RE-EVAL Tier-0 → Tier-1** — paper + code-aware. Fourth and final
+      re-eval in the project plan. Seven ICDs survived 0.10.x code-aware
+      re-read; zero interface drift. **One band promotion:** arc framework
+      Fuzzy → Strong (overview line 54 → §Strong) — the three 0.10.0
+      substrate modules ([`js/sim/headlines.js`](js/sim/headlines.js)
+      + [`js/sim/districts.js`](js/sim/districts.js) +
+      [`js/sim/lead-spawner.js`](js/sim/lead-spawner.js)) implement the
+      §18 three-tier shape + slot grammar + §19 spawn engine end-to-end
+      at the Whisper level. **One band tightening:** "Rival AI state
+      machines" — Herald + Observer enter the N-window with the Tier-1
+      opener. PRE-1.0 scheduled to author ICD-02 v0.3 (Herald +
+      Observer) + ICD-08 (Switchboard, new) + ICD-09 (Archive, new) +
+      ICD-10 (Arc framework, new) + ICD-01 v0.6.3 §Notes (authored-but-
+      deferred-projection pattern). Tier-1 opener direction confirmed:
+      rivals + switchboard + archive UI + the two deferred projectors
+      + the 30 s debrief gate, all at milestone 1.0; split 1.0.0/1.0.1
+      if scope creeps. One Gitea ticket opened for PRE-1.0 paper. See
+      [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md).
 
 ## Out of scope until called
 
 - ~~**ICD-04** — explicitly deferred to PRE-0.8 by the supplement.~~ Authored
   at v0.1 in PRE-0.8 (shipped v0.7.2); no longer out of scope.
-- **Tier-1 architecture** — gated behind the Tier-0 → Tier-1 RE-EVAL slot.
+- ~~**Tier-1 architecture** — gated behind the Tier-0 → Tier-1 RE-EVAL slot.~~
+  Re-eval shipped (v0.10.3); Tier-1 architecture surface is no longer out
+  of scope. PRE-1.0 (paper-only) is the next slot — authors ICD-02 v0.3
+  + ICDs 08 / 09 / 10. Tier-2 (procedural city · MP · accounts · audio
+  asset pipeline · cumulative tech-tree branches) remains out of scope
+  until a later re-eval calls it in.

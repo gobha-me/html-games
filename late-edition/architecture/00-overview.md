@@ -33,6 +33,7 @@ plus before every band-tier transition.
 | **Save = single localStorage JSON** | One blob. Versioned. Migrations defined. MVP only — no backend. | Design Doc §17 (locked) |
 | **Browser-only, single-player MVP** | No netcode, no auth, no backend. Architecture must *not* foreclose later MP. | Design Doc §17 (locked) |
 | **HUD corkboard layout** | §13 pixel-honest layout shipped at milestone 0.9; load-bearing for ICD-01 v0.6's `UnitView.stats` · `LeadView.district` · `WorldFrame.rivals` additions. **Promoted medium → strong at the post-0.9 re-eval.** | Design Doc §13 · promoted post-0.9 |
+| **Arc framework (three-tier story engine · slot grammar · spawn engine)** | §18 three-tier shape (Whispers ~70% · Investigations ~25% · Arcs ~5%) + §18 slot grammar + §19 spawn rate / tier roll / decay all shipped end-to-end at the Whisper level via [`../js/sim/headlines.js`](../js/sim/headlines.js) + [`../js/sim/districts.js`](../js/sim/districts.js) + [`../js/sim/lead-spawner.js`](../js/sim/lead-spawner.js) (0.10.0 substrate). Load-bearing for every Tier-1 story milestone (Investigation chain wiring · Arc trigger conditions · Observer counter-narrative slots). **Promoted fuzzy → strong at the Tier-0 → Tier-1 re-eval.** Investigation chains stay medium; the eight authored Arcs stay fuzzy (content, not framework). | Design Doc §18 · §19 · promoted Tier-0→Tier-1 |
 
 ## Medium — committed direction, tightens later
 
@@ -41,7 +42,8 @@ plus before every band-tier transition.
 | **Full 8-building catalogue** | Only 3 needed for vertical slice (Bureau, Branch, Darkroom). Other 5 tighten as Tier-1 approaches. | Design Doc §07 · medium until 1.x |
 | **Full 6 unit types** | Only 3 in slice (Reporter, Photog, Fixer). Editor/Tipster/Stringer tighten when needed. | Design Doc §08 · medium until 1.x |
 | **Rival AI state machines** | Specced in [`../design/rival-ai-spec.html`](../design/rival-ai-spec.html); pseudocode is illustrative. Each rival's contract goes to strong when its milestone enters the N-window. | Rival AI Spec · medium |
-| **Story slot grammar** | Shape committed (§18 of design doc); specific verbs/actors tighten per district as content authoring begins. | Design Doc §18 · medium |
+| ~~Story slot grammar~~ | *Subsumed by the arc-framework promotion to Strong at the Tier-0 → Tier-1 re-eval. The slot grammar is part of the framework; `headlines.js` implements it deterministically against the §18 spec.* | Design Doc §18 · **subsumed** |
+| **Investigation chains (3-step)** | Design Doc §18 line 1370 — verifying one Investigation lead spawns a follow-up lead, which spawns a third. Substrate ([`../js/sim/lead-spawner.js`](../js/sim/lead-spawner.js)) tier-rolls `'investigation'`; chain wiring lands at Tier-1 (ICD-10's `parent_story_id`). Tightens to strong when 1.x chain milestone enters the N-window. | Design Doc §18 · medium |
 | **First-pass balancing numbers** | §19 numbers are *starting points* — they will move during playtest. Treat as medium, not strong. | Design Doc §19 · medium |
 | ~~HUD corkboard layout~~ | *Moved → strong band at the post-0.9 re-eval (PRE-0.10 carries the overview edit). §13 pixel-honest layout shipped at milestone 0.9; load-bearing for ICD-01 v0.6.* | Design Doc §13 · **promoted** |
 | **Heat economy thresholds (40/60/80)** | Tiered triggers are committed; specific numbers shift in playtest. | Design Doc §19 · medium |
@@ -51,7 +53,7 @@ plus before every band-tier transition.
 | Commitment | Notes | Source |
 |---|---|---|
 | **18+ districts of the canonical city** | 4 in vertical slice, more later. District-as-data shape needs to be strong; district contents are fuzzy. | Design Doc §04 · fuzzy |
-| **8 authored arcs** | Framework is medium (§18 spec); actual arc content (headlines, branches) is fuzzy until late-T1/T2. | Design Doc §18 · fuzzy content |
+| **8 authored arcs — content** | The **framework** is promoted to Strong (above) at the Tier-0 → Tier-1 re-eval. Actual arc **content** (headlines, branch tables, episode copy — ~12 working days of narrative writing per Design Doc §18) stays fuzzy until late-T1/T2 content slots. ICD-10 (PRE-1.0) authors the `StoryArc` record shape that the eight arcs slot into. | Design Doc §18 · fuzzy content (framework strong) |
 | **Tech tree branches (Yellow / Establishment)** | The branch detection heuristic, ending content, all fuzzy. | Design Doc §11 · §20 TBD |
 | **Procedural city generation** | Post-MP feature. City-as-data shape must not foreclose it. Implementation is fuzzy. | §17 locked (decision) |
 | **Multiplayer + accounts + cloud saves** | Future. Architecture's job today is to avoid hardcoded single-player assumptions in authoritative state. | §17 locked (decision) |

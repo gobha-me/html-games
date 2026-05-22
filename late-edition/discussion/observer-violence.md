@@ -1,6 +1,9 @@
 # discussion · observer-violence
 
-**Status:** open · pre-architecture · not a commitment
+**Status:** pre-PRE-1.0 input · Observer milestone in the N-window · paper
+session settles the "partner-fund" question against the design HTML's
+§DESPERATE state ([`../design/rival-ai-spec.html`](../design/rival-ai-spec.html)
+line 750 — `PARTNER_REQUEST` for $500 keeping the Observer alive)
 **Cites:** Design Doc §10 (fail-state) · Rival AI Spec (Observer)
 
 Should the Observer ever fight back?

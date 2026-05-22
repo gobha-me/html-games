@@ -1,5 +1,139 @@
 # Changelog — Late Edition
 
+## v0.10.3 — 2026-05-22 — RE-EVAL Tier-0 → Tier-1 (paper + code-aware)
+
+Paper-only, no code. The **fourth and final re-eval** in the original
+Tier-0 plan, mirroring re-eval-after-0.3 (v0.3.1) · re-eval-after-0.6
+(v0.6.1) · re-eval-after-0.9 (v0.9.2). METHODOLOGY §3 both halves ran —
+structural pass + code-aware pass against the seven authored ICDs —
+plus the **forward ICD presence check** for the next-N window (PRE-1.0
+/ 1.0), plus the **band-tier transition gate** (Tier-0 → Tier-1 is the
+transition this slot exists to authorize).
+
+This is the fifth paper-only changelog entry (v0.1.1 PRE-0.2 · v0.3.1
+RE-EVAL after 0.3 · v0.4.1 PRE-0.5 · v0.6.1 RE-EVAL after 0.6 · v0.7.2
+PRE-0.8 · v0.9.2 RE-EVAL after 0.9 · v0.9.4 PRE-0.10 are the prior
+paper sessions).
+
+Headline outputs:
+
+- **Seven ICDs intact.** ICDs 01 v0.6.2 / 02 v0.2.2 / 03 v0.2 / 04
+  v0.1.1 / 05 v0.4.1 / 06 v0.4 / 07 v0.1 survived 0.10.0 / 0.10.1 /
+  0.10.2 code-aware re-read with **zero interface drift**. Constraint
+  #4 honored across the three 0.10.x milestones — ICD-01 v0.6 → v0.6.1
+  → v0.6.2 + ICD-04 v0.1 → v0.1.1 all in-PR bumps. The methodology
+  continues to work.
+- **Two design-doc-to-code drifts carried forward** from the post-0.9
+  audit: `UnitView.stats` + `LeadView.district` authored-but-deferred
+  projections (ship at 1.0 alongside named Reporters + per-district
+  Story queue), and the 30 s minimum debrief gate (ICD-06 v0.4 wording
+  shipped at PRE-0.10; code-side gate ships at 1.0).
+- **One band promotion:** **arc framework Fuzzy → Strong**
+  ([`architecture/00-overview.md`](architecture/00-overview.md) — added
+  to §Strong; the "8 authored arcs" §Fuzzy row re-worded to separate
+  *framework* (now Strong) from *content* (stays fuzzy); the "Story
+  slot grammar" §Medium row subsumed and struck). The three 0.10.0
+  substrate modules ([`js/sim/headlines.js`](js/sim/headlines.js) +
+  [`js/sim/districts.js`](js/sim/districts.js) +
+  [`js/sim/lead-spawner.js`](js/sim/lead-spawner.js)) implement the §18
+  three-tier shape + slot grammar + §19 spawn engine end-to-end at the
+  Whisper level. New §Medium line added: "Investigation chains (3-step)"
+  — the §18 line 1370 mid-game mechanic; framework substrate ready,
+  chain wiring lands at 1.x.
+- **One band tightening:** "Rival AI state machines" (overview line
+  43) — Herald + Observer enter the N-window with the Tier-1 opener.
+  No status edit yet; the v0.3 shape work is scheduled to PRE-1.0
+  alongside the three new ICDs.
+- **One discussion-doc move:**
+  [`discussion/observer-violence.md`](discussion/observer-violence.md)
+  status line moves from `open · pre-architecture · not a commitment`
+  to `pre-PRE-1.0 input · Observer milestone in the N-window · paper
+  session settles the "partner-fund" question against the design HTML's
+  §DESPERATE state`. The Observer's `PARTNER_REQUEST` for $500 keeping
+  the Observer alive (rival-ai-spec.html line 750) is the design-doc
+  precedent the discussion doc reconciles with at PRE-1.0.
+- **Forward ICD check schedules PRE-1.0.** Single architecture session
+  authors **ICD-02 v0.3** (Herald + Observer state machines lifted
+  from [`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03 +
+  §05) + **ICD-08** (Switchboard line-of-sight contract, new — Design
+  Doc §10 *"Information about the threat is itself a defense resource"*)
+  + **ICD-09** (Archive / inter-edition story state, new — Design Doc
+  §05 + §17; current ICD-05 v0.4.1 explicitly defers archive) + **ICD-10**
+  (Arc framework formalization, new — §18 `StoryArc` record + Investigation
+  3-step chain + arc trigger predicates) + ICD-01 v0.6.2 → v0.6.3
+  §Notes addition (authored-but-deferred-projection rule).
+- **Tier-1 opener direction confirmed:** rivals + switchboard + archive
+  UI + the two deferred projectors + the 30 s debrief gate, all at
+  milestone 1.0; split 1.0.0/1.0.1 at session open per the 0.7 / 0.10
+  precedent if scope creeps. PRE-1.0 ratifies the exact contract
+  surface.
+- **One Gitea ticket opened** for PRE-1.0 paper (`docs` label).
+  Milestone 1.0 ticket is held until PRE-1.0 ratifies the opener's
+  scope.
+
+### Added
+
+- [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md)
+  — the session document. Records the code-aware pass against the seven
+  ICDs at 0.10.x, classifies findings per METHODOLOGY §3.1.1, promotes
+  the arc framework, schedules PRE-1.0 with its specific deliverables
+  (ICD-02 v0.3 + ICDs 08 / 09 / 10 in one paper slot), and pins three
+  open-question verdicts (§3.5 Q1 Herald + Observer both at 1.0 · Q2
+  Switchboard bundled at PRE-1.0 / 1.0 · Q3 Archive bundled at PRE-1.0
+  / 1.0 because Investigation chains need it).
+- New `Tier 1 — content + adversarial maturation` table in
+  [`roadmap.md`](roadmap.md) with PRE-1.0 and 1.0 rows.
+
+### Changed
+
+- [`architecture/00-overview.md`](architecture/00-overview.md) —
+  **arc framework added to §Strong** (single new row citing the three
+  0.10.0 substrate modules + Design Doc §18 + §19). §Medium "Story slot
+  grammar" row struck-through (subsumed). §Medium grew new "Investigation
+  chains (3-step)" row. §Fuzzy "8 authored arcs" row re-worded to
+  separate framework (Strong) from content (Fuzzy).
+- [`roadmap.md`](roadmap.md) — "RE-EVAL Tier-0 → Tier-1" row ticked
+  with v0.10.3 summary; new `Tier 1` table inserted with PRE-1.0 + 1.0
+  rows; "Current status" block rewritten to lead with the Tier-0 →
+  Tier-1 re-eval ship; "Out of scope until called" section updated to
+  strike the Tier-1-architecture line and note Tier-2 (procedural city
+  · MP · audio asset pipeline · tech-tree branches) as the new
+  outermost out-of-scope band; checklist updated with the v0.10.3
+  entry; ratio paragraph below the table updated (4 → 5 architecture-
+  only items, PRE-1.0 added).
+- [`AGENTS.md`](AGENTS.md) — "Current state" and "Next" paragraphs
+  rewritten to reflect: re-eval shipped, arc framework promoted, PRE-1.0
+  scheduled, observer-violence discussion-doc moved. "Don't commit code"
+  hard rule updated — all seven ICDs authored; next slot is PRE-1.0.
+- [`discussion/observer-violence.md`](discussion/observer-violence.md)
+  — status line moved from `open · pre-architecture · not a commitment`
+  to `pre-PRE-1.0 input · Observer milestone in the N-window · paper
+  session settles the "partner-fund" question against the design HTML's
+  §DESPERATE state`. Body unchanged.
+
+### Not changed
+
+- No file under [`js/`](js), [`tests/`](tests), or [`index.html`](index.html)
+  was touched. METHODOLOGY §3.2 forbids code in a re-evaluation session.
+- All seven ICDs **unchanged at the shape level** — the bands moved,
+  the contracts did not. v0.3 (ICD-02), new ICDs 08 / 09 / 10, and
+  ICD-01 v0.6.3 §Notes are all explicitly scheduled to PRE-1.0 per the
+  §3.2 surface-and-schedule pattern (the same pattern v0.3.1 → PRE-0.5
+  · v0.6.1 → PRE-0.7 · v0.9.2 → PRE-0.10 followed).
+- Design HTMLs in [`design/`](design) — immutable per AGENTS.md hard
+  rule. The Tier-1 opener's rival state machines (Herald FIG. H1 ·
+  Observer FIG. O1) are lifted *from* the design HTMLs *into* ICD-02
+  v0.3 at PRE-1.0 — the HTMLs themselves stay untouched.
+
+### Verification
+
+- `node --test tests/*.test.mjs` — 199 / 199 pass (baseline, unchanged
+  from v0.10.2).
+- `git diff` touches only `architecture/`, `roadmap.md`, `CHANGELOG.md`,
+  `AGENTS.md`, and `discussion/observer-violence.md`. Zero diff under
+  `js/`, `tests/`, `index.html`, `design/`, the seven ICDs, or
+  `deferred/`.
+
 ## v0.10.2 — 2026-05-22 — Visual feedback (rain ramp · FxEvent wiring · newspaper debrief · lit windows + fog)
 
 PR-D from the post-0.9 re-eval — the closing Tier-0 polish PR. With PR-C

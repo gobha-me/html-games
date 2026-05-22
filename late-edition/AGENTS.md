@@ -38,9 +38,12 @@ working as designed, not a delay.
 ## Hard rules for this game
 
 - **Don't commit code for milestones that haven't had their ICDs authored.**
-  All six ICDs are authored; milestones 0.1–0.9 have shipped against
-  their contracts. The next slot is the post-0.9 re-eval (paper-only)
-  before milestone 0.10 (Tier-0 closer).
+  All seven ICDs are authored (01 v0.6.2 · 02 v0.2.2 · 03 v0.2 · 04
+  v0.1.1 · 05 v0.4.1 · 06 v0.4 · 07 v0.1); Tier-0 milestones 0.1 →
+  0.10.2 have shipped against their contracts; the Tier-0 → Tier-1
+  re-eval shipped at v0.10.3. The next slot is **PRE-1.0** (paper-only)
+  authoring ICD-02 v0.3 + ICDs 08 / 09 / 10 before milestone 1.0
+  (Tier-1 opener) can open as a code session.
 - **When code deviates from an ICD, update the ICD in the same PR.** This
   is Constraint #4 of the methodology.
 - **Bands are not decoration.** Strong-band commitments are load-bearing.
@@ -51,19 +54,32 @@ working as designed, not a delay.
 
 ## Current state
 
-**v0.10.2 — PR-D visual feedback shipped.** The closing post-0.9 audit
-PR — rain ramp (C-06) · `WorldFrame.effects` wired end-to-end (C-07) ·
-newspaper-pages debrief (D-07) · lit windows + fog ramp (D-09). Five sim
-emit sites push `FxEvent`s into the drained queue authored at ICD-01 v0.6;
-renderer drains and spawns ephemeral FX meshes. ICD-01 → v0.6.2 (Constraint
-#4 in-PR bump — `rain.intensity` range-comment widen; no shape change).
-Tests at 199 cases (179 → 199). Tier-0 audit PR sequence A → B → C → D
-fully landed. Closes Gitea issue #299.
+**v0.10.3 — Tier-0 → Tier-1 re-eval shipped.** Paper-only. Fourth and
+final re-eval in the original plan. The seven ICDs (01 v0.6.2 · 02
+v0.2.2 · 03 v0.2 · 04 v0.1.1 · 05 v0.4.1 · 06 v0.4 · 07 v0.1) survived
+0.10.0 / 0.10.1 / 0.10.2 code-aware re-read with **zero interface
+drift**; Constraint #4 honored across all three milestones. **One band
+promotion:** arc framework Fuzzy → Strong (overview line 54 → §Strong)
+— the three 0.10.0 substrate modules ([`js/sim/headlines.js`](js/sim/headlines.js)
++ [`js/sim/districts.js`](js/sim/districts.js) +
+[`js/sim/lead-spawner.js`](js/sim/lead-spawner.js)) implement the §18
+three-tier shape + slot grammar + §19 spawn engine end-to-end at the
+Whisper level. **One band tightening:** "Rival AI state machines" —
+Herald + Observer enter the N-window with the Tier-1 opener. **One
+discussion-doc move:** [`discussion/observer-violence.md`](discussion/observer-violence.md)
+becomes a pre-PRE-1.0 input. See [`architecture/re-eval-tier-0-to-1.md`](architecture/re-eval-tier-0-to-1.md).
 
-**Next: Tier-0 → Tier-1 re-eval** (paper + code-aware) — the fourth and
-final re-eval in the original plan. Promotes the arc framework to strong,
-tightens Herald + Observer specs, authors ICDs 08+ for branch bureaus,
-switchboard, and archive.
+**Next: PRE-1.0** (paper-only) — authors **ICD-02 v0.3** (Herald +
+Observer state machines lifted from
+[`design/rival-ai-spec.html`](design/rival-ai-spec.html) §03 + §05) +
+**ICD-08** (Switchboard line-of-sight contract, new) + **ICD-09**
+(Archive / inter-edition story state, new) + **ICD-10** (Arc framework
+formalization, new) + ICD-01 v0.6.3 §Notes addition (authored-but-
+deferred-projection rule). Tier-1 opener (milestone 1.0) direction
+confirmed: rivals + switchboard + archive UI + `UnitView.stats`
+projector + `LeadView.district` projector + the 30 s minimum debrief
+gate, all at milestone 1.0; split 1.0.0/1.0.1 at session open per the
+0.7 / 0.10 precedent if scope creeps.
 
 ---
 
