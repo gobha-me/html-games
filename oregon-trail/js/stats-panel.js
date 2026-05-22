@@ -7,6 +7,7 @@
  *
  * Stats persist across save/load cycles.
  */
+import { getReputationLabel } from './event-runner.js';
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
 
@@ -28,16 +29,6 @@ const FACTION_LABELS = Object.freeze({
   riverTraders: 'River Traders',
   outlaws: 'Outlaws'
 });
-
-const REPUTATION_TIERS = Object.freeze([
-  { min: 80, label: 'Revered' },
-  { min: 50, label: 'Trusted' },
-  { min: 20, label: 'Friendly' },
-  { min: -20, label: 'Neutral' },
-  { min: -50, label: 'Suspect' },
-  { min: -80, label: 'Hostile' },
-  { min: -100, label: 'Hated' }
-]);
 
 /* ─── Stats Tracker ─────────────────────────────────────────────────────────── */
 
@@ -283,7 +274,7 @@ function createStatsPanelUI(tracker) {
 
     return Object.entries(FACTION_LABELS).map(([key, label]) => {
       const score = ledger[key] ?? 0;
-      const tier = _getReputationTier(score);
+      const tier = getReputationLabel(score);
       const barWidth = Math.abs(score) / 2; // 0-100 maps to 0-50% of bar
       const barClass = score >= 0 ? 'positive' : 'negative';
       return `
@@ -300,12 +291,6 @@ function createStatsPanelUI(tracker) {
     }).join('');
   }
 
-  function _getReputationTier(score) {
-    for (const tier of REPUTATION_TIERS) {
-      if (score >= tier.min) return tier.label;
-    }
-    return 'Hated';
-  }
 
   return { render, toggle, isVisible };
 }
