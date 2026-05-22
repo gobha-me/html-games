@@ -58,6 +58,57 @@ working as designed, not a delay.
   decision changes, the change lands in the markdown mirrors
   (`architecture/`, `icds/`, `discussion/`) — never edit the source HTMLs.
 
+## Audio asset generation
+
+Venice.ai (`venice <command>`) is the standing audio-asset pipeline for
+this game. Any session that needs an audio cue can generate against
+Supplement C ([`design/audio-manifest.html`](design/audio-manifest.html))
+without an architecture round — ICD-07 explicitly authorizes asset
+generation in parallel to the first-caller code session. Save outputs
+to [`assets/audio/`](assets/audio/) keyed by Supplement-C ID
+(e.g. `SFX-01-reporter-dispatched.mp3`) so the eventual cue-table maps
+1:1.
+
+**Subcommand availability — re-check `venice --help` at session start;**
+**this is a moving target.** As of the 2026-05-22 probe:
+
+- `venice sfx` — *available*. Two model paths:
+  - `elevenlabs-sound-effects-v2` — max **22 s/take**, ~$0.01/s. Best
+    fit for `sfx`-channel one-shots (SFX-01..24; all ≤2 s in the
+    manifest).
+  - `mmaudio-v2-text-to-audio` — max **30 s/take**, ~$0.001/s. Cheap;
+    doesn't reach AMB-01..06 (90 s) or MUS-01..06 (120 s) single-take.
+  - `--duration` is integer-only; round sub-second durations up to 1 s.
+- `venice tts` — **in flight at Venice; not yet shipped.** When the
+  subcommand lands, it unblocks VO-001..060 (the radio-announcer arc).
+  A future session should re-check `venice --help` before assuming VO
+  is still gated.
+- `venice chat`, `venice image`, `venice embed` — not yet implemented;
+  no current consumer in this game.
+
+**Path for AMB-01..06 + MUS-01..06.** Manifest source durations exceed
+both models' single-take caps. Three options on the table — decision
+parked at the Tier-1 audio milestone first-caller session:
+
+1. Seamless 30 s loops looped client-side. Cheap, lower variation;
+   requires prompts to specify "seamlessly loopable."
+2. Stitched takes with crossfades. More variation; forces the ICD-07
+   §Open-questions engine selection (Tone.js / Howler / own wrapper)
+   earlier than the contract requires.
+3. Shorten source durations in the markdown mirrors. Design HTMLs in
+   [`design/`](design) stay immutable per the hard rules; any duration
+   change lands in `architecture/` / `discussion/`.
+
+**Cost discipline.** Always `--dry-run` first to confirm the quote;
+pass `--max-spend USD` as a fail-closed cap. Full T0 SFX (24 cues)
+prices around $0.24. The pipeline costs nothing until a call queues —
+dry-runs are free.
+
+**Inventory.** SFX-01 (typewriter), SFX-05 (camera shutter), SFX-07
+(press fires) generated 2026-05-22 ($0.03). All other Supplement-C
+cues remain unrecorded; a session that needs one should record it then
+and commit it alongside whatever change triggered the need.
+
 ## Current state
 
 **v1.1.0 — Tier-1 content · first authored arc + Investigation chain.**
