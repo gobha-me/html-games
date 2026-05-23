@@ -1,6 +1,7 @@
 # ICD-02 · Rival ↔ World
 
-**Status:** v0.3.2 (milestone 1.1.0 — §Notes only; pins `Observer.recentStates: string[]` (cap 5) as a rival-internal per-edition ring read by ICD-10 v0.1.1 `observer_silent_n_editions` predicate; no in-memory shape change beyond Observer.recentStates; ICD-04 v0.1.4 carries the `recent_states` snap field)
+**Status:** v0.3.3 (milestone 1.2.0 — in-PR Constraint #4 bump; `RivalView` gains a top-level `world` block carrying `district_heat: Record<DistrictId, number>` (Observer DESPERATE district-nomination read) and `observer_publish_suppressed: number` (Observer PUBLISH gate during an active partner deal). §Observer §DESPERATE body now wires: INVESTIGATE → DESPERATE transition emits `PARTNER_REQUEST` one-time with `district = argmax(world.district_heat)` (declaration-order tie-break); World reconciliation surfaces the offer via ICD-01 v0.6.7 `WorldFrame.partnerOffer`; player accept routes through `World.acceptPartnerOffer` (deducts `PARTNER_DEAL_COST = 500` from player cash, transfers to Observer, sets `World.activePartnerDeal` with `PARTNER_DEAL_EDITIONS = 5`, suppresses Observer PUBLISH for the deal's lifetime). §Observer §SILENCED body wires world-side: player heat decay ×`SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief` while any rival has `state === 'SILENCED'`. State-table "First milestone" column updates: `INVESTIGATE → DESPERATE` body shipped at v1.2.0; `DESPERATE → INVESTIGATE` via accept/decline wired at v1.2.0; SILENCED entry/exit shapes remain at Tier-1.x (gated on "Frame the Observer" arc content).)
+**Prior:** v0.3.2 (milestone 1.1.0 — §Notes only; pins `Observer.recentStates: string[]` (cap 5) as a rival-internal per-edition ring read by ICD-10 v0.1.1 `observer_silent_n_editions` predicate; no in-memory shape change beyond Observer.recentStates; ICD-04 v0.1.4 carries the `recent_states` snap field)
 **Prior:** v0.3.1 (milestone 1.0.0 — in-PR Constraint #4 bump; `RivalView.player.printed_lies` field added for Observer's INVESTIGATE → PUBLISH transition; no other shape change)
 **Prior:** v0.3 (PRE-1.0 — Herald + Observer state machines authored; two Intent kinds added; `RivalStatusView` posture mapping extended to all three rivals; inter-rival §Notes paragraph lifted from rival-ai-spec.html §06)
 **Prior:** v0.2.2 (in-PR §Notes addition at 0.9.3 — `RivalEventDigest.kind` vocabulary enumeration to cover `raid_succeeded` + `raid_wiped` emissions)
@@ -67,6 +68,10 @@ interface RivalView {
     state:        RivalState;           // own current state (e.g. 'SCAVENGE' for Evening Star)
     posture:      RivalStatusView['posture']; // derived; see §RivalStatusView below
     past_intents: Intent[];             // last N=8 intents this rival emitted (resolution of v0.1 §Open Q; see §Notes)
+  };
+  world: {                              // v0.3.3 — shared read-only world signals (Observer-driven, but homogeneous across rivals)
+    district_heat:               Record<DistrictId, number>; // Observer DESPERATE district-nomination read (highest = nominated district)
+    observer_publish_suppressed: number;                     // editions left in an active partner deal; > 0 gates Observer INVESTIGATE → PUBLISH branch
   };
   edition_history: EditionDigest[];     // last 10 editions' public deltas (cash gained, raids attempted/succeeded)
 }
@@ -308,8 +313,8 @@ arc which is a content slot at Tier-1.x.
 | `INVESTIGATE` | Default. Emits `INVESTIGATE_LEAD` at entry — quietly works on a single multi-edition story matching the worst lie the player has printed recently. Takes 3 editions to complete. Reveals progress only via a corkboard rumor (the player has to be listening). |
 | `PUBLISH` | Files the counter-narrative on its own front page. Emits `PUBLISH_COUNTER` — effects: **+25 heat** to player · player's matching lie becomes *"discredited"* in the next edition (cash refund minus 50%) · player's source on that story is burned. One-edition state. |
 | `WARN` | Sends a reporter to interview a player source mid-investigation. Emits `POISON_LEAD` — one player lead in that district is poisoned (picking it up costs +5 heat for misinformation). Used when an investigation is ongoing but the player is about to commit. |
-| `DESPERATE` | Triggered when Observer cash < $200. Emits `PARTNER_REQUEST` one-time: $500 keeps the Observer alive for 5 editions in exchange for the player NOT printing in one district they nominate. Accepting prevents PUBLISH against the player for 5 editions. Caller-triggered at 1.0+ (`PARTNER_REQUEST` acceptance UI deferred). |
-| `SILENCED` | Triggered when the player succeeds at framing the Observer (a Tier IV move at Tier-1.x). Observer cannot publish, warn, or investigate for 3 editions. Heat decays slower for the player while Observer is silenced (the city notices the silence). Caller-triggered at Tier-1.x (depends on "Frame the Observer" arc content). |
+| `DESPERATE` | Triggered when Observer cash < $200. Emits `PARTNER_REQUEST` one-time on entry with `district = argmax(view.world.district_heat)` (declaration-order tie-break): `PARTNER_DEAL_COST = $500` keeps the Observer alive for `PARTNER_DEAL_EDITIONS = 5` editions in exchange for the player NOT printing in the nominated district. Accepting prevents PUBLISH against the player for 5 editions (via the `observer_publish_suppressed` counter the World projects back into RivalView). v1.2.0 wires the body + HUD Accept/Decline chip. |
+| `SILENCED` | Triggered when the player succeeds at framing the Observer (a Tier IV move at Tier-1.x). Observer cannot publish, warn, or investigate for 3 editions (enforced by virtue of the state-machine switch not dispatching those branches). Player heat decay multiplied by `SILENCED_DECAY_FACTOR = 0.5` while in this state — civic suspicion fills the silence, so heat persists ~2× longer (v1.2.0 body, world-side application in `ackDebrief`). Caller-triggered entry stays at Tier-1.x (depends on "Frame the Observer" arc content; `observer.frame()` direct call is fixtured at v1.2.0 for tests). |
 
 ### Transition table
 
@@ -321,10 +326,10 @@ those slower ticks.
 |---|---|---|
 | `INVESTIGATE → PUBLISH` | 3 editions in INVESTIGATE complete on a player lie | 1.0 |
 | `INVESTIGATE → WARN` | player picks up a lead the Observer is investigating | 1.0 |
-| `INVESTIGATE → DESPERATE` | `observer_cash < $200` | 1.0+ (DESPERATE body deferred) |
+| `INVESTIGATE → DESPERATE` | `observer_cash < $200` (body shipped v1.2.0: emits `PARTNER_REQUEST { district }`) | 1.0 (transition) / 1.2.0 (body) |
 | `PUBLISH → INVESTIGATE` | publish resolved (one-edition state) | 1.0 |
 | `WARN → INVESTIGATE` | poison applied (one-edition state) | 1.0 |
-| `DESPERATE → INVESTIGATE` | partner accepted **OR** declined (does not loop) | 1.0+ |
+| `DESPERATE → INVESTIGATE` | partner accepted **OR** declined (does not loop); routed through `World.acceptPartnerOffer` / `declinePartnerOffer` at v1.2.0 | 1.0 (shape) / 1.2.0 (caller surface) |
 | `* → SILENCED` | player completes the "Frame the Observer" arc (cannot reach otherwise) | Tier-1.x |
 | `SILENCED → INVESTIGATE` | 3 editions pass | Tier-1.x |
 

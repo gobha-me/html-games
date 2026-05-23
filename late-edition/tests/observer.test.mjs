@@ -158,6 +158,47 @@ test('Observer INVESTIGATE → DESPERATE when cash drops below $200', () => {
   assert.equal(o.state, 'DESPERATE');
 });
 
+// 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): the INVESTIGATE → DESPERATE transition
+// emits a PARTNER_REQUEST one-time. Subsequent DESPERATE editions PASS by
+// virtue of the self-loop branch never reaching the emit — no explicit
+// emitted-flag is needed because the emission is bound to the transition.
+test('Observer INVESTIGATE → DESPERATE emits PARTNER_REQUEST with the world.district_heat argmax district', () => {
+  const o = new Observer();
+  o.cash = OBSERVER_DESPERATE_THRESHOLD - OBSERVER_AMBIENT_REVENUE_PER_EDITION - 1;
+  const view = makeView({ leads: [] });
+  view.world = { district_heat: { docks: 10, hillside: 45 }, observer_publish_suppressed: 0 };
+  o.onEditionEnd(view); // skip
+  const intents = o.onEditionEnd(view); // run — fires DESPERATE
+  assert.equal(o.state, 'DESPERATE');
+  assert.equal(intents.length, 1);
+  assert.equal(intents[0].kind, 'PARTNER_REQUEST');
+  assert.equal(intents[0].district, 'hillside');
+});
+
+test('Observer DESPERATE body emits PASS on subsequent editions (PARTNER_REQUEST is transition-once)', () => {
+  const o = new Observer();
+  o.state = 'DESPERATE';
+  o.cash = 50;
+  // Burn the cadence skip + run; should PASS.
+  o.onEditionEnd(makeView());
+  const intents = o.onEditionEnd(makeView());
+  assert.equal(intents.length, 1);
+  assert.equal(intents[0].kind, 'PASS');
+});
+
+test('Observer skips PUBLISH while world.observer_publish_suppressed > 0', () => {
+  const o = new Observer();
+  o.state = 'INVESTIGATE';
+  o.observingLeadId = 'L-keep-me';
+  o.editionsInState = INVESTIGATE_TO_PUBLISH_EDITIONS;
+  const view = makeView({ leads: ['L-keep-me'], lies: [{ id: 'S1', heat_yield: 100 }] });
+  view.world = { district_heat: {}, observer_publish_suppressed: 3 };
+  o.onEditionEnd(view); // skip
+  const intents = o.onEditionEnd(view); // run — would normally PUBLISH
+  assert.notEqual(o.state, 'PUBLISH');
+  assert.notEqual(intents[0].kind, 'PUBLISH_COUNTER');
+});
+
 test('Observer DESPERATE → INVESTIGATE via acceptPartner()', () => {
   const o = new Observer();
   o.state = 'DESPERATE';

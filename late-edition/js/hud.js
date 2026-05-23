@@ -94,12 +94,16 @@ export function tierHistogram(leads) {
 export class HudCorkboard {
   // 1.0.1 (ICD-09 §HUD surface): `actions` carries player-gesture callbacks
   // the dossier wires to sim mutators. Today: { toggleArchive(storyId),
-  // pickArcBranch(id, label), getView() }.
+  // pickArcBranch(id, label), getView(), acceptPartnerOffer(),
+  // declinePartnerOffer() }.
   // The HUD stays projection-only; gestures route through callbacks instead
   // of the HUD holding a World reference.
   // 1.1.2 (#337): `actions.getView` is the renderer-side read-only window
   // for the minimap's frustum overlay. Optional — when absent, the minimap
   // still draws everything except the frustum rect.
+  // 1.2.0 (ICD-02 v0.3.3): `actions.acceptPartnerOffer` /
+  // `declinePartnerOffer` wire the Observer partner-deal chip in the
+  // Threats panel.
   constructor(roots, actions = {}) {
     this.top      = new TopCards(roots.topCards);
     this.deadline = new DeadlineStrip(roots.deadline);
@@ -123,6 +127,29 @@ export class HudCorkboard {
     this.tutorial.apply(frame);
     if (this.minimap) this.minimap.apply(frame);
   }
+}
+
+// 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-offer chip renders inside
+// the Threats panel when WorldFrame.partnerOffer is non-null. Exported for
+// hud.test.mjs.
+export function renderPartnerOfferChip(offer) {
+  const districtName = getDistrict(offer.district)?.name ?? offer.district;
+  return `<div class="partner-offer" data-role="partner-offer">`
+    + `<span class="po-headline">The Observer offers a deal</span>`
+    + `<span class="po-terms">$${offer.cost} · ${offer.editions} editions · spare ${escapeHtml(districtName)}</span>`
+    + `<span class="po-actions">`
+    + `<button type="button" class="po-btn po-accept" data-action="partner-accept">Accept</button>`
+    + `<button type="button" class="po-btn po-decline" data-action="partner-decline">Decline</button>`
+    + `</span>`
+    + `</div>`;
+}
+
+// 1.2.0: passive breadcrumb when the deal is active. No interaction — the
+// player has already committed; the breadcrumb just confirms the constraint.
+export function renderActivePartnerDealLine(deal) {
+  const districtName = getDistrict(deal.district)?.name ?? deal.district;
+  const eds = deal.editionsRemaining;
+  return `<span class="partner-deal-line">Partner deal · ${eds} edition${eds === 1 ? '' : 's'} left · ${escapeHtml(districtName)} blocked</span>`;
 }
 
 class TutorialNote {
@@ -389,6 +416,8 @@ class Dossier {
   // 1.0.1: `actions` carries the HUD's player-gesture callbacks. Today only
   // toggleArchive(storyId) is consumed; future row clicks (e.g., select-from-
   // queue) attach the same way.
+  // 1.2.0 (ICD-02 v0.3.3): `acceptPartnerOffer` / `declinePartnerOffer`
+  // wire the Threats-panel partner chip.
   constructor(rootEl, actions = {}) {
     this.root = rootEl;
     this.actions = actions;
@@ -405,6 +434,10 @@ class Dossier {
     // verified ↔ archived. Single delegated listener on the queue body so
     // it survives every innerHTML rebuild in _applyQueue.
     this.queueBody.addEventListener('click', (ev) => this._onQueueClick(ev));
+    // 1.2.0 (ICD-02 v0.3.3): partner-offer Accept / Decline chip in Threats.
+    // Delegated listener on the threats body so it survives every innerHTML
+    // rebuild in _applyThreats. Same pattern as the queue-row toggle above.
+    this.threatsBody.addEventListener('click', (ev) => this._onThreatsClick(ev));
   }
 
   apply(frame, bureauHp) {
@@ -415,7 +448,12 @@ class Dossier {
       frame.hud.resources.stories,
       frame.hud.resources.archived ?? 0,
     );
-    this._applyThreats(frame.units, bureauHp);
+    this._applyThreats(
+      frame.units,
+      bureauHp,
+      frame.partnerOffer ?? null,
+      frame.activePartnerDeal ?? null,
+    );
   }
 
   // 1.1.1 (#334 · ICD-01 v0.6.6): selection card now serves units OR buildings.
@@ -522,16 +560,44 @@ class Dossier {
     this.actions.toggleArchive(storyId);
   }
 
-  _applyThreats(units, bureauHp) {
+  _applyThreats(units, bureauHp, partnerOffer, activePartnerDeal) {
     const goons = countByKind(units, 'goon');
     const headline = goons === 0 ? 'Streets quiet' : `${goons} ${goons === 1 ? 'goon' : 'goons'} abroad`;
     const note = `Press ${bureauHp} HP`;
-    const key = `${headline}||${note}`;
+    // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-deal surfaces. The chip
+    // shows when a PARTNER_REQUEST is outstanding; the breadcrumb shows
+    // while the accepted deal ticks down. Both panels can coexist with goons
+    // / press-hp lines — the Threats card now carries multiple concerns.
+    const offerHtml = partnerOffer ? renderPartnerOfferChip(partnerOffer) : '';
+    const dealHtml = activePartnerDeal ? renderActivePartnerDealLine(activePartnerDeal) : '';
+    const offerKey = partnerOffer
+      ? `offer:${partnerOffer.district}:${partnerOffer.cost}:${partnerOffer.editions}`
+      : '';
+    const dealKey = activePartnerDeal
+      ? `deal:${activePartnerDeal.district}:${activePartnerDeal.editionsRemaining}`
+      : '';
+    const key = `${headline}||${note}||${offerKey}||${dealKey}`;
     if (key === this._lastThreats) return;
     this._lastThreats = key;
-    const isEmpty = goons === 0;
+    const isEmpty = goons === 0 && !partnerOffer && !activePartnerDeal;
     this.threatsEl.classList.toggle('empty', isEmpty);
-    this.threatsBody.innerHTML = `${escapeHtml(headline)}<span class="note">${escapeHtml(note)}</span>`;
+    this.threatsBody.innerHTML =
+      `${escapeHtml(headline)}<span class="note">${escapeHtml(note)}</span>${dealHtml}${offerHtml}`;
+  }
+
+  _onThreatsClick(ev) {
+    if (!(ev.target instanceof Element)) return;
+    const accept = ev.target.closest('[data-action="partner-accept"]');
+    if (accept) {
+      ev.stopPropagation();
+      if (typeof this.actions.acceptPartnerOffer === 'function') this.actions.acceptPartnerOffer();
+      return;
+    }
+    const decline = ev.target.closest('[data-action="partner-decline"]');
+    if (decline) {
+      ev.stopPropagation();
+      if (typeof this.actions.declinePartnerOffer === 'function') this.actions.declinePartnerOffer();
+    }
   }
 }
 

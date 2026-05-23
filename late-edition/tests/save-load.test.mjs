@@ -321,7 +321,7 @@ test('size guard: console.warn fires when serialized blob exceeds 500_000 bytes'
 
 // ---- 12. version field ----------------------------------------------------
 
-test('serialized blob carries version="1.3" at the top level', () => {
+test('serialized blob carries version="1.4" at the top level', () => {
   // 1.0.0 bumped schema to "1.1" — rivals widens to {evening_star, herald, observer}.
   // 1.0.1 bumped schema to "1.2" — StorySnap.state widens with 'archived' +
   // optional archived_at_ms field; UnitSnap gains optional stats (Reporter trio).
@@ -329,10 +329,13 @@ test('serialized blob carries version="1.3" at the top level', () => {
   // district_heat, district_dispositions; StorySnap gains optional
   // parent_story_id / arc_episode_id / arc_branch_label; ObserverSnap gains
   // recent_states.
+  // 1.2.0 bumped schema to "1.4" — SaveBlobV1 gains optional partner_offer,
+  // active_partner_deal, observer_publish_suppressed (ICD-02 v0.3.3 Observer
+  // DESPERATE/SILENCED body surfaces).
   const w = new World();
   const blob = serialize(w);
   assert.equal(blob.version, CURRENT_VERSION);
-  assert.equal(blob.version, '1.3');
+  assert.equal(blob.version, '1.4');
 });
 
 // ---- 13. 1.0.0 three-rival round-trip ------------------------------------
@@ -491,4 +494,39 @@ test('arcs: migrate_1_2_to_1_3 defaults active_arcs / district_heat / district_d
   assert.deepEqual(w2.districtDispositions, {});
   const observer2 = w2.rivals.find((r) => r.id === 'observer');
   assert.deepEqual(observer2.recentStates, []);
+});
+
+test('partner-deal: migrate_1_3_to_1_4 defaults partner_offer / active_partner_deal / observer_publish_suppressed', () => {
+  // 1.2.0 (ICD-04 v0.1.5): v1.3 blobs predate the Observer DESPERATE/SILENCED
+  // body surfaces. The migration stamps null/0 defaults so a pre-1.2.0 save
+  // resumes with no pending offer, no active deal, and PUBLISH unsuppressed.
+  const w1 = new World();
+  const blob = serialize(w1);
+  const legacy = { ...blob, version: '1.3' };
+  delete legacy.partner_offer;
+  delete legacy.active_partner_deal;
+  delete legacy.observer_publish_suppressed;
+
+  const storage = memStorage();
+  storage.setItem(SAVE_KEY, JSON.stringify(legacy));
+  const w2 = loadSave(storage);
+  assert.ok(w2, 'v1.3 → v1.4 migration produced a World');
+  assert.equal(w2.partnerOffer, null);
+  assert.equal(w2.activePartnerDeal, null);
+  assert.equal(w2.observerPublishSuppressed, 0);
+});
+
+test('partner-deal: serialize → deserialize round-trips an active deal', () => {
+  const w1 = new World();
+  w1.partnerOffer = { editionEmitted: 7, district: 'hillside' };
+  w1.activePartnerDeal = { acceptedAtEdition: 8, district: 'docks', editionsRemaining: 3 };
+  w1.observerPublishSuppressed = 3;
+  const w2 = deserialize(serialize(w1));
+  assert.deepEqual(w2.partnerOffer, { editionEmitted: 7, district: 'hillside' });
+  assert.deepEqual(w2.activePartnerDeal, {
+    acceptedAtEdition: 8,
+    district: 'docks',
+    editionsRemaining: 3,
+  });
+  assert.equal(w2.observerPublishSuppressed, 3);
 });

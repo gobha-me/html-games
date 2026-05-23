@@ -47,6 +47,7 @@ definitions.
 | **1.1.0** | Tier-1 content — first authored arc (Longshoreman Strike) + Investigation 3-step chain wiring · arc dispatcher in `_runSpawnerTick` (trigger predicate + district constraint + one-instance-per-arc-id) · `_handlePhotogArrival` chain hook (depth 3 cap, deterministic from parent.id) · `World.pickArcBranch` corkboard-chip player gesture · `_applyArcPlate` outcome application (cash/heat one-times + districtDispositions) · district-heat accumulator + flat -5/edition decay · Observer.recentStates ring (cap 5) — *shipped v1.1.0* | First Tier-1.x content session. Retires the `tier === 'arc'` lead-spawner collapse from 0.10.0. ICD-10 → v0.1.1 (negate-flag + StoryArc.district + arc registry + chain hook + observer_silent_n_editions semantics + §Save-surface lift + §Open-Qs Q1/Q3/Q4 closed). ICD-04 → v0.1.4 (`active_arcs`, `district_heat`, `district_dispositions`; `StorySnap` optional `parent_story_id` + `arc_episode_id` + `arc_branch_label`; `ObserverSnap.recent_states`; v1.2 → v1.3 migration). ICD-02 → v0.3.2 (§Notes Observer.recentStates). ICD-05 → v0.4.3 (§Notes cross-ref to ICD-10 v0.1.1). Tests at 334 cases (281 → 334). | strong |
 | **1.1.1** | Playtest UX polish — #332 fog camera-target distance (camera (40,35,40)→(24,22,24) via `CAMERA_OFFSET`) · #333 WASD pan rotated 45° to screen-aligned axes (KEY_PAN unit vectors) · #334 building dossier (Option A — `buildingAtTile` + `selectBuilding` mirror unit pattern; `WorldFrame.selectedBuilding: SelectedBuildingView \| null` projection; Switchboard + Branch Bureau gain player-readable HP) · #335 multi-step zoom (4-step ladder 30→22→16→10 with silent-clamp endpoints, `FRUSTUM_STEPS` + `nextZoomStep` in `js/render/zoom-step.js` for testability) — *shipped v1.1.1* | First Tier-1.x polish session against v1.1.0 same-day playtest reports. ICD-01 v0.6.5 → v0.6.6 (`SelectedBuildingView` widens `BuildingView` with `district`; `WorldFrame.selectedBuilding` top-level field). Tests at 355 cases (334 → 355 = +21; three new test files: `building-select.test.mjs` · `input-pan.test.mjs` · `zoom.test.mjs`). Closes Gitea issues #332/#333/#334/#335 + stale #330. Defers #336 (likely auto-resolved by fog fix) and #337 (minimap, separate ticket). | strong |
 | **1.1.2** | Playtest UX polish round 2 — #336 dossier hierarchy (`#hud-dossier` border-top `1px var(--rule)` → `2px var(--ink)` to match the deadline-strip weight; `.panel` `min-height` 78px → 120px so the auto-sized dossier row grows from ~105px → ~148px without changing the body grid template) · #337 minimap (new 140×140 px HUD widget bottom-right of `#world` — 10×10 grid + buildings/units/leads/visible-goons + selection ring + iso-rotated camera-frustum rhombus overlay; pure projection helpers `tileToPixel`/`worldXZToPixel`/`frustumQuad` in new `js/render/minimap.js`; `Minimap` region added to `HudCorkboard` as fifth sibling; `renderer.getView()` exposes pan + frustum + aspect through `actions.getView` callback so the HUD never holds a renderer reference) — *shipped v1.1.2* | Second Tier-1.x polish session. Closes the two items v1.1.1 deferred (#336 was *"likely auto-resolved by fog fix"* — required CSS reinforcement; #337 *"benefits from #332 calibration landing first"* — now calibratable). **No ICD bumps** — all minimap inputs come from existing WorldFrame fields (ICD-01 v0.6.6) + renderer-local view state. Tests at 365 cases (355 → 365 = +10; new `minimap.test.mjs`). Closes Gitea issues #336/#337. The v1.1.x playtest UX polish track is now done. | strong |
+| **1.2.0** | Tier-1.x adversarial maturation — Observer DESPERATE + SILENCED state bodies (ICD-02 v0.3.3). DESPERATE body: INVESTIGATE→DESPERATE transition emits `PARTNER_REQUEST { district }` one-time with `district = argmax(view.world.district_heat)`; World reconciler writes `World.partnerOffer`; HUD surfaces an Accept | Decline chip in the Threats panel; `World.acceptPartnerOffer` debits `PARTNER_DEAL_COST = $500`, transfers to Observer, sets `World.activePartnerDeal { district, editionsRemaining: 5 }`, suppresses Observer PUBLISH via `observerPublishSuppressed` counter; `_fireDebrief` plating gate skips stories whose district matches the active deal; deal expiry ticks down at edition end. SILENCED body: player heat decay ×`SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief` while any rival has `state === 'SILENCED'`. `RivalView` widens with `world: { district_heat, observer_publish_suppressed }` so the Observer reads world signals without a backlink. — *shipped v1.2.0* | First Tier-1.x adversarial-maturation session against the roadmap "Next" list (Herald PUNISH/BUYOUT · Observer DESPERATE/SILENCED · Star-vs-Observer raid · audio bus · further arcs). **Three ICD bumps in-PR (Constraint #4):** ICD-01 v0.6.6 → v0.6.7 (`PartnerOfferView` + `ActivePartnerDealView` + two `WorldFrame` nullable fields); ICD-02 v0.3.2 → v0.3.3 (RivalView §world block + §Observer §DESPERATE/§SILENCED body completions + state-table "First milestone" column); ICD-04 v0.1.4 → v0.1.5 (`SaveBlobV1` widens with `partner_offer?` + `active_partner_deal?` + `observer_publish_suppressed?`; v1.3 → v1.4 migration). Tests at 390 cases (365 → 390 = +25; new `world-partner-deal.test.mjs` + 5 cases · new `world-silenced-decay.test.mjs` + 5 cases · observer.test.mjs + 3 cases · hud.test.mjs + 3 cases · save-load.test.mjs + 2 cases). | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -68,6 +69,82 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**v1.2.0 — Tier-1.x adversarial maturation · Observer DESPERATE +
+SILENCED state bodies.** First Tier-1.x adversarial-maturation session
+against the roadmap "Next" list. The Observer's two caller-triggered
+states — shape-committed at v1.0.0 with `acceptPartner` / `declinePartner`
+/ `frame` methods on `js/sim/observer.js` but no body behavior — get their
+ICD-02 v0.3.3 bodies. Three deliverables ship:
+
+(1) **DESPERATE body — PARTNER_REQUEST emission + HUD chip.** The
+INVESTIGATE → DESPERATE branch in `observer.js` emits
+`PARTNER_REQUEST { district }` one-time on transition (the persistent
+DESPERATE body still PASSes — no flag needed because the emit is bound to
+the transition, not the body). District nomination is `argmax(view.world.
+district_heat)` with declaration-order tie-break — the Observer punishes
+where the player has been loudest. `RivalView` widens with a top-level
+`world: { district_heat, observer_publish_suppressed }` block so the
+Observer reads world signals through the projection (never a World
+backlink). The World's `_reconcileIntent` PARTNER_REQUEST branch writes
+`World.partnerOffer`; `WorldFrame.partnerOffer` projects it; the Threats
+panel renders a corkboard chip via new `renderPartnerOfferChip` (mirrors
+the v1.1.0 arc-branch chip in Story queue — same delegated-listener
+pattern in `Dossier._onThreatsClick`).
+
+(2) **DESPERATE acceptance/decline + active deal.** `World.acceptPartnerOffer()`
+debits `PARTNER_DEAL_COST = $500` from player cash, hands it to the
+Observer (via `observer.acceptPartner()`), sets
+`World.activePartnerDeal { district, editionsRemaining: 5 }`, and flips
+`World.observerPublishSuppressed = 5`. `_fireDebrief` plating gate skips
+verified stories whose `district === activePartnerDeal.district` (they
+stay verified at the Darkroom). The Observer's INVESTIGATE → PUBLISH
+predicate reads `view.world.observer_publish_suppressed > 0` and
+short-circuits to PASS. Deal expiry ticks down once per edition end in
+`ackDebrief`; on zero the deal + suppression both clear.
+`WorldFrame.activePartnerDeal` projects the countdown for the
+breadcrumb (`Partner deal · 3 editions left · The Docks blocked`).
+
+(3) **SILENCED body — heat decay slowdown.** While any rival has
+`state === 'SILENCED'` the player's per-edition heat decay multiplies by
+`SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief`. ICD-02 v0.3.3 reading:
+*"Heat decays slower for the player while Observer is silenced (the city
+notices the silence)"* — the city's suspicion fills the silence, so heat
+persists ~2× longer. The HEAT_DECAY_STALL_THRESHOLD rule still wins (the
+multiplier applies inside the existing decay branch, not over it).
+SILENCED entry stays caller-triggered via `observer.frame()` — the Tier-IV
+"Frame the Observer" arc that would surface it in normal play is its own
+later milestone.
+
+**Three ICD bumps in-PR (Constraint #4):** ICD-01 v0.6.6 → v0.6.7
+(`PartnerOfferView` + `ActivePartnerDealView` view-structs + two
+`WorldFrame` nullable fields); ICD-02 v0.3.2 → v0.3.3 (RivalView §world
+block + §Observer §DESPERATE/§SILENCED body completions + state-table
+"First milestone" column updates); ICD-04 v0.1.4 → v0.1.5 (`SaveBlobV1`
+widens with `partner_offer?` + `active_partner_deal?` +
+`observer_publish_suppressed?` — all optional; `migrate_1_3_to_1_4`
+stamps the version and defaults to null/0). Tests at 390 cases
+(365 → 390 = +25; new `world-partner-deal.test.mjs` covering the
+reconciler / accept-decline / plating gate / PUBLISH suppression /
+WorldFrame projection · new `world-silenced-decay.test.mjs` covering
+the multiplier + stall-rule interaction · observer.test.mjs adds the
+PARTNER_REQUEST emission shape + transition-once invariant + PUBLISH
+suppression gate · save-load.test.mjs adds v1.3 → v1.4 migration +
+active-deal round-trip · hud.test.mjs adds chip + breadcrumb render
+helpers · world-frame.test.mjs + rival-view.test.mjs update the
+schema-lock key sets).
+
+**Next: remaining Tier-1.x content + adversarial maturation.** Herald
+PUNISH + BUYOUT state bodies (same pattern — caller methods already
+exist, bodies need wiring) · Star-vs-Observer raid mechanic (§06 matrix
+cell 3 · burning down the Observer's bureau also triggers SILENCED, so
+the v1.2.0 body becomes reachable via two routes) · audio bus first
+caller against ICD-07 · further authored arcs (Mayor's Mistress · Empty
+Vault · Frame the Observer — Tier-IV; surfaces SILENCED in normal play) ·
+district-disposition mechanical effect (spawn-rate / raid-prob modifiers)
+at the 1.1.x balance pass.
+
+---
 
 **v1.1.2 — Playtest UX polish round 2 (dossier hierarchy · minimap).**
 Second Tier-1.x polish session. Closes the two deferred items from the

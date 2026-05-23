@@ -1,6 +1,7 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6.6 (shipped against milestone 1.1.1 — `WorldFrame.selectedBuilding: SelectedBuildingView | null` top-level field authored + projected for the §13 Selected dossier when the player left-clicks a building (issue #334); new `SelectedBuildingView` view-struct widens `BuildingView` with `district`. Mutually exclusive with unit selection (sim-side enforcement in `World.selectUnit` / `selectBuilding` / `deselectAll`). The two existing buildings without a player-readable HP surface — Switchboard + Branch Bureau — gain one.)
+**Status:** v0.6.7 (shipped against milestone 1.2.0 — `WorldFrame.partnerOffer: PartnerOfferView | null` and `WorldFrame.activePartnerDeal: ActivePartnerDealView | null` top-level fields authored + projected for the Observer DESPERATE / SILENCED body surfaces (ICD-02 v0.3.3). HUD reads both each frame and renders the Threats-panel Accept | Decline chip + active-deal breadcrumb. No other field changes; the snapshot field order pins partner fields after `selectedBuilding` so existing render-side key-walks stay byte-stable.)
+**Prior:** v0.6.6 (shipped against milestone 1.1.1 — `WorldFrame.selectedBuilding: SelectedBuildingView | null` top-level field authored + projected for the §13 Selected dossier when the player left-clicks a building (issue #334); new `SelectedBuildingView` view-struct widens `BuildingView` with `district`. Mutually exclusive with unit selection (sim-side enforcement in `World.selectUnit` / `selectBuilding` / `deselectAll`). The two existing buildings without a player-readable HP surface — Switchboard + Branch Bureau — gain one.)
 **Prior:** v0.6.5 (milestone 1.0.1 — `WorldFrame.stories: StoryQueueView[]` top-level field authored + projected for the Archive UI per-story rows; `UnitView.stats` projector wires the Reporter trio; `HudState.resources.archived` field added)
 **Prior:** v0.6.4 (milestone 1.0.0 — `BuildingKind` vocabulary widens to include `'switchboard'`; no shape change)
 **Prior:** v0.6.3 (PRE-1.0 — §Notes addition only; pinned the authored-but-deferred-projection pattern surfaced at the post-Tier-0 → Tier-1 re-eval; no shape change)
@@ -28,6 +29,8 @@ interface WorldFrame {
   stories:   StoryQueueView[];  // verified + archived at Darkroom; Archive UI per-row click target (v0.6.5)
   rivals:    RivalStatusView[]; // posture surface for Threats dossier (v0.6; type owned by ICD-02 v0.2)
   selectedBuilding: SelectedBuildingView | null; // §13 Selected dossier on building left-click (v0.6.6)
+  partnerOffer:     PartnerOfferView | null;     // Observer DESPERATE body — outstanding PARTNER_REQUEST surface (v0.6.7 · ICD-02 v0.3.3)
+  activePartnerDeal: ActivePartnerDealView | null; // accepted partner deal — countdown breadcrumb (v0.6.7 · ICD-02 v0.3.3)
   rain:      RainConfig;        // intensity 0+ unbounded; 1 = baseline, ~2 at deadline (PR-D — v0.6.2)
   fog:       { near: number, far: number, color: number };
   hud:       HudState;          // edition, deadline_ms, resources
@@ -309,6 +312,56 @@ interface SelectedBuildingView {
   is held; an array would invite future "multi-select" reads that are
   out of scope today. Keeps the dossier's render path one branch
   shallower.
+
+### PartnerOfferView (v0.6.7)
+
+`WorldFrame.partnerOffer: PartnerOfferView | null` is the Observer's
+outstanding PARTNER_REQUEST — the player-facing chip the HUD renders in the
+Threats panel when the Observer has just transitioned INVESTIGATE → DESPERATE
+(ICD-02 v0.3.3 §DESPERATE body). Null when no offer is pending; null again
+once the player accepts or declines.
+
+```ts
+interface PartnerOfferView {
+  district: DistrictId;   // Observer-nominated district the player must spare
+  cost:     number;       // $500 at v1.2.0 (PARTNER_DEAL_COST; tunable for the 1.1.x balance pass)
+  editions: number;       //  5 at v1.2.0 (PARTNER_DEAL_EDITIONS; same)
+}
+```
+
+- **No `editionEmitted` on the projection.** The sim tracks the edition the
+  request fired (for save round-trips); the HUD doesn't need it — the chip
+  renders the same regardless of when it was emitted.
+- **Player gesture.** The HUD wires `actions.acceptPartnerOffer` /
+  `actions.declinePartnerOffer` callbacks at HudCorkboard construction; the
+  Threats-panel chip's `data-action="partner-accept"` / `="partner-decline"`
+  attributes route through `Dossier._onThreatsClick`. Same pattern as the
+  v1.1.0 arc-branch chip in the Story queue.
+
+### ActivePartnerDealView (v0.6.7)
+
+`WorldFrame.activePartnerDeal: ActivePartnerDealView | null` is the
+breadcrumb surface for the in-flight accepted deal — passive (no interaction)
+but visible so the player remembers the constraint. The deal lifecycle is:
+accept → write `World.activePartnerDeal` + suppress Observer PUBLISH for the
+duration → tick down once per edition end → clear at zero.
+
+```ts
+interface ActivePartnerDealView {
+  district:          DistrictId;   // the spared district (player can't plate stories from here)
+  editionsRemaining: number;       // counts down 5 → 0 at edition end; deal clears at 0
+}
+```
+
+- **No `acceptedAtEdition`.** Sim-internal; HUD reads `editionsRemaining`
+  alone for the breadcrumb ("Partner deal · 3 editions left · The Docks
+  blocked").
+- **Why a separate view-struct, not just reusing `PartnerOfferView`.** The
+  two shapes carry different information at different lifecycle stages —
+  the offer carries the price (decision-time), the deal carries the
+  countdown (commitment-time). Two structs keep the HUD's read clean
+  (`partnerOffer ? chip : null` and `activeDeal ? breadcrumb : null` are
+  independent branches).
 
 ### FxEvent union (v0.6)
 

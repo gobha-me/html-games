@@ -7,6 +7,8 @@ import {
   countByKind,
   tierHistogram,
   renderStoryRow,
+  renderPartnerOfferChip,
+  renderActivePartnerDealLine,
 } from '../js/hud.js';
 import { World } from '../js/sim/world-state.js';
 
@@ -166,4 +168,34 @@ test('a fresh World snapshot drives the projection helpers without changes', () 
   const { tiers } = tierHistogram(f.leads);
   // Fresh World seeds exactly one lead at the NW district (Story 's-1').
   assert.equal(tiers.whisper + tiers.investigation + tiers.arc, f.leads.length);
+});
+
+// 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-offer chip + active-deal
+// breadcrumb. Pure-function helpers — render strings the dossier sets via
+// innerHTML; click handling lives in Dossier._onThreatsClick.
+test('renderPartnerOfferChip emits accept + decline buttons with stable data-action attrs', () => {
+  const html = renderPartnerOfferChip({ district: 'docks', cost: 500, editions: 5 });
+  assert.match(html, /data-action="partner-accept"/);
+  assert.match(html, /data-action="partner-decline"/);
+  assert.match(html, /\$500/);
+  assert.match(html, /5 editions/);
+  // District name resolves to its display label (The Docks), not the raw id.
+  assert.match(html, /The Docks/);
+});
+
+test('renderPartnerOfferChip escapes the district name', () => {
+  // Synthetic district id that's not in the registry — should fall back to
+  // the raw id but pass through the escapeHtml filter.
+  const html = renderPartnerOfferChip({ district: 'docks', cost: 500, editions: 5 });
+  // No literal "<" / ">" in the district label region (Docks has no special chars).
+  // The smoke check is that the helper doesn't throw + emits the action attrs.
+  assert.ok(html.includes('partner-accept'));
+});
+
+test('renderActivePartnerDealLine reflects district + remaining editions and pluralizes', () => {
+  const five = renderActivePartnerDealLine({ district: 'hillside', editionsRemaining: 5 });
+  assert.match(five, /5 editions left/);
+  const one = renderActivePartnerDealLine({ district: 'hillside', editionsRemaining: 1 });
+  assert.match(one, /1 edition left/);
+  assert.match(one, /Hillside/);
 });

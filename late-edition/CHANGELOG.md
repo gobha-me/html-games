@@ -1,5 +1,103 @@
 # Changelog — Late Edition
 
+## v1.2.0 — 2026-05-23 — Observer DESPERATE + SILENCED state bodies
+
+First Tier-1.x adversarial-maturation session against the roadmap "Next"
+list (Herald PUNISH/BUYOUT · Observer DESPERATE/SILENCED · Star-vs-Observer
+raid · audio bus · further arcs). The Observer's two caller-triggered
+states — shape-committed at v1.0.0 with `acceptPartner`/`declinePartner`/
+`frame` methods but no body behavior — get their ICD-02 v0.3.3 bodies.
+Tests at 390 cases (365 → 390 = +25). Three ICD bumps in-PR (Constraint #4).
+
+### Added
+
+- **DESPERATE body — PARTNER_REQUEST emission + HUD chip.** The
+  INVESTIGATE → DESPERATE transition in [`js/sim/observer.js`](js/sim/observer.js)
+  now emits `PARTNER_REQUEST { district }` one-time on the transition
+  itself (not the persistent body — emission is transition-bound so no
+  one-time flag is needed). District nomination is
+  `argmax(view.world.district_heat)` with declaration-order tie-break
+  via the new `pickHotterDistrict` helper. The World projects a new
+  `view.world.{ district_heat, observer_publish_suppressed }` block in
+  `_buildRivalView` so the Observer reads world signals via the
+  projection (never a backlink). `World._reconcileIntent`
+  PARTNER_REQUEST branch writes `World.partnerOffer`;
+  `WorldFrame.partnerOffer` projects it; the Threats panel renders an
+  Accept | Decline chip via new helpers `renderPartnerOfferChip` +
+  `renderActivePartnerDealLine` in [`js/hud.js`](js/hud.js); delegated
+  `Dossier._onThreatsClick` routes the gestures to
+  `acceptPartnerOffer` / `declinePartnerOffer` callbacks wired in
+  [`js/main.js`](js/main.js).
+
+- **DESPERATE acceptance/decline + active partner deal.** New
+  `World.acceptPartnerOffer()` debits `PARTNER_DEAL_COST = $500` from
+  player cash, hands it to the Observer, sets
+  `World.activePartnerDeal { district, editionsRemaining: 5 }`, and
+  flips `observerPublishSuppressed = 5`. `_fireDebrief` plating gate
+  skips verified stories in the deal's district (they stay verified at
+  the Darkroom — same dwell mechanism the ink-gate uses). The
+  Observer's INVESTIGATE → PUBLISH branch gates on the suppression
+  counter. Deal expiry ticks down at edition end in `ackDebrief`; on
+  zero deal + suppression both clear (`partner_deal_expired` rival
+  event emitted). Accept refuses when no offer is pending or cash is
+  insufficient.
+
+- **SILENCED body — heat decay slowdown.** Player heat decay
+  multiplied by new `SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief` while
+  any rival has `state === 'SILENCED'`. ICD-02 v0.3.3 wording: *"Heat
+  decays slower for the player while Observer is silenced (the city
+  notices the silence)"* — silencing the Observer is a Tier-IV move
+  that draws civic suspicion onto the player; the cost is sustained
+  heat, not relief. The existing `HEAT_DECAY_STALL_THRESHOLD` rule
+  still wins; the multiplier applies inside the existing decay branch.
+  SILENCED entry stays caller-only via `observer.frame()` until the
+  Tier-IV "Frame the Observer" arc lands.
+
+### Changed
+
+- **ICD-01 v0.6.6 → v0.6.7.** `WorldFrame` gains `partnerOffer:
+  PartnerOfferView | null` and `activePartnerDeal: ActivePartnerDealView
+  | null` top-level fields; two new view-struct definitions added.
+- **ICD-02 v0.3.2 → v0.3.3.** `RivalView` widens with a top-level
+  `world: { district_heat, observer_publish_suppressed }` block;
+  §Observer §DESPERATE and §SILENCED bodies updated with v1.2.0
+  semantics; state-table "First milestone" column reflects the body
+  ship.
+- **ICD-04 v0.1.4 → v0.1.5.** `SaveBlobV1` gains optional `partner_offer?
+  : PartnerOfferSnap | null` + `active_partner_deal?:
+  ActivePartnerDealSnap | null` + `observer_publish_suppressed?: number`;
+  two new snap interfaces. In-blob version bumps to `"1.4"`.
+  `migrate_1_3_to_1_4` stamps the version and defaults all three to
+  null/0 — pre-1.2.0 saves resume cleanly via `_loadFromSnap` ??
+  fallbacks.
+
+### Tests
+
+- New [`tests/world-partner-deal.test.mjs`](tests/world-partner-deal.test.mjs)
+  (12 cases): PARTNER_REQUEST emission shape + reconciler →
+  `World.partnerOffer`; argmax district nomination with default
+  fallback; accept debits cash + sets active deal + suppresses PUBLISH;
+  decline no-op; plating gate blocks deal-district stories + allows
+  others; deal expiry; WorldFrame projection.
+- New [`tests/world-silenced-decay.test.mjs`](tests/world-silenced-decay.test.mjs)
+  (5 cases): quiet-edition baseline decay; SILENCED ×0.5 scaling;
+  multiplier reverts on exit; stall-threshold rule still wins under
+  SILENCED; controversial-edition decay also scales.
+- [`tests/observer.test.mjs`](tests/observer.test.mjs) gains 3 cases:
+  PARTNER_REQUEST shape with argmax district; transition-once
+  invariant on subsequent DESPERATE editions; PUBLISH suppression gate.
+- [`tests/hud.test.mjs`](tests/hud.test.mjs) gains 3 cases: chip
+  data-action attrs + cost/editions/district render; district-name
+  escape smoke; breadcrumb pluralization + district render.
+- [`tests/save-load.test.mjs`](tests/save-load.test.mjs) gains 2
+  cases: v1.3 → v1.4 migration defaults all three new fields;
+  serialize → deserialize round-trips an active deal.
+- [`tests/world-frame.test.mjs`](tests/world-frame.test.mjs) +
+  [`tests/rival-view.test.mjs`](tests/rival-view.test.mjs) updated
+  to include the new schema-lock keys.
+
+---
+
 ## v1.1.2 — 2026-05-23 — Playtest UX polish round 2 (dossier hierarchy · minimap)
 
 Second Tier-1.x polish session, closing out the two deferred items from the

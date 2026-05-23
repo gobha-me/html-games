@@ -114,6 +114,88 @@ and commit it alongside whatever change triggered the need.
 
 ## Current state
 
+**v1.2.0 — Tier-1.x adversarial maturation · Observer DESPERATE +
+SILENCED state bodies.** First Tier-1.x adversarial-maturation session
+against the roadmap "Next" list (Herald PUNISH/BUYOUT · Observer
+DESPERATE/SILENCED · Star-vs-Observer raid · audio bus · further arcs).
+Three deliverables landed:
+
+- **DESPERATE body — PARTNER_REQUEST emission + HUD chip.** The
+  INVESTIGATE → DESPERATE branch in [`js/sim/observer.js`](js/sim/observer.js)
+  emits `PARTNER_REQUEST { district }` one-time on the transition (the
+  persistent DESPERATE body still PASSes — emission is transition-bound,
+  not body-bound). District = `argmax(view.world.district_heat)` with
+  declaration-order tie-break. New helper `pickHotterDistrict` factored
+  out of the branch. `RivalView` widens with a top-level
+  `world: { district_heat, observer_publish_suppressed }` block in
+  `World._buildRivalView` so the Observer reads world signals via the
+  projection (never a World backlink). The World's `_reconcileIntent`
+  PARTNER_REQUEST branch writes `World.partnerOffer`;
+  `WorldFrame.partnerOffer` projects it; new
+  [`js/hud.js`](js/hud.js) helpers `renderPartnerOfferChip` +
+  `renderActivePartnerDealLine` mount inside the Threats panel via
+  `Dossier._applyThreats`. Delegated-listener `Dossier._onThreatsClick`
+  routes `data-action="partner-accept"` / `="partner-decline"` to the
+  HudCorkboard's `actions.acceptPartnerOffer` / `declinePartnerOffer`
+  callbacks (wired in [`js/main.js`](js/main.js)).
+
+- **DESPERATE acceptance/decline + active deal.** New World methods
+  `acceptPartnerOffer()` / `declinePartnerOffer()` wrap the existing
+  `observer.acceptPartner` / `declinePartner` and apply world-side
+  effects: accept debits `PARTNER_DEAL_COST = $500` from
+  `World.resources.cash`, hands $500 to Observer, sets
+  `World.activePartnerDeal { district, editionsRemaining: 5 }`, and flips
+  `World.observerPublishSuppressed = 5`. `_fireDebrief` plating gate
+  filters verified stories by `s.district !== activePartnerDeal.district`
+  (blocked stories stay verified — same dwell mechanism the ink-gate
+  uses). Observer's INVESTIGATE → PUBLISH predicate gates on
+  `view.world.observer_publish_suppressed > 0`. Deal expiry ticks down
+  once per edition end after the rival-onEditionEnd loop in `ackDebrief`;
+  on zero the deal + suppression both clear (`partner_deal_expired`
+  rival event emitted). Accept refuses with `{ ok: false, reason }` when
+  no offer is pending OR player cash is insufficient (no in-debt deals).
+
+- **SILENCED body — heat decay slowdown.** While any rival has
+  `state === 'SILENCED'` the player's per-edition heat decay scales by
+  `SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief`. ICD-02 v0.3.3 reading:
+  *"Heat decays slower for the player while Observer is silenced (the
+  city notices the silence)"* — silencing the Observer is a Tier-IV move
+  that draws civic suspicion onto the player, so heat persists ~2×
+  longer (a penalty, not relief). The existing
+  `HEAT_DECAY_STALL_THRESHOLD` rule still wins; the multiplier applies
+  inside the decay branch, not over it. SILENCED entry stays caller-only
+  via `observer.frame()` — the Tier-IV "Frame the Observer" arc that
+  would surface it in normal play is a later milestone.
+
+**Three ICD bumps in-PR (Constraint #4).** ICD-01 v0.6.6 → v0.6.7
+(`PartnerOfferView` + `ActivePartnerDealView` view-structs +
+`WorldFrame.partnerOffer` / `activePartnerDeal` nullable fields).
+ICD-02 v0.3.2 → v0.3.3 (RivalView §world block + §Observer
+§DESPERATE/§SILENCED body completions + state-table "First milestone"
+column updates + Intent table's `PARTNER_REQUEST` entry pinned to v1.2.0
+first-caller). ICD-04 v0.1.4 → v0.1.5 (`SaveBlobV1` widens with
+`partner_offer?: PartnerOfferSnap | null` + `active_partner_deal?:
+ActivePartnerDealSnap | null` + `observer_publish_suppressed?: number`;
+two new snap interfaces; `migrate_1_3_to_1_4` stamps the version and
+defaults all three to null/0). Tests at 390 cases (365 → 390 = +25; new
+`tests/world-partner-deal.test.mjs` covering reconciler / accept-decline
+/ plating gate / PUBLISH suppression / WorldFrame projection · new
+`tests/world-silenced-decay.test.mjs` covering the multiplier + stall
+interaction · observer.test.mjs / hud.test.mjs / save-load.test.mjs /
+world-frame.test.mjs / rival-view.test.mjs all add cases or update
+schema-lock key sets).
+
+**Next: remaining Tier-1.x content + adversarial maturation.** Herald
+PUNISH + BUYOUT state bodies (mirrors this work — caller methods exist,
+bodies need wiring) · Star-vs-Observer raid mechanic (§06 matrix cell 3 ·
+the raid also triggers SILENCED, so v1.2.0's body becomes reachable via
+two routes) · audio bus first caller against ICD-07 · further authored
+arcs (Mayor's Mistress · Empty Vault · Frame the Observer — Tier-IV
+arc surfaces SILENCED in normal play) · district-disposition mechanical
+effect (spawn-rate / raid-prob modifiers) at the 1.1.x balance pass.
+
+---
+
 **v1.1.2 — Playtest UX polish round 2 (dossier hierarchy · minimap).**
 Second Tier-1.x polish session. Closes out the two deferred items from
 the v1.1.0 same-day playtest (v1.1.1 took the four first-launch blockers;

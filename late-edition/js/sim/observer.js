@@ -17,8 +17,48 @@
 //   - INVESTIGATE → WARN detection: the lead Observer is tracking falls out
 //     of view.player.visible_leads (picked up by player OR expired — both
 //     fire WARN at 1.0.0; Tier-1.x distinguishes via a `picked_up` flag).
+//
+// 1.2.0 scope (ICD-02 v0.3.3):
+//   - DESPERATE body wires: INVESTIGATE → DESPERATE transition emits
+//     PARTNER_REQUEST one-time with `district = argmax(view.world.district_heat)`
+//     (the Observer punishes where the player has accumulated the most heat;
+//     deterministic tie-break by DISTRICTS declaration order via the
+//     argmax helper). The World reconciler reads PARTNER_REQUEST and surfaces
+//     it through WorldFrame.partnerOffer. acceptPartner / declinePartner stay
+//     the caller exit. Subsequent DESPERATE editions still PASS — emission is
+//     transition-once by construction (we emit on the INVESTIGATE branch, the
+//     persistent DESPERATE/SILENCED branch below never reaches the emit).
+//   - SILENCED body wires world-side: see SILENCED_DECAY_FACTOR in
+//     world-state.js. Observer body itself stays PASS-only while SILENCED —
+//     the "cannot publish/warn/investigate" rule is enforced by the
+//     INVESTIGATE branch only being reached from `this.state === 'INVESTIGATE'`.
+//   - PUBLISH suppression: when the player has accepted an active partner deal
+//     the World projects `view.world.observer_publish_suppressed > 0` and the
+//     INVESTIGATE → PUBLISH predicate skips. Observer still PASSes (and
+//     accrues editionsInState) so the deal expiry returns it to normal cadence.
 
 import { SeededRng } from './seeded-rng.js';
+import { DISTRICTS, DEFAULT_DISTRICT_ID } from './districts.js';
+
+// 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): district nomination heuristic. Picks
+// the district with the highest accumulated player heat (World.districtHeat).
+// Tie-break is deterministic via DISTRICTS declaration order — the first
+// district with the max value wins. Returns DEFAULT_DISTRICT_ID when the map
+// is missing or all zero, so test fixtures without a world block still
+// produce a valid PARTNER_REQUEST shape.
+function pickHotterDistrict(districtHeat) {
+  if (!districtHeat) return DEFAULT_DISTRICT_ID;
+  let bestId = DEFAULT_DISTRICT_ID;
+  let bestHeat = -Infinity;
+  for (const d of DISTRICTS) {
+    const h = districtHeat[d.id] ?? 0;
+    if (h > bestHeat) {
+      bestHeat = h;
+      bestId = d.id;
+    }
+  }
+  return bestId;
+}
 
 export const OBSERVER_ID = 'observer';
 export const OBSERVER_KIND = 'observer';
@@ -141,8 +181,14 @@ export class Observer {
         this.observingLeadId = null;
         return [this._emit({ kind: 'POISON_LEAD', leadId })];
       }
+      // 1.2.0: PUBLISH gated by partner-deal suppression. While the player's
+      // accepted deal is active the Observer can't file PUBLISH_COUNTER (the
+      // deal contract — see ICD-02 v0.3.3 §DESPERATE). The Observer still
+      // PASSes through the edition; the deal counter ticks down world-side.
+      const publishSuppressed = (view.world?.observer_publish_suppressed ?? 0) > 0;
       if (this.editionsInState >= INVESTIGATE_TO_PUBLISH_EDITIONS &&
-          (view.player.printed_lies?.length ?? 0) > 0) {
+          (view.player.printed_lies?.length ?? 0) > 0 &&
+          !publishSuppressed) {
         // Pick the lie with highest heat_yield (ICD-02 v0.3 §Notes
         // "weighted by heat_yield" — at 1.0.0 we take the top one).
         const sorted = [...view.player.printed_lies].sort(
@@ -157,7 +203,13 @@ export class Observer {
       if (this.cash < OBSERVER_DESPERATE_THRESHOLD) {
         this.state = 'DESPERATE';
         this.editionsInState = 0;
-        return [this._emit({ kind: 'PASS' })];
+        // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): emit PARTNER_REQUEST one-time
+        // on the INVESTIGATE → DESPERATE transition. District nomination is the
+        // highest-`world.district_heat` district (tie-break by declaration
+        // order). Fallback to the default district when the world projection
+        // omits district_heat (test fixtures without world block).
+        const district = pickHotterDistrict(view.world?.district_heat);
+        return [this._emit({ kind: 'PARTNER_REQUEST', district })];
       }
       // No transition fired — pick a fresh lead if we don't have one.
       this.editionsInState += 1;

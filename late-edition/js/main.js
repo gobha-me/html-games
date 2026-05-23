@@ -67,6 +67,12 @@ const hud = new HudCorkboard(hudRoots, {
   // stays the canonical owner. Returns null defensively if renderer hasn't
   // attached its view state yet (boot-order safety).
   getView: () => renderer.getView(),
+  // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): Observer partner-deal gestures.
+  // The Threats panel surfaces an Accept | Decline chip when the Observer
+  // has emitted PARTNER_REQUEST; clicks route through these callbacks. The
+  // World records the deal; the HUD stays projection-only.
+  acceptPartnerOffer:  () => world.acceptPartnerOffer(),
+  declinePartnerOffer: () => world.declinePartnerOffer(),
 });
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);

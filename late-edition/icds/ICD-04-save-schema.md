@@ -1,6 +1,7 @@
 # ICD-04 · Save Schema
 
-**Status:** v0.1.4 (milestone 1.1.0 — `SaveBlobV1` gains `active_arcs: ActiveArcSnap[]` + `district_heat: { [DistrictId]: number }` + `district_dispositions: { [DistrictId]: 'loyal'|'grudging'|'bitter'|'open hostility' }`; `StorySnap` gains optional `parent_story_id?: StoryId` + `arc_episode_id?: ArcEpisodeId` + `arc_branch_label?: string`; `ObserverSnap` gains optional `recent_states?: string[]` (cap 5); in-blob version bumps to `"1.3"`; `migrate_1_2_to_1_3` pre-fills the new collections + observer.recent_states)
+**Status:** v0.1.5 (milestone 1.2.0 — `SaveBlobV1` gains optional `partner_offer?: PartnerOfferSnap | null` + `active_partner_deal?: ActivePartnerDealSnap | null` + `observer_publish_suppressed?: number` (Observer DESPERATE / SILENCED body persistence per ICD-02 v0.3.3); in-blob version bumps to `"1.4"`; `migrate_1_3_to_1_4` stamps the version and defaults all three to null/0; pre-1.2.0 saves resume cleanly via `_loadFromSnap` ?? fallbacks.)
+**Prior:** v0.1.4 (milestone 1.1.0 — `SaveBlobV1` gains `active_arcs: ActiveArcSnap[]` + `district_heat: { [DistrictId]: number }` + `district_dispositions: { [DistrictId]: 'loyal'|'grudging'|'bitter'|'open hostility' }`; `StorySnap` gains optional `parent_story_id?: StoryId` + `arc_episode_id?: ArcEpisodeId` + `arc_branch_label?: string`; `ObserverSnap` gains optional `recent_states?: string[]` (cap 5); in-blob version bumps to `"1.3"`; `migrate_1_2_to_1_3` pre-fills the new collections + observer.recent_states)
 **Prior:** v0.1.3 (milestone 1.0.1 — `StorySnap.state` union widens to include `'archived'`; optional `archived_at_ms?: number` per record (decay anchor); optional `UnitSnap.stats?: { nerve, nose, legs }` (Reporter trio); in-blob version bumps to `"1.2"`; `migrate_1_1_to_1_2` pass-through stamps the new version)
 **Prior:** v0.1.2 (milestone 1.0.0 — `RivalsSnap` widens to include `herald` + `observer` per Tier-1 opener; in-blob version bumps to `"1.1"`; `migrate_1_0_to_1_1` synthesizes default Herald + Observer state on load)
 **Prior:** v0.1.1 (milestone 0.10.0 — `rng_seed` semantics settled (carries live PRNG state, not initial seed) · `lead_spawner` snap block added · `run_stats` block added · `'late-edition.scores.v1'` key documented)
@@ -61,7 +62,7 @@ interface HighScoreEntry {
 type SaveVersion = string; // semver-ish "MAJOR.MINOR" — v0.1 emits "1.0"
 
 interface SaveBlobV1 {
-  version:      SaveVersion;        // "1.3" at v0.1.4 (was "1.2" at v0.1.3, "1.1" at v0.1.2, "1.0" at v0.1)
+  version:      SaveVersion;        // "1.4" at v0.1.5 (was "1.3" at v0.1.4, "1.2" at v0.1.3, "1.1" at v0.1.2, "1.0" at v0.1)
   saved_at_ms:  number;             // Date.now() at write — wall-clock, for UI
   sim_time_ms:  number;             // absolute sim clock (World.sim_time_ms)
   rng_seed:     number;             // v0.1.1: the spawner stream's live PRNG state (renamed semantics — see §Notes)
@@ -91,6 +92,16 @@ interface SaveBlobV1 {
   active_arcs:           ActiveArcSnap[];     // ICD-10 §Save surface — one entry per in-progress arc
   district_heat:         { [districtId: string]: number };   // per-district heat accumulator powering district_heat_above
   district_dispositions: { [districtId: string]: 'loyal' | 'grudging' | 'bitter' | 'open hostility' };  // terminal arc outcome storage
+
+  // v0.1.5 (1.2.0 · ICD-02 v0.3.3): Observer DESPERATE / SILENCED body
+  // persistence. All three fields are optional and default null/0 via
+  // migrate_1_3_to_1_4. partner_offer holds the outstanding PARTNER_REQUEST;
+  // active_partner_deal tracks an accepted deal counting down; the
+  // observer_publish_suppressed counter is the read the Observer sees on
+  // RivalView.world.observer_publish_suppressed.
+  partner_offer?:               PartnerOfferSnap | null;        // null when no offer pending
+  active_partner_deal?:         ActivePartnerDealSnap | null;   // null when no deal in flight
+  observer_publish_suppressed?: number;                          // 0 when no suppression active
 }
 
 // v0.1.4 (1.1.0 · ICD-10 v0.1.1). Lifted verbatim from ICD-10 §Save surface.
@@ -99,6 +110,19 @@ interface ActiveArcSnap {
   current_episode: string;          // ArcEpisodeId (e.g. 'longshoreman_strike.walkout')
   chosen_path:     string[];        // labels picked so far ('splash', 'humanize', …)
   spawn_edition:   number;          // edition the arc fired its trigger
+}
+
+// v0.1.5 (1.2.0 · ICD-02 v0.3.3 §DESPERATE body). Snake_case wire convention;
+// the live World holds camelCase mirrors (partnerOffer.editionEmitted etc.).
+interface PartnerOfferSnap {
+  edition_emitted: number;          // edition the Observer first emitted PARTNER_REQUEST
+  district:        DistrictId;      // Observer-nominated district the player must spare to accept
+}
+
+interface ActivePartnerDealSnap {
+  accepted_at_edition: number;      // edition the player accepted the deal
+  district:            DistrictId;  // the spared district (same as the offer's district at accept time)
+  editions_remaining:  number;      // counts down at edition end; clears at zero
 }
 
 interface LeadSpawnerSnap {

@@ -10,8 +10,11 @@ import { World } from '../js/sim/world-state.js';
 // v0.6.5 (1.0.1) adds: WorldFrame.stories (per-row Story queue projection)
 // and UnitView.stats (Reporter trio; undefined for non-Reporter kinds).
 // v0.6.6 (1.1.1) adds: WorldFrame.selectedBuilding (SelectedBuildingView | null).
+// v0.6.7 (1.2.0) adds: WorldFrame.partnerOffer (PartnerOfferView | null) and
+// WorldFrame.activePartnerDeal (ActivePartnerDealView | null) — Observer
+// DESPERATE / SILENCED body surfaces (ICD-02 v0.3.3).
 
-const FRAME_KEYS = ['cameraTarget', 'buildings', 'units', 'leads', 'stories', 'rivals', 'selectedBuilding', 'rain', 'fog', 'hud', 'effects'];
+const FRAME_KEYS = ['cameraTarget', 'buildings', 'units', 'leads', 'stories', 'rivals', 'selectedBuilding', 'partnerOffer', 'activePartnerDeal', 'rain', 'fog', 'hud', 'effects'];
 const BUILDING_VIEW_KEYS = ['id', 'pos', 'kind', 'hp', 'hp_max', 'tier'];
 const UNIT_VIEW_CORE_KEYS = ['id', 'pos', 'facing', 'kind', 'state', 'selected', 'carrying'];
 const LEAD_VIEW_KEYS = ['id', 'pos', 'tier', 'flavor', 'district', 'age_ms'];

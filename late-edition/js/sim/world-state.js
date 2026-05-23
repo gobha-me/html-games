@@ -121,6 +121,20 @@ export const ARCHIVE_DECAY_EDITIONS = 10;         // medium-band — ICD-09 §Ef
 // tune at the 1.1.x balance pass. Used by the arc trigger predicate
 // `district_heat_above` (Longshoreman's "Docks heat > 60").
 export const DISTRICT_HEAT_DECAY_PER_EDITION = 5;
+// 1.2.0 (ICD-02 v0.3.3 §SILENCED body): per-edition heat-decay multiplier
+// applied to the §19 decay rules in ackDebrief() while any rival is SILENCED.
+// 0.5× means the player's heat persists ~2× as long — "the city notices the
+// silence" reads as a civic suspicion penalty (silencing the Observer is a
+// Tier-IV move, so the cost is sustained heat, not relief). Tunable knob for
+// the 1.1.x balance pass.
+export const SILENCED_DECAY_FACTOR = 0.5;
+// 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-deal economics. Player pays
+// the Observer to skip PUBLISH_COUNTER for PARTNER_DEAL_EDITIONS editions in
+// exchange for not printing in the Observer-nominated district for the same
+// window. Both halves track via World.activePartnerDeal + the
+// observerPublishSuppressed counter; reconciliation lives at edition end.
+export const PARTNER_DEAL_COST = 500;
+export const PARTNER_DEAL_EDITIONS = 5;
 
 // At 0.5 the print pipeline closes with no Editor unit yet — the verified →
 // plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
@@ -350,6 +364,23 @@ export class World {
     this.districtHeat = {};
     for (const d of DISTRICTS) this.districtHeat[d.id] = 0;
     this.districtDispositions = {};
+
+    // 1.2.0 (ICD-02 v0.3.3 · ICD-04 v0.1.5): Observer DESPERATE/SILENCED bodies.
+    //
+    // - partnerOffer: pending PARTNER_REQUEST emitted when the Observer first
+    //   transitions INVESTIGATE → DESPERATE. One outstanding offer at a time
+    //   (the Observer self-loops PASS while in DESPERATE; subsequent entries
+    //   only happen after a caller exit). Cleared on accept/decline; the
+    //   HUD reads it through WorldFrame.partnerOffer.
+    // - activePartnerDeal: in-flight accepted deal. editionsRemaining ticks
+    //   down at edition end; on zero the deal expires + clears.
+    // - observerPublishSuppressed: edition counter projected into the Observer's
+    //   RivalView.world block so it can early-return PASS from the
+    //   INVESTIGATE → PUBLISH branch for the deal's life. Kept as a sibling
+    //   counter so the Observer never reads `World.activePartnerDeal` directly.
+    this.partnerOffer = null;
+    this.activePartnerDeal = null;
+    this.observerPublishSuppressed = 0;
   }
 
   // 0.8 restore path (ICD-04 v0.1). Rebuilds every authoritative field from
@@ -428,6 +459,25 @@ export class World {
       this.districtHeat[d.id] = blob.district_heat?.[d.id] ?? 0;
     }
     this.districtDispositions = { ...(blob.district_dispositions ?? {}) };
+
+    // 1.2.0 (ICD-04 v0.1.5): partner-deal restore. All three fields are
+    // optional on the wire — pre-1.2.0 saves resume cleanly with no pending
+    // offer, no active deal, and zero PUBLISH suppression. migrate_1_3_to_1_4
+    // in save.js stamps the version + nulls for forward-compat readers.
+    this.partnerOffer = blob.partner_offer
+      ? {
+          editionEmitted: blob.partner_offer.edition_emitted,
+          district:       blob.partner_offer.district,
+        }
+      : null;
+    this.activePartnerDeal = blob.active_partner_deal
+      ? {
+          acceptedAtEdition: blob.active_partner_deal.accepted_at_edition,
+          district:          blob.active_partner_deal.district,
+          editionsRemaining: blob.active_partner_deal.editions_remaining,
+        }
+      : null;
+    this.observerPublishSuppressed = blob.observer_publish_suppressed ?? 0;
   }
 
   subscribeCycle(fn) {
@@ -660,6 +710,16 @@ export class World {
         posture:      rival.posture,
         past_intents: rival.pastIntents.slice(-PAST_INTENTS_PROJECTION_CAP),
       },
+      // 1.2.0 (ICD-02 v0.3.3): world-wide read-only block. Observer's
+      // INVESTIGATE → DESPERATE branch picks its PARTNER_REQUEST district from
+      // district_heat (argmax with declaration-order tie-break) and gates
+      // PUBLISH on observer_publish_suppressed. Other rivals ignore the
+      // fields; the shape stays homogeneous so the projection stays one
+      // function. Map copy is shallow — rivals never mutate the projection.
+      world: {
+        district_heat: { ...this.districtHeat },
+        observer_publish_suppressed: this.observerPublishSuppressed,
+      },
       edition_history: this.editionHistory.slice(-10),
     };
   }
@@ -736,8 +796,83 @@ export class World {
       });
       return;
     }
+    if (intent.kind === 'PARTNER_REQUEST') {
+      // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): the Observer's first
+      // PARTNER_REQUEST on entry to DESPERATE. World records the pending
+      // offer; HUD surfaces a corkboard chip; the player accept/decline
+      // gestures route back through World.acceptPartnerOffer /
+      // declinePartnerOffer. Only one offer outstanding at a time —
+      // subsequent PARTNER_REQUEST emissions (only reachable via a full
+      // INVESTIGATE → DESPERATE re-entry cycle) overwrite the prior pending
+      // offer, which is the correct read for the player: the rival's
+      // current ask is the authoritative one.
+      this.partnerOffer = {
+        editionEmitted: this.cycle.edition,
+        district:       intent.district,
+      };
+      this._pendingRivalEvents.push({
+        rival: rival.id,
+        kind:  'partner_request',
+        text:  `THE OBSERVER ASKS FOR A PARTNER DEAL`,
+      });
+      return;
+    }
     // Other intent kinds are caller-triggered (BRIBE / RUSH / etc.) — when
     // their bodies land at Tier-1 they'll add reconciler branches here.
+  }
+
+  // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): player accepts the Observer's
+  // partner request. Transfers PARTNER_DEAL_COST from player cash to the
+  // Observer, sets up the activePartnerDeal record (used by both the plating
+  // gate in _fireDebrief and the deal tick-down in ackDebrief), and flips
+  // the publish-suppression counter so the Observer projects 0 publishes
+  // for the deal's duration. Returns { ok, reason? } so the HUD callback can
+  // surface a no-op cleanly. Refuses when no offer is outstanding (defensive
+  // — the chip shouldn't render in the first place) or when the player
+  // can't cover the cost (no in-debt deals; the player must save up).
+  acceptPartnerOffer() {
+    if (!this.partnerOffer) return { ok: false, reason: 'no_offer' };
+    if (this.resources.cash < PARTNER_DEAL_COST) {
+      return { ok: false, reason: 'insufficient_cash' };
+    }
+    const observer = this.rivals.find((r) => r.id === 'observer');
+    if (!observer || !observer.acceptPartner()) {
+      // acceptPartner returns false when Observer is not in DESPERATE — the
+      // offer-without-state case happens if the Observer state changed
+      // out-of-band (e.g. caller-triggered frame()). Clear the stale offer.
+      this.partnerOffer = null;
+      return { ok: false, reason: 'observer_not_desperate' };
+    }
+    this.resources.cash -= PARTNER_DEAL_COST;
+    this.activePartnerDeal = {
+      acceptedAtEdition: this.cycle.edition,
+      district:          this.partnerOffer.district,
+      editionsRemaining: PARTNER_DEAL_EDITIONS,
+    };
+    this.observerPublishSuppressed = PARTNER_DEAL_EDITIONS;
+    this.partnerOffer = null;
+    this._pendingRivalEvents.push({
+      rival: 'observer',
+      kind:  'partner_accepted',
+      text:  `THE PUBLISHER PAYS THE OBSERVER — DEAL STRUCK`,
+    });
+    return { ok: true };
+  }
+
+  // 1.2.0: player declines. Observer exits DESPERATE for INVESTIGATE without
+  // any cash transfer; pending offer clears. The Observer's normal economy
+  // (ambient revenue) takes over — DESPERATE will re-fire if cash dips again.
+  declinePartnerOffer() {
+    if (!this.partnerOffer) return { ok: false, reason: 'no_offer' };
+    const observer = this.rivals.find((r) => r.id === 'observer');
+    if (observer) observer.declinePartner();
+    this.partnerOffer = null;
+    this._pendingRivalEvents.push({
+      rival: 'observer',
+      kind:  'partner_declined',
+      text:  `THE PUBLISHER WALKS — THE OBSERVER FENDS FOR HERSELF`,
+    });
+    return { ok: true };
   }
 
   // Damage tick: each living goon at Manhattan distance 1 from the Bureau
@@ -1031,11 +1166,20 @@ export class World {
     // 1.1.0 (ICD-10 v0.1.1 §HUD surface): arc stories need a branch pick
     // to plate. Un-picked arc stories stay verified at the Darkroom and
     // wait for the player's click (or for archive, which freezes the chain).
+    // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-deal plating gate.
+    // While the player's active deal is in flight, stories whose district
+    // matches the Observer-nominated district cannot plate this edition.
+    // The story stays 'verified' at the Darkroom — same dwell mechanism the
+    // ink-gate uses — and tries again next edition. Once activePartnerDeal
+    // clears (editionsRemaining ticks to zero in ackDebrief), held stories
+    // resume normal plating.
+    const dealDistrict = this.activePartnerDeal?.district ?? null;
     const verifiedStories = darkroom
       ? this.stories.filter((s) =>
           s.state === 'verified' &&
           s.held_by_building === darkroom.id &&
-          (s.tier !== 'arc' || s.arc_branch_label),
+          (s.tier !== 'arc' || s.arc_branch_label) &&
+          (dealDistrict === null || s.district !== dealDistrict),
         )
       : [];
 
@@ -1118,9 +1262,16 @@ export class World {
     // (set inside _fireDebrief) so we can read heat_applied at edition end.
     const summary = this._lastSummary;
     if (this.resources.heat <= HEAT_DECAY_STALL_THRESHOLD) {
-      const decay = summary && summary.heat_applied > 0
+      const baseDecay = summary && summary.heat_applied > 0
         ? HEAT_DECAY_PER_EDITION
         : HEAT_DECAY_QUIET_EDITION;
+      // 1.2.0 (ICD-02 v0.3.3 §SILENCED body): when any rival is SILENCED the
+      // city is suspicious of the publisher and heat persists longer
+      // (decay ×SILENCED_DECAY_FACTOR). At 1.2.0 only the Observer can reach
+      // SILENCED (via the caller-triggered frame()); the iteration is
+      // future-proofed for any rival the contract widens to.
+      const anySilenced = this.rivals.some((r) => r.state === 'SILENCED');
+      const decay = anySilenced ? baseDecay * SILENCED_DECAY_FACTOR : baseDecay;
       this.resources.heat = Math.max(0, this.resources.heat - decay);
     }
 
@@ -1173,6 +1324,27 @@ export class World {
       const view = this._buildRivalView(rival);
       const intents = rival.onEditionEnd(view) ?? [];
       for (const intent of intents) this._reconcileIntent(rival, intent);
+    }
+
+    // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-deal expiry. Ticks the
+    // deal counter once per edition end; on zero clears both the activeDeal
+    // and the publish-suppression counter so the Observer's PUBLISH branch
+    // becomes reachable again at the next edition's INVESTIGATE evaluation.
+    // Suppression is decremented in lockstep — the two counters are
+    // intentionally redundant so the Observer's RivalView read stays simple
+    // (no World indirection from the rival).
+    if (this.activePartnerDeal) {
+      this.activePartnerDeal.editionsRemaining -= 1;
+      this.observerPublishSuppressed = Math.max(0, this.observerPublishSuppressed - 1);
+      if (this.activePartnerDeal.editionsRemaining <= 0) {
+        this.activePartnerDeal = null;
+        this.observerPublishSuppressed = 0;
+        this._pendingRivalEvents.push({
+          rival: 'observer',
+          kind:  'partner_deal_expired',
+          text:  `THE PARTNER DEAL EXPIRES — THE OBSERVER CAN PUBLISH AGAIN`,
+        });
+      }
     }
 
     this._emitCycle({ kind: 'EDITION_DEBRIEF_END' });
@@ -1467,6 +1639,21 @@ export class World {
       // Building selection is mutually exclusive with unit selection — see
       // World.selectBuilding / selectUnit / deselectAll.
       selectedBuilding: this._selectedBuildingView(),
+      // 1.2.0 (ICD-01 v0.6.7 · ICD-02 v0.3.3 §DESPERATE body): pending
+      // PARTNER_REQUEST surface — HUD renders an Accept | Decline chip when
+      // non-null. Cleared when the player gestures (or when the Observer's
+      // state changes out-of-band via frame()).
+      partnerOffer: this.partnerOffer
+        ? { district: this.partnerOffer.district, cost: PARTNER_DEAL_COST,
+            editions: PARTNER_DEAL_EDITIONS }
+        : null,
+      // In-flight accepted deal — HUD renders a passive breadcrumb with
+      // remaining editions + blocked district. Sim-internal acceptedAtEdition
+      // is intentionally omitted from the projection (HUD doesn't read it).
+      activePartnerDeal: this.activePartnerDeal
+        ? { district: this.activePartnerDeal.district,
+            editionsRemaining: this.activePartnerDeal.editionsRemaining }
+        : null,
       rain: { intensity: rainIntensity },
       fog: { near: fogNear, far: 60, color: 0xc8c4bc },
       hud: {

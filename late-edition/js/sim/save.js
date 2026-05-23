@@ -38,7 +38,12 @@ export const SCORES_KEY = 'late-edition.scores.v1';   // 0.10.0 (G-13)
 // optional recent_states (cap 5). migrate_1_2_to_1_3 stamps the version and
 // fills the new collections with empty defaults — all fields are optional
 // so pre-1.1.0 blobs resume cleanly via _loadFromSnap's ?? fallbacks.
-export const CURRENT_VERSION = '1.3';
+// 1.2.0: schema bump to "1.4" — SaveBlobV1 gains optional partner_offer,
+// active_partner_deal, observer_publish_suppressed (ICD-02 v0.3.3 Observer
+// DESPERATE / SILENCED bodies). migrate_1_3_to_1_4 stamps the version and
+// defaults all three to null/0; the _loadFromSnap path also reads via ??
+// fallbacks so the migration is double-safe.
+export const CURRENT_VERSION = '1.4';
 export const SCORES_VERSION = 1;                       // 0.10.0 (G-13)
 export const STORY_VERSION = 1;
 export const MAX_HIGH_SCORES = 10;                     // 0.10.0 (G-13)
@@ -89,6 +94,25 @@ export function serialize(world) {
     active_arcs:           (world.activeArcs ?? []).map((a) => a.snap()),
     district_heat:         { ...(world.districtHeat ?? {}) },
     district_dispositions: { ...(world.districtDispositions ?? {}) },
+    // 1.2.0 (ICD-04 v0.1.5 · ICD-02 v0.3.3): Observer DESPERATE/SILENCED body
+    // persistence. All three fields are optional on the wire — pre-1.2.0 saves
+    // resume cleanly via _loadFromSnap's ?? null defaults; migrate_1_3_to_1_4
+    // stamps them so forward-compat readers don't see `undefined` where
+    // null/0 is expected.
+    partner_offer: world.partnerOffer
+      ? {
+          edition_emitted: world.partnerOffer.editionEmitted,
+          district:        world.partnerOffer.district,
+        }
+      : null,
+    active_partner_deal: world.activePartnerDeal
+      ? {
+          accepted_at_edition: world.activePartnerDeal.acceptedAtEdition,
+          district:            world.activePartnerDeal.district,
+          editions_remaining:  world.activePartnerDeal.editionsRemaining,
+        }
+      : null,
+    observer_publish_suppressed: world.observerPublishSuppressed ?? 0,
   };
 }
 
@@ -112,6 +136,7 @@ export function runMigrations(raw) {
   if (raw.version === '1.0') raw = migrate_1_0_to_1_1(raw);
   if (raw.version === '1.1') raw = migrate_1_1_to_1_2(raw);
   if (raw.version === '1.2') raw = migrate_1_2_to_1_3(raw);
+  if (raw.version === '1.3') raw = migrate_1_3_to_1_4(raw);
   if (raw.version === CURRENT_VERSION) return raw;
   // Anything not matching the current version is a future blob — refuse.
   return null;
@@ -160,6 +185,21 @@ function migrate_1_2_to_1_3(blob) {
     rivals: observer
       ? { ...rivals, observer: { ...observer, recent_states: observer.recent_states ?? [] } }
       : rivals,
+  };
+}
+
+// 1.2.0 (ICD-04 v0.1.5): v1.3 saves predate the Observer DESPERATE/SILENCED
+// body surfaces. All three new fields default null/0 so pre-1.2.0 blobs come
+// online with no pending offer, no active deal, and no PUBLISH suppression
+// — equivalent to the Observer never having entered DESPERATE on the prior
+// run. Same migration shape as 1.2 → 1.3: version stamp + defaults.
+function migrate_1_3_to_1_4(blob) {
+  return {
+    ...blob,
+    version: '1.4',
+    partner_offer:               blob.partner_offer               ?? null,
+    active_partner_deal:         blob.active_partner_deal         ?? null,
+    observer_publish_suppressed: blob.observer_publish_suppressed ?? 0,
   };
 }
 

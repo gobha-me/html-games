@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 1.1.2 Playtest UX polish round 2 (dossier hierarchy · minimap)</title>
+<title>Late Edition — 1.2.0 Observer DESPERATE + SILENCED state bodies</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -319,6 +319,69 @@
     background: var(--ink);
     color: var(--paper);
     vertical-align: 1px;
+  }
+  /* 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-offer chip in the Threats
+     panel. Block-level so it sits below the goons/press-HP lines; Accept /
+     Decline buttons inline-aligned right of the terms line. Mono caps for
+     buttons match the dossier letter rule; ink/paper inverse so the offer
+     reads as a rival action, not a passive status. */
+  #hud-dossier .panel .partner-offer {
+    display: block;
+    margin-top: 8px;
+    padding: 6px 8px 8px;
+    border-left: 2px solid var(--ink);
+    background: var(--paper);
+  }
+  #hud-dossier .panel .partner-offer .po-headline {
+    display: block;
+    font-family: var(--serif);
+    font-size: 13px;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  #hud-dossier .panel .partner-offer .po-terms {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  #hud-dossier .panel .partner-offer .po-actions {
+    display: block;
+    margin-top: 6px;
+  }
+  #hud-dossier .panel .partner-offer .po-btn {
+    appearance: none;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    margin-right: 6px;
+    padding: 3px 9px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  #hud-dossier .panel .partner-offer .po-btn.po-decline {
+    background: var(--paper-2);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+  }
+  #hud-dossier .panel .partner-offer .po-btn:hover {
+    filter: brightness(1.1);
+  }
+  /* Active-deal breadcrumb — no interaction, just a constraint reminder. */
+  #hud-dossier .panel .partner-deal-line {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink);
   }
 
   /* 0.10.2 (D-07): debrief panel as newspaper pages. Each printed story
