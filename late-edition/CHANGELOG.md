@@ -1,5 +1,90 @@
 # Changelog — Late Edition
 
+## v1.1.2 — 2026-05-23 — Playtest UX polish round 2 (dossier hierarchy · minimap)
+
+Second Tier-1.x polish session, closing out the two deferred items from the
+v1.1.0 same-day playtest. v1.1.1 shipped four cascading bugs ahead of these
+two because they were the cosmetic / orientation layer rather than
+first-launch blockers. Both blockers behind the deferral have now landed
+(fog calibration at v1.1.1), so the dossier-hierarchy fix is unblocked and
+the minimap can calibrate against the known visible-area distance. Tests
+at 365 cases (355 → 365 = +10). Closes Gitea issues #336 · #337.
+
+### Fixed
+
+- **#336 dossier panels feel covered by world viewport.**
+  [`index.html`](index.html): `#hud-dossier { border-top: 1px solid var(--rule); }`
+  → `border-top: 2px solid var(--ink);` — matches the deadline-strip's
+  `2px dashed var(--ink)` weight at the top of `#world` so the bottom row
+  carries equal hierarchy. `#hud-dossier .panel { min-height: 78px; }` →
+  `min-height: 120px;` — the auto-sized dossier row grows from ~105px
+  to ~148px, giving SELECTED / STORY QUEUE / THREATS visible weight
+  against the world canvas. No body grid-template change — the existing
+  `auto auto 1fr auto` pattern still applies; the bump comes from the
+  panel content height.
+
+### Added
+
+- **#337 minimap (~140×140 px HUD widget).** Bottom-right of `#world` —
+  the top edge is owned by the deadline strip, so the bottom-right
+  quadrant is the free corner. Renders the full 10×10 grid + 4
+  buildings (kind-colored squares) + leads (flavor-colored diamonds)
+  + player-controlled units + visible goons + selection ring on the
+  selected building or unit + camera frustum overlay (the iso-rotated
+  ground rhombus from the orthographic camera's projection). Pure
+  canvas-2D; reads `frame.buildings` / `frame.units` / `frame.leads` /
+  `frame.selectedBuilding` from the existing `WorldFrame` (no new
+  projections) and `renderer.getView()` for the live pan + frustum +
+  aspect. [`js/render/minimap.js`](js/render/minimap.js) (new, pure)
+  hosts the `tileToPixel` / `worldXZToPixel` / `frustumQuad` helpers
+  so the math is testable without DOM/THREE (mirrors the v1.1.1
+  zoom-step.js factoring). [`js/hud.js`](js/hud.js) gains a `Minimap`
+  region as a fifth `HudCorkboard` sibling. [`js/render/renderer.js`](js/render/renderer.js)
+  exposes `getView()` returning `{ pan, frustum, aspect }`. The HUD
+  stays projection-only — the renderer view is read through an
+  `actions.getView` callback passed at construction time, same
+  pattern as `actions.toggleArchive`.
+
+### Out of scope
+
+- **HiDPI scaling for the minimap canvas.** v1 ships at 1:1 pixel
+  mapping with `image-rendering: crisp-edges`. If retina builds read
+  soft, a `setPixelRatio`-style backing-store bump is a one-paragraph
+  follow-up — defer until the symptom is reported.
+- **Clickable minimap (pan-to-tile).** The widget is read-only at v1
+  (`pointer-events: none`); the canvas underneath still receives
+  click-to-dispatch / building-select. A future ticket can lift the
+  click-to-pan gesture once the iso → world-XZ inverse projection
+  has a home.
+
+### ICD bumps in-PR (Constraint #4)
+
+- **None.** All minimap inputs come from existing WorldFrame fields
+  (ICD-01 v0.6.6) + renderer-local view state that ICD-01 §Notes
+  explicitly pins as "renderer never reaches back" (the sim never
+  sees pan/zoom). The minimap reads the renderer's live view through
+  a read-only callback that keeps the HUD a one-way projection.
+
+### Tests
+
+- 365 cases (355 → 365 = +10).
+- New [`tests/minimap.test.mjs`](tests/minimap.test.mjs) — pure
+  projection helpers: tileToPixel corner symmetry, world-XZ ↔
+  tile-pixel composition, frustumQuad pan offset, frustum size
+  scaling, aspect-ratio camera-right stretch.
+
+### Verification
+
+- Full suite: `cd late-edition && node --test tests/*.test.mjs` →
+  365/365 pass.
+- Browser smoke: dossier `border-top` reads `2px solid rgb(10,10,12)`,
+  panel `min-height` reads `120px`; live import of `js/hud.js` +
+  `js/render/minimap.js` succeeds, pixel sampling at tile centers
+  resolves to the expected kind colors (Bureau 192,33,42; Darkroom
+  28,24,24; paper background 236,232,223).
+
+---
+
 ## v1.1.1 — 2026-05-22 — Playtest UX polish (fog · WASD · building dossier · multi-step zoom)
 
 First Tier-1.x polish session. v1.1.0 shipped at 14:22; the same-day

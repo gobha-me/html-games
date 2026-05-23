@@ -169,6 +169,20 @@ export class Renderer {
     this._panVel.z = vz;
   }
 
+  // 1.1.2 (#337): read-only view state for the minimap HUD widget. Returns
+  // the live pan offset, current eased frustum size, and the canvas aspect
+  // ratio — everything the minimap needs to draw the camera-frustum overlay
+  // without poking the scene graph. Called once per frame from
+  // HudCorkboard via the `getView` action callback (the HUD doesn't hold a
+  // renderer reference; this keeps the projection-only HUD invariant intact).
+  getView() {
+    return {
+      pan: { x: this._pan.x, z: this._pan.z },
+      frustum: this._frustum,
+      aspect: this._aspect(),
+    };
+  }
+
   // 1.1.1 (#335): step the zoom one rung in (+1, smaller frustum / tighter)
   // or out (-1, larger frustum / wider) along FRUSTUM_STEPS. Endpoints clamp
   // silently — at step 0 a further out-press is a no-op; same at the

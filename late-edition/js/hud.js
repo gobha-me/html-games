@@ -23,6 +23,7 @@
 import { currentTutorialBeat, BEAT_COPY } from './sim/tutorial.js';
 import { getDistrict } from './sim/districts.js';
 import { ARCHIVE_CAP } from './sim/world-state.js';
+import { tileToPixel, worldXZToPixel, frustumQuad, GRID_W, MARGIN } from './render/minimap.js';
 
 // Aligned with cycle-clock's DEADLINE_WARNING fire at T-30s (Design Doc §13 strip-
 // turns-red beat). The optional CRITICAL_MS = 5_000 tighter pulse is deferred —
@@ -92,9 +93,13 @@ export function tierHistogram(leads) {
 
 export class HudCorkboard {
   // 1.0.1 (ICD-09 §HUD surface): `actions` carries player-gesture callbacks
-  // the dossier wires to sim mutators. Today: { toggleArchive(storyId) }.
+  // the dossier wires to sim mutators. Today: { toggleArchive(storyId),
+  // pickArcBranch(id, label), getView() }.
   // The HUD stays projection-only; gestures route through callbacks instead
   // of the HUD holding a World reference.
+  // 1.1.2 (#337): `actions.getView` is the renderer-side read-only window
+  // for the minimap's frustum overlay. Optional — when absent, the minimap
+  // still draws everything except the frustum rect.
   constructor(roots, actions = {}) {
     this.top      = new TopCards(roots.topCards);
     this.deadline = new DeadlineStrip(roots.deadline);
@@ -104,6 +109,9 @@ export class HudCorkboard {
     // or after the 30 s welcome window). Re-derives every frame so a
     // save/load lands on the correct beat with no persistence.
     this.tutorial = new TutorialNote(roots.tutorial);
+    // 1.1.2 (#337): minimap is optional — when no canvas is mounted (or
+    // the host page omits it), the rest of the HUD still functions.
+    this.minimap = roots.minimap ? new Minimap(roots.minimap, actions) : null;
   }
 
   apply(frame) {
@@ -113,6 +121,7 @@ export class HudCorkboard {
     this.deadline.apply(frame.hud);
     this.dossier.apply(frame, bureauHp);
     this.tutorial.apply(frame);
+    if (this.minimap) this.minimap.apply(frame);
   }
 }
 
@@ -135,6 +144,171 @@ class TutorialNote {
     this.bodyEl.textContent = BEAT_COPY[beat];
     this.root.dataset.beat = beat;
   }
+}
+
+// 1.1.2 (#337) — minimap HUD widget. North-up top-down projection of the
+// 10×10 grid; reads frame.buildings/units/leads/stories/selectedBuilding,
+// plus the renderer's view state via actions.getView() (pan + frustum +
+// aspect) for the frustum overlay. Sub-millisecond redraw per frame.
+//
+// Colors lifted from js/render/renderer.js so the minimap reads as the same
+// world the 3D scene draws: bureau-awning red, branch-bureau body brown,
+// darkroom mast dark, switchboard tan, fixer-kerchief red, editor-visor
+// green, etc. Goons are drawn as pure ink so the player sees them as
+// danger irrespective of the noir palette.
+//
+// Projection helpers (tileToPixel / worldXZToPixel / frustumQuad) are pure
+// — see js/render/minimap.js and tests/minimap.test.mjs.
+const MINIMAP_COLORS = {
+  background: '#ece8df',         // --paper
+  grid:       'rgba(106, 100, 92, 0.18)',  // --mid 18%
+  districtDocks:    'rgba(74, 90, 122, 0.18)',  // labor-blue tint
+  districtHillside: 'rgba(106, 122, 74, 0.18)', // money-olive tint
+  bureau:        '#c0212a',
+  branch_bureau: '#6b3a3a',
+  darkroom:      '#1c1818',
+  switchboard:   '#a68f6f',
+  reporter: '#5a3f2a',
+  photog:   '#3a3a3a',
+  fixer:    '#c0212a',
+  editor:   '#3a6a3a',
+  goon:     '#0a0a0c',           // --ink
+  leadVice:     '#8a3a4a',
+  leadViolence: '#4a3a3a',
+  leadMoney:    '#6a7a4a',
+  leadLabor:    '#4a5a7a',
+  selectionRing: '#f6c860',      // yellow ring (matches renderer.js selection)
+  frustum:       '#0a0a0c',      // --ink
+};
+
+const MINIMAP_LEAD_COLOR = {
+  vice:     MINIMAP_COLORS.leadVice,
+  violence: MINIMAP_COLORS.leadViolence,
+  money:    MINIMAP_COLORS.leadMoney,
+  labor:    MINIMAP_COLORS.leadLabor,
+};
+
+// District spawn rects, mirrored from js/sim/districts.js so the minimap
+// doesn't have to import the full module for two 4×4 boxes. Tile coords
+// (x, y, w, h). Re-confirm against districts.js on any T0 → T1 expansion.
+const MINIMAP_DISTRICTS = [
+  { id: 'docks',    rect: { x: 1, y: 1, w: 4, h: 4 }, fill: MINIMAP_COLORS.districtDocks },
+  { id: 'hillside', rect: { x: 6, y: 1, w: 4, h: 4 }, fill: MINIMAP_COLORS.districtHillside },
+];
+
+class Minimap {
+  constructor(canvasEl, actions = {}) {
+    this.canvas = canvasEl;
+    this.ctx = canvasEl.getContext('2d');
+    this.size = canvasEl.width;  // square — width === height
+    this.getView = actions.getView ?? null;
+  }
+
+  apply(frame) {
+    const { ctx, size } = this;
+
+    // 1. Clear + paper background.
+    ctx.fillStyle = MINIMAP_COLORS.background;
+    ctx.fillRect(0, 0, size, size);
+
+    // 2. District overlays (faint colored fills inside the spawn rects).
+    for (const d of MINIMAP_DISTRICTS) {
+      const tl = tileToPixel({ x: d.rect.x, y: d.rect.y }, size);
+      const br = tileToPixel({ x: d.rect.x + d.rect.w - 1, y: d.rect.y + d.rect.h - 1 }, size);
+      const cell = (size - 2 * MARGIN) / GRID_W;
+      ctx.fillStyle = d.fill;
+      ctx.fillRect(tl.px - cell / 2, tl.py - cell / 2, (br.px - tl.px) + cell, (br.py - tl.py) + cell);
+    }
+
+    // 3. Grid lines (faint, every tile boundary).
+    ctx.strokeStyle = MINIMAP_COLORS.grid;
+    ctx.lineWidth = 1;
+    const cell = (size - 2 * MARGIN) / GRID_W;
+    ctx.beginPath();
+    for (let i = 0; i <= GRID_W; i++) {
+      const p = MARGIN + i * cell + 0.5;  // +0.5 keeps 1px lines crisp on integer pixel grid
+      ctx.moveTo(MARGIN, p);              ctx.lineTo(size - MARGIN, p);
+      ctx.moveTo(p, MARGIN);              ctx.lineTo(p, size - MARGIN);
+    }
+    ctx.stroke();
+
+    // 4. Leads (small diamond, flavor-colored).
+    for (const l of frame.leads ?? []) {
+      const { px, py } = tileToPixel(l.pos, size);
+      const c = MINIMAP_LEAD_COLOR[l.flavor] ?? MINIMAP_COLORS.leadVice;
+      drawDiamond(ctx, px, py, 2.5, c);
+    }
+
+    // 5. Buildings (kind-colored squares).
+    const sel = frame.selectedBuilding;
+    for (const b of frame.buildings ?? []) {
+      const { px, py } = tileToPixel(b.pos, size);
+      const fill = MINIMAP_COLORS[b.kind] ?? MINIMAP_COLORS.bureau;
+      const r = 3;  // half-side of the 6×6 building square
+      ctx.fillStyle = fill;
+      ctx.fillRect(Math.round(px - r), Math.round(py - r), r * 2, r * 2);
+      // Selection ring — match the renderer's selectionRing yellow.
+      if (sel && sel.id === b.id) {
+        ctx.strokeStyle = MINIMAP_COLORS.selectionRing;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(Math.round(px - r) - 1.5, Math.round(py - r) - 1.5, r * 2 + 3, r * 2 + 3);
+      }
+    }
+
+    // 6. Units (filled circle, kind-colored). Player-controlled units render
+    // first so they sit beneath goons (red over brown for an intercept beat).
+    // Goons that survived the world's visibility filter (Switchboard LoS +
+    // Bureau-adjacency reveal) draw in ink so the player sees the threat.
+    for (const u of frame.units ?? []) {
+      const { px, py } = tileToPixel(u.pos, size);
+      const fill = MINIMAP_COLORS[u.kind] ?? MINIMAP_COLORS.goon;
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(px, py, u.kind === 'goon' ? 2.5 : 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Selection ring on selected unit too (mirrors the 3D yellow ring).
+      if (u.selected) {
+        ctx.strokeStyle = MINIMAP_COLORS.selectionRing;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // 7. Frustum overlay — 4-vertex rhombus from frustumQuad on the ground.
+    // Drawn last so it sits on top of everything. The rhombus is naturally
+    // rotated ~45° in world XZ space because the iso camera reads "screen
+    // right" as the NE-SW diagonal on the ground; players quickly learn
+    // that the rhombus is the visible area.
+    if (this.getView) {
+      const view = this.getView();
+      if (view) {
+        const quad = frustumQuad(view.pan, view.frustum, view.aspect);
+        ctx.strokeStyle = MINIMAP_COLORS.frustum;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < quad.length; i++) {
+          const { px, py } = worldXZToPixel(quad[i], size);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function drawDiamond(ctx, cx, cy, r, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(cx,     cy - r);
+  ctx.lineTo(cx + r, cy);
+  ctx.lineTo(cx,     cy + r);
+  ctx.lineTo(cx - r, cy);
+  ctx.closePath();
+  ctx.fill();
 }
 
 class TopCards {

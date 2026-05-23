@@ -114,6 +114,58 @@ and commit it alongside whatever change triggered the need.
 
 ## Current state
 
+**v1.1.2 — Playtest UX polish round 2 (dossier hierarchy · minimap).**
+Second Tier-1.x polish session. Closes out the two deferred items from
+the v1.1.0 same-day playtest (v1.1.1 took the four first-launch blockers;
+v1.1.2 takes the two cosmetic / orientation items that benefit from
+landing after the fog calibration). Two deliverables landed:
+
+- **#336 dossier hierarchy.** [`index.html`](index.html): `#hud-dossier`
+  `border-top: 1px solid var(--rule)` → `2px solid var(--ink)` so the
+  bottom row matches the deadline-strip's heavy ink weight at the top
+  of `#world`. `.panel min-height: 78px` → `120px` so the auto-sized
+  dossier row grows from ~105px to ~148px without changing the body
+  grid template — SELECTED / STORY QUEUE / THREATS read as a deliberate
+  bottom surface, not as crammed-against-the-canvas residue. CSS-only;
+  no JS / sim changes.
+- **#337 minimap.** New 140×140 px HUD widget bottom-right of `#world`
+  (top is owned by the deadline strip). Renders the 10×10 grid + 4
+  buildings (kind-colored squares) + leads (flavor-colored diamonds) +
+  player units + visible goons (the LoS-filtered set already in
+  `WorldFrame`) + selection ring on the selected building/unit + camera
+  frustum overlay (iso-rotated ground rhombus from the orthographic
+  camera). [`js/render/minimap.js`](js/render/minimap.js) (new, pure)
+  hosts the projection helpers `tileToPixel` / `worldXZToPixel` /
+  `frustumQuad` — mirrors the v1.1.1 zoom-step.js factoring so the
+  math is testable without DOM / THREE. [`js/hud.js`](js/hud.js) adds
+  the `Minimap` region as a fifth `HudCorkboard` sibling (TopCards /
+  DeadlineStrip / Dossier / TutorialNote / Minimap), instantiated only
+  when `roots.minimap` is non-null so the HUD still functions in a
+  minimap-less host. [`js/render/renderer.js`](js/render/renderer.js)
+  exposes `getView()` returning `{ pan, frustum, aspect }`; the HUD
+  reads it through `actions.getView` (callback at construction, same
+  pattern as `actions.toggleArchive`) — the HUD never holds a renderer
+  reference and the renderer stays the canonical view-state owner.
+
+**No ICD bumps in-PR.** All minimap inputs come from existing
+`WorldFrame` fields (ICD-01 v0.6.6) + renderer-local view state that
+ICD-01 §Notes pins as "renderer never reaches back" (the sim never
+sees pan/zoom). Tests at 365 cases (355 → 365 = +10; new
+`tests/minimap.test.mjs` covering tile-to-pixel symmetry, world-XZ ↔
+tile-pixel composition, frustum pan offset, zoom-shrinks-radius,
+aspect-stretches-along-camera-right). Closes Gitea issues #336 / #337.
+The v1.1.x playtest UX polish track is now done.
+
+**Next: Tier-1.x content + adversarial maturation.** Same backlog as
+v1.1.1 next-up: Herald PUNISH + BUYOUT state bodies · Observer
+DESPERATE + SILENCED state bodies · Star-vs-Observer raid mechanic
+(§06 matrix cell 3) · audio bus first caller against ICD-07 · further
+authored arcs (Mayor's Mistress · Empty Vault · etc.) · district-
+disposition mechanical effect (spawn-rate / raid-prob modifiers) at
+the 1.1.x balance pass.
+
+---
+
 **v1.1.1 — Playtest UX polish (fog · WASD · building dossier · multi-step
 zoom).** First Tier-1.x polish session. v1.1.0 shipped 2026-05-22 at 14:22;
 the same-day playtest produced six issues, four of which made the game

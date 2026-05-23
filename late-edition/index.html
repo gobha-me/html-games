@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 1.1.1 Playtest UX polish (fog · WASD · building dossier · multi-step zoom)</title>
+<title>Late Edition — 1.1.2 Playtest UX polish round 2 (dossier hierarchy · minimap)</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -196,20 +196,45 @@
     to   { opacity: 1; }
   }
 
-  /* Dossier row — three panels along the bottom of the corkboard. */
+  /* 1.1.2 (#337) — minimap HUD widget. Sits in the bottom-right of #world
+     (top edge is owned by the deadline strip). pointer-events:none so the
+     canvas underneath still receives click-to-dispatch / building-select
+     even when the player's cursor crosses the minimap. Sized in CSS so the
+     minimap canvas's intrinsic size is 140×140 (matches `width=140` /
+     `height=140` set on the <canvas> tag — keeps drawing 1:1 with pixels). */
+  #hud-minimap {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    z-index: 5;
+    width: 140px;
+    height: 140px;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--paper-shadow);
+    pointer-events: none;
+    image-rendering: crisp-edges;
+  }
+
+  /* Dossier row — three panels along the bottom of the corkboard.
+     1.1.2 (#336): the original 1px var(--rule) border read as a rain particle
+     against the gray paper of the world canvas. Match the deadline-strip's
+     2px ink weight at the top of #world so the bottom row carries equal
+     hierarchy. Panel min-height grows 78 → 120 so the auto-sized dossier
+     row claims ~148px (was ~105px) without changing the body grid template. */
   #hud-dossier {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     padding: 12px 18px 14px;
     background: var(--paper);
-    border-top: 1px solid var(--rule);
+    border-top: 2px solid var(--ink);
   }
   #hud-dossier .panel {
     background: var(--paper-2);
     border: 1px solid var(--rule);
     padding: 10px 14px 12px;
-    min-height: 78px;
+    min-height: 120px;
     box-shadow: 2px 2px 0 var(--paper-shadow);
   }
   #hud-dossier .panel .lbl {
@@ -601,6 +626,7 @@
     <span class="val">12:00</span>
     <span class="ed">Edition № 001</span>
   </div>
+  <canvas id="hud-minimap" width="140" height="140"></canvas>
 </div>
 
 <section id="hud-dossier">

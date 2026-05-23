@@ -46,6 +46,7 @@ definitions.
 | **1.0.1** | Tier-1 opener — Archive UI (ICD-09 · `archived` Story state · cap=5 · decay=10 editions · dossier `archived: N/5` · left-click per-row gesture) · `UnitView.stats` projector for Reporter trio · `LeadView.district` dossier read · 30 s minimum debrief gate (ICD-06 v0.4 code-side) — *shipped v1.0.1* | Second half of the 1.0 opener. ICD-01 → v0.6.5 (`WorldFrame.stories` + `UnitView.stats` projector + `HudState.resources.archived`); ICD-04 → v0.1.3 (`StorySnap.state` widens + `archived_at_ms` + `UnitSnap.stats`; v1.1 → v1.2 migration); ICD-05 → v0.4.2 (§Notes cross-ref to ICD-09); ICD-09 → v0.1.1 (§Open Q1 close). Tests at 281 cases (257 → 281). Closes Gitea #317. | strong |
 | **1.1.0** | Tier-1 content — first authored arc (Longshoreman Strike) + Investigation 3-step chain wiring · arc dispatcher in `_runSpawnerTick` (trigger predicate + district constraint + one-instance-per-arc-id) · `_handlePhotogArrival` chain hook (depth 3 cap, deterministic from parent.id) · `World.pickArcBranch` corkboard-chip player gesture · `_applyArcPlate` outcome application (cash/heat one-times + districtDispositions) · district-heat accumulator + flat -5/edition decay · Observer.recentStates ring (cap 5) — *shipped v1.1.0* | First Tier-1.x content session. Retires the `tier === 'arc'` lead-spawner collapse from 0.10.0. ICD-10 → v0.1.1 (negate-flag + StoryArc.district + arc registry + chain hook + observer_silent_n_editions semantics + §Save-surface lift + §Open-Qs Q1/Q3/Q4 closed). ICD-04 → v0.1.4 (`active_arcs`, `district_heat`, `district_dispositions`; `StorySnap` optional `parent_story_id` + `arc_episode_id` + `arc_branch_label`; `ObserverSnap.recent_states`; v1.2 → v1.3 migration). ICD-02 → v0.3.2 (§Notes Observer.recentStates). ICD-05 → v0.4.3 (§Notes cross-ref to ICD-10 v0.1.1). Tests at 334 cases (281 → 334). | strong |
 | **1.1.1** | Playtest UX polish — #332 fog camera-target distance (camera (40,35,40)→(24,22,24) via `CAMERA_OFFSET`) · #333 WASD pan rotated 45° to screen-aligned axes (KEY_PAN unit vectors) · #334 building dossier (Option A — `buildingAtTile` + `selectBuilding` mirror unit pattern; `WorldFrame.selectedBuilding: SelectedBuildingView \| null` projection; Switchboard + Branch Bureau gain player-readable HP) · #335 multi-step zoom (4-step ladder 30→22→16→10 with silent-clamp endpoints, `FRUSTUM_STEPS` + `nextZoomStep` in `js/render/zoom-step.js` for testability) — *shipped v1.1.1* | First Tier-1.x polish session against v1.1.0 same-day playtest reports. ICD-01 v0.6.5 → v0.6.6 (`SelectedBuildingView` widens `BuildingView` with `district`; `WorldFrame.selectedBuilding` top-level field). Tests at 355 cases (334 → 355 = +21; three new test files: `building-select.test.mjs` · `input-pan.test.mjs` · `zoom.test.mjs`). Closes Gitea issues #332/#333/#334/#335 + stale #330. Defers #336 (likely auto-resolved by fog fix) and #337 (minimap, separate ticket). | strong |
+| **1.1.2** | Playtest UX polish round 2 — #336 dossier hierarchy (`#hud-dossier` border-top `1px var(--rule)` → `2px var(--ink)` to match the deadline-strip weight; `.panel` `min-height` 78px → 120px so the auto-sized dossier row grows from ~105px → ~148px without changing the body grid template) · #337 minimap (new 140×140 px HUD widget bottom-right of `#world` — 10×10 grid + buildings/units/leads/visible-goons + selection ring + iso-rotated camera-frustum rhombus overlay; pure projection helpers `tileToPixel`/`worldXZToPixel`/`frustumQuad` in new `js/render/minimap.js`; `Minimap` region added to `HudCorkboard` as fifth sibling; `renderer.getView()` exposes pan + frustum + aspect through `actions.getView` callback so the HUD never holds a renderer reference) — *shipped v1.1.2* | Second Tier-1.x polish session. Closes the two items v1.1.1 deferred (#336 was *"likely auto-resolved by fog fix"* — required CSS reinforcement; #337 *"benefits from #332 calibration landing first"* — now calibratable). **No ICD bumps** — all minimap inputs come from existing WorldFrame fields (ICD-01 v0.6.6) + renderer-local view state. Tests at 365 cases (355 → 365 = +10; new `minimap.test.mjs`). Closes Gitea issues #336/#337. The v1.1.x playtest UX polish track is now done. | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -67,6 +68,38 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**v1.1.2 — Playtest UX polish round 2 (dossier hierarchy · minimap).**
+Second Tier-1.x polish session. Closes the two deferred items from the
+v1.1.0 same-day playtest (v1.1.1 took the four first-launch blockers).
+Two deliverables ship: (1) **#336 dossier hierarchy** — `index.html`
+`#hud-dossier { border-top: 1px solid var(--rule); }` →
+`2px solid var(--ink);` matches the deadline-strip's heavy ink weight at
+the top of `#world` so the bottom row carries equal hierarchy; `.panel`
+`min-height: 78px` → `120px` grows the auto-sized dossier row from
+~105px → ~148px without changing the body grid template. CSS-only.
+(2) **#337 minimap** — new 140×140 px HUD widget bottom-right of
+`#world` (top is owned by the deadline strip). Renders the 10×10 grid +
+4 buildings (kind-colored squares) + leads (flavor-colored diamonds) +
+player units + visible goons + selection ring + camera frustum overlay
+(iso-rotated ground rhombus from the orthographic camera).
+`js/render/minimap.js` (new, pure) hosts the projection helpers
+(`tileToPixel`, `worldXZToPixel`, `frustumQuad`) — mirrors the v1.1.1
+`zoom-step.js` factoring so the math is testable without DOM / THREE.
+`js/hud.js` adds the `Minimap` region as a fifth `HudCorkboard` sibling.
+`js/render/renderer.js` exposes `getView()` returning `{ pan, frustum,
+aspect }`; the HUD reads it through `actions.getView` (callback at
+construction, same pattern as `actions.toggleArchive`). **No ICD bumps
+in-PR** — all minimap inputs come from existing WorldFrame fields (ICD-01
+v0.6.6) + renderer-local view state ICD-01 §Notes pins as "renderer
+never reaches back". Tests at 365 cases (355 → 365 = +10; new
+`tests/minimap.test.mjs`). Closes Gitea issues #336 + #337. The v1.1.x
+playtest UX polish track is now done; next opens Tier-1.x content +
+adversarial maturation (Herald PUNISH / BUYOUT · Observer DESPERATE /
+SILENCED · Star-vs-Observer raid · audio bus first caller · further
+authored arcs).
+
+---
 
 **v1.1.1 — Playtest UX polish (fog · WASD · building dossier · multi-step
 zoom).** First Tier-1.x polish session. v1.1.0 shipped at 14:22; the same-

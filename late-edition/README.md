@@ -8,6 +8,43 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v1.1.2 — Playtest UX polish round 2 (dossier hierarchy · minimap).**
+Second Tier-1.x polish session, closing out the two deferred items from
+the v1.1.0 same-day playtest. v1.1.1 fixed the four cascading first-launch
+bugs (fog · WASD · building dossier · multi-step zoom); v1.1.2 picks up the
+two cosmetic / orientation items that were intentionally deferred to verify
+post-fog-fix. Two deliverables land here:
+(1) **#336 dossier hierarchy** — [`index.html`](index.html) `#hud-dossier`
+border-top `1px solid var(--rule)` → `2px solid var(--ink)` (matches the
+deadline-strip's heavy ink rule at the top of `#world` so the bottom row
+carries equal hierarchy); `.panel` `min-height: 78px` → `120px` (the
+auto-sized dossier row grows from ~105px to ~148px without changing the
+body grid template, giving SELECTED / STORY QUEUE / THREATS visible
+weight against the world canvas).
+(2) **#337 minimap** — new 140×140 px HUD widget in the bottom-right of
+`#world`. Renders the 10×10 grid + 4 buildings (kind-colored squares) +
+leads (flavor-colored diamonds) + player units (kind-colored dots) +
+visible goons (ink dots) + selection ring on the selected building or
+unit + camera frustum overlay (the iso-rotated ground rhombus). Pure
+canvas-2D; reads existing `WorldFrame` fields (no new projections) plus
+new `renderer.getView()` for live pan + frustum + aspect. The HUD stays
+projection-only — the renderer view is exposed via an `actions.getView`
+callback at `HudCorkboard` construction, same pattern as
+`actions.toggleArchive`. [`js/render/minimap.js`](js/render/minimap.js)
+(new, pure) hosts the projection helpers (`tileToPixel` /
+`worldXZToPixel` / `frustumQuad`) so the math is testable without DOM /
+THREE; [`js/hud.js`](js/hud.js) gains a `Minimap` region as a fifth
+`HudCorkboard` sibling. **No ICD bumps** — all minimap inputs come from
+existing fields + renderer-local view state that ICD-01 §Notes
+explicitly pins as "renderer never reaches back". Tests at 365 cases
+(355 → 365 = +10 — `tests/minimap.test.mjs` covers tile-to-pixel
+symmetry, world-XZ ↔ tile composition, frustum pan/zoom/aspect math).
+Closes Gitea issues #336 · #337 — the v1.1.x playtest UX polish track
+is now done; next opens Tier-1.x content + adversarial maturation
+(Herald PUNISH / BUYOUT · Observer DESPERATE / SILENCED · audio bus
+first caller · further authored arcs). See [`roadmap.md`](roadmap.md)
+and [`CHANGELOG.md`](CHANGELOG.md).
+
 **v1.1.1 — Playtest UX polish (fog · WASD · building dossier · multi-step zoom).**
 First Tier-1.x polish session. v1.1.0 shipped at 14:22; the same-day
 playtest produced six issues, four of which made the game feel broken

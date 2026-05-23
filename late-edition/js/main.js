@@ -22,8 +22,13 @@ const hudRoots = {
   deadline: document.getElementById('hud-deadline-strip'),
   dossier:  document.getElementById('hud-dossier'),
   tutorial: document.getElementById('hud-tutorial-note'),
+  // 1.1.2 (#337): minimap is optional from the HUD's perspective — the
+  // HudCorkboard tolerates a null root so the page can mount without one
+  // (e.g. headless / test harness). The launcher page always mounts it.
+  minimap:  document.getElementById('hud-minimap'),
 };
 for (const [k, el] of Object.entries(hudRoots)) {
+  if (k === 'minimap') continue;  // optional; null is allowed
   if (!el) throw new Error(`hud root ${k} not found`);
 }
 const panelRoot = document.getElementById('debrief-panel');
@@ -57,6 +62,11 @@ const hud = new HudCorkboard(hudRoots, {
   // dossier chip strip. World records the label; effects fire at the
   // verified → plated boundary in _fireDebrief.
   pickArcBranch: (storyId, label) => world.pickArcBranch(storyId, label),
+  // 1.1.2 (#337): renderer view-state window for the minimap's frustum
+  // overlay. The HUD reads pan + frustum + aspect each frame; the renderer
+  // stays the canonical owner. Returns null defensively if renderer hasn't
+  // attached its view state yet (boot-order safety).
+  getView: () => renderer.getView(),
 });
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);
