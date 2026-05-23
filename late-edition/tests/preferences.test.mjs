@@ -2,8 +2,12 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PREF_KEY_PAN_SPEED_MULT,
+  PREF_KEY_AUDIO_MUTED_PREFIX,
   getRawPref,
   getPanSpeedMultiplier,
+  setPanSpeedMultiplier,
+  getChannelMuted,
+  setChannelMuted,
 } from '../js/preferences.js';
 
 // 1.3.1: player-preferences module. The PAN_SPEED bump in v1.3.1 felt
@@ -90,4 +94,68 @@ test('PREF_KEY_PAN_SPEED_MULT is the canonical key string (lock against rename)'
   // Players will hard-code this in DevTools; renaming silently breaks every
   // saved tweak. Pin the key explicitly.
   assert.equal(PREF_KEY_PAN_SPEED_MULT, 'lateEdition.panSpeedMultiplier');
+});
+
+// 1.4.0 — settings popover writers. The slider drives setPanSpeedMultiplier
+// per input event; the channel toggles drive setChannelMuted on click.
+
+test('setPanSpeedMultiplier writes the clamped value to localStorage', () => {
+  setPanSpeedMultiplier(1.7);
+  assert.equal(localStorage.getItem(PREF_KEY_PAN_SPEED_MULT), '1.7');
+  assert.equal(getPanSpeedMultiplier(), 1.7);
+});
+
+test('setPanSpeedMultiplier clamps absurdly large values before writing', () => {
+  setPanSpeedMultiplier(1000);
+  const stored = Number(localStorage.getItem(PREF_KEY_PAN_SPEED_MULT));
+  assert.ok(stored < 100, `expected clamped value, got ${stored}`);
+  assert.ok(stored >= 1, `clamp should be at least the default, got ${stored}`);
+});
+
+test('setPanSpeedMultiplier ignores garbage / non-finite / non-positive input', () => {
+  localStorage.setItem(PREF_KEY_PAN_SPEED_MULT, '1.5');
+  setPanSpeedMultiplier('not-a-number');
+  setPanSpeedMultiplier(NaN);
+  setPanSpeedMultiplier(0);
+  setPanSpeedMultiplier(-2);
+  assert.equal(localStorage.getItem(PREF_KEY_PAN_SPEED_MULT), '1.5');
+});
+
+test('PREF_KEY_AUDIO_MUTED_PREFIX is the canonical key prefix (lock against rename)', () => {
+  assert.equal(PREF_KEY_AUDIO_MUTED_PREFIX, 'lateEdition.audio.muted.');
+});
+
+test('getChannelMuted defaults to false (audible) on missing storage', () => {
+  assert.equal(getChannelMuted(), false);
+  assert.equal(getChannelMuted('sfx'), false);
+  assert.equal(getChannelMuted('amb'), false);
+});
+
+test('setChannelMuted / getChannelMuted round-trip for the master channel (no channel arg)', () => {
+  setChannelMuted(undefined, true);
+  assert.equal(getChannelMuted(), true);
+  assert.equal(localStorage.getItem('lateEdition.audio.muted.master'), 'true');
+  setChannelMuted(undefined, false);
+  assert.equal(getChannelMuted(), false);
+  assert.equal(localStorage.getItem('lateEdition.audio.muted.master'), 'false');
+});
+
+test('setChannelMuted / getChannelMuted round-trip per channel without cross-talk', () => {
+  setChannelMuted('sfx', true);
+  setChannelMuted('amb', false);
+  setChannelMuted('mus', true);
+  assert.equal(getChannelMuted('sfx'), true);
+  assert.equal(getChannelMuted('amb'), false);
+  assert.equal(getChannelMuted('mus'), true);
+  assert.equal(getChannelMuted('vo'),  false, 'untouched channel stays audible');
+  assert.equal(getChannelMuted(),      false, 'master untouched by per-channel writes');
+});
+
+test('getChannelMuted treats non-"true" stored values as false (defensive read)', () => {
+  localStorage.setItem('lateEdition.audio.muted.sfx', 'garbage');
+  assert.equal(getChannelMuted('sfx'), false);
+  localStorage.setItem('lateEdition.audio.muted.sfx', '1');  // truthy but not 'true'
+  assert.equal(getChannelMuted('sfx'), false);
+  localStorage.setItem('lateEdition.audio.muted.sfx', '');
+  assert.equal(getChannelMuted('sfx'), false);
 });

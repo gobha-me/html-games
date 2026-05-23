@@ -114,6 +114,90 @@ and commit it alongside whatever change triggered the need.
 
 ## Current state
 
+**v1.4.0 — Settings popover (pan speed · audio mute).** First Tier-1.x
+content session for **player-tunable preferences**. The v1.3.1 "Next" list
+named a gear-icon settings popover as the next deliverable; this milestone
+takes it. Two primitives that shipped unwired in earlier rounds get their
+discovery surface:
+
+- **Pan-speed multiplier** — `js/preferences.js` ships a localStorage-backed
+  `getPanSpeedMultiplier()` (v1.3.1, "smallest credible scaffold") that's
+  already read at `js/input.js:102` (`speed = PAN_SPEED * getPanSpeedMultiplier()`).
+  v1.3.1 flagged this as "console-only"; v1.4.0 wires the slider.
+- **Audio mute** — `audioBus.mute(channel?)` / `unmute(channel?)` shipped
+  at v1.3.0 "unwired for the second caller's press-silence beat." The
+  v1.4.0 settings panel exercises the same primitive (channel-scoped
+  muting) so the press-silence beat caller composes without
+  cross-modification.
+
+Six deliverables land in one bundle:
+
+- **`SettingsPanel` class** (`js/hud.js`) — sixth `HudCorkboard` sibling.
+  Event-driven (`apply(frame)` is a no-op). Constructor takes element
+  refs directly + an actions callback bag — no internal querySelector so
+  the class is testable against minimal stub elements (mirrors the
+  `SlowMoPill` / `ZoomPill` precedent). `open()` refreshes slider value
+  + toggle states from the action getters (bus + preferences are the
+  single source of truth, not the panel). Five close paths wired: gear
+  toggle, close-button, ESC, outside-click, programmatic.
+- **Bus + player getters** (`js/audio/audio-bus.js` `isChannelMuted`,
+  `js/audio/html-audio-player.js` `getMuted`). Defensive against
+  alternative players that don't ship `getMuted` (UI defaults to
+  audible). `AUDIO_CHANNELS = ['sfx', 'amb', 'mus', 'vo']` exported as
+  the canonical channel vocabulary; AMB/MUS/VO toggles ship audible-
+  but-silent so persisted preferences apply when their cues record.
+- **Preference writers** (`js/preferences.js`): `setPanSpeedMultiplier(v)`
+  + `get/setChannelMuted(channel, muted)`. Storage keys
+  `'lateEdition.audio.muted.<channel>'` per channel + `.master` for
+  the no-channel case. Both reads default audible on missing / garbage
+  storage so a fresh install never lands muted by accident.
+- **HUD wiring** (`js/main.js`): `buildSettingsPanelRefs()` queries the
+  panel's controls; actions object gains `getPanSpeedMultiplier` +
+  `setPanSpeedMultiplier` + `getChannelMuted` + `toggleChannelMute`
+  callbacks. Boot-time loop applies any persisted mute state to the
+  freshly-built bus so a reload lands on the same audible state.
+- **DOM + CSS** (`index.html`): gear button at `top: 40px / left: 12px`
+  (below the deadline strip, alongside the slow-mo/zoom-pill row),
+  popover at `top: 78px / left: 12px`. Pan-speed slider (`min=0.5
+  max=3 step=0.1`) + five toggles (master + four channels) with
+  `data-channel` attributes. ~150 lines of CSS reuse `--paper-2`,
+  `--rule`, `--ink` so the panel reads as part of the corkboard
+  furniture; toggles are ink/paper-inverse default, flip to paper /
+  mid-gray "MUTED" on `.is-muted`.
+- **Version bump** (`js/version.js`): 1.3.1 → 1.4.0.
+
+**No ICD bumps in-PR.** All deliverables live in the renderer / HUD /
+preferences layer reading existing primitives or extending pure-data
+utilities. Mirrors the v1.1.1 / v1.1.2 / v1.3.1 polish precedent — UX
+surfaces can ship without paper. Constraint #4 satisfied trivially (no
+ICD shapes change). Tests at 455 cases (419 → 455 = +36; new cases in
+`preferences.test.mjs` / `audio-bus.test.mjs` / `hud.test.mjs` —
+`SettingsPanel` open/close/refresh/slider/toggle behavior; channel-mute
+round-trip without cross-talk; `AUDIO_CHANNELS` vocabulary lock; defensive
+fallbacks).
+
+**Deferred (out of scope; for the next preferences round).**
+Per-channel **volume** sliders — the bus + player ship boolean-mute
+only; adding `setVolume(volume, channel?)` mirrors to a per-cue
+`HTMLAudioElement` pool is a clean follow-up. Additional tunables (zoom
+range, slow-mo opacity, rain density, diegetic gear styling) — wait
+until a second consumer surfaces. Wiring one knob at a time keeps the
+panel honest.
+
+**Next: remaining Tier-1.x content + adversarial maturation.** Herald
+PUNISH + BUYOUT state bodies (mirrors v1.2.0 — caller methods exist
+since 1.0.0, ICD-02 v0.3.3 already specifies the bodies; PUNISH emits
+FILE_STORY scoop, BUYOUT emits OFFER_BUYOUT $50k Accept/Decline chip) ·
+Star-vs-Observer raid mechanic (§06 matrix cell 3 · also triggers
+SILENCED so v1.2.0's body becomes reachable via two routes) · second
+audio caller (press-silence beat once AMB-04/05 record) · further
+authored arcs (Mayor's Mistress · Empty Vault · Frame the Observer) ·
+district-disposition mechanical effect at the 1.1.x balance pass ·
+role-aware dispatch filtering (rejecting Fixer→building etc.; v1.3.1
+caption made dispatch discoverable, filtering touches the sim layer).
+
+---
+
 **v1.3.1 — Playtest UX polish round 3 (legibility pass).** Second
 playtest UX-polish session (after v1.1.1 / v1.1.2). The same-day
 playtest of v1.3.0 reported the inner loop is mechanically working

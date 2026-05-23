@@ -146,6 +146,13 @@ export class HudCorkboard {
     // (including clamp-at-endpoint presses, which were previously invisible).
     // Reads zoomCallCount + zoomStep via actions.getView().
     this.zoomPill = roots.zoomPill ? new ZoomPill(roots.zoomPill, actions) : null;
+    // 1.4.0: settings popover — gear icon + panel surfacing pan-speed
+    // multiplier + per-channel audio mute toggles. Optional sibling; when
+    // either DOM root is missing the panel simply doesn't mount (e.g. a
+    // headless host page that omits the controls).
+    this.settings = roots.settingsPanel
+      ? new SettingsPanel(roots.settingsPanel, actions)
+      : null;
   }
 
   apply(frame) {
@@ -158,6 +165,7 @@ export class HudCorkboard {
     if (this.minimap) this.minimap.apply(frame);
     if (this.slowMoPill) this.slowMoPill.apply(frame);
     if (this.zoomPill) this.zoomPill.apply(frame);
+    if (this.settings) this.settings.apply(frame);
   }
 }
 
@@ -238,6 +246,156 @@ export class ZoomPill {
 }
 
 const ZOOM_PILL_VISIBLE_MS = 1200;
+
+// 1.4.0: settings popover. Gear-icon button toggles a panel that exposes
+// player-tunable preferences: pan-speed multiplier (already wired through
+// js/preferences.js at v1.3.1 — this surfaces the slider for it) + per-
+// channel audio mute toggles against the audio-bus mute(channel?) primitive
+// shipped unwired at v1.3.0. Renderer-only: no sim contact, no ICD bumps.
+//
+// Element refs are passed in directly rather than queried from a root so
+// the class is testable against minimal stubs (mirrors the SlowMoPill/
+// ZoomPill stub-element pattern in tests/hud.test.mjs). main.js queries
+// the DOM and assembles the refs object.
+//
+// channelButtons is an array of { channel, el } pairs; channel === undefined
+// for the master toggle, else one of AUDIO_CHANNELS ('sfx' / 'amb' / 'mus'
+// / 'vo'). Buttons should carry a data-channel attribute matching their
+// channel id ('master' for the undefined channel) so the click handler can
+// recover it without an in-class lookup.
+export class SettingsPanel {
+  constructor(refs, actions = {}) {
+    this.gearButton    = refs.gearButton ?? null;
+    this.panel         = refs.panel ?? null;
+    this.slider        = refs.slider ?? null;
+    this.sliderValue   = refs.sliderValue ?? null;
+    this.closeButton   = refs.closeButton ?? null;
+    this.channelButtons = Array.isArray(refs.channelButtons) ? refs.channelButtons : [];
+    this.actions = actions;
+    this._open = false;
+
+    if (this.gearButton && typeof this.gearButton.addEventListener === 'function') {
+      this.gearButton.addEventListener('click', () => this.toggle());
+    }
+    if (this.closeButton && typeof this.closeButton.addEventListener === 'function') {
+      this.closeButton.addEventListener('click', () => this.close());
+    }
+    if (this.slider && typeof this.slider.addEventListener === 'function') {
+      this.slider.addEventListener('input', () => this._onSliderInput());
+    }
+    for (const entry of this.channelButtons) {
+      if (entry && entry.el && typeof entry.el.addEventListener === 'function') {
+        entry.el.addEventListener('click', () => this._onChannelToggleClick(entry));
+      }
+    }
+    // Document-level: outside-click + Escape. Both optional — tests pass
+    // refs.document = null to skip them. Browser defaults to globalThis.document.
+    const doc = refs.document !== undefined
+      ? refs.document
+      : (typeof document !== 'undefined' ? document : null);
+    if (doc && typeof doc.addEventListener === 'function') {
+      doc.addEventListener('click', (ev) => this._onDocumentClick(ev));
+      doc.addEventListener('keydown', (ev) => this._onKeydown(ev));
+    }
+
+    // First open() snapshots the persisted state into the controls. We do
+    // NOT refresh at construction because the action callbacks may close
+    // over modules built after the HUD (audioBus is constructed after
+    // HudCorkboard in main.js; calling its getter from the constructor
+    // would dereference an undefined variable).
+  }
+
+  apply(_frame) { /* event-driven; nothing to do per frame */ }
+
+  toggle() { if (this._open) this.close(); else this.open(); }
+
+  open() {
+    if (this._open) return;
+    this._open = true;
+    if (this.panel) this.panel.hidden = false;
+    if (this.gearButton && typeof this.gearButton.setAttribute === 'function') {
+      this.gearButton.setAttribute('aria-expanded', 'true');
+    }
+    this._refresh();
+  }
+
+  close() {
+    if (!this._open) return;
+    this._open = false;
+    if (this.panel) this.panel.hidden = true;
+    if (this.gearButton && typeof this.gearButton.setAttribute === 'function') {
+      this.gearButton.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  isOpen() { return this._open; }
+
+  _refresh() {
+    if (this.slider && typeof this.actions.getPanSpeedMultiplier === 'function') {
+      const v = this.actions.getPanSpeedMultiplier();
+      this.slider.value = String(v);
+      if (this.sliderValue) this.sliderValue.textContent = formatPanSpeedLabel(v);
+    }
+    if (typeof this.actions.getChannelMuted === 'function') {
+      for (const entry of this.channelButtons) {
+        if (!entry || !entry.el) continue;
+        const muted = this.actions.getChannelMuted(entry.channel) === true;
+        renderChannelButtonState(entry.el, muted);
+      }
+    }
+  }
+
+  _onSliderInput() {
+    if (!this.slider) return;
+    const v = Number(this.slider.value);
+    if (!Number.isFinite(v) || v <= 0) return;
+    if (typeof this.actions.setPanSpeedMultiplier === 'function') {
+      this.actions.setPanSpeedMultiplier(v);
+    }
+    if (this.sliderValue) this.sliderValue.textContent = formatPanSpeedLabel(v);
+  }
+
+  _onChannelToggleClick(entry) {
+    if (!entry || !entry.el) return;
+    if (typeof this.actions.toggleChannelMute === 'function') {
+      this.actions.toggleChannelMute(entry.channel);
+    }
+    if (typeof this.actions.getChannelMuted === 'function') {
+      const muted = this.actions.getChannelMuted(entry.channel) === true;
+      renderChannelButtonState(entry.el, muted);
+    }
+  }
+
+  _onDocumentClick(ev) {
+    if (!this._open) return;
+    const target = ev && ev.target;
+    if (!target) return;
+    if (this.gearButton && typeof this.gearButton.contains === 'function' && this.gearButton.contains(target)) return;
+    if (this.panel && typeof this.panel.contains === 'function' && this.panel.contains(target)) return;
+    this.close();
+  }
+
+  _onKeydown(ev) {
+    if (!this._open) return;
+    if (ev && ev.key === 'Escape') this.close();
+  }
+}
+
+// One decimal place, multiplier "×" suffix. "1.0×" reads as the default;
+// "2.5×" reads as "two and a half times faster" without a units gloss.
+// Exported for tests so the format lock survives a copy refactor.
+export function formatPanSpeedLabel(v) {
+  return `${Number(v).toFixed(1)}×`;
+}
+
+function renderChannelButtonState(el, muted) {
+  if (el.classList && typeof el.classList.toggle === 'function') {
+    el.classList.toggle('is-muted', muted);
+  }
+  if (typeof el.setAttribute === 'function') {
+    el.setAttribute('aria-pressed', String(muted));
+  }
+}
 
 // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-offer chip renders inside
 // the Threats panel when WorldFrame.partnerOffer is non-null. Exported for

@@ -5,5 +5,5 @@
 // behind the actual repo at v1.3.0). main.js boot-writes both surfaces from
 // these constants so the next version bump touches one file.
 
-export const VERSION = '1.3.1';
-export const VERSION_TAGLINE = 'Playtest UX polish round 3';
+export const VERSION = '1.4.0';
+export const VERSION_TAGLINE = 'Settings popover (pan speed · audio mute)';

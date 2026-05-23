@@ -11,8 +11,14 @@ import { GameOverOverlay } from './game-over-overlay.js';
 import { loadSave, saveNow } from './sim/save.js';
 import { hasWebGL, mountWebGLUnavailable } from './webgl-unavailable.js';
 import { newSlowMoState, triggerSlowMo, speedFactor } from './slow-mo.js';
-import { AudioBus } from './audio/audio-bus.js';
+import { AudioBus, AUDIO_CHANNELS } from './audio/audio-bus.js';
 import { HTMLAudioPlayer } from './audio/html-audio-player.js';
+import {
+  getPanSpeedMultiplier,
+  setPanSpeedMultiplier,
+  getChannelMuted,
+  setChannelMuted,
+} from './preferences.js';
 import { VERSION, VERSION_TAGLINE } from './version.js';
 
 // 1.3.1: write the version string into the document title + HUD masthead
@@ -44,8 +50,13 @@ const hudRoots = {
   // host page omits the DOM nodes the HUD simply doesn't render them.
   slowMoPill: document.getElementById('hud-slowmo-pill'),
   zoomPill:   document.getElementById('hud-zoom-pill'),
+  // 1.4.0: settings popover refs. The HUD wires SettingsPanel only when
+  // both the gear button + panel exist; either-or absence skips the
+  // widget. Channel button refs are queried up-front so the panel doesn't
+  // need to walk the DOM at construction.
+  settingsPanel: buildSettingsPanelRefs(),
 };
-const OPTIONAL_HUD_ROOTS = new Set(['minimap', 'slowMoPill', 'zoomPill']);
+const OPTIONAL_HUD_ROOTS = new Set(['minimap', 'slowMoPill', 'zoomPill', 'settingsPanel']);
 for (const [k, el] of Object.entries(hudRoots)) {
   if (OPTIONAL_HUD_ROOTS.has(k)) continue;  // null is allowed
   if (!el) throw new Error(`hud root ${k} not found`);
@@ -96,6 +107,18 @@ const hud = new HudCorkboard(hudRoots, {
   // this closure (line below initializes it); the HUD pulls via this
   // getter so it doesn't need a slow-mo state reference of its own.
   getSlowMo: () => slowMo,
+  // 1.4.0: settings popover gestures. Pan-speed reads/writes the
+  // preferences module directly (the slider mirrors the persisted value).
+  // Channel mute toggles flip the bus state + persist via preferences so
+  // the next boot restores the same surface.
+  getPanSpeedMultiplier,
+  setPanSpeedMultiplier,
+  getChannelMuted: (channel) => audioBus.isChannelMuted(channel),
+  toggleChannelMute: (channel) => {
+    const next = !audioBus.isChannelMuted(channel);
+    if (next) audioBus.mute(channel); else audioBus.unmute(channel);
+    setChannelMuted(channel, next);
+  },
 });
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);
@@ -110,6 +133,16 @@ let slowMo = newSlowMoState();
 // pickup/verify/print has zero playback latency.
 const audioBus = new AudioBus(new HTMLAudioPlayer());
 audioBus.loadAll();
+// 1.4.0: restore any persisted channel-mute preferences onto the freshly-
+// built bus. The settings popover toggles write to both the bus + the
+// preferences module on each click; this is the symmetric read at boot
+// so a reload lands on the same audible state the player left. Master +
+// per-channel are independent — master mute survives a per-channel
+// unmute, so restoring both is safe.
+if (getChannelMuted(undefined)) audioBus.mute();
+for (const channel of AUDIO_CHANNELS) {
+  if (getChannelMuted(channel)) audioBus.mute(channel);
+}
 attachInput(root, renderer, world, {
   triggerSlowMo: () => { slowMo = triggerSlowMo(slowMo, performance.now()); },
   audioBus,
@@ -142,6 +175,26 @@ let accumulator = 0;
 
 // Latch initial interp endpoints so the first frame doesn't lerp from origin.
 renderer.noteTick(world.snapshot(), TICK_DT);
+
+// 1.4.0: settings popover refs. Queries every control inside #hud-settings-
+// panel up front and assembles the refs object the SettingsPanel class
+// consumes (it doesn't query the DOM itself — keeps the class testable
+// under node:test with minimal stubs). Returns null when either the gear
+// or the panel is absent, so a headless host page bypasses the widget.
+function buildSettingsPanelRefs() {
+  const gearButton = document.getElementById('hud-settings-gear');
+  const panel      = document.getElementById('hud-settings-panel');
+  if (!gearButton || !panel) return null;
+  const slider      = panel.querySelector('#hud-settings-pan-speed');
+  const sliderValue = panel.querySelector('[data-target="pan-speed-value"]');
+  const closeButton = panel.querySelector('[data-action="close-settings"]');
+  const channelButtons = Array.from(panel.querySelectorAll('.settings-toggle'))
+    .map((el) => {
+      const attr = el.dataset.channel;
+      return { channel: attr === 'master' ? undefined : attr, el };
+    });
+  return { gearButton, panel, slider, sliderValue, closeButton, channelButtons };
+}
 
 function loop() {
   const now = performance.now();

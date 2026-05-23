@@ -19,9 +19,9 @@ test('VERSION_TAGLINE is a non-empty string', () => {
   assert.ok(VERSION_TAGLINE.length > 0);
 });
 
-test('VERSION is 1.3.1 (lock — bump this together with version.js)', () => {
+test('VERSION is 1.4.0 (lock — bump this together with version.js)', () => {
   // This is the explicit version-bump checkpoint: changing js/version.js's
   // VERSION constant requires also bumping this lock. The deliberate
   // friction is the whole point — it's why we centralized.
-  assert.equal(VERSION, '1.3.1');
+  assert.equal(VERSION, '1.4.0');
 });

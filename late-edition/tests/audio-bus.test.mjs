@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AudioBus } from '../js/audio/audio-bus.js';
+import { AudioBus, AUDIO_CHANNELS } from '../js/audio/audio-bus.js';
 import { CUE_TABLE } from '../js/audio/cue-table.js';
+import { HTMLAudioPlayer } from '../js/audio/html-audio-player.js';
 
 // v1.3.0 — ICD-07 first caller. Bus consumes WorldFrame.effects[] and
 // routes FxEvent.kind → cue id per CUE_TABLE. Browser autoplay policy
@@ -12,11 +13,20 @@ import { CUE_TABLE } from '../js/audio/cue-table.js';
 
 function makeStubPlayer() {
   const calls = { loadCue: [], playCue: [], setMuted: [] };
+  const mutedState = { master: false, channels: new Map() };
   return {
     calls,
     loadCue(id, path) { calls.loadCue.push({ id, path }); },
     playCue(id, channel) { calls.playCue.push({ id, channel }); },
-    setMuted(muted, channel) { calls.setMuted.push({ muted, channel }); },
+    setMuted(muted, channel) {
+      calls.setMuted.push({ muted, channel });
+      if (channel === undefined) mutedState.master = muted;
+      else mutedState.channels.set(channel, muted);
+    },
+    getMuted(channel) {
+      if (channel === undefined) return mutedState.master;
+      return mutedState.channels.get(channel) === true;
+    },
   };
 }
 
@@ -102,4 +112,67 @@ test('loadAll calls player.loadCue once per entry in the cue table', () => {
   assert.equal(player.calls.loadCue.length, Object.keys(CUE_TABLE).length);
   const loadedIds = player.calls.loadCue.map((c) => c.id).sort();
   assert.deepEqual(loadedIds, ['SFX-01', 'SFX-05', 'SFX-07']);
+});
+
+// 1.4.0 — settings-popover surface. AUDIO_CHANNELS pins the channel
+// vocabulary the toggles render; isChannelMuted reads back via the player
+// so the popover can sync the toggle states without holding state itself.
+
+test('AUDIO_CHANNELS locks the ICD-07 v0.1 channel vocabulary', () => {
+  // Adding/removing a channel changes the popover's toggle count; lock the
+  // surface so a rename anywhere requires an ICD-07 §Notes update.
+  assert.deepEqual(AUDIO_CHANNELS, ['sfx', 'amb', 'mus', 'vo']);
+});
+
+test('isChannelMuted defaults to audible (false) on a fresh bus', () => {
+  const player = makeStubPlayer();
+  const bus = new AudioBus(player);
+  assert.equal(bus.isChannelMuted(),       false, 'master defaults audible');
+  assert.equal(bus.isChannelMuted('sfx'),  false);
+  assert.equal(bus.isChannelMuted('amb'),  false);
+  assert.equal(bus.isChannelMuted('mus'),  false);
+  assert.equal(bus.isChannelMuted('vo'),   false);
+});
+
+test('isChannelMuted round-trips after mute() / unmute() forwards through the player', () => {
+  const player = makeStubPlayer();
+  const bus = new AudioBus(player);
+  bus.mute('sfx');
+  assert.equal(bus.isChannelMuted('sfx'), true);
+  assert.equal(bus.isChannelMuted('amb'), false, 'untouched channel stays audible');
+  bus.unmute('sfx');
+  assert.equal(bus.isChannelMuted('sfx'), false);
+  bus.mute();
+  assert.equal(bus.isChannelMuted(), true, 'master mute reads back');
+  bus.unmute();
+  assert.equal(bus.isChannelMuted(), false);
+});
+
+test('isChannelMuted returns false when the player has no getMuted method (defensive)', () => {
+  // Alternative Player implementations may not ship the getter (the
+  // settings popover is opt-in feedback; the bus still works without it).
+  const minimalPlayer = {
+    loadCue() {},
+    playCue() {},
+    setMuted() {},
+  };
+  const bus = new AudioBus(minimalPlayer);
+  bus.mute('sfx');
+  assert.equal(bus.isChannelMuted('sfx'), false, 'no getter → UI defaults to audible');
+});
+
+test('HTMLAudioPlayer.getMuted round-trips the master + per-channel state', () => {
+  // Default player (browser surface) ships with getMuted at 1.4.0.
+  // Stub-free here since HTMLAudioPlayer's mute state is in-memory only.
+  const player = new HTMLAudioPlayer();
+  assert.equal(player.getMuted(),       false);
+  assert.equal(player.getMuted('sfx'),  false);
+  player.setMuted(true, 'sfx');
+  assert.equal(player.getMuted('sfx'),  true);
+  assert.equal(player.getMuted('amb'),  false);
+  player.setMuted(true);  // master
+  assert.equal(player.getMuted(),       true);
+  assert.equal(player.getMuted('sfx'),  true, 'per-channel state independent of master');
+  player.setMuted(false, 'sfx');
+  assert.equal(player.getMuted('sfx'),  false);
 });

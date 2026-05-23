@@ -21,6 +21,14 @@
 
 import { CUE_TABLE } from './cue-table.js';
 
+// 1.4.0 (ICD-07 v0.1 channel commitments): canonical channel vocabulary the
+// settings popover renders toggles for. Even though v1.3.0 only has cues on
+// `'sfx'`, exposing the other three channels here keeps the UI future-proof
+// — when AMB/MUS/VO cues record they slot in without revisiting this list.
+// Mute on an empty channel is a silent no-op (no cues route through it),
+// but the persisted preference still applies when cues arrive.
+export const AUDIO_CHANNELS = ['sfx', 'amb', 'mus', 'vo'];
+
 export class AudioBus {
   constructor(player, cueTable = CUE_TABLE) {
     this.player = player;
@@ -70,5 +78,15 @@ export class AudioBus {
 
   unmute(channel) {
     this.player.setMuted(false, channel);
+  }
+
+  // 1.4.0: getter passthrough so the settings popover can render the current
+  // toggle state without crossing the bus → player boundary itself.
+  // `channel === undefined` returns the master mute. Defensive against
+  // alternative Player implementations that don't ship getMuted (returns
+  // false so the UI defaults to "audible").
+  isChannelMuted(channel) {
+    if (typeof this.player.getMuted !== 'function') return false;
+    return this.player.getMuted(channel) === true;
   }
 }

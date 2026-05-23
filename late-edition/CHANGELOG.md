@@ -1,5 +1,115 @@
 # Changelog — Late Edition
 
+## v1.4.0 — 2026-05-23 — Settings popover (pan speed · audio mute)
+
+First Tier-1.x content session for **player-tunable preferences**. Gear-icon
+button + popover panel surface two primitives that shipped unwired in earlier
+rounds: pan-speed multiplier (the v1.3.1 `js/preferences.js` scaffold,
+console-only) and per-channel audio mute (the v1.3.0 `audioBus.mute(channel?)`
+primitive, no caller). The settings panel is the discovery surface for both;
+no mechanics change, no sim-layer touches. Tests at 455 cases (419 → 455 =
++36). **No ICD bumps** — all surfaces are renderer/HUD layer reading
+existing primitives; mirrors the v1.1.1 / v1.1.2 / v1.3.1 polish precedent.
+
+### Added
+
+- **`SettingsPanel` class** (`js/hud.js`) — sixth `HudCorkboard` sibling.
+  Event-driven (apply() is a no-op): gear-button click toggles visibility,
+  close-button / ESC / outside-click all close. On `open()` the panel
+  refreshes the slider value + per-channel toggle states from the action
+  callbacks (single source of truth lives in the bus + preferences module,
+  not the panel). Refs are passed in directly (gear, panel, slider,
+  sliderValue, closeButton, channelButtons) so the class is testable
+  against minimal stub elements; main.js queries the DOM and assembles
+  the refs object.
+- **`AUDIO_CHANNELS`** (`js/audio/audio-bus.js`) — exported canonical
+  channel vocabulary (`['sfx', 'amb', 'mus', 'vo']`) the popover renders
+  one toggle per. v1.3.0 only routes the `sfx` channel; AMB/MUS/VO toggles
+  ship audible-but-silent so persisted preferences apply when their cues
+  record later.
+- **`AudioBus.isChannelMuted(channel?)`** — getter passthrough to the
+  underlying player so the popover can sync toggle state without crossing
+  the bus → player boundary itself. Defensive against alternative players
+  that don't ship `getMuted` (returns false — UI defaults to audible).
+- **`HTMLAudioPlayer.getMuted(channel?)`** — symmetric with `setMuted`.
+  Reads master mute when `channel === undefined`, per-channel otherwise.
+- **`setPanSpeedMultiplier(value)`** (`js/preferences.js`) — writer matching
+  the existing getter's clamp range; silently rejects non-finite / non-
+  positive input. Called per `input` event on the slider so changes apply
+  within ~1 frame (the existing `getPanSpeedMultiplier()` reader at
+  `input.js:102` re-reads on every keydown).
+- **`get/setChannelMuted(channel, muted)`** (`js/preferences.js`) — channel-
+  mute persistence backing the toggle row. `'lateEdition.audio.muted.<channel>'`
+  keys per channel + `'.master'` for the no-channel case. Defaults to
+  audible on missing / garbage storage so a fresh install never lands
+  muted by accident.
+- **`buildSettingsPanelRefs()`** (`js/main.js`) — queries every control
+  inside `#hud-settings-panel` up-front and assembles the refs object
+  SettingsPanel consumes. Returns null when gear or panel is absent,
+  letting headless / partial-mount host pages bypass the widget.
+- **Boot-time mute restore** (`js/main.js`) — after `audioBus.loadAll()`,
+  iterates `AUDIO_CHANNELS` + master and applies any persisted mute state
+  to the freshly-built bus, so a reload lands on the same audible state
+  the player left.
+- **`tests/preferences.test.mjs`** — 9 new cases. `setPanSpeedMultiplier`
+  round-trip + clamp + garbage rejection; `get/setChannelMuted` master +
+  per-channel round-trips without cross-talk; key-prefix lock; defensive
+  read of non-"true" stored values.
+- **`tests/audio-bus.test.mjs`** — 5 new cases. `AUDIO_CHANNELS` vocabulary
+  lock; `isChannelMuted` default state; round-trip after mute/unmute;
+  missing-getMuted defensive fallback; `HTMLAudioPlayer.getMuted` master +
+  per-channel round-trip.
+- **`tests/hud.test.mjs`** — 12 new cases. `SettingsPanel` hidden by
+  default; `open()` refreshes slider + toggles from actions; `close()` /
+  `toggle()`; gear-click + close-button-click flows; slider input
+  dispatches `setPanSpeedMultiplier` with the new value (+ skips non-
+  finite); channel toggle dispatches `toggleChannelMute(channel)` with
+  the right channel id (`'sfx'`, `undefined` for master); toggle click
+  re-renders from the bus state; optional-refs absence doesn't throw;
+  gear's `aria-expanded` syncs with open/close; `formatPanSpeedLabel`
+  format lock.
+
+### Changed
+
+- **`js/version.js`** — `VERSION` `'1.3.1'` → `'1.4.0'`; tagline
+  `'Playtest UX polish round 3'` → `'Settings popover (pan speed · audio
+  mute)'`.
+- **`js/main.js`** — actions object passed to HudCorkboard gains
+  `getPanSpeedMultiplier`, `setPanSpeedMultiplier`, `getChannelMuted`,
+  `toggleChannelMute` callbacks. `hudRoots.settingsPanel` joins the
+  optional-root set.
+- **`index.html`** — new `#hud-settings-gear` button + `#hud-settings-
+  panel` dialog markup inside `#world` (top-left, below the deadline
+  strip at `top: 40px` / `top: 78px`). Panel pre-renders the slider
+  (`min=0.5 max=3 step=0.1`) + five toggles (master + four channels)
+  with `data-channel` attributes so JS can recover the channel id
+  without an in-class lookup. ~150 lines of CSS reuse the existing
+  `--paper-2`, `--rule`, `--ink` palette so the panel reads as part of
+  the corkboard furniture; toggles are ink/paper-inverse by default,
+  flip to paper/mid-gray "MUTED" on `.is-muted`.
+
+### Notes
+
+- **Per-channel volume sliders** stayed out of scope. The bus + player
+  ship boolean-mute only; adding `setVolume(volume, channel?)` mirrors
+  to the player + the per-cue `HTMLAudioElement` pool is a clean
+  follow-up but doesn't gate the settings discovery surface.
+- **Additional tunables** (zoom range, slow-mo opacity, rain density,
+  diegetic gear styling) wait until the second consumer surfaces. The
+  v1.3.1 note flagged these as "expand as tunables accumulate" — wiring
+  one knob at a time keeps the panel honest.
+- The **second audio caller** (press-silence beat once AMB-04/05 record)
+  remains the next audio milestone. The settings panel's mute toggles
+  fire against the same `mute(channel?)` primitive the press-silence
+  beat will call, so the two surfaces compose without cross-modification.
+- Browser-preview WebGL is unavailable in the headless test environment;
+  `mountWebGLUnavailable` clobbers `#world` before the HUD ever mounts.
+  Verification ran by restoring `#world`'s markup via `fetch('/')` and
+  constructing `SettingsPanel` directly against the real DOM — all five
+  close paths (gear toggle / close button / ESC / outside click /
+  programmatic close) confirmed, plus toggle/slider state round-trips
+  through localStorage.
+
 ## v1.3.1 — 2026-05-23 — Playtest UX polish round 3 (legibility pass)
 
 Second playtest UX-polish session (after v1.1.1 / v1.1.2). The v1.3.0

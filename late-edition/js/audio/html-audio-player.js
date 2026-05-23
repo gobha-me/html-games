@@ -62,6 +62,15 @@ export class HTMLAudioPlayer {
     }
   }
 
+  // 1.4.0: getter symmetric with setMuted. The settings popover reads the
+  // current state to render the toggle, then writes via setMuted on click;
+  // exposing the read half here keeps the player interface uniform without
+  // forcing the bus or the UI to track a mirror copy of the state.
+  getMuted(channel) {
+    if (channel === undefined) return this.masterMuted;
+    return this.muted.get(channel) === true;
+  }
+
   _isMuted(channel) {
     if (this.masterMuted) return true;
     return this.muted.get(channel) === true;
