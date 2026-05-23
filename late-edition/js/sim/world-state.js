@@ -135,6 +135,13 @@ export const SILENCED_DECAY_FACTOR = 0.5;
 // observerPublishSuppressed counter; reconciliation lives at edition end.
 export const PARTNER_DEAL_COST = 500;
 export const PARTNER_DEAL_EDITIONS = 5;
+// 1.5.0 (ICD-02 v0.3.4 §BUYOUT body): Herald's WIRED → BUYOUT transition emits
+// OFFER_BUYOUT { amount } at $50k (design HTML §03 line 510). Acceptance →
+// Establishment ending; rejection → Herald locks into PUNISH for the rest of
+// the run via Herald.buyoutDeclined. The amount lives on the Herald constant
+// (BUYOUT_OFFER_AMOUNT) and is re-exported here so the World reconciler can
+// validate the intent shape without an extra import.
+export { BUYOUT_OFFER_AMOUNT } from './herald.js';
 
 // At 0.5 the print pipeline closes with no Editor unit yet — the verified →
 // plated → printed transitions auto-fire same-frame at DEADLINE_FIRE. The
@@ -381,6 +388,19 @@ export class World {
     this.partnerOffer = null;
     this.activePartnerDeal = null;
     this.observerPublishSuppressed = 0;
+
+    // 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body · ICD-01 v0.6.8). Pending
+    // OFFER_BUYOUT — set when the Herald's WIRED → BUYOUT transition
+    // reconciles; cleared on accept (transitions to Establishment ending)
+    // or decline (Herald locks into PUNISH). Projected as
+    // WorldFrame.buyoutOffer for the Threats-panel chip.
+    this.buyoutOffer = null;
+    // 1.5.0 (ICD-06 §Notes addendum). Run-end state. `null` for an
+    // in-progress run; `'establishment'` after the player accepts the
+    // Herald buyout (Design Doc §06 Yellow-vs-Establishment ending fork).
+    // The press-destroyed fail-state still uses `gameOver = true` + the
+    // CYCLE_GAME_OVER event — that path is unchanged at v1.5.0.
+    this.endingState = null;
   }
 
   // 0.8 restore path (ICD-04 v0.1). Rebuilds every authoritative field from
@@ -478,6 +498,18 @@ export class World {
         }
       : null;
     this.observerPublishSuppressed = blob.observer_publish_suppressed ?? 0;
+
+    // 1.5.0 (ICD-04 v0.1.6): Herald BUYOUT body persistence. Both fields are
+    // optional on the wire — pre-1.5.0 saves resume cleanly with no pending
+    // buyout + no ending. migrate_1_4_to_1_5 in save.js stamps the version +
+    // nulls for forward-compat readers.
+    this.buyoutOffer = blob.buyout_offer
+      ? {
+          editionEmitted: blob.buyout_offer.edition_emitted,
+          amount:         blob.buyout_offer.amount,
+        }
+      : null;
+    this.endingState = blob.ending_state ?? null;
   }
 
   subscribeCycle(fn) {
@@ -817,6 +849,62 @@ export class World {
       });
       return;
     }
+    if (intent.kind === 'FILE_STORY' && intent.source === 'herald') {
+      // 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body): Herald scoop. Find the
+      // oldest non-printed Investigation-tier story in the nominated district
+      // and flip Story.scooped=true. A scooped story is invisible to Reporter
+      // pickup, blocked from plating, and surfaces in the Story queue dossier
+      // with a [SCOOPED] badge until the player archives it. No story to
+      // scoop → silent no-op (the Herald narratively still files something
+      // procedural; the player just doesn't feel it). Other FILE_STORY
+      // sources (future Evening Star RUSH, etc.) are not handled here yet —
+      // their bodies land at Tier-1.x with reconciler branches alongside.
+      // "Queued Investigation tier" per design HTML §03 = stories in the
+      // pre-print pipeline. 'lead' (un-picked) and 'verified' (waiting at
+      // the Darkroom) both qualify; 'plated' is already locked for this
+      // edition's press run so scooping it would feel late. Archived and
+      // printed are terminal-ish and ineligible.
+      const target = this.stories.find((s) =>
+        s.tier === 'investigation' &&
+        s.district === intent.district &&
+        (s.state === 'lead' || s.state === 'verified') &&
+        !s.scooped,
+      );
+      if (target) {
+        target.scooped = true;
+        target.scooped_at_ms = this.sim_time_ms;
+        this._pendingRivalEvents.push({
+          rival: rival.id,
+          kind:  'herald_scoop',
+          text:  `THE HERALD SCOOPS ${target.headline ?? 'YOUR INVESTIGATION'}`,
+        });
+      } else {
+        this._pendingRivalEvents.push({
+          rival: rival.id,
+          kind:  'herald_scoop_dry',
+          text:  `THE HERALD PRINTS A SOCIETY COLUMN`,
+        });
+      }
+      return;
+    }
+    if (intent.kind === 'OFFER_BUYOUT') {
+      // 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): one-time offer on
+      // WIRED → BUYOUT entry. World records the pending offer; HUD surfaces
+      // a corkboard chip via WorldFrame.buyoutOffer; the player gestures
+      // route back through World.acceptBuyout / declineBuyout. Only one
+      // offer outstanding at a time — re-entry to BUYOUT is unreachable
+      // post-decline (buyoutDeclined locks Herald into PUNISH).
+      this.buyoutOffer = {
+        editionEmitted: this.cycle.edition,
+        amount:         intent.amount,
+      };
+      this._pendingRivalEvents.push({
+        rival: rival.id,
+        kind:  'buyout_offer',
+        text:  `THE HERALD OFFERS $${intent.amount.toLocaleString('en-US')} TO BUY THE PAPER`,
+      });
+      return;
+    }
     // Other intent kinds are caller-triggered (BRIBE / RUSH / etc.) — when
     // their bodies land at Tier-1 they'll add reconciler branches here.
   }
@@ -871,6 +959,57 @@ export class World {
       rival: 'observer',
       kind:  'partner_declined',
       text:  `THE PUBLISHER WALKS — THE OBSERVER FENDS FOR HERSELF`,
+    });
+    return { ok: true };
+  }
+
+  // 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): player accepts the Herald's
+  // buyout. The Herald pays the player the offer amount (the paper is sold);
+  // the run ends via the Establishment path. Emits CYCLE_ESTABLISHMENT_ENDING
+  // (ICD-06 §Notes addendum) so the game-over overlay mounts with the win
+  // banner. Freezes the sim by setting gameOver=true — same dwell mechanism
+  // as the press-destroyed fail-state, but endingState='establishment'
+  // distinguishes the two paths for the run-summary high-score cause field.
+  acceptBuyout() {
+    if (!this.buyoutOffer) return { ok: false, reason: 'no_offer' };
+    const herald = this.rivals.find((r) => r.id === 'herald');
+    if (!herald || !herald.acceptBuyout()) {
+      // Defensive — the chip shouldn't render unless herald is in BUYOUT,
+      // but if Herald's state changed out-of-band, clear the stale offer
+      // and refuse the accept.
+      this.buyoutOffer = null;
+      return { ok: false, reason: 'herald_not_buyout' };
+    }
+    this.resources.cash += this.buyoutOffer.amount;
+    this._pendingRivalEvents.push({
+      rival: 'herald',
+      kind:  'buyout_accepted',
+      text:  `THE PUBLISHER SELLS — $${this.buyoutOffer.amount.toLocaleString('en-US')} BANKED · THE HERALD ABSORBS THE PAPER`,
+    });
+    this.buyoutOffer = null;
+    this.endingState = 'establishment';
+    this.gameOver = true;
+    this._emitCycle({
+      kind:    'CYCLE_ESTABLISHMENT_ENDING',
+      edition: this.cycle.edition,
+    });
+    return { ok: true };
+  }
+
+  // 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): player declines the buyout.
+  // Herald locks into PUNISH for the rest of the run via Herald.declineBuyout
+  // (sets the buyoutDeclined flag). The pending offer clears with no cash
+  // change; subsequent editions see Herald in permanent PUNISH (scoops every
+  // 3 editions via lastScoopEdition cadence).
+  declineBuyout() {
+    if (!this.buyoutOffer) return { ok: false, reason: 'no_offer' };
+    const herald = this.rivals.find((r) => r.id === 'herald');
+    if (herald) herald.declineBuyout();
+    this.buyoutOffer = null;
+    this._pendingRivalEvents.push({
+      rival: 'herald',
+      kind:  'buyout_declined',
+      text:  `THE PUBLISHER REFUSES — THE HERALD VOWS PUNISHMENT`,
     });
     return { ok: true };
   }
@@ -1174,12 +1313,18 @@ export class World {
     // clears (editionsRemaining ticks to zero in ackDebrief), held stories
     // resume normal plating.
     const dealDistrict = this.activePartnerDeal?.district ?? null;
+    // 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body): scooped stories never plate.
+    // Same dwell mechanism as the ink + partner-deal gates — the story stays
+    // verified at the Darkroom, blocked permanently unless the player
+    // archives it (which freezes it indefinitely). The plating gate is the
+    // load-bearing surface; pickup filters below close the entry route.
     const verifiedStories = darkroom
       ? this.stories.filter((s) =>
           s.state === 'verified' &&
           s.held_by_building === darkroom.id &&
           (s.tier !== 'arc' || s.arc_branch_label) &&
-          (dealDistrict === null || s.district !== dealDistrict),
+          (dealDistrict === null || s.district !== dealDistrict) &&
+          !s.scooped,
         )
       : [];
 
@@ -1419,10 +1564,15 @@ export class World {
 
   _handleReporterArrival(u) {
     if (u.carrying === null) {
+      // 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body): scooped leads are
+      // invisible to Reporter pickup — the Herald has already filed the
+      // story; chasing it is pointless. The lead persists in the world
+      // (so the dossier badge sticks) but auto-pickup skips it.
       const lead = this.stories.find((s) =>
         s.state === 'lead' &&
         !s.picked_up_by &&
         !s.held_by_building &&
+        !s.scooped &&
         s.tile.x === u.tile.x &&
         s.tile.y === u.tile.y,
       );
@@ -1585,8 +1735,12 @@ export class World {
   }
 
   snapshot() {
+    // 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body): scooped leads omit from the
+    // field projection so the renderer doesn't draw a chase-able diamond.
+    // The story still surfaces in the Story queue dossier with a [SCOOPED]
+    // badge (see storyQueueView below) so the player feels the loss.
     const leads = this.stories
-      .filter((s) => s.state === 'lead' && !s.picked_up_by && !s.held_by_building)
+      .filter((s) => s.state === 'lead' && !s.picked_up_by && !s.held_by_building && !s.scooped)
       .map((s) => leadView(s, this.sim_time_ms));
     const storyCount = this.stories.filter(
       (s) => s.state === 'verified' || s.state === 'plated',
@@ -1598,10 +1752,17 @@ export class World {
     // printed stories don't appear here — plated is mid-edition transit;
     // printed is terminal.
     const darkroomId = this.buildings.find((b) => b.kind === 'darkroom')?.id ?? null;
+    // 1.5.0 (ICD-01 v0.6.8): scooped Investigation-tier stories surface
+    // regardless of state/location so the player sees the Herald's bite. A
+    // scooped lead may sit on a street tile (never picked up), a scooped
+    // verified may sit at the Darkroom; both render in the queue with the
+    // [SCOOPED] badge. Non-scooped stories follow the v1.0.1 filter (at
+    // Darkroom, state ∈ verified | archived).
     const storyRows = this.stories
       .filter((s) =>
-        (s.state === 'verified' || s.state === 'archived') &&
-        s.held_by_building === darkroomId,
+        s.scooped ||
+        ((s.state === 'verified' || s.state === 'archived') &&
+         s.held_by_building === darkroomId),
       )
       .map((s) => storyQueueView(s, this));
     const archivedCount = this.stories.filter((s) => s.state === 'archived').length;
@@ -1653,6 +1814,14 @@ export class World {
       activePartnerDeal: this.activePartnerDeal
         ? { district: this.activePartnerDeal.district,
             editionsRemaining: this.activePartnerDeal.editionsRemaining }
+        : null,
+      // 1.5.0 (ICD-01 v0.6.8 · ICD-02 v0.3.4 §Herald §BUYOUT body): Herald
+      // OFFER_BUYOUT surface — HUD renders an Accept | Decline chip when
+      // non-null. Cleared on accept (Establishment ending) or decline
+      // (Herald locks into PUNISH). Sim-internal editionEmitted is omitted
+      // — HUD only needs the amount for the "$50,000" readout.
+      buyoutOffer: this.buyoutOffer
+        ? { amount: this.buyoutOffer.amount }
         : null,
       rain: { intensity: rainIntensity },
       fog: { near: fogNear, far: 60, color: 0xc8c4bc },
@@ -1759,6 +1928,8 @@ function restoreStory(s) {
   if (s.parent_story_id !== undefined) live.parent_story_id = s.parent_story_id; // 1.1.0 (ICD-10 §Investigation chain)
   if (s.arc_episode_id !== undefined)  live.arc_episode_id = s.arc_episode_id;   // 1.1.0 (ICD-10 §Save surface)
   if (s.arc_branch_label !== undefined) live.arc_branch_label = s.arc_branch_label; // 1.1.0 (ICD-10 §Open-Q3 close)
+  if (s.scooped)                       live.scooped = true;                       // 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body)
+  if (s.scooped_at_ms !== undefined)   live.scooped_at_ms = s.scooped_at_ms;       // 1.5.0
   return live;
 }
 
@@ -1864,6 +2035,10 @@ function storyQueueView(s, world) {
     tier: s.tier,
     district: resolveDistrictId(s.district),
   };
+  // 1.5.0 (ICD-01 v0.6.8 · ICD-02 v0.3.4 §Herald §PUNISH body): scooped flag
+  // surfaces the Herald's "got there first" badge in the dossier row. HUD
+  // renders [SCOOPED] when truthy; the row gains is-scooped CSS class.
+  if (s.scooped) out.scooped = true;
   if (s.tier === 'investigation' && s.parent_story_id) {
     out.chain_depth = world._chainDepth(s);
   }

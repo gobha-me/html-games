@@ -1,5 +1,174 @@
 # Changelog — Late Edition
 
+## v1.5.0 — 2026-05-23 — Herald PUNISH + BUYOUT state bodies
+
+Second Tier-1.x adversarial-maturation session (after v1.2.0's Observer
+DESPERATE / SILENCED bodies). The Herald's two caller-triggered states —
+**PUNISH** (the "scoop") and **BUYOUT** (the Establishment ending) —
+were shape-committed at v1.0.0 with state-machine transitions in place
+but bodies still PASSing. ICD-02 v0.3.4 wires both bodies, completing
+the Herald state-machine and adding the first **run-end win path** to
+the game alongside the v0.7.0 press-destroyed fail-state.
+
+Six deliverables land in one bundle:
+
+### Added
+
+- **Herald §PUNISH body** ([`js/sim/herald.js`](js/sim/herald.js)) —
+  on entry to PUNISH (heat-driven IDLE→PUNISH, caller-driven
+  COURT→PUNISH via `declineWire`, WIRED→PUNISH via `breakDeal`, or
+  BUYOUT→PUNISH via `declineBuyout`) the Herald emits
+  `FILE_STORY { district, tier: 'investigation', source: 'herald' }`
+  subject to a 3-edition cooldown via `Herald.lastScoopEdition`
+  (design HTML §03 "Once per 3 editions"). District is
+  `argmax(view.world.district_heat)` with DISTRICTS declaration-order
+  tie-break — the Observer's `pickHotterDistrict` helper exported
+  from `observer.js`, re-used so both rivals share the same
+  load-shifting heuristic.
+- **World scoop reconciliation** ([`js/sim/world-state.js`](js/sim/world-state.js))
+  — `_reconcileIntent` gains a `FILE_STORY` branch with
+  `source === 'herald'`. Reconciliation: find the oldest queued
+  investigation story in the nominated district (`state ∈ lead |
+  verified`, `!scooped`) and flip `Story.scooped = true`. No target →
+  silent no-op + a `herald_scoop_dry` rival event for the digest.
+  Scooped stories are invisible to Reporter auto-pickup
+  (`_handleReporterArrival` filter), blocked from plating
+  (`_fireDebrief` gate alongside the partner-deal + ink gates), and
+  surface in the Story queue dossier with a `[SCOOPED]` badge until
+  the player archives them. The frame's `leads` projection also
+  omits scooped leads so the 3D scene doesn't draw a chase-able
+  diamond.
+- **Herald §BUYOUT body** ([`js/sim/herald.js`](js/sim/herald.js)) —
+  on `WIRED → BUYOUT` entry Herald emits
+  `OFFER_BUYOUT { amount: 50_000 }` one-time (design HTML §03 "$50k
+  flat to absorb the paper"). Subsequent BUYOUT ticks PASS until the
+  player accepts or declines.
+- **World buyout reconciliation + acceptance/decline**
+  ([`js/sim/world-state.js`](js/sim/world-state.js)) — `_reconcileIntent`
+  gains an `OFFER_BUYOUT` branch that writes `World.buyoutOffer`.
+  Player gestures route through new `World.acceptBuyout` (adds amount
+  to player cash, sets `World.endingState = 'establishment'`, sets
+  `gameOver = true`, emits `CYCLE_ESTABLISHMENT_ENDING`) and
+  `World.declineBuyout` (clears the offer, calls `Herald.declineBuyout`
+  which flips `buyoutDeclined = true` and locks Herald into PUNISH
+  for the rest of the run — the cascade re-asserts PUNISH every
+  edition and skips the PUNISH→IDLE cooldown via the locked-PUNISH
+  branch).
+- **Establishment ending overlay** ([`js/game-over-overlay.js`](js/game-over-overlay.js))
+  — the overlay subscribes to both `CYCLE_GAME_OVER` and the new
+  `CYCLE_ESTABLISHMENT_ENDING` and routes by `ev.kind`. The win
+  banner reads **THE PRESS WAS BOUGHT** (vs. fail-state's THE PRESS
+  BURNS). High-score blob's `cause` field widens from
+  `'game_over' | 'arc_end'` to `'game_over' | 'establishment_ending'`
+  so the leaderboard differentiates the two paths.
+- **HUD buyout chip** ([`js/hud.js`](js/hud.js)) — new
+  `renderBuyoutOfferChip` mirroring `renderPartnerOfferChip` (same
+  Accept | Decline shape with `data-action="buyout-accept"` /
+  `="buyout-decline"`). Both chips can coexist on the Threats panel
+  when both rivals make plays. New CSS in `index.html` reuses the
+  partner-offer chip's ink/paper ladder.
+- **Scooped story badge** ([`js/hud.js`](js/hud.js)) — `renderStoryRow`
+  gains a `[SCOOPED]` mid-gray chip + `is-scooped` row class
+  (strikethrough headline). Scooped-and-archived rows carry both
+  classes — the player can archive a scooped row to clear it.
+
+### Save schema (v1.4 → v1.5)
+
+- **`SaveBlobV1` widens** with `buyout_offer?: BuyoutOfferSnap | null`
+  + `ending_state?: 'establishment' | null` (per ICD-04 v0.1.6).
+- **`HeraldSnap` widens** with `last_scoop_edition?`,
+  `buyout_offer_emitted?`, `buyout_declined?` — three optional
+  fields that default null/false via `Herald.fromSnap` ?? fallbacks
+  so pre-1.5.0 snaps resume cleanly.
+- **`StorySnap` widens** with `scooped?: boolean` + `scooped_at_ms?:
+  number` — only persisted when truthy so the bulk of pre-1.5.0
+  stories keep their byte shape.
+- **`migrate_1_4_to_1_5`** stamps the version and defaults the new
+  SaveBlobV1 fields to null. Pre-1.5.0 saves resume with no pending
+  buyout, no run-ending state, no scoop history.
+
+### ICD bumps in-PR (Constraint #4)
+
+- **ICD-01 v0.6.7 → v0.6.8** — new `BuyoutOfferView` view-struct,
+  new `WorldFrame.buyoutOffer: BuyoutOfferView | null` top-level
+  field, `StoryQueueView.scooped?: boolean` widening, story-row
+  filter widens to include any `scooped: true` story regardless of
+  state/location.
+- **ICD-02 v0.3.3 → v0.3.4** — §Herald §PUNISH body completion
+  (FILE_STORY emission on entry + 3-edition cooldown via
+  `lastScoopEdition` + district nomination via `pickHotterDistrict`);
+  §Herald §BUYOUT body completion (OFFER_BUYOUT emission on entry +
+  acceptance → Establishment ending + decline → buyoutDeclined
+  PUNISH lock); Intent table's `FILE_STORY` source widens to
+  include `'herald'`; state-table "First milestone" column updates
+  + two new transition rows (`BUYOUT → (run end)`, `BUYOUT →
+  PUNISH`).
+- **ICD-04 v0.1.5 → v0.1.6** — `SaveBlobV1` widens with
+  `buyout_offer?` + `ending_state?`; `HeraldSnap` widens with three
+  optional body fields; `StorySnap` widens with `scooped?` +
+  `scooped_at_ms?`; new `BuyoutOfferSnap` interface; `HighScoreEntry.cause`
+  vocabulary widens; `migrate_1_4_to_1_5` authored.
+- **ICD-06 §Notes addendum** — documents the new
+  `CYCLE_ESTABLISHMENT_ENDING` event kind alongside `CYCLE_GAME_OVER`
+  as the win-path twin. Two kinds (rather than widening
+  `CYCLE_GAME_OVER.reason`) keeps overlay routing clean.
+
+### Tests
+
+**~50 new cases · 504 total** (455 → 504):
+
+- New [`tests/herald-punish-body.test.mjs`](tests/herald-punish-body.test.mjs)
+  — heat-driven IDLE→PUNISH inline scoop emit · district argmax
+  + declaration-order tie-break · 3-edition cooldown blocks ·
+  cooldown re-arm at edition+3 · caller-decline paths
+  (declineWire, breakDeal) emit FILE_STORY on next edition ·
+  PUNISH→IDLE cooldown skipped while buyoutDeclined locks Herald
+  in · district fallback to DEFAULT_DISTRICT_ID without world block.
+- New [`tests/herald-buyout-body.test.mjs`](tests/herald-buyout-body.test.mjs)
+  — WIRED→BUYOUT entry emits OFFER_BUYOUT $50_000 once · BUYOUT
+  self-loops PASS after entry · acceptBuyout / declineBuyout
+  refusal guards · declineBuyout flips state + latches
+  buyoutDeclined · buyoutDeclined defensive re-assertion · entry
+  predicate gates.
+- New [`tests/world-herald-scoop.test.mjs`](tests/world-herald-scoop.test.mjs)
+  — reconciler picks oldest matching investigation story · district
+  filter · matches verified-at-Darkroom stories · skips
+  plated/printed/archived · silent no-op on no target ·
+  non-herald source defensive skip · scooped lead skipped by
+  Reporter pickup · scooped verified skipped by plating gate ·
+  non-scooped regression guard · WorldFrame.stories surfaces
+  scooped row · WorldFrame.leads omits scooped · herald_scoop event
+  emit.
+- New [`tests/world-establishment-ending.test.mjs`](tests/world-establishment-ending.test.mjs)
+  — OFFER_BUYOUT reconciler sets World.buyoutOffer · acceptBuyout
+  refusals · acceptBuyout adds cash + sets endingState + sets
+  gameOver + emits CYCLE_ESTABLISHMENT_ENDING · acceptBuyout
+  refuses when Herald not in BUYOUT (defensive) · declineBuyout
+  refusals · declineBuyout clears offer + locks Herald into
+  PUNISH · WorldFrame.buyoutOffer projection.
+- Extensions to [`tests/save-load.test.mjs`](tests/save-load.test.mjs)
+  (v1.4 → v1.5 migration · pending offer + endingState round-trip ·
+  Herald body field round-trip · scooped story round-trip ·
+  unscooped story regression guard), [`tests/hud.test.mjs`](tests/hud.test.mjs)
+  (renderBuyoutOfferChip action attrs + thousands separator +
+  Establishment-ending tag · renderStoryRow scooped chip + class),
+  [`tests/world-frame.test.mjs`](tests/world-frame.test.mjs) (FRAME_KEYS
+  adds buyoutOffer), [`tests/version.test.mjs`](tests/version.test.mjs)
+  (VERSION lock bumps to 1.5.0).
+
+### Next
+
+Remaining Tier-1.x content + adversarial maturation: Star-vs-Observer
+raid mechanic (§06 matrix cell 3 — also triggers SILENCED so v1.2.0's
+body becomes reachable via two routes) · second audio caller
+(press-silence beat once AMB-04/05 record) · further authored arcs
+(Mayor's Mistress · Empty Vault · Frame the Observer) ·
+district-disposition mechanical effect at the 1.1.x balance pass ·
+role-aware dispatch filtering (sim-layer; ICD-02 §Notes for rejection
+channel).
+
+---
+
 ## v1.4.0 — 2026-05-23 — Settings popover (pan speed · audio mute)
 
 First Tier-1.x content session for **player-tunable preferences**. Gear-icon

@@ -8,6 +8,65 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v1.5.0 — Herald PUNISH + BUYOUT state bodies.** Second Tier-1.x
+adversarial-maturation session (after v1.2.0's Observer DESPERATE /
+SILENCED bodies). The Herald's two caller-triggered states — shape-
+committed at v1.0.0 with state-machine transitions in place but bodies
+still PASSing — wire their ICD-02 v0.3.4 bodies. **PUNISH** emits
+`FILE_STORY { tier:'investigation', source:'herald' }` on entry
+(heat-driven IDLE→PUNISH OR caller-driven decline paths) subject to a
+3-edition cooldown via `Herald.lastScoopEdition`; the World reconciler
+flips the oldest queued Investigation story in the nominated district
+(`argmax(district_heat)`) to `scooped=true`. A scooped story is
+invisible to Reporter auto-pickup, blocked from plating (same dwell
+mechanism as the v1.2.0 partner-deal gate), and surfaces in the Story
+queue dossier with a `[SCOOPED]` chip + strikethrough headline.
+**BUYOUT** emits `OFFER_BUYOUT { amount: 50_000 }` one-time on
+WIRED→BUYOUT entry; acceptance triggers the **first run-end win path
+in the game** — `World.acceptBuyout` adds $50k to player cash, sets
+`World.endingState='establishment'`, sets `gameOver=true`, and emits
+`CYCLE_ESTABLISHMENT_ENDING` so the existing game-over overlay mounts
+with **THE PRESS WAS BOUGHT** banner (vs. fail-state's THE PRESS BURNS).
+Decline latches `Herald.buyoutDeclined=true` and the Herald cascade
+locks into PUNISH for the rest of the run — skipping the PUNISH→IDLE
+cooldown via the locked-PUNISH branch — so a player who refuses the
+buyout faces a hostile Herald scooping their investigations every 3
+editions until the run ends. **Three ICD bumps in-PR (Constraint #4):**
+ICD-01 v0.6.7 → v0.6.8 (`BuyoutOfferView` + `WorldFrame.buyoutOffer` +
+`StoryQueueView.scooped` widening); ICD-02 v0.3.3 → v0.3.4 (§Herald
+§PUNISH + §BUYOUT body completions; Intent table `FILE_STORY` source
+widens to include `'herald'`; state-table First milestone column +
+two new transition rows for the BUYOUT caller exits); ICD-04 v0.1.5
+→ v0.1.6 (SaveBlobV1 widens with `buyout_offer?` + `ending_state?`;
+HeraldSnap widens with three optional body fields; StorySnap widens
+with `scooped?` + `scooped_at_ms?`; new `BuyoutOfferSnap` interface;
+`HighScoreEntry.cause` widens; `migrate_1_4_to_1_5` authored).
+ICD-06 §Notes addendum documents the new `CYCLE_ESTABLISHMENT_ENDING`
+event kind. Tests at 504 cases (455 → 504 = +49; four new test files
+covering Herald PUNISH body · Herald BUYOUT body · World scoop
+reconciliation · Establishment ending + WorldFrame projection).
+See [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+
+**v1.4.0 — Settings popover (pan speed · audio mute).** First
+Tier-1.x content session for **player-tunable preferences**. Gear-icon
+button at top:40px/left:12px (alongside the slow-mo/zoom-pill row);
+popover panel surfaces two primitives that shipped unwired in earlier
+rounds: pan-speed multiplier (the v1.3.1 `js/preferences.js` scaffold,
+console-only) and per-channel audio mute (the v1.3.0
+`audioBus.mute(channel?)` primitive, no caller). `AUDIO_CHANNELS =
+['sfx','amb','mus','vo']` exported as the canonical channel
+vocabulary the popover renders one toggle per (AMB/MUS/VO ship
+audible-but-silent until cues record). Six deliverables: `SettingsPanel`
+class as a sixth HudCorkboard sibling, bus + player getters
+(`isChannelMuted` / `getMuted`), preference writers
+(`setPanSpeedMultiplier` / `get/setChannelMuted`), HUD wiring in
+`js/main.js`, DOM + CSS in `index.html`, version bump. Five close
+paths wired (gear toggle / close-button / ESC / outside-click /
+programmatic). **No ICD bumps** — all surfaces are renderer/HUD layer
+reading existing primitives; mirrors the v1.1.1 / v1.1.2 / v1.3.1
+polish precedent (Constraint #4 satisfied trivially). Tests at 455
+cases (419 → 455).
+
 **v1.3.0 — Audio bus first caller (ICD-07).**
 First caller against ICD-07 v0.1 (authored at PRE-0.10, shipped v0.9.4).
 The game gets its first audible cues: the typewriter when a Reporter

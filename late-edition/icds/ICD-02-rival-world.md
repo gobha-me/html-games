@@ -1,6 +1,7 @@
 # ICD-02 · Rival ↔ World
 
-**Status:** v0.3.3 (milestone 1.2.0 — in-PR Constraint #4 bump; `RivalView` gains a top-level `world` block carrying `district_heat: Record<DistrictId, number>` (Observer DESPERATE district-nomination read) and `observer_publish_suppressed: number` (Observer PUBLISH gate during an active partner deal). §Observer §DESPERATE body now wires: INVESTIGATE → DESPERATE transition emits `PARTNER_REQUEST` one-time with `district = argmax(world.district_heat)` (declaration-order tie-break); World reconciliation surfaces the offer via ICD-01 v0.6.7 `WorldFrame.partnerOffer`; player accept routes through `World.acceptPartnerOffer` (deducts `PARTNER_DEAL_COST = 500` from player cash, transfers to Observer, sets `World.activePartnerDeal` with `PARTNER_DEAL_EDITIONS = 5`, suppresses Observer PUBLISH for the deal's lifetime). §Observer §SILENCED body wires world-side: player heat decay ×`SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief` while any rival has `state === 'SILENCED'`. State-table "First milestone" column updates: `INVESTIGATE → DESPERATE` body shipped at v1.2.0; `DESPERATE → INVESTIGATE` via accept/decline wired at v1.2.0; SILENCED entry/exit shapes remain at Tier-1.x (gated on "Frame the Observer" arc content).)
+**Status:** v0.3.4 (milestone 1.5.0 — in-PR Constraint #4 bump; §Herald §PUNISH and §BUYOUT bodies wire. §Herald §PUNISH body: on entry (heat-driven IDLE→PUNISH OR caller-driven COURT→PUNISH / WIRED→PUNISH / BUYOUT-decline → PUNISH) Herald emits `FILE_STORY { district, tier:'investigation', source:'herald' }` subject to a 3-edition cooldown via `lastScoopEdition` (design HTML §03 "Once per 3 editions"). District nomination shares the Observer's `pickHotterDistrict(world.district_heat)` helper (argmax with DISTRICTS-declaration-order tie-break). World reconciles `FILE_STORY { source:'herald' }` by finding the oldest queued investigation story in the nominated district (state ∈ lead | verified) and flipping `Story.scooped = true`; a scooped story is invisible to Reporter auto-pickup, blocked from plating, and surfaces in the Story queue dossier with a `[SCOOPED]` badge. §Herald §BUYOUT body: on WIRED→BUYOUT entry Herald emits `OFFER_BUYOUT { amount: 50_000 }` one-time. World records it as `World.buyoutOffer`; player accept routes through `World.acceptBuyout` (adds amount to player cash, sets `World.endingState='establishment'`, sets `gameOver=true`, emits `CYCLE_ESTABLISHMENT_ENDING` for the game-over overlay's win banner). Player decline routes through `World.declineBuyout` → Herald sets `buyoutDeclined=true` and locks into PUNISH every edition (the cascade skips PUNISH→IDLE cooldown via the locked-PUNISH branch). State-table "First milestone" column updates: `IDLE → PUNISH` body shipped at v1.5.0; `COURT → PUNISH` (declineWire) body shipped at v1.5.0; `WIRED → PUNISH` (breakDeal) body shipped at v1.5.0; `PUNISH → IDLE` cooldown unchanged from v1.0; `WIRED → BUYOUT` body shipped at v1.5.0. Intent table: `FILE_STORY` widens with `source: SourceId` value `'herald'` (in addition to the Tier-1.x-pending Star RUSH `source`); `OFFER_BUYOUT` first milestone moves from "Tier-1+" to v1.5.0.)
+**Prior:** v0.3.3 (milestone 1.2.0 — in-PR Constraint #4 bump; `RivalView` gains a top-level `world` block carrying `district_heat: Record<DistrictId, number>` (Observer DESPERATE district-nomination read) and `observer_publish_suppressed: number` (Observer PUBLISH gate during an active partner deal). §Observer §DESPERATE body now wires: INVESTIGATE → DESPERATE transition emits `PARTNER_REQUEST` one-time with `district = argmax(world.district_heat)` (declaration-order tie-break); World reconciliation surfaces the offer via ICD-01 v0.6.7 `WorldFrame.partnerOffer`; player accept routes through `World.acceptPartnerOffer` (deducts `PARTNER_DEAL_COST = 500` from player cash, transfers to Observer, sets `World.activePartnerDeal` with `PARTNER_DEAL_EDITIONS = 5`, suppresses Observer PUBLISH for the deal's lifetime). §Observer §SILENCED body wires world-side: player heat decay ×`SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief` while any rival has `state === 'SILENCED'`. State-table "First milestone" column updates: `INVESTIGATE → DESPERATE` body shipped at v1.2.0; `DESPERATE → INVESTIGATE` via accept/decline wired at v1.2.0; SILENCED entry/exit shapes remain at Tier-1.x (gated on "Frame the Observer" arc content).)
 **Prior:** v0.3.2 (milestone 1.1.0 — §Notes only; pins `Observer.recentStates: string[]` (cap 5) as a rival-internal per-edition ring read by ICD-10 v0.1.1 `observer_silent_n_editions` predicate; no in-memory shape change beyond Observer.recentStates; ICD-04 v0.1.4 carries the `recent_states` snap field)
 **Prior:** v0.3.1 (milestone 1.0.0 — in-PR Constraint #4 bump; `RivalView.player.printed_lies` field added for Observer's INVESTIGATE → PUBLISH transition; no other shape change)
 **Prior:** v0.3 (PRE-1.0 — Herald + Observer state machines authored; two Intent kinds added; `RivalStatusView` posture mapping extended to all three rivals; inter-rival §Notes paragraph lifted from rival-ai-spec.html §06)
@@ -246,8 +247,8 @@ acceptance-flow UI.
 | `IDLE` | Default. Files 2–3 procedural society/finance stories per edition matching Hillside/Diamond Row flavor. Does not pursue the player. Generates ~$1k cash, ~5 heat ambient — invisible except in the morning recap. The 1.0 slice models this as a `FILE_STORY` intent per edition (caller-triggered against the Whisper-tier slot grammar in [`../js/sim/headlines.js`](../js/sim/headlines.js)). |
 | `COURT` | Triggered when player heat > 60 for two consecutive editions. Sends an in-game letter offering `OFFER_WIRE_DEAL`: player files for the Herald at 50% cash yield, in exchange for −20 heat immediate. Holds for 2 editions awaiting answer. |
 | `WIRED` | Wire deal accepted. Player's story cash yield halved; player's heat passively bleeds −4/edition extra. Persists until broken or BUYOUT. Stable, slow attrition. |
-| `PUNISH` | Triggered if the player declines / breaks a deal, OR if heat > 80 with no Wire. Once per 3 editions, emits `FILE_STORY` against the player's queued Investigation tier (the "scoop"). **Never sends goons** (rival-ai-spec.html §03 — load-bearing tone commitment). One-edition state then cools to IDLE. Caller-triggered at 1.0 (PUNISH body deferred — needs the player Investigation-queue surface). |
-| `BUYOUT` | Endgame state. Only reachable from WIRED at edition ≥ 25 with player heat < 30. Emits `OFFER_BUYOUT` for $50k flat to absorb the paper. Acceptance = "Establishment ending." Rejection = Herald flips to PUNISH for the rest of the run. Caller-triggered at 1.0+. |
+| `PUNISH` | Triggered if the player declines / breaks a deal, OR if heat > 80 with no Wire. Once per 3 editions, emits `FILE_STORY { district, tier:'investigation', source:'herald' }` against the player's queued Investigation tier (the "scoop"). District nomination is `argmax(view.world.district_heat)` with DISTRICTS declaration-order tie-break (shares Observer's `pickHotterDistrict` helper). World reconciliation flips the oldest matching `lead`/`verified`-state story's `scooped` flag; a scooped story is invisible to Reporter auto-pickup, blocked from plating, surfaces in the Story queue dossier with a `[SCOOPED]` badge. **Never sends goons** (rival-ai-spec.html §03 — load-bearing tone commitment). One-edition state then cools to IDLE (unless `buyoutDeclined` locks Herald in PUNISH for the rest of the run). v1.5.0 wires the body. |
+| `BUYOUT` | Endgame state. Only reachable from WIRED at edition ≥ 25 with player heat < 30. Emits `OFFER_BUYOUT { amount: 50_000 }` one-time on entry. World records it as `World.buyoutOffer`; HUD renders Accept | Decline chip in Threats. **Acceptance = "Establishment ending":** `World.acceptBuyout` adds $50k to player cash, sets `World.endingState='establishment'`, sets `gameOver=true`, emits `CYCLE_ESTABLISHMENT_ENDING` (ICD-06 §Notes addendum) for the game-over overlay's win banner. **Decline = Herald flips to PUNISH for the rest of the run:** `World.declineBuyout` sets `Herald.buyoutDeclined=true`; the cascade re-asserts PUNISH every edition and skips PUNISH→IDLE cooldown (locked-PUNISH branch). v1.5.0 wires the body. |
 
 ### Transition table
 
@@ -259,13 +260,15 @@ ticks, not wall-clock time.
 | From → To | Predicate | First milestone |
 |---|---|---|
 | `IDLE → COURT` | `player_heat > 60` for 2 consecutive editions | 1.0 |
-| `IDLE → PUNISH` | `edition ≥ 10` **AND** `player_heat > 80` **AND** `!isWired` | 1.0+ (PUNISH body deferred) |
+| `IDLE → PUNISH` | `edition ≥ 10` **AND** `player_heat > 80` **AND** `!isWired` | 1.0 (transition) / 1.5.0 (FILE_STORY scoop body) |
 | `COURT → WIRED` | player accepts wire deal | 1.0 |
-| `COURT → PUNISH` | player declines wire deal | 1.0+ (PUNISH body deferred) |
+| `COURT → PUNISH` | player declines wire deal | 1.0 (transition) / 1.5.0 (FILE_STORY scoop body) |
 | `COURT → IDLE` | 2 editions pass with no response | 1.0 |
-| `PUNISH → IDLE` | 1 edition cooldown after a scoop | 1.0+ |
-| `WIRED → BUYOUT` | `edition ≥ 25` **AND** `player_heat < 30` | 1.0+ |
-| `WIRED → PUNISH` | player breaks deal (files a story the Herald flagged off-limits) | 1.0+ |
+| `PUNISH → IDLE` | 1 edition cooldown after a scoop (skipped while `buyoutDeclined` locks Herald in) | 1.0 / 1.5.0 (lock branch added) |
+| `WIRED → BUYOUT` | `edition ≥ 25` **AND** `player_heat < 30` | 1.0 (transition) / 1.5.0 (OFFER_BUYOUT body + Establishment ending) |
+| `WIRED → PUNISH` | player breaks deal (files a story the Herald flagged off-limits) | 1.0 (transition) / 1.5.0 (FILE_STORY scoop body) |
+| `BUYOUT → (run end)` | player accepts buyout — `World.acceptBuyout` emits `CYCLE_ESTABLISHMENT_ENDING` and freezes the sim | 1.5.0 |
+| `BUYOUT → PUNISH` | player declines buyout — Herald latches `buyoutDeclined=true` and locks into PUNISH for the rest of the run | 1.5.0 |
 
 - **Determinism.** Same rule as Evening Star — all coin-flips flow
   through the rival's seeded RNG (rival-ai-spec.html §02). The Herald
@@ -406,15 +409,15 @@ without an ICD revision.
 |---|---|---|---|
 | `PASS` | all rivals | 0.7 | n/a (shape is the kind) |
 | `RAID_BUREAU` | Evening Star | 0.7 | **yes** — see §`RAID_BUREAU` |
-| `FILE_STORY` | Herald (IDLE state) | 1.0 | shape committed at v0.1 |
+| `FILE_STORY` | Herald (PUNISH state) | 1.5.0 | shape committed at v0.1; `source: 'herald'` reconciler branch wired at v1.5.0 (oldest queued investigation story → `Story.scooped = true`); other `source` values (Evening Star RUSH) stay Tier-1.x |
 | `OFFER_WIRE_DEAL` | Herald (COURT state) | 1.0 | shape committed at v0.1 (`WireTerms` shape resolved at 1.0+ when the wire-deal UI lands) |
 | `INVESTIGATE_LEAD` | Observer (INVESTIGATE state) | 1.0 | **yes — v0.3** (shape: `{leadId, editions}`; `editions` defaults to 3 per rival-ai-spec.html §05 INVESTIGATE state) |
 | `PUBLISH_COUNTER` | Observer (PUBLISH state) | 1.0 | **yes — v0.3** (shape: `{storyId}`; effect rule is +25 player heat, discredit lie, burn source — applied by world's intent reconciler, not the rival) |
 | `POISON_LEAD` | Observer (WARN state) | 1.0 | shape committed at v0.1 |
 | `BRIBE_REPORTER` | Evening Star (BRIBE state) | Tier-1+ | caller-triggered |
 | `SCOUT_DISTRICT` | Herald | Tier-1+ | caller-triggered |
-| `OFFER_BUYOUT` | Herald (BUYOUT state) | Tier-1+ | caller-triggered (acceptance-flow UI) |
-| `PARTNER_REQUEST` | Observer (DESPERATE state) | Tier-1+ | caller-triggered (acceptance-flow UI) |
+| `OFFER_BUYOUT` | Herald (BUYOUT state) | 1.5.0 | **yes — v0.3.4** (shape: `{amount: 50_000}`; one-time on WIRED→BUYOUT entry; acceptance routes through `World.acceptBuyout` → Establishment ending; decline → `Herald.buyoutDeclined` PUNISH lock) |
+| `PARTNER_REQUEST` | Observer (DESPERATE state) | 1.2.0 | caller-triggered (acceptance-flow UI shipped v1.2.0) |
 
 ## Notes
 
@@ -551,6 +554,57 @@ strong-band — changing a state, a transition predicate, or the goon-count
 table is an architecture session, not a deviation.
 
 ## Revision history
+
+- **v0.3.4** (milestone 1.5.0, 2026-05-23) — Herald PUNISH + BUYOUT body
+  completions. **§Herald §PUNISH body:** the IDLE→PUNISH, COURT→PUNISH,
+  and WIRED→PUNISH transitions all emit `FILE_STORY { district,
+  tier:'investigation', source:'herald' }` on entry, subject to a
+  3-edition cooldown via `Herald.lastScoopEdition`. District is
+  `argmax(view.world.district_heat)` (declaration-order tie-break) via
+  the Observer's `pickHotterDistrict` helper, re-exported from
+  observer.js. World reconciliation: `_reconcileIntent` matches
+  `FILE_STORY` with `source==='herald'` and flips the oldest queued
+  investigation story in the nominated district (`state ∈ lead |
+  verified`, `!scooped`) to `scooped=true`. The scooped story is
+  invisible to Reporter auto-pickup, blocked from plating (same dwell
+  mechanism as the v1.2.0 partner-deal plating gate), and surfaces in
+  the Story queue dossier with a `[SCOOPED]` chip. **§Herald §BUYOUT
+  body:** the WIRED→BUYOUT transition emits `OFFER_BUYOUT { amount:
+  50_000 }` one-time on entry; subsequent BUYOUT ticks PASS until the
+  player accepts (`World.acceptBuyout` → cash += $50k,
+  `endingState='establishment'`, `gameOver=true`, emits
+  `CYCLE_ESTABLISHMENT_ENDING` for the game-over overlay's win banner)
+  or declines (`World.declineBuyout` → `Herald.buyoutDeclined=true`,
+  Herald locks into PUNISH for the rest of the run via the cascade's
+  locked-PUNISH branch). The locked branch skips the PUNISH→IDLE
+  cooldown so Herald keeps scooping on the 3-edition cadence. **Intent
+  table updates:** `FILE_STORY` first milestone moves to 1.5.0 with the
+  `source: 'herald'` branch wired (other sources, e.g. Star RUSH, stay
+  Tier-1.x); `OFFER_BUYOUT` first milestone moves to 1.5.0 with the
+  Acceptance-flow UI shipped. **State-table "First milestone" updates:**
+  PUNISH body shipped at v1.5.0 across all three entry paths;
+  BUYOUT body shipped at v1.5.0; two new entries — `BUYOUT → (run end)`
+  and `BUYOUT → PUNISH` — formalize the v1.5.0 caller exits. ICD-01
+  v0.6.7 → v0.6.8 carries `WorldFrame.buyoutOffer: BuyoutOfferView |
+  null` + `StoryQueueView.scooped?: boolean`. ICD-04 v0.1.5 → v0.1.6
+  carries `SaveBlobV1.buyout_offer`, `SaveBlobV1.ending_state`,
+  `HeraldSnap.last_scoop_edition`, `HeraldSnap.buyout_offer_emitted`,
+  `HeraldSnap.buyout_declined`, `StorySnap.scooped`,
+  `StorySnap.scooped_at_ms`. ICD-06 §Notes addendum documents the new
+  `CYCLE_ESTABLISHMENT_ENDING` event kind alongside `CYCLE_GAME_OVER`.
+
+- **v0.3.3** (milestone 1.2.0, 2026-05-22) — Observer DESPERATE +
+  SILENCED body completions. `RivalView` gains a top-level `world` block
+  carrying `district_heat: Record<DistrictId, number>` and
+  `observer_publish_suppressed: number` so the Observer reads world
+  signals without a `World` backlink. §DESPERATE body emits
+  `PARTNER_REQUEST { district = argmax(world.district_heat) }`
+  one-time on INVESTIGATE→DESPERATE; `World.acceptPartnerOffer` /
+  `declinePartnerOffer` route the player gestures; suppression of
+  Observer PUBLISH for `PARTNER_DEAL_EDITIONS` editions enforces the
+  deal contract from both sides. §SILENCED body wires world-side as a
+  ×`SILENCED_DECAY_FACTOR = 0.5` heat-decay multiplier in `ackDebrief`.
+  ICD-01 v0.6.7 + ICD-04 v0.1.5 carry the projection + save shapes.
 
 - **v0.3.2** (milestone 1.1.0, 2026-05-22) — §Notes-only addition for the
   Longshoreman Strike + Investigation chain code session. Pins

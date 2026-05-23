@@ -1,14 +1,32 @@
-// Late Edition — game-over overlay (milestone 0.7.0 banner + 0.10.0 run summary).
-// Mirrors the DebriefPanel pattern: subscribes to World.subscribeCycle, mounts
-// on CYCLE_GAME_OVER (ICD-06 v0.3 event vocabulary), never reaches into sim
-// state beyond `world.runStats`. 0.9.3 (PR-A audit C-03): "Start a new run"
-// button clears the save blob + reloads. 0.10.0 (audit G-13): the same
-// terminal mount now renders the run summary (editions survived · total
-// revenue · top headline · high-score rank) and writes a high-score entry
-// via save.js saveScore — the run is preserved in `'late-edition.scores.v1'`
-// before the save blob is cleared by the new-run button.
+// Late Edition — game-over overlay (milestone 0.7.0 banner + 0.10.0 run summary
+// + 1.5.0 Establishment ending). Mirrors the DebriefPanel pattern: subscribes
+// to World.subscribeCycle, mounts on CYCLE_GAME_OVER or (1.5.0)
+// CYCLE_ESTABLISHMENT_ENDING (ICD-06 §Notes addendum — the dual-path ending
+// vocabulary), never reaches into sim state beyond `world.runStats` +
+// `world.endingState`. 0.9.3 (PR-A audit C-03): "Start a new run" button
+// clears the save blob + reloads. 0.10.0 (audit G-13): the same terminal
+// mount renders the run summary (editions survived · total revenue · top
+// headline · high-score rank) and writes a high-score entry via save.js
+// saveScore — the run is preserved in `'late-edition.scores.v1'` before the
+// save blob is cleared by the new-run button.
 
 import { SAVE_KEY, saveScore } from './sim/save.js';
+
+// 1.5.0 (ICD-06 §Notes addendum). Two ending kinds, both dispatch via the
+// World's cycle event channel; the overlay routes by kind to the right
+// banner + reason copy + high-score cause string.
+const ENDING_COPY = {
+  CYCLE_GAME_OVER: {
+    banner:        'THE PRESS BURNS',
+    reasonFor:     (ev) => reasonText(ev.reason),
+    highScoreCause: 'game_over',
+  },
+  CYCLE_ESTABLISHMENT_ENDING: {
+    banner:        'THE PRESS WAS BOUGHT',
+    reasonFor:     () => 'The Herald absorbs the paper · the Establishment wins',
+    highScoreCause: 'establishment_ending',
+  },
+};
 
 export class GameOverOverlay {
   constructor(rootEl, world) {
@@ -18,16 +36,19 @@ export class GameOverOverlay {
   }
 
   _onCycle(ev) {
-    if (ev.kind === 'CYCLE_GAME_OVER') this._mount(ev);
+    if (ev.kind === 'CYCLE_GAME_OVER' || ev.kind === 'CYCLE_ESTABLISHMENT_ENDING') {
+      this._mount(ev);
+    }
   }
 
   _mount(ev) {
     const stats = this.world.runStats ?? { total_revenue: 0, editions_survived: 0, top_story: null };
+    const copy = ENDING_COPY[ev.kind] ?? ENDING_COPY.CYCLE_GAME_OVER;
     const entry = {
       editions_survived: stats.editions_survived,
       total_revenue:     stats.total_revenue,
       ended_at_ms:       Date.now(),
-      cause:             ev.kind === 'CYCLE_GAME_OVER' ? 'game_over' : 'arc_end',
+      cause:             copy.highScoreCause,
     };
     const { rank, blob } = saveScore(entry);
     const ranking = renderRanking(blob, rank);
@@ -37,8 +58,8 @@ export class GameOverOverlay {
     this.root.innerHTML = `
       <div class="gameover-card">
         <div class="kicker">EDITION ${ev.edition}</div>
-        <div class="banner">THE PRESS BURNS</div>
-        <div class="reason">${reasonText(ev.reason)}</div>
+        <div class="banner">${escapeHtml(copy.banner)}</div>
+        <div class="reason">${escapeHtml(copy.reasonFor(ev))}</div>
         <section class="run-summary">
           <div class="summary-row"><span class="lbl">Editions survived</span><span class="val">${stats.editions_survived}</span></div>
           <div class="summary-row"><span class="lbl">Total revenue</span><span class="val">$ ${formatCash(stats.total_revenue)}</span></div>

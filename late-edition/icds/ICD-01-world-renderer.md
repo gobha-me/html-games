@@ -1,6 +1,7 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6.7 (shipped against milestone 1.2.0 — `WorldFrame.partnerOffer: PartnerOfferView | null` and `WorldFrame.activePartnerDeal: ActivePartnerDealView | null` top-level fields authored + projected for the Observer DESPERATE / SILENCED body surfaces (ICD-02 v0.3.3). HUD reads both each frame and renders the Threats-panel Accept | Decline chip + active-deal breadcrumb. No other field changes; the snapshot field order pins partner fields after `selectedBuilding` so existing render-side key-walks stay byte-stable.)
+**Status:** v0.6.8 (shipped against milestone 1.5.0 — `WorldFrame.buyoutOffer: BuyoutOfferView | null` top-level field authored + projected for the Herald BUYOUT body surface (ICD-02 v0.3.4). HUD reads it each frame and renders the Threats-panel Accept | Decline chip alongside the partner-offer chip. `StoryQueueView` widens with optional `scooped?: boolean` flag so the Story queue dossier renders a `[SCOOPED]` badge for stories the Herald has scooped in PUNISH. The story-row filter widens to include any story with `scooped=true` regardless of state/location so the player sees the loss even when the lead never reached the Darkroom. The snapshot field order pins `buyoutOffer` after `activePartnerDeal` so existing render-side key-walks stay byte-stable.)
+**Prior:** v0.6.7 (shipped against milestone 1.2.0 — `WorldFrame.partnerOffer: PartnerOfferView | null` and `WorldFrame.activePartnerDeal: ActivePartnerDealView | null` top-level fields authored + projected for the Observer DESPERATE / SILENCED body surfaces (ICD-02 v0.3.3). HUD reads both each frame and renders the Threats-panel Accept | Decline chip + active-deal breadcrumb. No other field changes; the snapshot field order pins partner fields after `selectedBuilding` so existing render-side key-walks stay byte-stable.)
 **Prior:** v0.6.6 (shipped against milestone 1.1.1 — `WorldFrame.selectedBuilding: SelectedBuildingView | null` top-level field authored + projected for the §13 Selected dossier when the player left-clicks a building (issue #334); new `SelectedBuildingView` view-struct widens `BuildingView` with `district`. Mutually exclusive with unit selection (sim-side enforcement in `World.selectUnit` / `selectBuilding` / `deselectAll`). The two existing buildings without a player-readable HP surface — Switchboard + Branch Bureau — gain one.)
 **Prior:** v0.6.5 (milestone 1.0.1 — `WorldFrame.stories: StoryQueueView[]` top-level field authored + projected for the Archive UI per-story rows; `UnitView.stats` projector wires the Reporter trio; `HudState.resources.archived` field added)
 **Prior:** v0.6.4 (milestone 1.0.0 — `BuildingKind` vocabulary widens to include `'switchboard'`; no shape change)
@@ -31,6 +32,7 @@ interface WorldFrame {
   selectedBuilding: SelectedBuildingView | null; // §13 Selected dossier on building left-click (v0.6.6)
   partnerOffer:     PartnerOfferView | null;     // Observer DESPERATE body — outstanding PARTNER_REQUEST surface (v0.6.7 · ICD-02 v0.3.3)
   activePartnerDeal: ActivePartnerDealView | null; // accepted partner deal — countdown breadcrumb (v0.6.7 · ICD-02 v0.3.3)
+  buyoutOffer:      BuyoutOfferView | null;      // Herald BUYOUT body — outstanding OFFER_BUYOUT surface (v0.6.8 · ICD-02 v0.3.4)
   rain:      RainConfig;        // intensity 0+ unbounded; 1 = baseline, ~2 at deadline (PR-D — v0.6.2)
   fog:       { near: number, far: number, color: number };
   hud:       HudState;          // edition, deadline_ms, resources
@@ -363,6 +365,55 @@ interface ActivePartnerDealView {
   (`partnerOffer ? chip : null` and `activeDeal ? breadcrumb : null` are
   independent branches).
 
+### BuyoutOfferView (v0.6.8)
+
+`WorldFrame.buyoutOffer: BuyoutOfferView | null` is the Herald's outstanding
+OFFER_BUYOUT — the player-facing chip the HUD renders in the Threats panel
+when the Herald has just transitioned WIRED → BUYOUT (ICD-02 v0.3.4
+§Herald §BUYOUT body). Null when no offer is pending; null again once the
+player accepts (Establishment ending) or declines (Herald locks into
+PUNISH).
+
+```ts
+interface BuyoutOfferView {
+  amount: number;   // $50,000 at v1.5.0 (BUYOUT_OFFER_AMOUNT; design HTML §03 "$50k flat")
+}
+```
+
+- **No `editionEmitted` on the projection.** The sim tracks the edition the
+  offer fired (for save round-trips); the HUD doesn't need it — the chip
+  renders the same regardless of when it was emitted.
+- **No `cost` / `editions` fields.** Unlike `PartnerOfferView`, the buyout
+  is a one-time, all-or-nothing transaction (no duration); the only number
+  the chip surfaces is the amount.
+- **Player gesture.** The HUD wires `actions.acceptBuyout` /
+  `actions.declineBuyout` callbacks at HudCorkboard construction; the
+  Threats-panel chip's `data-action="buyout-accept"` /
+  `="buyout-decline"` attributes route through `Dossier._onThreatsClick`.
+  Same pattern as the v1.2.0 partner-offer chip.
+- **Why a separate view-struct, not a widening of `PartnerOfferView`.**
+  The two surface different commitments — `PartnerOfferView` is "skip a
+  district for N editions for $500", `BuyoutOfferView` is "sell the paper
+  for $50k and end the run." Two structs keep the HUD's read clean
+  (`partnerOffer ? chip : null` and `buyoutOffer ? chip : null` are
+  independent branches in the Threats render path).
+
+### StoryQueueView (v0.6.8 widening)
+
+The v0.6.5 `StoryQueueView` gains an optional `scooped?: boolean` field
+(ICD-02 v0.3.4 §Herald §PUNISH body). When set, the HUD renders a
+`[SCOOPED]` chip in the row + applies the `is-scooped` CSS class
+(strikethrough headline · mid-gray badge). Scooped-and-archived rows
+keep their `is-archived` + `is-scooped` classes both — the player can
+archive a scooped row to clear it from the queue.
+
+The story-row filter in `World.snapshot()` widens accordingly: any
+story with `scooped: true` surfaces regardless of state or location
+(not just verified/archived at Darkroom). A scooped lead on a street
+tile shows up in the queue with `[SCOOPED]` so the player sees the
+loss; un-picked scooped leads are also omitted from `WorldFrame.leads`
+so the 3D scene doesn't draw a chase-able diamond.
+
 ### FxEvent union (v0.6)
 
 `WorldFrame.effects: FxEvent[]` has existed on the per-frame contract
@@ -536,6 +587,24 @@ they live here as implementation pins.
   per game run.
 
 ## Revision history
+
+- **v0.6.8** (milestone 1.5.0, 2026-05-23) — Herald PUNISH / BUYOUT body
+  surfaces (ICD-02 v0.3.4). **`WorldFrame.buyoutOffer: BuyoutOfferView |
+  null`** top-level field authored + projected. Threats panel renders an
+  Accept | Decline chip when non-null (Accept → Establishment ending via
+  `World.acceptBuyout`; Decline → Herald locks into PUNISH via
+  `World.declineBuyout` setting `Herald.buyoutDeclined`). **New
+  `BuyoutOfferView`** struct — single `amount` field; no duration / cost
+  fields since the buyout is a one-shot transaction. **`StoryQueueView`
+  widens** with optional `scooped?: boolean` field for the
+  Herald-scooped story row's `[SCOOPED]` chip + `is-scooped` CSS class.
+  Story-row filter widens to include any `scooped: true` story
+  regardless of state/location (so a scooped street-tile lead surfaces
+  in the queue dossier). `WorldFrame.leads` filter excludes scooped
+  leads so the 3D scene doesn't draw a chase-able diamond on a story
+  the player can't pick up. Snapshot field order pins `buyoutOffer`
+  after `activePartnerDeal` so render-side key-walks stay byte-stable.
+  Constraint #4 in-PR bump alongside the milestone 1.5.0 code session.
 
 - **v0.6.6** (milestone 1.1.1, 2026-05-22) — One new view-struct + one new
   top-level `WorldFrame` field. **`SelectedBuildingView`** widens

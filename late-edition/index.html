@@ -555,6 +555,68 @@
     text-transform: uppercase;
     color: var(--ink);
   }
+  /* 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): buyout-offer chip — same
+     shape as partner-offer (Accept | Decline) but a separate root so the
+     two chips can coexist when both rivals make plays. */
+  #hud-dossier .panel .buyout-offer {
+    display: block;
+    margin-top: 8px;
+    padding: 6px 8px 8px;
+    border-left: 2px solid var(--ink);
+    background: var(--paper);
+  }
+  #hud-dossier .panel .buyout-offer .bo-headline {
+    display: block;
+    font-family: var(--serif);
+    font-size: 13px;
+    line-height: 1.25;
+    color: var(--ink);
+  }
+  #hud-dossier .panel .buyout-offer .bo-terms {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--mid);
+  }
+  #hud-dossier .panel .buyout-offer .bo-actions {
+    display: block;
+    margin-top: 6px;
+  }
+  #hud-dossier .panel .buyout-offer .bo-btn {
+    appearance: none;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    margin-right: 6px;
+    padding: 3px 9px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  #hud-dossier .panel .buyout-offer .bo-btn.bo-decline {
+    background: var(--paper-2);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+  }
+  #hud-dossier .panel .buyout-offer .bo-btn:hover {
+    filter: brightness(1.1);
+  }
+  /* 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body): scooped story row + SCOOPED
+     chip. The row reads as "lost"; chip mimics the HOLD chip but in mid-gray
+     so it doesn't shout. Headline strikethrough gives the visual loss. */
+  #hud-dossier .panel .story-row.is-scooped .hl {
+    text-decoration: line-through;
+    color: var(--mid);
+  }
+  #hud-dossier .panel .chip.is-scooped {
+    background: var(--mid);
+    color: var(--paper);
+  }
 
   /* 0.10.2 (D-07): debrief panel as newspaper pages. Each printed story
      is a column on a single broadsheet that slaps down onto the corkboard

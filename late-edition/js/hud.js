@@ -420,6 +420,25 @@ export function renderActivePartnerDealLine(deal) {
   return `<span class="partner-deal-line">Partner deal · ${eds} edition${eds === 1 ? '' : 's'} left · ${escapeHtml(districtName)} blocked</span>`;
 }
 
+// 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): buyout-offer chip renders in
+// the Threats panel when WorldFrame.buyoutOffer is non-null. Accept routes
+// to the Establishment ending (game-over overlay mounts with the win
+// banner); Decline locks Herald into PUNISH for the rest of the run.
+// Mirrors renderPartnerOfferChip — same Accept | Decline shape, same
+// data-action attribute routing through Dossier._onThreatsClick. Exported
+// for hud.test.mjs.
+export function renderBuyoutOfferChip(offer) {
+  const amountStr = `$${offer.amount.toLocaleString('en-US')}`;
+  return `<div class="buyout-offer" data-role="buyout-offer">`
+    + `<span class="bo-headline">The Herald offers a buyout</span>`
+    + `<span class="bo-terms">${escapeHtml(amountStr)} · Establishment ending</span>`
+    + `<span class="bo-actions">`
+    + `<button type="button" class="bo-btn bo-accept" data-action="buyout-accept">Accept</button>`
+    + `<button type="button" class="bo-btn bo-decline" data-action="buyout-decline">Decline</button>`
+    + `</span>`
+    + `</div>`;
+}
+
 class TutorialNote {
   constructor(rootEl) {
     this.root = rootEl;
@@ -713,6 +732,7 @@ class Dossier {
       bureauHp,
       frame.partnerOffer ?? null,
       frame.activePartnerDeal ?? null,
+      frame.buyoutOffer ?? null,
     );
   }
 
@@ -826,7 +846,7 @@ class Dossier {
     this.actions.toggleArchive(storyId);
   }
 
-  _applyThreats(units, bureauHp, partnerOffer, activePartnerDeal) {
+  _applyThreats(units, bureauHp, partnerOffer, activePartnerDeal, buyoutOffer) {
     const goons = countByKind(units, 'goon');
     const headline = goons === 0 ? 'Streets quiet' : `${goons} ${goons === 1 ? 'goon' : 'goons'} abroad`;
     const note = `Press ${bureauHp} HP`;
@@ -834,21 +854,26 @@ class Dossier {
     // shows when a PARTNER_REQUEST is outstanding; the breadcrumb shows
     // while the accepted deal ticks down. Both panels can coexist with goons
     // / press-hp lines — the Threats card now carries multiple concerns.
+    // 1.5.0 (ICD-02 v0.3.4 §BUYOUT body): Herald buyout chip joins the
+    // Threats card alongside partner-deal surfaces. Both chips can outstand
+    // at once (different rivals); both route via Dossier._onThreatsClick.
     const offerHtml = partnerOffer ? renderPartnerOfferChip(partnerOffer) : '';
     const dealHtml = activePartnerDeal ? renderActivePartnerDealLine(activePartnerDeal) : '';
+    const buyoutHtml = buyoutOffer ? renderBuyoutOfferChip(buyoutOffer) : '';
     const offerKey = partnerOffer
       ? `offer:${partnerOffer.district}:${partnerOffer.cost}:${partnerOffer.editions}`
       : '';
     const dealKey = activePartnerDeal
       ? `deal:${activePartnerDeal.district}:${activePartnerDeal.editionsRemaining}`
       : '';
-    const key = `${headline}||${note}||${offerKey}||${dealKey}`;
+    const buyoutKey = buyoutOffer ? `buyout:${buyoutOffer.amount}` : '';
+    const key = `${headline}||${note}||${offerKey}||${dealKey}||${buyoutKey}`;
     if (key === this._lastThreats) return;
     this._lastThreats = key;
-    const isEmpty = goons === 0 && !partnerOffer && !activePartnerDeal;
+    const isEmpty = goons === 0 && !partnerOffer && !activePartnerDeal && !buyoutOffer;
     this.threatsEl.classList.toggle('empty', isEmpty);
     this.threatsBody.innerHTML =
-      `${escapeHtml(headline)}<span class="note">${escapeHtml(note)}</span>${dealHtml}${offerHtml}`;
+      `${escapeHtml(headline)}<span class="note">${escapeHtml(note)}</span>${dealHtml}${offerHtml}${buyoutHtml}`;
   }
 
   _onThreatsClick(ev) {
@@ -863,6 +888,22 @@ class Dossier {
     if (decline) {
       ev.stopPropagation();
       if (typeof this.actions.declinePartnerOffer === 'function') this.actions.declinePartnerOffer();
+      return;
+    }
+    // 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): Accept | Decline chip in
+    // Threats. Same delegated-listener pattern as the partner chip above;
+    // Accept routes to the Establishment ending via World.acceptBuyout;
+    // Decline locks Herald into PUNISH via World.declineBuyout.
+    const buyoutAccept = ev.target.closest('[data-action="buyout-accept"]');
+    if (buyoutAccept) {
+      ev.stopPropagation();
+      if (typeof this.actions.acceptBuyout === 'function') this.actions.acceptBuyout();
+      return;
+    }
+    const buyoutDecline = ev.target.closest('[data-action="buyout-decline"]');
+    if (buyoutDecline) {
+      ev.stopPropagation();
+      if (typeof this.actions.declineBuyout === 'function') this.actions.declineBuyout();
     }
   }
 }
@@ -881,7 +922,16 @@ function escapeHtml(s) {
 export function renderStoryRow(s) {
   const districtName = getDistrict(s.district)?.name ?? s.district;
   const archivedChip = s.state === 'archived' ? '<span class="chip is-hold">HOLD</span>' : '';
-  const cls = s.state === 'archived' ? 'story-row is-archived' : 'story-row';
+  // 1.5.0 (ICD-01 v0.6.8 · ICD-02 v0.3.4 §Herald §PUNISH body): scooped
+  // stories carry a [SCOOPED] badge in the dossier row. The row is non-
+  // interactive (no toggle-archive routing) for scooped lead-state stories
+  // since they're not held at the Darkroom — the dossier surfaces the loss
+  // only. Scooped verified-at-Darkroom rows can still be archived (player
+  // may want to clear the queue), so the toggle-archive routing stays on
+  // those rows. CSS class is-scooped lets the surface style itself.
+  const scoopedChip = s.scooped ? '<span class="chip is-scooped">SCOOPED</span>' : '';
+  let cls = s.state === 'archived' ? 'story-row is-archived' : 'story-row';
+  if (s.scooped) cls += ' is-scooped';
   // Investigation chain depth — "Investigation 2/3" appended to meta line.
   const chainSuffix = s.chain_depth
     ? ` · Investigation ${s.chain_depth}/3`
@@ -899,7 +949,7 @@ export function renderStoryRow(s) {
     ).join('');
     arcLine = `<div class="arc-line">Arc · ${escapeHtml(arcLabel)}${pickedNote}${chipsHtml ? `<span class="arc-chips">${chipsHtml}</span>` : ''}</div>`;
   }
-  return `<div class="${cls}" data-action="toggle-archive" data-story-id="${escapeHtml(s.id)}">${arcLine}${archivedChip}<span class="hl">${escapeHtml(s.headline)}</span><span class="meta">${escapeHtml(s.flavor)} · ${escapeHtml(districtName)}${escapeHtml(chainSuffix)}</span></div>`;
+  return `<div class="${cls}" data-action="toggle-archive" data-story-id="${escapeHtml(s.id)}">${arcLine}${archivedChip}${scoopedChip}<span class="hl">${escapeHtml(s.headline)}</span><span class="meta">${escapeHtml(s.flavor)} · ${escapeHtml(districtName)}${escapeHtml(chainSuffix)}</span></div>`;
 }
 
 function arcDisplayName(arcId) {

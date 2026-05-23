@@ -103,6 +103,11 @@ const hud = new HudCorkboard(hudRoots, {
   // World records the deal; the HUD stays projection-only.
   acceptPartnerOffer:  () => world.acceptPartnerOffer(),
   declinePartnerOffer: () => world.declinePartnerOffer(),
+  // 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): Herald buyout gestures.
+  // Accept → CYCLE_ESTABLISHMENT_ENDING + game-over overlay (win path);
+  // Decline → Herald locks into PUNISH for the rest of the run.
+  acceptBuyout:  () => world.acceptBuyout(),
+  declineBuyout: () => world.declineBuyout(),
   // 1.3.1: SlowMoPill reads remaining-active-ms each frame. State lives in
   // this closure (line below initializes it); the HUD pulls via this
   // getter so it doesn't need a slow-mo state reference of its own.

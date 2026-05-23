@@ -9,6 +9,7 @@ import {
   renderStoryRow,
   renderPartnerOfferChip,
   renderActivePartnerDealLine,
+  renderBuyoutOfferChip,
   ROLE_CAPTIONS,
   SlowMoPill,
   ZoomPill,
@@ -204,6 +205,56 @@ test('renderActivePartnerDealLine reflects district + remaining editions and plu
   const one = renderActivePartnerDealLine({ district: 'hillside', editionsRemaining: 1 });
   assert.match(one, /1 edition left/);
   assert.match(one, /Hillside/);
+});
+
+// 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body) — buyout-offer chip. Same
+// shape as renderPartnerOfferChip but with `buyout-accept` / `buyout-decline`
+// action attrs and a $-formatted amount with thousands separator.
+test('renderBuyoutOfferChip emits accept + decline buttons with stable data-action attrs', () => {
+  const html = renderBuyoutOfferChip({ amount: 50_000 });
+  assert.match(html, /data-action="buyout-accept"/);
+  assert.match(html, /data-action="buyout-decline"/);
+});
+
+test('renderBuyoutOfferChip formats amount with thousands separator', () => {
+  const html = renderBuyoutOfferChip({ amount: 50_000 });
+  assert.match(html, /\$50,000/);
+});
+
+test('renderBuyoutOfferChip surfaces the Establishment-ending tag', () => {
+  const html = renderBuyoutOfferChip({ amount: 50_000 });
+  assert.match(html, /Establishment ending/i);
+});
+
+// 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body) — scooped badge in story row.
+test('renderStoryRow: scooped lead carries the SCOOPED chip + is-scooped class', () => {
+  const html = renderStoryRow({
+    id: 's-scoop',
+    state: 'lead',
+    headline: 'DOCKHAND TIPS THE WIRE',
+    flavor: 'vice',
+    tier: 'investigation',
+    district: 'docks',
+    scooped: true,
+  });
+  assert.match(html, /SCOOPED/);
+  assert.match(html, /is-scooped/);
+});
+
+test('renderStoryRow: scooped verified story still routes toggle-archive (player can clear it)', () => {
+  const html = renderStoryRow({
+    id: 's-scoop',
+    state: 'verified',
+    headline: 'DOCKHAND TIPS THE WIRE',
+    flavor: 'vice',
+    tier: 'investigation',
+    district: 'docks',
+    scooped: true,
+  });
+  // The row remains clickable; data-action attribute stays — archive lets the
+  // player retire the scooped row off the queue.
+  assert.match(html, /data-action="toggle-archive"/);
+  assert.match(html, /SCOOPED/);
 });
 
 // 1.3.1 (#playtest-bug-1 + #playtest-bug-5) — unit-role caption map. The

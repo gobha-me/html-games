@@ -21,7 +21,8 @@ type CycleEvent =
   | { kind: 'DEADLINE_FIRE',       edition: number }
   | { kind: 'EDITION_DEBRIEF_BEGIN', edition: number, summary: EditionSummary }
   | { kind: 'EDITION_DEBRIEF_END' }
-  | { kind: 'CYCLE_GAME_OVER',     edition: number, reason: GameOverReason };
+  | { kind: 'CYCLE_GAME_OVER',     edition: number, reason: GameOverReason }
+  | { kind: 'CYCLE_ESTABLISHMENT_ENDING', edition: number };  // v1.5.0 (§Notes — Herald BUYOUT win path)
 
 type GameOverReason = 'press_destroyed';   // v0.3 vocabulary; new reasons admitted via this ICD only
 ```
@@ -35,6 +36,18 @@ type GameOverReason = 'press_destroyed';   // v0.3 vocabulary; new reasons admit
 - The 0.7.0 vocabulary covers exactly one `GameOverReason`: `'press_destroyed'`
   (Bureau HP reached 0 via goon damage). Future reasons (e.g., bankruptcy at
   Tier-1) widen the union and require an ICD-06 bump.
+- **`CYCLE_ESTABLISHMENT_ENDING` is the win-path twin to `CYCLE_GAME_OVER`**
+  (v1.5.0 §Notes addendum — ICD-02 v0.3.4 §Herald §BUYOUT body). Fires
+  exactly once when the player accepts a Herald OFFER_BUYOUT via
+  `World.acceptBuyout`. After it fires, the World sets
+  `endingState='establishment'` and `gameOver=true` so subsequent ticks
+  short-circuit the same way `CYCLE_GAME_OVER` does. Two kinds (rather
+  than widening `CYCLE_GAME_OVER.reason`) keeps the overlay's subscriber
+  routing clean — the game-over overlay subscribes to both kinds and
+  branches on `ev.kind` for the banner copy + high-score `cause` field.
+  No new run-end ICD bump is required when additional ending kinds land
+  at Tier-2+ (Yellow ending, etc.) — they'll author parallel
+  `CYCLE_*_ENDING` kinds in the same shape.
 
 ## `EditionSummary` shape (v0.2)
 

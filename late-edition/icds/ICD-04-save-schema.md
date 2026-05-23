@@ -1,6 +1,7 @@
 # ICD-04 · Save Schema
 
-**Status:** v0.1.5 (milestone 1.2.0 — `SaveBlobV1` gains optional `partner_offer?: PartnerOfferSnap | null` + `active_partner_deal?: ActivePartnerDealSnap | null` + `observer_publish_suppressed?: number` (Observer DESPERATE / SILENCED body persistence per ICD-02 v0.3.3); in-blob version bumps to `"1.4"`; `migrate_1_3_to_1_4` stamps the version and defaults all three to null/0; pre-1.2.0 saves resume cleanly via `_loadFromSnap` ?? fallbacks.)
+**Status:** v0.1.6 (milestone 1.5.0 — `SaveBlobV1` gains optional `buyout_offer?: BuyoutOfferSnap | null` + `ending_state?: 'establishment' | null` (Herald PUNISH / BUYOUT body persistence per ICD-02 v0.3.4); `HeraldSnap` gains optional `last_scoop_edition?: number | null` + `buyout_offer_emitted?: boolean` + `buyout_declined?: boolean`; `StorySnap` gains optional `scooped?: boolean` + `scooped_at_ms?: number`; in-blob version bumps to `"1.5"`; `migrate_1_4_to_1_5` stamps the version and defaults the new SaveBlobV1 fields to null (per-record HeraldSnap + StorySnap defaults flow through `Herald.fromSnap` / `restoreStory` ?? fallbacks). Pre-1.5.0 saves resume cleanly with no pending buyout, no run-ending state, no scoop history.)
+**Prior:** v0.1.5 (milestone 1.2.0 — `SaveBlobV1` gains optional `partner_offer?: PartnerOfferSnap | null` + `active_partner_deal?: ActivePartnerDealSnap | null` + `observer_publish_suppressed?: number` (Observer DESPERATE / SILENCED body persistence per ICD-02 v0.3.3); in-blob version bumps to `"1.4"`; `migrate_1_3_to_1_4` stamps the version and defaults all three to null/0; pre-1.2.0 saves resume cleanly via `_loadFromSnap` ?? fallbacks.)
 **Prior:** v0.1.4 (milestone 1.1.0 — `SaveBlobV1` gains `active_arcs: ActiveArcSnap[]` + `district_heat: { [DistrictId]: number }` + `district_dispositions: { [DistrictId]: 'loyal'|'grudging'|'bitter'|'open hostility' }`; `StorySnap` gains optional `parent_story_id?: StoryId` + `arc_episode_id?: ArcEpisodeId` + `arc_branch_label?: string`; `ObserverSnap` gains optional `recent_states?: string[]` (cap 5); in-blob version bumps to `"1.3"`; `migrate_1_2_to_1_3` pre-fills the new collections + observer.recent_states)
 **Prior:** v0.1.3 (milestone 1.0.1 — `StorySnap.state` union widens to include `'archived'`; optional `archived_at_ms?: number` per record (decay anchor); optional `UnitSnap.stats?: { nerve, nose, legs }` (Reporter trio); in-blob version bumps to `"1.2"`; `migrate_1_1_to_1_2` pass-through stamps the new version)
 **Prior:** v0.1.2 (milestone 1.0.0 — `RivalsSnap` widens to include `herald` + `observer` per Tier-1 opener; in-blob version bumps to `"1.1"`; `migrate_1_0_to_1_1` synthesizes default Herald + Observer state on load)
@@ -42,7 +43,7 @@ interface HighScoreEntry {
   editions_survived: number;
   total_revenue:     number;
   ended_at_ms:       number;                          // wall-clock for display
-  cause:             'game_over' | 'arc_end';
+  cause:             'game_over' | 'establishment_ending';  // v0.1.6 — widens with the Herald BUYOUT win path (ICD-02 v0.3.4)
 }
 ```
 
@@ -62,7 +63,7 @@ interface HighScoreEntry {
 type SaveVersion = string; // semver-ish "MAJOR.MINOR" — v0.1 emits "1.0"
 
 interface SaveBlobV1 {
-  version:      SaveVersion;        // "1.4" at v0.1.5 (was "1.3" at v0.1.4, "1.2" at v0.1.3, "1.1" at v0.1.2, "1.0" at v0.1)
+  version:      SaveVersion;        // "1.5" at v0.1.6 (was "1.4" at v0.1.5, "1.3" at v0.1.4, "1.2" at v0.1.3, "1.1" at v0.1.2, "1.0" at v0.1)
   saved_at_ms:  number;             // Date.now() at write — wall-clock, for UI
   sim_time_ms:  number;             // absolute sim clock (World.sim_time_ms)
   rng_seed:     number;             // v0.1.1: the spawner stream's live PRNG state (renamed semantics — see §Notes)
@@ -102,6 +103,14 @@ interface SaveBlobV1 {
   partner_offer?:               PartnerOfferSnap | null;        // null when no offer pending
   active_partner_deal?:         ActivePartnerDealSnap | null;   // null when no deal in flight
   observer_publish_suppressed?: number;                          // 0 when no suppression active
+
+  // v0.1.6 (1.5.0 · ICD-02 v0.3.4): Herald PUNISH / BUYOUT body
+  // persistence. buyout_offer captures the outstanding OFFER_BUYOUT;
+  // ending_state captures the run-end branch (null = in-progress,
+  // 'establishment' = Herald buyout accepted). Both optional and
+  // default null via migrate_1_4_to_1_5.
+  buyout_offer?: BuyoutOfferSnap | null;
+  ending_state?: 'establishment' | null;
 }
 
 // v0.1.4 (1.1.0 · ICD-10 v0.1.1). Lifted verbatim from ICD-10 §Save surface.
@@ -123,6 +132,13 @@ interface ActivePartnerDealSnap {
   accepted_at_edition: number;      // edition the player accepted the deal
   district:            DistrictId;  // the spared district (same as the offer's district at accept time)
   editions_remaining:  number;      // counts down at edition end; clears at zero
+}
+
+// v0.1.6 (1.5.0 · ICD-02 v0.3.4 §Herald §BUYOUT body). Snake_case wire
+// convention; the live World holds camelCase mirrors (buyoutOffer.editionEmitted etc.).
+interface BuyoutOfferSnap {
+  edition_emitted: number;          // edition Herald first emitted OFFER_BUYOUT
+  amount:          number;          // $50,000 at v1.5.0 (BUYOUT_OFFER_AMOUNT)
 }
 
 interface LeadSpawnerSnap {
@@ -198,6 +214,8 @@ interface StorySnap {
   parent_story_id?: StoryId;                  // v0.1.4 — Investigation 3-step chain pointer (ICD-10 §Investigation chain)
   arc_episode_id?:  string;                   // v0.1.4 — ArcEpisodeId; populated on arc-tier stories (ICD-10 §Save surface)
   arc_branch_label?: string;                  // v0.1.4 — player's pickArcBranch intent (ICD-10 §Open-Q3 close)
+  scooped?:         boolean;                  // v0.1.6 — Herald-scoop flag (ICD-02 v0.3.4 §Herald §PUNISH body); only persisted when truthy
+  scooped_at_ms?:   number;                   // v0.1.6 — sim-time anchor for the scoop event
 }
 
 interface RivalsSnap {
@@ -220,6 +238,9 @@ interface EveningStarSnap {
 
 // v0.1.2 (1.0.0): Herald snap. Ticks 1/EDITION (no _tickAccumMs needed —
 // edition-cadence rivals dispatch at the EDITION_DEBRIEF_END boundary).
+// v0.1.6 (1.5.0): three optional fields added for the PUNISH / BUYOUT body
+// surfaces (ICD-02 v0.3.4). All default null/false via the constructor +
+// Herald.fromSnap ?? fallbacks so pre-1.5.0 snaps resume cleanly.
 interface HeraldSnap {
   id:                              'herald';
   state:                           'IDLE' | 'COURT' | 'WIRED' | 'PUNISH' | 'BUYOUT';
@@ -229,6 +250,9 @@ interface HeraldSnap {
   is_wired:                        boolean;   // sticky flag: set on COURT → WIRED, cleared on exit from WIRED
   past_intents:                    Intent[];
   rng:                             { state: number };
+  last_scoop_edition?:             number | null;   // v0.1.6 — last edition the PUNISH FILE_STORY scoop fired (cooldown gate)
+  buyout_offer_emitted?:           boolean;         // v0.1.6 — one-time emit guard for OFFER_BUYOUT on BUYOUT entry
+  buyout_declined?:                boolean;         // v0.1.6 — post-decline PUNISH lock (rest-of-run permanent)
 }
 
 // v0.1.2 (1.0.0): Observer snap. Ticks 1/2 EDITIONS — _edition_tick gates the
@@ -396,6 +420,35 @@ the deviation lands.
   rule from §Open questions).
 
 ## Revision history
+
+- **v0.1.6** (milestone 1.5.0, 2026-05-23) — In-PR Constraint #4 bump
+  alongside the Herald PUNISH + BUYOUT body code session. Two top-level
+  `SaveBlobV1` fields added: `buyout_offer?: BuyoutOfferSnap | null`
+  (outstanding OFFER_BUYOUT — null when no offer pending; lifecycle
+  parallels v1.2.0's `partner_offer`) and `ending_state?:
+  'establishment' | null` (run-end branch — null for an in-progress run,
+  `'establishment'` once the player accepts the Herald buyout; sits
+  alongside `game_over: boolean` which still drives the press-destroyed
+  fail-state). `HeraldSnap` gains three optional fields:
+  `last_scoop_edition?` (PUNISH scoop cooldown anchor — 3-edition
+  re-arm cadence per ICD-02 v0.3.4 §PUNISH body), `buyout_offer_emitted?`
+  (one-time emit guard for OFFER_BUYOUT — set on first emit, reset on
+  WIRED→BUYOUT entry), `buyout_declined?` (post-decline permanent
+  PUNISH lock — Herald cascade re-asserts PUNISH every edition and
+  skips PUNISH→IDLE cooldown when true). `StorySnap` gains two
+  optional fields: `scooped?: boolean` (Herald-scoop flag; only
+  persisted when truthy so pre-1.5.0 stories keep their byte shape) and
+  `scooped_at_ms?: number` (sim-time anchor for the scoop event). New
+  `BuyoutOfferSnap` interface authored. `HighScoreEntry.cause`
+  vocabulary widens to `'game_over' | 'establishment_ending'` so the
+  high-score readout differentiates the two run-end paths. In-blob
+  `version` bumps `"1.4" → "1.5"`. New migration `migrate_1_4_to_1_5`
+  stamps the version and defaults the new SaveBlobV1 fields to null;
+  per-record HeraldSnap + StorySnap defaults flow through
+  `Herald.fromSnap` / `restoreStory` ?? fallbacks. Storage key
+  (`'late-edition.save.v1'`) unchanged. Pre-1.5.0 saves resume cleanly
+  with no pending buyout, no run-ending state, no scoop history,
+  no buyout decline lock.
 
 - **v0.1.4** (milestone 1.1.0, 2026-05-22) — In-PR Constraint #4 bump
   alongside the first-arc code session (Longshoreman Strike +

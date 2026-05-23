@@ -51,6 +51,7 @@ definitions.
 | **1.3.1** | Playtest UX polish round 3 (legibility pass) — unit-role caption in §13 SELECTED dossier (`ROLE_CAPTIONS` map; Photog "Plates leads at the Darkroom" is the load-bearing inner-loop hint; Editor "Stationed at the Bureau — directs your reporters" substitutes for the silent dispatch-rejection) · lead marker re-skinned from a flat slab to a hovering flavor-colored octahedron with sin-bob (no more "reads as architectural detail on the Darkroom roof") · new `js/render/lead-colors.js` collapses duplicated flavor→color maps shared by minimap (hex) + 3D scene (int) · slow-mo HUD pill (transient top-right `SLOW-MO · 4.2s` countdown reusing existing `activeRemainingMs`) · zoom HUD pill (`ZOOM N/4` for 1.2s on every `[`/`]` press; renderer increments `_zoomCallCount` before clamp early-return so endpoint mashes flash too) · `FRUSTUM_STEPS` widened `[30,22,16,10]` → `[36,24,16,10]` (outer pull-back now visibly dramatic) · `PAN_SPEED` `TILE*4` → `TILE*10` (60 u/s; tap-style play now crosses the grid in ~10 inputs) · version centralization (new `js/version.js` exports `VERSION` + `VERSION_TAGLINE`; `main.js` boot-writes both `document.title` and `#hud-version` so the next bump touches one file) — *shipped v1.3.1* | Second Tier-1.x playtest UX-polish session (after v1.1.1 / v1.1.2). The v1.3.0 same-day playtest reported the inner loop is mechanically working but invisible to a first-time player — every fix targets affordance/feedback, not mechanics. **No ICD bumps** — all surfaces render existing `WorldFrame` fields or are pure tuning constants; mirrors the v1.1.1 / v1.1.2 precedent. Role-aware dispatch filtering (rejecting Fixer→building etc. with a toast) deferred — caption discoverability is sufficient; filtering touches the sim layer and likely needs an ICD-02 §Notes addition for the rejection-reason channel. Tests at 419 cases (397 → 419 = +22; new `tests/version.test.mjs` · `tests/lead-colors.test.mjs` · `tests/hud.test.mjs` extended with `ROLE_CAPTIONS` / `SlowMoPill` / `ZoomPill` cases · `tests/zoom.test.mjs` + `tests/input-pan.test.mjs` updated for the new constants). | strong |
 | **1.3.0** | Audio bus first caller (ICD-07 v0.1) — new `js/audio/cue-table.js` (pure const map binding `FxEvent.kind` → `{ id, channel, path }` for the three Supplement-C SFX cues recorded 2026-05-22: `pickup → SFX-01` typewriter · `verify → SFX-05` camera shutter · `print → SFX-07` press fires) · new `js/audio/audio-bus.js` (Node-importable bus class: `loadAll` preloads · `consumeEffects(events)` drains `WorldFrame.effects[]` and routes by kind · `unlock()` lifts the autoplay gate · `mute(channel?)` unwired for the second caller) · new `js/audio/html-audio-player.js` (default browser Player; `HTMLAudioElement` per cue with a 3-element clone pool to avoid Safari `currentTime = 0` re-trigger stall) · `js/main.js` constructs the bus after slow-mo init and drains `frame.effects` into it after `renderer.apply` (renderer iterates without mutating; bus + renderer in lockstep) · `js/input.js` calls `audioBus.unlock()` on first `mousedown`/`keydown` (idempotent) — *shipped v1.3.0* | First caller against ICD-07 v0.1 (authored at PRE-0.10 / shipped v0.9.4). **No ICD bumps** — ICD-07 line 130 anticipated the cue-id drift ("cue ids may shift as the Supplement-C catalog is recorded; the channels and trigger sites are locked"); a §Notes addendum binds the v1.3.0 SFX-01/05/07 subset against the locked channel commitments (Constraint #4 satisfied via §Notes per the ICD-02 v0.3.2 §Notes precedent). Press-silence beat (`CYCLE_GAME_OVER` → mute AMB-04/05) deferred for the second caller — no AMB cue recorded yet; the `mute(channel?)` primitive ships unwired so the next caller adds the listener in three lines. Ducking engine + AMB / MUS / VO recording + engine swap to Web Audio API all defer to subsequent callers. Tests at 397 cases (390 → 397 = +7; new `tests/audio-bus.test.mjs` covering cue-table shape lock, pre-/post-unlock dispatch, unknown-kind silence, mute/loadAll forwarding). | strong |
 | **1.4.0** | Settings popover (pan speed · audio mute) — new `SettingsPanel` class in `js/hud.js` as a sixth `HudCorkboard` sibling (event-driven; `apply` is a no-op; refs passed in directly so the class is testable against minimal stubs — mirrors `SlowMoPill`/`ZoomPill` precedent) · `AUDIO_CHANNELS = ['sfx','amb','mus','vo']` exported from `js/audio/audio-bus.js` as the canonical channel vocabulary the popover renders one toggle per (AMB/MUS/VO ship audible-but-silent until cues record) · `AudioBus.isChannelMuted(channel?)` getter passthrough + `HTMLAudioPlayer.getMuted(channel?)` symmetric with `setMuted` · `js/preferences.js` widens with `setPanSpeedMultiplier(v)` + `get/setChannelMuted(channel, muted)` backing localStorage keys `lateEdition.audio.muted.<channel>` / `.master` · `js/main.js` `buildSettingsPanelRefs()` assembles the refs object + actions object gains `getPanSpeedMultiplier`/`setPanSpeedMultiplier`/`getChannelMuted`/`toggleChannelMute` + boot-time loop applies persisted mute state to the freshly-built bus · `index.html` gear button at `top:40px/left:12px` (below deadline strip, alongside pill row) + popover dialog with slider (`min=0.5 max=3 step=0.1`) + five toggles (master + four channels) + ~150 lines of CSS reusing `--paper-2`/`--rule`/`--ink` so the panel reads as corkboard furniture · five close paths wired (gear toggle, close-button, ESC, outside-click, programmatic) — *shipped v1.4.0* | First Tier-1.x content session for **player-tunable preferences**. Surfaces two primitives that shipped unwired in earlier rounds: pan-speed multiplier (v1.3.1 `js/preferences.js` scaffold, console-only) and per-channel audio mute (v1.3.0 `audioBus.mute(channel?)` primitive, no caller). **No ICD bumps** — all deliverables live in the renderer/HUD/preferences layer reading existing primitives or extending pure-data utilities (mirrors v1.1.1/v1.1.2/v1.3.1 polish precedent — UX surfaces can ship without paper). Per-channel volume sliders + additional tunables (zoom range, slow-mo opacity, rain density) deferred — wiring one knob at a time keeps the panel honest. Tests at 455 cases (419 → 455 = +36; new cases in `preferences.test.mjs` / `audio-bus.test.mjs` / `hud.test.mjs` — `SettingsPanel` open/close/refresh/slider/toggle behavior; channel-mute round-trip without cross-talk; `AUDIO_CHANNELS` vocabulary lock; defensive fallbacks). | strong |
+| **1.5.0** | Herald PUNISH + BUYOUT state bodies (ICD-02 v0.3.4). **§Herald §PUNISH body:** on entry (heat-driven IDLE→PUNISH OR caller-driven COURT→PUNISH/WIRED→PUNISH/BUYOUT-decline → PUNISH) Herald emits `FILE_STORY { district, tier:'investigation', source:'herald' }` subject to a 3-edition cooldown via `Herald.lastScoopEdition` (design HTML §03 "Once per 3 editions"). District = `argmax(view.world.district_heat)` — shares Observer's `pickHotterDistrict` helper, exported from observer.js. World reconciler flips the oldest queued investigation story in the nominated district (`state ∈ lead | verified`, `!scooped`) to `Story.scooped=true`; scooped stories are invisible to Reporter auto-pickup, blocked from plating (same dwell mechanism as the v1.2.0 partner-deal gate), surface in the Story queue dossier with a `[SCOOPED]` badge + strikethrough headline. **§Herald §BUYOUT body:** on `WIRED → BUYOUT` entry Herald emits `OFFER_BUYOUT { amount: 50_000 }` one-time. World records `World.buyoutOffer`; HUD renders Accept | Decline chip in Threats panel. **Acceptance = "Establishment ending":** `World.acceptBuyout` adds $50k to player cash, sets `World.endingState='establishment'`, sets `gameOver=true`, emits `CYCLE_ESTABLISHMENT_ENDING` (ICD-06 §Notes addendum); game-over overlay subscribes to both endings and routes by `ev.kind` to the win banner "THE PRESS WAS BOUGHT" (vs. fail-state "THE PRESS BURNS"). High-score `cause` field widens to `'game_over' | 'establishment_ending'`. **Decline = Herald flips to PUNISH for the rest of the run:** `World.declineBuyout` clears offer, calls `Herald.declineBuyout` which latches `buyoutDeclined=true`; Herald cascade re-asserts PUNISH every edition and skips PUNISH→IDLE cooldown via the locked-PUNISH branch (still scoops every 3 editions). — *shipped v1.5.0* | Second Tier-1.x adversarial-maturation session (mirrors v1.2.0 Observer DESPERATE/SILENCED). The Herald state-machine completes — every state has a body. First **run-end win path** in the game alongside v0.7.0's press-destroyed fail-state. **Three ICD bumps in-PR (Constraint #4):** ICD-01 v0.6.7 → v0.6.8 (`BuyoutOfferView` + `WorldFrame.buyoutOffer` + `StoryQueueView.scooped` widening + story-row filter widens to include any scooped story regardless of state/location); ICD-02 v0.3.3 → v0.3.4 (§Herald §PUNISH + §BUYOUT body completions; Intent table `FILE_STORY` source widens to include `'herald'`; state-table First milestone column updates + two new caller-exit rows for BUYOUT); ICD-04 v0.1.5 → v0.1.6 (`SaveBlobV1` widens with `buyout_offer?` + `ending_state?`; `HeraldSnap` widens with `last_scoop_edition?` + `buyout_offer_emitted?` + `buyout_declined?`; `StorySnap` widens with `scooped?` + `scooped_at_ms?`; new `BuyoutOfferSnap` interface; `HighScoreEntry.cause` widens; `migrate_1_4_to_1_5` authored; v1.4 → v1.5 migration). ICD-06 §Notes addendum documents the new `CYCLE_ESTABLISHMENT_ENDING` event kind. Tests at 504 cases (455 → 504 = +49; four new test files — `herald-punish-body.test.mjs` / `herald-buyout-body.test.mjs` / `world-herald-scoop.test.mjs` / `world-establishment-ending.test.mjs` — plus extensions to `save-load.test.mjs` / `hud.test.mjs` / `world-frame.test.mjs` / `version.test.mjs`). | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -73,6 +74,43 @@ precedent.
 
 ## Current status
 
+**v1.5.0 — Herald PUNISH + BUYOUT state bodies.** Second Tier-1.x
+adversarial-maturation session (after v1.2.0's Observer DESPERATE /
+SILENCED bodies). The Herald's two caller-triggered states wire their
+ICD-02 v0.3.4 bodies. **PUNISH** emits FILE_STORY scoop against the
+oldest queued Investigation story in the heat-leading district, gated
+by a 3-edition cooldown via `Herald.lastScoopEdition`. Scooped stories
+get the `Story.scooped=true` flag, become invisible to Reporter
+pickup, are blocked from plating, and surface in the Story queue
+dossier with a `[SCOOPED]` chip + strikethrough headline.
+**BUYOUT** emits `OFFER_BUYOUT { amount: 50_000 }` one-time on
+WIRED→BUYOUT entry; acceptance triggers the **first run-end win path
+in the game** — `World.acceptBuyout` banks $50k, sets
+`endingState='establishment'`, sets `gameOver=true`, emits
+`CYCLE_ESTABLISHMENT_ENDING` so the game-over overlay mounts with
+**THE PRESS WAS BOUGHT** banner. Decline latches `buyoutDeclined=true`
+and Herald locks into PUNISH for the rest of the run (cascade skips
+PUNISH→IDLE cooldown via the locked-PUNISH branch). **Three ICD bumps
+in-PR (Constraint #4):** ICD-01 v0.6.7 → v0.6.8 (`BuyoutOfferView` +
+`WorldFrame.buyoutOffer` + `StoryQueueView.scooped` widening);
+ICD-02 v0.3.3 → v0.3.4 (§Herald §PUNISH + §BUYOUT body completions);
+ICD-04 v0.1.5 → v0.1.6 (SaveBlobV1 + HeraldSnap + StorySnap widen +
+`migrate_1_4_to_1_5`). ICD-06 §Notes addendum documents the new
+`CYCLE_ESTABLISHMENT_ENDING` event kind. Tests at 504 cases (455 →
+504 = +49).
+
+**Next: remaining Tier-1.x content + adversarial maturation.**
+Star-vs-Observer raid mechanic (§06 matrix cell 3 · also triggers
+SILENCED so v1.2.0's body becomes reachable via two routes) · second
+audio caller (press-silence beat once AMB-04/05 record) · further
+authored arcs (Mayor's Mistress · Empty Vault · Frame the Observer —
+Tier-IV arc surfaces SILENCED in normal play) · district-disposition
+mechanical effect at the 1.1.x balance pass · role-aware dispatch
+filtering (v1.3.1 deferred — caption discoverability deemed
+sufficient; filtering touches the sim layer).
+
+---
+
 **v1.4.0 — Settings popover (pan speed · audio mute).** First Tier-1.x
 content session for **player-tunable preferences**. The v1.3.1 "Next" list
 named a gear-icon settings popover as the next deliverable; this milestone
@@ -91,17 +129,6 @@ ESC / outside-click / programmatic). **No ICD bumps** — all surfaces are
 renderer/HUD layer reading existing primitives; mirrors the v1.1.1 /
 v1.1.2 / v1.3.1 polish precedent (Constraint #4 satisfied trivially).
 Tests at 455 cases (419 → 455 = +36).
-
-**Next: remaining Tier-1.x content + adversarial maturation.** Herald
-PUNISH + BUYOUT state bodies (mirrors v1.2.0 — caller methods exist
-since 1.0.0, ICD-02 v0.3.3 already specifies the bodies) · Star-vs-
-Observer raid mechanic (§06 matrix cell 3 · also triggers SILENCED so
-v1.2.0's body becomes reachable via two routes) · second audio caller
-(press-silence beat once AMB-04/05 record) · further authored arcs
-(Mayor's Mistress · Empty Vault · Frame the Observer) · district-
-disposition mechanical effect at the 1.1.x balance pass · role-aware
-dispatch filtering (v1.3.1 deferred — caption discoverability deemed
-sufficient; filtering touches the sim layer).
 
 ---
 

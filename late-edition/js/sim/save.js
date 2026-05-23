@@ -43,7 +43,14 @@ export const SCORES_KEY = 'late-edition.scores.v1';   // 0.10.0 (G-13)
 // DESPERATE / SILENCED bodies). migrate_1_3_to_1_4 stamps the version and
 // defaults all three to null/0; the _loadFromSnap path also reads via ??
 // fallbacks so the migration is double-safe.
-export const CURRENT_VERSION = '1.4';
+// 1.5.0: schema bump to "1.5" — SaveBlobV1 gains optional buyout_offer +
+// ending_state (ICD-02 v0.3.4 Herald PUNISH/BUYOUT bodies); HeraldSnap gains
+// optional last_scoop_edition + buyout_offer_emitted + buyout_declined;
+// StorySnap gains optional scooped + scooped_at_ms. migrate_1_4_to_1_5
+// stamps the version and defaults the new SaveBlobV1 fields to null;
+// per-record defaults flow through Herald.fromSnap / restoreStory ??
+// fallbacks so the migration is double-safe.
+export const CURRENT_VERSION = '1.5';
 export const SCORES_VERSION = 1;                       // 0.10.0 (G-13)
 export const STORY_VERSION = 1;
 export const MAX_HIGH_SCORES = 10;                     // 0.10.0 (G-13)
@@ -113,6 +120,19 @@ export function serialize(world) {
         }
       : null,
     observer_publish_suppressed: world.observerPublishSuppressed ?? 0,
+    // 1.5.0 (ICD-04 v0.1.6 · ICD-02 v0.3.4): Herald BUYOUT body persistence.
+    // buyout_offer captures the outstanding OFFER_BUYOUT; ending_state
+    // captures the run-end branch (null = in-progress, 'establishment' =
+    // Herald buyout accepted). Both optional on the wire — pre-1.5.0 saves
+    // resume via the _loadFromSnap ?? null fallbacks; migrate_1_4_to_1_5
+    // stamps them so forward-compat readers don't see `undefined`.
+    buyout_offer: world.buyoutOffer
+      ? {
+          edition_emitted: world.buyoutOffer.editionEmitted,
+          amount:          world.buyoutOffer.amount,
+        }
+      : null,
+    ending_state: world.endingState ?? null,
   };
 }
 
@@ -137,6 +157,7 @@ export function runMigrations(raw) {
   if (raw.version === '1.1') raw = migrate_1_1_to_1_2(raw);
   if (raw.version === '1.2') raw = migrate_1_2_to_1_3(raw);
   if (raw.version === '1.3') raw = migrate_1_3_to_1_4(raw);
+  if (raw.version === '1.4') raw = migrate_1_4_to_1_5(raw);
   if (raw.version === CURRENT_VERSION) return raw;
   // Anything not matching the current version is a future blob — refuse.
   return null;
@@ -203,6 +224,23 @@ function migrate_1_3_to_1_4(blob) {
   };
 }
 
+// 1.5.0 (ICD-04 v0.1.6): v1.4 saves predate the Herald PUNISH/BUYOUT body
+// surfaces. buyout_offer (pending OFFER_BUYOUT) and ending_state (run-end
+// branch) both default null. Per-record fields (HeraldSnap.last_scoop_edition,
+// HeraldSnap.buyout_offer_emitted, HeraldSnap.buyout_declined,
+// StorySnap.scooped, StorySnap.scooped_at_ms) read via ?? fallbacks in the
+// rival/story restore paths so pre-1.5.0 blobs resume with no scoops, no
+// buyout, and no decline lock. Same migration shape as 1.3 → 1.4: version
+// stamp + top-level defaults.
+function migrate_1_4_to_1_5(blob) {
+  return {
+    ...blob,
+    version: '1.5',
+    buyout_offer: blob.buyout_offer ?? null,
+    ending_state: blob.ending_state ?? null,
+  };
+}
+
 function defaultHeraldSnap() {
   return {
     id: 'herald',
@@ -213,6 +251,12 @@ function defaultHeraldSnap() {
     is_wired: false,
     past_intents: [],
     rng: { state: 1 },
+    // 1.5.0 (ICD-04 v0.1.6 · ICD-02 v0.3.4): new Herald body fields default to
+    // the constructor's initial values so a synthesized default (1.0 migration
+    // path) resumes with no scoop history and no buyout decline.
+    last_scoop_edition: null,
+    buyout_offer_emitted: false,
+    buyout_declined: false,
   };
 }
 
@@ -339,6 +383,11 @@ function storySnap(s) {
   if (s.parent_story_id !== undefined) snap.parent_story_id = s.parent_story_id;
   if (s.arc_episode_id !== undefined) snap.arc_episode_id = s.arc_episode_id;
   if (s.arc_branch_label !== undefined) snap.arc_branch_label = s.arc_branch_label;
+  // 1.5.0 (ICD-04 v0.1.6 · ICD-02 v0.3.4 §Herald §PUNISH body): Herald-scoop
+  // flag. Only persisted when truthy so pre-1.5.0 stories (and the bulk of
+  // 1.5.0+ stories the Herald never touched) keep their pre-1.5.0 byte shape.
+  if (s.scooped) snap.scooped = true;
+  if (s.scooped_at_ms !== undefined) snap.scooped_at_ms = s.scooped_at_ms;
   return snap;
 }
 
@@ -425,6 +474,12 @@ function heraldSnap(herald) {
     is_wired: herald.isWired,
     past_intents: herald.pastIntents.slice(),
     rng: { state: herald.rng.state },
+    // 1.5.0 (ICD-04 v0.1.6 · ICD-02 v0.3.4): PUNISH/BUYOUT body state. All
+    // three round-trip on every save so the post-load Herald continues from
+    // the same scoop cadence + buyout decision the player left.
+    last_scoop_edition:   herald.lastScoopEdition,
+    buyout_offer_emitted: herald.buyoutOfferEmitted,
+    buyout_declined:      herald.buyoutDeclined,
   };
 }
 

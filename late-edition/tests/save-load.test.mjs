@@ -321,7 +321,7 @@ test('size guard: console.warn fires when serialized blob exceeds 500_000 bytes'
 
 // ---- 12. version field ----------------------------------------------------
 
-test('serialized blob carries version="1.4" at the top level', () => {
+test('serialized blob carries version="1.5" at the top level', () => {
   // 1.0.0 bumped schema to "1.1" — rivals widens to {evening_star, herald, observer}.
   // 1.0.1 bumped schema to "1.2" — StorySnap.state widens with 'archived' +
   // optional archived_at_ms field; UnitSnap gains optional stats (Reporter trio).
@@ -332,10 +332,14 @@ test('serialized blob carries version="1.4" at the top level', () => {
   // 1.2.0 bumped schema to "1.4" — SaveBlobV1 gains optional partner_offer,
   // active_partner_deal, observer_publish_suppressed (ICD-02 v0.3.3 Observer
   // DESPERATE/SILENCED body surfaces).
+  // 1.5.0 bumped schema to "1.5" — SaveBlobV1 gains optional buyout_offer,
+  // ending_state; HeraldSnap gains last_scoop_edition / buyout_offer_emitted /
+  // buyout_declined; StorySnap gains optional scooped / scooped_at_ms
+  // (ICD-02 v0.3.4 Herald PUNISH/BUYOUT body surfaces).
   const w = new World();
   const blob = serialize(w);
   assert.equal(blob.version, CURRENT_VERSION);
-  assert.equal(blob.version, '1.4');
+  assert.equal(blob.version, '1.5');
 });
 
 // ---- 13. 1.0.0 three-rival round-trip ------------------------------------
@@ -529,4 +533,82 @@ test('partner-deal: serialize → deserialize round-trips an active deal', () =>
     editionsRemaining: 3,
   });
   assert.equal(w2.observerPublishSuppressed, 3);
+});
+
+// ---- 17. 1.5.0 — Herald PUNISH/BUYOUT body surfaces ----------------------
+
+test('buyout: migrate_1_4_to_1_5 defaults buyout_offer / ending_state', () => {
+  // v1.4 blobs predate Herald PUNISH/BUYOUT body surfaces. Migration stamps
+  // null defaults so a pre-1.5.0 save resumes with no pending buyout +
+  // no run-ending state.
+  const w1 = new World();
+  const blob = serialize(w1);
+  const legacy = { ...blob, version: '1.4' };
+  delete legacy.buyout_offer;
+  delete legacy.ending_state;
+
+  const storage = memStorage();
+  storage.setItem(SAVE_KEY, JSON.stringify(legacy));
+  const w2 = loadSave(storage);
+  assert.ok(w2, 'v1.4 → v1.5 migration produced a World');
+  assert.equal(w2.buyoutOffer, null);
+  assert.equal(w2.endingState, null);
+});
+
+test('buyout: serialize → deserialize round-trips a pending offer + endingState', () => {
+  const w1 = new World();
+  w1.buyoutOffer = { editionEmitted: 25, amount: 50_000 };
+  w1.endingState = 'establishment';
+  const w2 = deserialize(serialize(w1));
+  assert.deepEqual(w2.buyoutOffer, { editionEmitted: 25, amount: 50_000 });
+  assert.equal(w2.endingState, 'establishment');
+});
+
+test('herald: lastScoopEdition + buyout_offer_emitted + buyout_declined round-trip', () => {
+  const w1 = new World();
+  const h1 = w1.rivals.find((r) => r.id === 'herald');
+  h1.lastScoopEdition = 14;
+  h1.buyoutOfferEmitted = true;
+  h1.buyoutDeclined = true;
+  h1.state = 'PUNISH';
+  const w2 = deserialize(serialize(w1));
+  const h2 = w2.rivals.find((r) => r.id === 'herald');
+  assert.equal(h2.lastScoopEdition, 14);
+  assert.equal(h2.buyoutOfferEmitted, true);
+  assert.equal(h2.buyoutDeclined, true);
+  assert.equal(h2.state, 'PUNISH');
+});
+
+test('story: scooped + scooped_at_ms round-trip', () => {
+  const w1 = new World();
+  w1.stories.push({
+    id: 's-scoop',
+    state: 'lead',
+    district: 'docks',
+    flavor: 'vice',
+    tier: 'investigation',
+    truthful: true,
+    spawned_at_ms: 1000,
+    tile: { x: 2, y: 2 },
+    picked_up_by: null,
+    held_by_building: null,
+    headline: 'INVESTIGATION TIPPED',
+    scooped: true,
+    scooped_at_ms: 5000,
+  });
+  const w2 = deserialize(serialize(w1));
+  const s2 = w2.stories.find((s) => s.id === 's-scoop');
+  assert.ok(s2);
+  assert.equal(s2.scooped, true);
+  assert.equal(s2.scooped_at_ms, 5000);
+});
+
+test('story: pre-1.5.0 unscooped stories load without a scooped field', () => {
+  // Regression guard — restoreStory should NOT set scooped on un-scooped
+  // stories (the live shape stays clean).
+  const w1 = new World();
+  const w2 = deserialize(serialize(w1));
+  for (const s of w2.stories) {
+    assert.notEqual(s.scooped, true, 'fresh-world stories must not carry scooped');
+  }
 });

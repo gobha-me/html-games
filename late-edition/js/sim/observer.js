@@ -46,7 +46,9 @@ import { DISTRICTS, DEFAULT_DISTRICT_ID } from './districts.js';
 // district with the max value wins. Returns DEFAULT_DISTRICT_ID when the map
 // is missing or all zero, so test fixtures without a world block still
 // produce a valid PARTNER_REQUEST shape.
-function pickHotterDistrict(districtHeat) {
+// 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body): exported so Herald's scoop
+// emission shares the same argmax + DISTRICTS-declaration-order tie-break.
+export function pickHotterDistrict(districtHeat) {
   if (!districtHeat) return DEFAULT_DISTRICT_ID;
   let bestId = DEFAULT_DISTRICT_ID;
   let bestHeat = -Infinity;
