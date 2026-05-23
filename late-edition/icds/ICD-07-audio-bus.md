@@ -185,6 +185,22 @@ audio-system band tightens from fuzzy to medium.
   the photog camera. The audio bus collapses both kinds to SFX-02 at
   the cue-table — sim emits whichever fits the trigger site, audio
   doesn't care which arrived.
+- **v1.3.0 first-caller cue binding.** The first caller (`js/audio/audio-bus.js`,
+  shipped 2026-05-23) bound the recorded subset of Supplement-C against
+  the three FxEvent kinds whose cues exist on disk: `pickup → SFX-01`
+  (typewriter / reporter-dispatched), `verify → SFX-05` (camera shutter),
+  `print → SFX-07` (press fires). The aspirational table at §FxEvent ↔
+  SFX cue-table names different ids (`verify → SFX-02`, `print → SFX-06`,
+  plus the unrecorded `death` / `raid_warning`) — line 130 anticipated
+  this drift: *"cue ids may shift as the Supplement-C catalog is
+  recorded; the channels and trigger sites are locked."* The first
+  caller honors the channel commitments (`sfx` for all three) and
+  binds to whichever ids landed; `death` / `raid_warning` / `flash`
+  pass silently until their cues record. No version bump — Constraint #4
+  satisfied via this §Notes paragraph, per the ICD-02 v0.3.2 §Notes
+  precedent. The bus also defers the `CYCLE_GAME_OVER` press-silence
+  listener for the second caller (no AMB-04/05 to mute yet); the
+  `mute(channel?)` primitive ships unwired against that future call.
 
 ## Open questions
 

@@ -114,6 +114,73 @@ and commit it alongside whatever change triggered the need.
 
 ## Current state
 
+**v1.3.0 — Audio bus first caller (ICD-07).** First caller against
+ICD-07 v0.1 (PRE-0.10 / v0.9.4). The game gains audible cues for the
+inner loop's three diegetic beats: typewriter on Reporter pickup
+(SFX-01), camera shutter on Photog plating at the Darkroom (SFX-05),
+press firing on edition print (SFX-07). Four deliverables landed:
+
+- **`js/audio/cue-table.js` (new).** Pure const map binding
+  `FxEvent.kind` → `{ id, channel, path }` for the three Supplement-C
+  cues recorded against the venice.ai workflow on 2026-05-22. All
+  three route the `sfx` channel per ICD-07's locked channel
+  commitments. `death` / `raid_warning` / `flash` are intentionally
+  absent until their Supplement-C cues record — they pass silently
+  through `consumeEffects` (no ICD bump needed to add rows later).
+
+- **`js/audio/audio-bus.js` (new).** Node-importable class.
+  `loadAll()` preloads every cue at boot; `consumeEffects(events)`
+  drains a `WorldFrame.effects[]` array and routes by kind through
+  the cue table; `unlock()` lifts the browser-autoplay gate
+  (idempotent); `mute(channel?)` / `unmute(channel?)` forward to the
+  player for the second caller's press-silence beat. The bus never
+  imports `HTMLAudioElement` — the browser surface is the
+  `HTMLAudioPlayer` only.
+
+- **`js/audio/html-audio-player.js` (new).** Default browser
+  Player. `HTMLAudioElement` per cue with a 3-element pool
+  (`cloneNode` at construction) so rapid re-triggers don't fight
+  over one element and Safari's `currentTime = 0` re-trigger stall
+  is avoided. Channel-scoped mute.
+
+- **Wire-in.** [`js/main.js`](js/main.js) constructs
+  `AudioBus(new HTMLAudioPlayer())` after the slow-mo init, calls
+  `audioBus.loadAll()`, passes `audioBus` through `attachInput`'s
+  hooks. Per-frame loop drains `frame.effects` into the bus between
+  `renderer.apply` and `hud.apply` — same array the renderer
+  iterates (without mutating), so bus + renderer stay in lockstep on
+  the FX channel. [`js/input.js`](js/input.js) calls
+  `audioBus.unlock()` on the first `mousedown` or `keydown` so the
+  player can hear audio without the bus being coupled to input.
+
+**No ICD bumps in-PR.** ICD-07 line 130 anticipates the cue-id
+drift: *"cue ids may shift as the Supplement-C catalog is recorded;
+the channels and trigger sites are locked."* A §Notes addendum
+binds the v1.3.0 SFX-01/05/07 subset against the locked channels
+(Constraint #4 satisfied via §Notes per the ICD-02 v0.3.2 §Notes
+precedent). Tests at 397 cases (390 → 397 = +7 — new
+`tests/audio-bus.test.mjs` covers cue-table shape lock,
+pre-/post-unlock dispatch, unknown-kind silence, mute/loadAll
+forwarding).
+
+**Deferred (Out of scope, for the next audio caller).** Press-silence
+beat (`CYCLE_GAME_OVER` → mute AMB-04/05) — no AMB cue recorded yet;
+the `mute(channel?)` primitive ships unwired so the next caller adds
+the listener in three lines. Ducking engine — meaningless until two
+non-SFX channels overlap. AMB / MUS / VO recording — venice.ai workflow
+per cue. Engine swap to Web Audio API — lands with ducking.
+
+**Next: remaining Tier-1.x content + adversarial maturation.** Herald
+PUNISH + BUYOUT state bodies (mirrors v1.2.0 — caller methods exist,
+bodies need wiring) · Star-vs-Observer raid mechanic (§06 matrix cell 3 ·
+also triggers SILENCED so v1.2.0's body becomes reachable via two
+routes) · second audio caller (press-silence beat once AMB-04/05
+record) · further authored arcs (Mayor's Mistress · Empty Vault ·
+Frame the Observer) · district-disposition mechanical effect at the
+1.1.x balance pass.
+
+---
+
 **v1.2.0 — Tier-1.x adversarial maturation · Observer DESPERATE +
 SILENCED state bodies.** First Tier-1.x adversarial-maturation session
 against the roadmap "Next" list (Herald PUNISH/BUYOUT · Observer

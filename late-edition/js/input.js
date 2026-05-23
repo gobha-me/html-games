@@ -38,7 +38,13 @@ export function attachInput(root, renderer, world, hooks = {}) {
   // Suppress the browser context menu so right-click can be used as an order.
   root.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // 1.3.0 (ICD-07 first caller): browser autoplay policy blocks audio
+  // playback until a user gesture. The first mousedown OR keydown
+  // unlocks the bus; subsequent unlocks are no-ops (idempotent).
+  const tryUnlockAudio = () => { if (hooks.audioBus) hooks.audioBus.unlock(); };
+
   root.addEventListener('mousedown', (e) => {
+    tryUnlockAudio();
     const cell = renderer.screenToGridCell(e.clientX, e.clientY, GRID_W, GRID_H);
     if (!cell) return;
 
@@ -89,6 +95,7 @@ export function attachInput(root, renderer, world, hooks = {}) {
       // press, not auto-trigger via OS key-repeat.
       return;
     }
+    tryUnlockAudio();
     const k = e.key.toLowerCase();
     if (k in KEY_PAN) {
       panKeys.add(k);

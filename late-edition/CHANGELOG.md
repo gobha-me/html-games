@@ -1,5 +1,77 @@
 # Changelog — Late Edition
 
+## v1.3.0 — 2026-05-23 — Audio bus first caller (ICD-07)
+
+First caller against ICD-07 v0.1 (authored at PRE-0.10). Stands up the
+audio bus end-to-end with the three Supplement-C SFX cues already
+recorded against the venice.ai workflow on 2026-05-22 (SFX-01 typewriter ·
+SFX-05 camera shutter · SFX-07 press fires). Reads the existing
+`WorldFrame.effects` channel that the v0.10.2 PR-D wired; the renderer
+and the bus drain the same array in lockstep. Tests at 397 cases
+(390 → 397 = +7). **No ICD bumps** — channels + trigger sites are locked
+at ICD-07 v0.1; cue-id binding is a §Notes addendum per ICD-07 line 130
+("cue ids may shift as the Supplement-C catalog is recorded").
+
+### Added
+
+- **`js/audio/cue-table.js`** — pure const map binding `FxEvent.kind` →
+  `{ id, channel, path }` for the three recorded SFX cues:
+  `pickup → SFX-01`, `verify → SFX-05`, `print → SFX-07`. All three
+  route the `sfx` channel. Unknown kinds (`death` / `raid_warning` /
+  `flash`) are intentionally absent; the bus silently passes them.
+- **`js/audio/audio-bus.js`** — Node-importable bus class. `loadAll()`
+  preloads every cue at boot. `consumeEffects(events)` drains a
+  `WorldFrame.effects[]` array and routes by kind through the cue table.
+  `unlock()` lifts the autoplay gate (idempotent). `mute(channel?)` /
+  `unmute(channel?)` ship unwired for the second caller's press-silence
+  beat. Never imports `HTMLAudioElement` — keeps the bus testable under
+  `node:test` without DOM.
+- **`js/audio/html-audio-player.js`** — default browser-side Player
+  implementation. `HTMLAudioElement` per cue with a 3-element pool
+  (cloneNode at construction) so rapid re-triggers don't fight over one
+  element and Safari's `currentTime = 0` re-trigger stall is avoided.
+  Channel-scoped mute (`setMuted(muted, channel?)`).
+- **`tests/audio-bus.test.mjs`** — 7 cases. Cue-table shape lock,
+  unknown-kind silent pass, pre-unlock no-op, post-unlock dispatch with
+  the right cue id + channel, empty/undefined input no-throw, mute /
+  unmute forwarding, loadAll calls per entry. Tests inject a `StubPlayer`
+  that records calls so the bus exercises end-to-end without DOM.
+- **First-gesture audio unlock.** [`js/input.js`](js/input.js)'s first
+  `mousedown` or `keydown` calls `audioBus.unlock()` (idempotent).
+  Satisfies browser autoplay policy without coupling the bus to input.
+
+### Changed
+
+- **`js/main.js`** — constructs `AudioBus(new HTMLAudioPlayer())` after
+  the slow-mo init, calls `audioBus.loadAll()`, passes `audioBus`
+  through `attachInput`'s hooks for the unlock plumbing. Per-frame loop
+  adds `audioBus.consumeEffects(frame.effects)` between
+  `renderer.apply` and `hud.apply` — same drained array; renderer
+  iterates without mutating so reading after is safe and the bus
+  stays in lockstep with the renderer's FX channel.
+- **`icds/ICD-07-audio-bus.md`** — §Notes addendum acknowledging the
+  v1.3.0 first-caller binding of the recorded SFX subset. No version
+  bump (Constraint #4 satisfied via §Notes per the ICD-02 v0.3.2 §Notes
+  precedent).
+
+### Deferred (not in this PR)
+
+- **Press-silence beat wiring** (ICD-07 §The press-silence beat). No
+  AMB-04/05 cue recorded yet — subscribing to `CYCLE_GAME_OVER` now
+  would be a no-op callback. The `mute(channel?)` primitive ships
+  unwired so the next caller adds the listener in three lines.
+- **Ducking engine.** ICD-07 §Ducking rules applies to overlap between
+  AMB / MUS / VO — meaningless for three SFX one-shots. Lands with
+  the first caller that has overlapping channels.
+- **AMB / MUS / VO recording.** venice.ai workflow already documented
+  in `AGENTS.md`; each cue is its own session.
+- **Engine swap.** Vanilla `HTMLAudioElement` suffices at v1.3.0
+  (the repo has one CDN import in the whole tree — three.js). The
+  `Player` injection seam makes a future `WebAudioPlayer` swap
+  invisible to the bus.
+
+---
+
 ## v1.2.0 — 2026-05-23 — Observer DESPERATE + SILENCED state bodies
 
 First Tier-1.x adversarial-maturation session against the roadmap "Next"

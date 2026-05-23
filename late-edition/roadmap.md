@@ -48,6 +48,7 @@ definitions.
 | **1.1.1** | Playtest UX polish — #332 fog camera-target distance (camera (40,35,40)→(24,22,24) via `CAMERA_OFFSET`) · #333 WASD pan rotated 45° to screen-aligned axes (KEY_PAN unit vectors) · #334 building dossier (Option A — `buildingAtTile` + `selectBuilding` mirror unit pattern; `WorldFrame.selectedBuilding: SelectedBuildingView \| null` projection; Switchboard + Branch Bureau gain player-readable HP) · #335 multi-step zoom (4-step ladder 30→22→16→10 with silent-clamp endpoints, `FRUSTUM_STEPS` + `nextZoomStep` in `js/render/zoom-step.js` for testability) — *shipped v1.1.1* | First Tier-1.x polish session against v1.1.0 same-day playtest reports. ICD-01 v0.6.5 → v0.6.6 (`SelectedBuildingView` widens `BuildingView` with `district`; `WorldFrame.selectedBuilding` top-level field). Tests at 355 cases (334 → 355 = +21; three new test files: `building-select.test.mjs` · `input-pan.test.mjs` · `zoom.test.mjs`). Closes Gitea issues #332/#333/#334/#335 + stale #330. Defers #336 (likely auto-resolved by fog fix) and #337 (minimap, separate ticket). | strong |
 | **1.1.2** | Playtest UX polish round 2 — #336 dossier hierarchy (`#hud-dossier` border-top `1px var(--rule)` → `2px var(--ink)` to match the deadline-strip weight; `.panel` `min-height` 78px → 120px so the auto-sized dossier row grows from ~105px → ~148px without changing the body grid template) · #337 minimap (new 140×140 px HUD widget bottom-right of `#world` — 10×10 grid + buildings/units/leads/visible-goons + selection ring + iso-rotated camera-frustum rhombus overlay; pure projection helpers `tileToPixel`/`worldXZToPixel`/`frustumQuad` in new `js/render/minimap.js`; `Minimap` region added to `HudCorkboard` as fifth sibling; `renderer.getView()` exposes pan + frustum + aspect through `actions.getView` callback so the HUD never holds a renderer reference) — *shipped v1.1.2* | Second Tier-1.x polish session. Closes the two items v1.1.1 deferred (#336 was *"likely auto-resolved by fog fix"* — required CSS reinforcement; #337 *"benefits from #332 calibration landing first"* — now calibratable). **No ICD bumps** — all minimap inputs come from existing WorldFrame fields (ICD-01 v0.6.6) + renderer-local view state. Tests at 365 cases (355 → 365 = +10; new `minimap.test.mjs`). Closes Gitea issues #336/#337. The v1.1.x playtest UX polish track is now done. | strong |
 | **1.2.0** | Tier-1.x adversarial maturation — Observer DESPERATE + SILENCED state bodies (ICD-02 v0.3.3). DESPERATE body: INVESTIGATE→DESPERATE transition emits `PARTNER_REQUEST { district }` one-time with `district = argmax(view.world.district_heat)`; World reconciler writes `World.partnerOffer`; HUD surfaces an Accept | Decline chip in the Threats panel; `World.acceptPartnerOffer` debits `PARTNER_DEAL_COST = $500`, transfers to Observer, sets `World.activePartnerDeal { district, editionsRemaining: 5 }`, suppresses Observer PUBLISH via `observerPublishSuppressed` counter; `_fireDebrief` plating gate skips stories whose district matches the active deal; deal expiry ticks down at edition end. SILENCED body: player heat decay ×`SILENCED_DECAY_FACTOR = 0.5` in `ackDebrief` while any rival has `state === 'SILENCED'`. `RivalView` widens with `world: { district_heat, observer_publish_suppressed }` so the Observer reads world signals without a backlink. — *shipped v1.2.0* | First Tier-1.x adversarial-maturation session against the roadmap "Next" list (Herald PUNISH/BUYOUT · Observer DESPERATE/SILENCED · Star-vs-Observer raid · audio bus · further arcs). **Three ICD bumps in-PR (Constraint #4):** ICD-01 v0.6.6 → v0.6.7 (`PartnerOfferView` + `ActivePartnerDealView` + two `WorldFrame` nullable fields); ICD-02 v0.3.2 → v0.3.3 (RivalView §world block + §Observer §DESPERATE/§SILENCED body completions + state-table "First milestone" column); ICD-04 v0.1.4 → v0.1.5 (`SaveBlobV1` widens with `partner_offer?` + `active_partner_deal?` + `observer_publish_suppressed?`; v1.3 → v1.4 migration). Tests at 390 cases (365 → 390 = +25; new `world-partner-deal.test.mjs` + 5 cases · new `world-silenced-decay.test.mjs` + 5 cases · observer.test.mjs + 3 cases · hud.test.mjs + 3 cases · save-load.test.mjs + 2 cases). | strong |
+| **1.3.0** | Audio bus first caller (ICD-07 v0.1) — new `js/audio/cue-table.js` (pure const map binding `FxEvent.kind` → `{ id, channel, path }` for the three Supplement-C SFX cues recorded 2026-05-22: `pickup → SFX-01` typewriter · `verify → SFX-05` camera shutter · `print → SFX-07` press fires) · new `js/audio/audio-bus.js` (Node-importable bus class: `loadAll` preloads · `consumeEffects(events)` drains `WorldFrame.effects[]` and routes by kind · `unlock()` lifts the autoplay gate · `mute(channel?)` unwired for the second caller) · new `js/audio/html-audio-player.js` (default browser Player; `HTMLAudioElement` per cue with a 3-element clone pool to avoid Safari `currentTime = 0` re-trigger stall) · `js/main.js` constructs the bus after slow-mo init and drains `frame.effects` into it after `renderer.apply` (renderer iterates without mutating; bus + renderer in lockstep) · `js/input.js` calls `audioBus.unlock()` on first `mousedown`/`keydown` (idempotent) — *shipped v1.3.0* | First caller against ICD-07 v0.1 (authored at PRE-0.10 / shipped v0.9.4). **No ICD bumps** — ICD-07 line 130 anticipated the cue-id drift ("cue ids may shift as the Supplement-C catalog is recorded; the channels and trigger sites are locked"); a §Notes addendum binds the v1.3.0 SFX-01/05/07 subset against the locked channel commitments (Constraint #4 satisfied via §Notes per the ICD-02 v0.3.2 §Notes precedent). Press-silence beat (`CYCLE_GAME_OVER` → mute AMB-04/05) deferred for the second caller — no AMB cue recorded yet; the `mute(channel?)` primitive ships unwired so the next caller adds the listener in three lines. Ducking engine + AMB / MUS / VO recording + engine swap to Web Audio API all defer to subsequent callers. Tests at 397 cases (390 → 397 = +7; new `tests/audio-bus.test.mjs` covering cue-table shape lock, pre-/post-unlock dispatch, unknown-kind silence, mute/loadAll forwarding). | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -69,6 +70,67 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**v1.3.0 — Audio bus first caller (ICD-07).** First caller against
+ICD-07 v0.1 (authored at PRE-0.10 / shipped v0.9.4). The game gains
+audible cues for the inner loop's three diegetic beats: typewriter on
+Reporter pickup (SFX-01), camera shutter on Photog plating at the
+Darkroom (SFX-05), press firing on edition print (SFX-07). All three
+Supplement-C cues already recorded against the venice.ai workflow on
+2026-05-22 — ICD-07 §Asset reference identifies them as the T0 SFX
+subset. Four deliverables ship:
+
+(1) **`js/audio/cue-table.js` (new).** Pure const map binding
+`FxEvent.kind` → `{ id, channel, path }` for the three recorded cues.
+All route the `sfx` channel per ICD-07's locked channel commitments.
+`death` / `raid_warning` / `flash` intentionally absent (their
+Supplement-C cues unrecorded) — `consumeEffects` passes them silently.
+
+(2) **`js/audio/audio-bus.js` (new).** Node-importable bus class.
+`loadAll()` preloads every cue at boot; `consumeEffects(events)` drains
+a `WorldFrame.effects[]` array and routes by kind through the cue
+table; `unlock()` lifts the browser-autoplay gate (idempotent);
+`mute(channel?)` / `unmute(channel?)` forward to the player for the
+future press-silence beat. The bus never imports `HTMLAudioElement` —
+the browser surface lives in `html-audio-player.js` so the bus stays
+testable under `node:test` without DOM.
+
+(3) **`js/audio/html-audio-player.js` (new).** Default browser Player.
+`HTMLAudioElement` per cue with a 3-element pool (`cloneNode` at
+construction) so rapid re-triggers don't fight over one element and
+Safari's `currentTime = 0` re-trigger stall is avoided. Channel-scoped
+mute via `setMuted(muted, channel?)`.
+
+(4) **Wire-in.** `js/main.js` constructs `AudioBus(new HTMLAudioPlayer())`
+after the slow-mo init, calls `audioBus.loadAll()`, passes `audioBus`
+through `attachInput`'s hooks for the unlock plumbing. Per-frame loop
+adds `audioBus.consumeEffects(frame.effects)` between `renderer.apply`
+and `hud.apply` — same drained array; renderer iterates without
+mutating so reading after is safe and the bus stays in lockstep with
+the renderer's FX channel. `js/input.js` calls `audioBus.unlock()` on
+the first `mousedown` or `keydown` (idempotent) so the player can hear
+audio without the bus being coupled to input.
+
+**No ICD bumps in-PR.** ICD-07 line 130 anticipates the cue-id drift;
+a §Notes addendum binds the v1.3.0 SFX-01/05/07 subset against the
+locked channel commitments (Constraint #4 satisfied via §Notes per the
+ICD-02 v0.3.2 §Notes precedent). Tests at 397 cases (390 → 397 = +7
+— new `tests/audio-bus.test.mjs` covering cue-table shape lock,
+pre-/post-unlock dispatch, unknown-kind silence, mute/loadAll
+forwarding). Press-silence beat + ducking engine + AMB / MUS / VO
+recording + engine swap to Web Audio API all defer to subsequent
+callers.
+
+**Next: remaining Tier-1.x content + adversarial maturation.** Herald
+PUNISH + BUYOUT state bodies (mirrors v1.2.0 — caller methods exist,
+bodies need wiring) · Star-vs-Observer raid mechanic (§06 matrix cell 3 ·
+also triggers SILENCED so v1.2.0's body becomes reachable via two
+routes) · second audio caller (press-silence beat once AMB-04/05
+record) · further authored arcs (Mayor's Mistress · Empty Vault ·
+Frame the Observer) · district-disposition mechanical effect at the
+1.1.x balance pass.
+
+---
 
 **v1.2.0 — Tier-1.x adversarial maturation · Observer DESPERATE +
 SILENCED state bodies.** First Tier-1.x adversarial-maturation session

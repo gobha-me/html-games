@@ -8,6 +8,55 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v1.3.0 — Audio bus first caller (ICD-07).**
+First caller against ICD-07 v0.1 (authored at PRE-0.10, shipped v0.9.4).
+The game gets its first audible cues: the typewriter when a Reporter
+picks up a lead (SFX-01), the camera shutter when a Photog plates at
+the Darkroom (SFX-05), and the press firing when the edition prints
+(SFX-07). All three Supplement-C cues already recorded against the
+venice.ai workflow on 2026-05-22. Four deliverables land:
+(1) **[`js/audio/cue-table.js`](js/audio/cue-table.js)** — pure const map
+binding `FxEvent.kind` → `{ id, channel, path }` for the three recorded
+cues; `death` / `raid_warning` / `flash` intentionally absent and pass
+silently until their Supplement-C cues record.
+(2) **[`js/audio/audio-bus.js`](js/audio/audio-bus.js)** — Node-importable
+bus class. `loadAll()` preloads at boot; `consumeEffects(events)` drains
+`WorldFrame.effects[]` and routes by kind; `unlock()` lifts the browser
+autoplay gate (idempotent); `mute(channel?)` ships unwired for the
+second caller's press-silence beat.
+(3) **[`js/audio/html-audio-player.js`](js/audio/html-audio-player.js)** —
+default browser-side Player implementation. `HTMLAudioElement` per cue
+with a 3-element pool so rapid re-triggers don't fight over one element
+(Safari `currentTime = 0` stall avoided via `cloneNode`).
+(4) **First-gesture audio unlock** — `js/input.js` calls `audioBus.unlock()`
+on the first `mousedown` or `keydown` so the bus satisfies browser
+autoplay policy without coupling itself to input. The per-frame drain
+hooks in [`js/main.js`](js/main.js) between `renderer.apply` and
+`hud.apply` — same drained array; renderer iterates without mutating so
+bus + renderer stay in lockstep on the FX channel. **No ICD bumps** —
+ICD-07 line 130 anticipated the cue-id drift; a §Notes addendum binds
+the v1.3.0 SFX-01/05/07 subset against the locked channel commitments.
+Tests at 397 cases (390 → 397 = +7 — `tests/audio-bus.test.mjs` covers
+cue-table shape lock, pre/post-unlock dispatch, unknown-kind silence,
+mute forwarding, loadAll-per-entry). Press-silence beat + ducking
+engine + AMB/MUS/VO recording all defer to subsequent callers. See
+[`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+
+**v1.2.0 — Tier-1.x adversarial maturation · Observer DESPERATE +
+SILENCED state bodies.** First Tier-1.x adversarial-maturation session
+against the roadmap "Next" list. The Observer's two caller-triggered
+states — shape-committed at v1.0.0 with `acceptPartner` /
+`declinePartner` / `frame` methods on [`js/sim/observer.js`](js/sim/observer.js)
+but no body behavior — get their ICD-02 v0.3.3 bodies. INVESTIGATE →
+DESPERATE emits `PARTNER_REQUEST { district }` one-time with district =
+`argmax(view.world.district_heat)`; World records the offer; HUD
+surfaces an Accept | Decline chip; accept debits $500, sets a 5-edition
+deal that blocks plating in the deal's district and suppresses Observer
+PUBLISH; SILENCED scales the player's heat decay by 0.5 while any rival
+is silenced (the city notices). Three ICD bumps in-PR (Constraint #4):
+ICD-01 v0.6.6 → v0.6.7 · ICD-02 v0.3.2 → v0.3.3 · ICD-04 v0.1.4 →
+v0.1.5. Tests at 390 cases (365 → 390). Closes Gitea issue #341.
+
 **v1.1.2 — Playtest UX polish round 2 (dossier hierarchy · minimap).**
 Second Tier-1.x polish session, closing out the two deferred items from
 the v1.1.0 same-day playtest. v1.1.1 fixed the four cascading first-launch

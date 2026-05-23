@@ -11,6 +11,8 @@ import { GameOverOverlay } from './game-over-overlay.js';
 import { loadSave, saveNow } from './sim/save.js';
 import { hasWebGL, mountWebGLUnavailable } from './webgl-unavailable.js';
 import { newSlowMoState, triggerSlowMo, speedFactor } from './slow-mo.js';
+import { AudioBus } from './audio/audio-bus.js';
+import { HTMLAudioPlayer } from './audio/html-audio-player.js';
 
 const TICK_HZ = 30;
 const TICK_DT = 1 / TICK_HZ;
@@ -80,8 +82,16 @@ new GameOverOverlay(gameOverRoot, world);
 // 0.10.1 (G-07): slow-mo state is real-time only (no save persistence) —
 // triggered by input.js's Space handler, consumed by the loop multiplier.
 let slowMo = newSlowMoState();
+// 1.3.0 (ICD-07 v0.1 first caller): construct the audio bus before input
+// attaches so the first mousedown/keydown can call audioBus.unlock(). The
+// bus stays locked until then per browser autoplay policy; loadAll()
+// preloads the three recorded SFX cues (SFX-01/05/07) so the first
+// pickup/verify/print has zero playback latency.
+const audioBus = new AudioBus(new HTMLAudioPlayer());
+audioBus.loadAll();
 attachInput(root, renderer, world, {
   triggerSlowMo: () => { slowMo = triggerSlowMo(slowMo, performance.now()); },
+  audioBus,
 });
 
 // 0.8 save trigger cadence (ICD-04 §Save-trigger-surface settles here —
@@ -136,6 +146,11 @@ function loop() {
   const alpha = accumulator / TICK_DT;
   const frame = world.snapshot();
   renderer.apply(frame, alpha);
+  // 1.3.0 (ICD-07): drain the FX channel into the audio bus on the same
+  // frame the renderer consumed. renderer._consumeEffects iterates only
+  // (no mutation), so reading after is safe and keeps bus + renderer
+  // in lockstep on the snapshot's drained array.
+  audioBus.consumeEffects(frame.effects);
   hud.apply(frame);
   requestAnimationFrame(loop);
 }
