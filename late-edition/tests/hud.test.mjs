@@ -9,8 +9,12 @@ import {
   renderStoryRow,
   renderPartnerOfferChip,
   renderActivePartnerDealLine,
+  ROLE_CAPTIONS,
+  SlowMoPill,
+  ZoomPill,
 } from '../js/hud.js';
 import { World } from '../js/sim/world-state.js';
+import { newSlowMoState, triggerSlowMo, SLOW_MO_ACTIVE_MS } from '../js/slow-mo.js';
 
 // Milestone 0.9 — HudCorkboard projection helpers.
 // Rendering is browser-only (jsdom-free here); these tests exercise the
@@ -198,4 +202,154 @@ test('renderActivePartnerDealLine reflects district + remaining editions and plu
   const one = renderActivePartnerDealLine({ district: 'hillside', editionsRemaining: 1 });
   assert.match(one, /1 edition left/);
   assert.match(one, /Hillside/);
+});
+
+// 1.3.1 (#playtest-bug-1 + #playtest-bug-5) — unit-role caption map. The
+// v1.3.0 playtest reported that the player couldn't discover unit functions:
+// a Fixer was dispatched to the Darkroom (no effect; only Photog plates
+// there), Editor dispatch was silently rejected. One line in the dossier
+// surfaces the role; this lock pins the four player-controlled kinds so a
+// rename in world-state.js without a caption update flags here.
+
+test('ROLE_CAPTIONS covers the four player-controlled unit kinds', () => {
+  assert.equal(typeof ROLE_CAPTIONS.reporter, 'string');
+  assert.equal(typeof ROLE_CAPTIONS.photog,   'string');
+  assert.equal(typeof ROLE_CAPTIONS.fixer,    'string');
+  assert.equal(typeof ROLE_CAPTIONS.editor,   'string');
+});
+
+test('ROLE_CAPTIONS.photog names the Darkroom (the load-bearing inner-loop hint)', () => {
+  // This is the single most important caption — Bug 1 was the Fixer arriving
+  // at the Darkroom and going IDLE because Fixer isn't the unit that plates.
+  // The Photog caption is what teaches the player who plates and where.
+  assert.match(ROLE_CAPTIONS.photog, /Darkroom/);
+});
+
+test('ROLE_CAPTIONS.editor signals stationary role (Bug 5 — dispatch is silently rejected)', () => {
+  // The Editor caption is the substitute for the dispatch-rejection toast:
+  // the player reads "Stationed" / "directs" and stops trying to right-click.
+  assert.match(ROLE_CAPTIONS.editor, /Stationed|Bureau|directs/i);
+});
+
+test('ROLE_CAPTIONS does NOT include goon (not a player unit)', () => {
+  // Goons can technically be selected via stale state, but they have no
+  // role to surface. Defending against a future refactor that conflates
+  // selectable + role-bearing.
+  assert.equal(ROLE_CAPTIONS.goon, undefined);
+});
+
+// 1.3.1 (#playtest-bug-7) — slow-mo HUD pill. DOM-free tests against a
+// minimal stub root (the class only reads/writes `hidden` and `textContent`).
+
+function makeStubEl() {
+  return { hidden: true, textContent: '' };
+}
+
+test('SlowMoPill stays hidden when slow-mo has never triggered', () => {
+  const root = makeStubEl();
+  const state = newSlowMoState();
+  const pill = new SlowMoPill(root, { getSlowMo: () => state, now: () => 0 });
+  pill.apply({});
+  assert.equal(root.hidden, true);
+});
+
+test('SlowMoPill renders SLOW-MO + countdown while active', () => {
+  const root = makeStubEl();
+  let now = 10_000;
+  let state = newSlowMoState();
+  state = triggerSlowMo(state, now);
+  const pill = new SlowMoPill(root, { getSlowMo: () => state, now: () => now });
+  pill.apply({});
+  assert.equal(root.hidden, false);
+  assert.match(root.textContent, /^SLOW-MO · /);
+  assert.match(root.textContent, /5\.0s/);
+  // Advance 2 seconds into the window — text should now read ~3.0s.
+  now += 2_000;
+  pill.apply({});
+  assert.equal(root.hidden, false);
+  assert.match(root.textContent, /3\.0s/);
+});
+
+test('SlowMoPill hides itself after the active window expires', () => {
+  const root = makeStubEl();
+  let now = 10_000;
+  let state = triggerSlowMo(newSlowMoState(), now);
+  const pill = new SlowMoPill(root, { getSlowMo: () => state, now: () => now });
+  pill.apply({});
+  assert.equal(root.hidden, false);
+  // Past the active window.
+  now += SLOW_MO_ACTIVE_MS + 100;
+  pill.apply({});
+  assert.equal(root.hidden, true);
+});
+
+test('SlowMoPill no-ops when getSlowMo is not provided', () => {
+  // Defensive: the HUD passes actions through; if a future host omits
+  // getSlowMo the pill must not throw, just stay hidden.
+  const root = makeStubEl();
+  const pill = new SlowMoPill(root, {});
+  pill.apply({});
+  assert.equal(root.hidden, true);
+});
+
+// 1.3.1 (#playtest-bug-3b) — zoom HUD pill. Reads renderer's view object
+// via actions.getView; detects zoomCallCount changes to flash on press
+// (including clamp-at-endpoint, where zoomStep stays put).
+
+function makeViewState(step = 1, callCount = 0) {
+  return { pan: { x: 0, z: 0 }, frustum: 24, aspect: 1.6, zoomStep: step, zoomStepCount: 4, zoomCallCount: callCount };
+}
+
+test('ZoomPill stays hidden before any [/] press has registered', () => {
+  const root = makeStubEl();
+  let view = makeViewState(1, 0);
+  let now = 0;
+  const pill = new ZoomPill(root, { getView: () => view, now: () => now });
+  pill.apply({});
+  assert.equal(root.hidden, true, 'pill should not surface on the latch frame');
+});
+
+test('ZoomPill renders ZOOM N/M with 1-indexed step after first press', () => {
+  const root = makeStubEl();
+  let view = makeViewState(1, 0);
+  let now = 0;
+  const pill = new ZoomPill(root, { getView: () => view, now: () => now });
+  pill.apply({});  // latch
+  view = makeViewState(2, 1);  // stepZoom advanced to index 2
+  now = 100;
+  pill.apply({});
+  assert.equal(root.hidden, false);
+  assert.equal(root.textContent, 'ZOOM 3/4');
+});
+
+test('ZoomPill flashes on clamp-at-endpoint press (callCount bumps even if step unchanged)', () => {
+  // The whole point of the pill: at endpoints, stepZoom doesn't advance the
+  // step but DOES bump zoomCallCount, so the player gets feedback that the
+  // press registered (and learns the endpoint).
+  const root = makeStubEl();
+  let view = makeViewState(3, 5);  // already at innermost
+  let now = 0;
+  const pill = new ZoomPill(root, { getView: () => view, now: () => now });
+  pill.apply({});  // latch
+  view = makeViewState(3, 6);  // user mashed [ at innermost
+  now = 100;
+  pill.apply({});
+  assert.equal(root.hidden, false);
+  assert.equal(root.textContent, 'ZOOM 4/4', 'clamp should still render the same step number');
+});
+
+test('ZoomPill hides itself ~1.2s after the last press', () => {
+  const root = makeStubEl();
+  let view = makeViewState(1, 0);
+  let now = 0;
+  const pill = new ZoomPill(root, { getView: () => view, now: () => now });
+  pill.apply({});
+  view = makeViewState(2, 1);
+  now = 100;
+  pill.apply({});
+  assert.equal(root.hidden, false);
+  // Past the visible window.
+  now = 100 + 1300;
+  pill.apply({});
+  assert.equal(root.hidden, true);
 });

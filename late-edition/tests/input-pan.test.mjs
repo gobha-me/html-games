@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { KEY_PAN, PAN_SPEED } from '../js/input.js';
+import { TILE } from '../js/sim/world-state.js';
 
 // Milestone 1.1.1 (#333): WASD pan was world-XZ-aligned in 1.1.0, which made
 // every key drift diagonally under the iso camera (world +X projects to
@@ -52,6 +53,15 @@ test('single-key normalize: |v| === PAN_SPEED for each cardinal key', () => {
 test('opposing keys cancel (W+S held → zero velocity, no NaN)', () => {
   const v = resultantVelocity(new Set(['w', 's']));
   assert.deepEqual(v, { x: 0, z: 0 });
+});
+
+// 1.3.1 (#playtest-bug-4): the v1.3.0 playtest reported "20 taps moves
+// the world maybe a tile" — at the old TILE*4 (24 u/s), a fast tap
+// (~16ms) only nets ~0.4u, so 20 taps = ~8u ≈ 1.3 tiles. Bumping to
+// TILE*10 (60 u/s) gives ~1u/tap, so the same 20 taps now cross ~3
+// tiles. Hold-to-pan was already wired; the issue was magnitude.
+test('PAN_SPEED is TILE * 10 (1.3.1 retune from TILE * 4)', () => {
+  assert.equal(PAN_SPEED, TILE * 10);
 });
 
 test('two-key diagonal (W+D = up-right) normalizes to PAN_SPEED', () => {

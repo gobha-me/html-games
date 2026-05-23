@@ -24,6 +24,8 @@ import { currentTutorialBeat, BEAT_COPY } from './sim/tutorial.js';
 import { getDistrict } from './sim/districts.js';
 import { ARCHIVE_CAP } from './sim/world-state.js';
 import { tileToPixel, worldXZToPixel, frustumQuad, GRID_W, MARGIN } from './render/minimap.js';
+import { leadColorHex } from './render/lead-colors.js';
+import { activeRemainingMs } from './slow-mo.js';
 
 // Aligned with cycle-clock's DEADLINE_WARNING fire at T-30s (Design Doc §13 strip-
 // turns-red beat). The optional CRITICAL_MS = 5_000 tighter pulse is deferred —
@@ -37,6 +39,25 @@ const UNIT_KIND_LABEL = {
   fixer:    'Fixer',
   editor:   'Editor',
   goon:     'Goon',
+};
+
+// 1.3.1 (#playtest-bug-1 + #playtest-bug-5): role caption shown under each
+// selected unit's kind/state line. The v1.3.0 playtest revealed that the
+// player has no way to learn unit functions — a Fixer was dispatched to the
+// Darkroom (where only the Photog plates leads) and the game silently walked
+// the Fixer there, parked it, and went back to IDLE. Similarly the Editor
+// dispatch is rejected at sim level with no UI hint. One line in the dossier
+// makes the role-affordance discoverable: the Photog caption is the single
+// load-bearing line for the inner loop (the player sees "Plates leads at the
+// Darkroom" and the Darkroom dispatch becomes self-teaching).
+//
+// Exported so tests/hud.test.mjs can lock the map and pin a regression if a
+// kind is renamed in world-state.js without a caption update here.
+export const ROLE_CAPTIONS = {
+  reporter: 'Picks up leads in the field',
+  photog:   'Plates leads at the Darkroom',
+  fixer:    'Intercepts goons',
+  editor:   'Stationed at the Bureau — directs your reporters',
 };
 
 // 1.1.1 (#334 · ICD-01 v0.6.6) — building dossier labels. Reads against the
@@ -116,6 +137,15 @@ export class HudCorkboard {
     // 1.1.2 (#337): minimap is optional — when no canvas is mounted (or
     // the host page omits it), the rest of the HUD still functions.
     this.minimap = roots.minimap ? new Minimap(roots.minimap, actions) : null;
+    // 1.3.1 (#playtest-bug-7): slow-mo pill — transient HUD readout that
+    // surfaces the remaining active window. Reads via actions.getSlowMo()
+    // each frame; hides itself when the window expires.
+    this.slowMoPill = roots.slowMoPill ? new SlowMoPill(roots.slowMoPill, actions) : null;
+    // 1.3.1 (#playtest-bug-3b): zoom pill — transient HUD readout that
+    // surfaces the current zoom step for 1.2s after every [ / ] press
+    // (including clamp-at-endpoint presses, which were previously invisible).
+    // Reads zoomCallCount + zoomStep via actions.getView().
+    this.zoomPill = roots.zoomPill ? new ZoomPill(roots.zoomPill, actions) : null;
   }
 
   apply(frame) {
@@ -126,8 +156,88 @@ export class HudCorkboard {
     this.dossier.apply(frame, bureauHp);
     this.tutorial.apply(frame);
     if (this.minimap) this.minimap.apply(frame);
+    if (this.slowMoPill) this.slowMoPill.apply(frame);
+    if (this.zoomPill) this.zoomPill.apply(frame);
   }
 }
+
+// 1.3.1 (#playtest-bug-7): slow-mo pill. Visible only while the active
+// 5 s window is counting down; reads remaining ms from the shared slow-mo
+// state via actions.getSlowMo(). Pure projection — the player gesture
+// (Space) lives in input.js; the loop owns the state transition; this
+// just renders.
+//
+// Exported as a class so future host pages can wire it without the full
+// HudCorkboard (e.g. a settings-screen "demo" of slow-mo).
+export class SlowMoPill {
+  constructor(rootEl, actions = {}) {
+    this.root = rootEl;
+    this.getSlowMo = typeof actions.getSlowMo === 'function' ? actions.getSlowMo : null;
+    this.now = typeof actions.now === 'function' ? actions.now : () => performance.now();
+    this._visible = false;
+    this._lastText = '';
+  }
+
+  apply(_frame) {
+    if (!this.getSlowMo) return;
+    const state = this.getSlowMo();
+    const remaining = activeRemainingMs(state, this.now());
+    if (remaining <= 0) {
+      if (this._visible) { this.root.hidden = true; this._visible = false; }
+      return;
+    }
+    if (!this._visible) { this.root.hidden = false; this._visible = true; }
+    // Tenths of a second — fast enough that the player sees a countdown,
+    // not so fast that it shimmers. 5.0 → 0.1 over the 5 s active window.
+    const seconds = (remaining / 1000).toFixed(1);
+    const text = `SLOW-MO · ${seconds}s`;
+    if (text !== this._lastText) {
+      this.root.textContent = text;
+      this._lastText = text;
+    }
+  }
+}
+
+// 1.3.1 (#playtest-bug-3b): zoom pill. Surfaces "ZOOM N/M" for 1.2 s after
+// every renderer.stepZoom call. Detects calls via the monotonically-
+// incrementing zoomCallCount on the view object (renderer increments even
+// when clamped at endpoints so the player learns the boundary by seeing
+// the same number repeat).
+export class ZoomPill {
+  constructor(rootEl, actions = {}) {
+    this.root = rootEl;
+    this.getView = typeof actions.getView === 'function' ? actions.getView : null;
+    this.now = typeof actions.now === 'function' ? actions.now : () => performance.now();
+    this._lastCallCount = null;  // null distinguishes "no view yet" from "0 presses"
+    this._showUntilMs = 0;
+    this._lastText = '';
+    this._visible = false;
+  }
+
+  apply(_frame) {
+    if (!this.getView) return;
+    const view = this.getView();
+    if (!view || typeof view.zoomCallCount !== 'number') return;
+    const now = this.now();
+    // First sighting of the view: latch the counter without firing the pill.
+    if (this._lastCallCount === null) {
+      this._lastCallCount = view.zoomCallCount;
+    } else if (view.zoomCallCount !== this._lastCallCount) {
+      this._lastCallCount = view.zoomCallCount;
+      this._showUntilMs = now + ZOOM_PILL_VISIBLE_MS;
+      const text = `ZOOM ${view.zoomStep + 1}/${view.zoomStepCount}`;
+      if (text !== this._lastText) {
+        this.root.textContent = text;
+        this._lastText = text;
+      }
+    }
+    const wantVisible = now < this._showUntilMs;
+    if (wantVisible && !this._visible) { this.root.hidden = false; this._visible = true; }
+    else if (!wantVisible && this._visible) { this.root.hidden = true; this._visible = false; }
+  }
+}
+
+const ZOOM_PILL_VISIBLE_MS = 1200;
 
 // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): partner-offer chip renders inside
 // the Threats panel when WorldFrame.partnerOffer is non-null. Exported for
@@ -184,6 +294,9 @@ class TutorialNote {
 // green, etc. Goons are drawn as pure ink so the player sees them as
 // danger irrespective of the noir palette.
 //
+// Lead flavor colors live in js/render/lead-colors.js (1.3.1) so this
+// projection and the 3D scene's lead-diamond mesh stay in lockstep.
+//
 // Projection helpers (tileToPixel / worldXZToPixel / frustumQuad) are pure
 // — see js/render/minimap.js and tests/minimap.test.mjs.
 const MINIMAP_COLORS = {
@@ -200,19 +313,8 @@ const MINIMAP_COLORS = {
   fixer:    '#c0212a',
   editor:   '#3a6a3a',
   goon:     '#0a0a0c',           // --ink
-  leadVice:     '#8a3a4a',
-  leadViolence: '#4a3a3a',
-  leadMoney:    '#6a7a4a',
-  leadLabor:    '#4a5a7a',
   selectionRing: '#f6c860',      // yellow ring (matches renderer.js selection)
   frustum:       '#0a0a0c',      // --ink
-};
-
-const MINIMAP_LEAD_COLOR = {
-  vice:     MINIMAP_COLORS.leadVice,
-  violence: MINIMAP_COLORS.leadViolence,
-  money:    MINIMAP_COLORS.leadMoney,
-  labor:    MINIMAP_COLORS.leadLabor,
 };
 
 // District spawn rects, mirrored from js/sim/districts.js so the minimap
@@ -259,11 +361,11 @@ class Minimap {
     }
     ctx.stroke();
 
-    // 4. Leads (small diamond, flavor-colored).
+    // 4. Leads (small diamond, flavor-colored — shared with 3D scene via
+    // js/render/lead-colors.js so a flavor recolor lands in both surfaces).
     for (const l of frame.leads ?? []) {
       const { px, py } = tileToPixel(l.pos, size);
-      const c = MINIMAP_LEAD_COLOR[l.flavor] ?? MINIMAP_COLORS.leadVice;
-      drawDiamond(ctx, px, py, 2.5, c);
+      drawDiamond(ctx, px, py, 2.5, leadColorHex(l.flavor));
     }
 
     // 5. Buildings (kind-colored squares).
@@ -486,7 +588,13 @@ class Dossier {
     const statsLine = u.stats
       ? `<span class="stats">Nerve ${u.stats.nerve} · Nose ${u.stats.nose} · Legs ${u.stats.legs}</span>`
       : '';
-    this.selectedBody.innerHTML = `${escapeHtml(kindLabel)}<span class="note">${escapeHtml(stateLabel)}${escapeHtml(carryingNote)}</span>${statsLine}`;
+    // 1.3.1: role caption (see ROLE_CAPTIONS comment above). Goons get no
+    // caption (they're not player units; selecting them shouldn't even be
+    // possible at the input layer, but defend anyway). Unknown kinds skip
+    // silently so adding a new UnitKind doesn't crash the dossier.
+    const roleCaption = ROLE_CAPTIONS[u.kind];
+    const roleLine = roleCaption ? `<span class="unit-role">${escapeHtml(roleCaption)}</span>` : '';
+    this.selectedBody.innerHTML = `${escapeHtml(kindLabel)}<span class="note">${escapeHtml(stateLabel)}${escapeHtml(carryingNote)}</span>${statsLine}${roleLine}`;
   }
 
   _applySelectedBuilding(b) {

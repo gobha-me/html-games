@@ -6,7 +6,13 @@
 // frustum, tighter view); stepZoom(-1) is "zoom out" (larger frustum,
 // wider view). Endpoints clamp silently — see nextZoomStep below.
 
-export const FRUSTUM_STEPS = [30, 22, 16, 10];
+// 1.3.1 (#playtest-bug-3a): the v1.1.1 range [30, 22, 16, 10] was a 27%
+// step at the outermost boundary, which read as imperceptible to the eye
+// against the iso angle + fog band. Widen the outer two steps to [36, 24]
+// so step 0 → 1 is a noticeable pull-back; inner steps preserve at 16/10
+// so the deep-zoom debugging case stays intact. Boot still indexes at
+// step 1 — see renderer.js FRUSTUM_CITY (now 24 to match).
+export const FRUSTUM_STEPS = [36, 24, 16, 10];
 
 // Compute the next zoom-step index given a current index and a direction
 // (+1 = in / smaller frustum / tighter; -1 = out / larger frustum / wider).

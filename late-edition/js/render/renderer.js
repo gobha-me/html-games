@@ -10,8 +10,12 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { TILE } from '../sim/world-state.js';
 import { FRUSTUM_STEPS, nextZoomStep } from './zoom-step.js';
+import { leadColorInt } from './lead-colors.js';
 
-const FRUSTUM = 22;
+// 1.3.1: boot frustum tracks zoom-step.js FRUSTUM_STEPS[1] (City zoom).
+// Used only for the initial OrthographicCamera construction below;
+// _updateView's first call replaces it via _applyFrustum(this._frustum).
+const FRUSTUM = 24;
 // 0.10.2 (C-06): baseline rain count is 600 lines per Design Doc §15 / the
 // 0.1 lift. The deadline ramp scales the draw-range up by `frame.rain.intensity`
 // (1 → 2 across the last 30 s), capped at 1500 lines. We allocate the full
@@ -33,7 +37,7 @@ const RAIN_MAX = 1500;
 // FRUSTUM_STEPS + nextZoomStep moved to ./zoom-step.js (pure helpers,
 // imported above) so tests/zoom.test.mjs can exercise the index math
 // without spinning up THREE.js.
-const FRUSTUM_CITY = 22;   // step 1 — boot default
+const FRUSTUM_CITY = 24;   // step 1 — boot default (1.3.1: was 22)
 const FRUSTUM_BLOCK = 10;  // step 3 — tightest
 const ZOOM_EASE_MS = 250;
 const PAN_CLAMP = 27;  // half-width of the grid in world units (TILE * GRID_W / 2 ≈ 30 minus a small margin)
@@ -79,6 +83,10 @@ export class Renderer {
     this._zoomStep = FRUSTUM_STEPS.indexOf(FRUSTUM_CITY);  // boot at step 1 (City)
     this._frustum = FRUSTUM_STEPS[this._zoomStep];
     this._zoomEase = null;  // { fromFrustum, toFrustum, startMs, durMs } | null
+    // 1.3.1: monotonic counter incremented on every stepZoom call (including
+    // clamp-at-endpoint no-ops) so the HUD zoom pill can detect presses the
+    // step-index alone would mask. See ZoomPill in hud.js.
+    this._zoomCallCount = 0;
     this._lastFrameMs = null;
 
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
@@ -142,6 +150,11 @@ export class Renderer {
     this._syncBuildings(frame.buildings);
     this._syncUnits(frame.units, alpha);
     this._syncLeads(frame.leads);
+    // 1.3.1: bob animation on the lead-diamond child of every active lead
+    // mesh. Pure presentation — runs after _syncLeads has placed the parent
+    // group at the lead tile, so the bob modifies the diamond's local Y in
+    // group space (no interaction with sim positions).
+    this._stepLeadBob(performance.now());
     // 0.10.2 (D-09): fog.near is now sim-driven (ramp 22 → 14 over last 60 s).
     // ICD-01 v0.6.2 §Notes — the ramp lives in World.snapshot(); the renderer
     // just lifts the value onto the THREE.Fog uniform every frame.
@@ -175,20 +188,32 @@ export class Renderer {
   // without poking the scene graph. Called once per frame from
   // HudCorkboard via the `getView` action callback (the HUD doesn't hold a
   // renderer reference; this keeps the projection-only HUD invariant intact).
+  //
+  // 1.3.1: zoom-related fields (zoomStep, zoomStepCount, zoomCallCount) added
+  // for the ZoomPill HUD widget. zoomCallCount increments on every stepZoom
+  // call regardless of clamp, so the pill flashes even at endpoint mashes.
   getView() {
     return {
       pan: { x: this._pan.x, z: this._pan.z },
       frustum: this._frustum,
       aspect: this._aspect(),
+      zoomStep: this._zoomStep,
+      zoomStepCount: FRUSTUM_STEPS.length,
+      zoomCallCount: this._zoomCallCount,
     };
   }
 
   // 1.1.1 (#335): step the zoom one rung in (+1, smaller frustum / tighter)
   // or out (-1, larger frustum / wider) along FRUSTUM_STEPS. Endpoints clamp
-  // silently — at step 0 a further out-press is a no-op; same at the
-  // innermost step. The ease loop re-targets even mid-ease so a quick
-  // press-press doesn't get stuck on a stale target.
+  // silently in projection space — the HUD pill (1.3.1) surfaces the clamp
+  // via the always-incremented zoomCallCount so the player learns the limit.
+  // The ease loop re-targets even mid-ease so a quick press-press doesn't
+  // get stuck on a stale target.
   stepZoom(direction) {
+    // 1.3.1: bump the counter BEFORE the clamp early-return so the HUD pill
+    // flashes on endpoint presses too (player learns "I'm at the edge"
+    // instead of pressing harder).
+    this._zoomCallCount += 1;
     const next = nextZoomStep(this._zoomStep, direction);
     if (next === this._zoomStep) return;
     const target = FRUSTUM_STEPS[next];
@@ -435,6 +460,19 @@ export class Renderer {
     this._fxActive = survivors;
   }
 
+  // 1.3.1: per-frame sin-bob on each active lead's diamond child. Synced to
+  // a single global phase so all leads bob in lockstep — reads as a
+  // deliberate "marker hovering" beat rather than per-mesh noise.
+  _stepLeadBob(nowMs) {
+    if (this.leadMeshes.size === 0) return;
+    const phase = (nowMs % LEAD_BOB_PERIOD_MS) / LEAD_BOB_PERIOD_MS;
+    const dy = Math.sin(phase * Math.PI * 2) * LEAD_BOB_AMP_Y;
+    for (const g of this.leadMeshes.values()) {
+      const diamond = g.getObjectByName('leadDiamond');
+      if (diamond) diamond.position.y = LEAD_BASE_Y + dy;
+    }
+  }
+
   // 0.10.2 (D-09): per-frame window flicker tick. Each window is independent;
   // its visibility toggles on a random schedule so the building reads as
   // "lights on inside" without a synchronized pulse. Convergence is ~40% lit
@@ -629,21 +667,29 @@ function buildDarkroomMesh(gradient) {
   return group;
 }
 
-// Muted noir-palette flavor tints — consistent with --paper fog at #c8c4bc.
-const LEAD_FLAVOR_COLOR = {
-  vice:     0x8a3a4a, // wine
-  violence: 0x4a3a3a, // dried blood
-  money:    0x6a7a4a, // tarnished olive
-  labor:    0x4a5a7a, // worker blue
-};
+// 1.3.1 (#playtest-bug-2): hovering flavor-colored diamond replaces the
+// v0.3-era upright slab. The v1.3.0 playtest reported the slab reading as
+// architectural detail when it landed on a building tile (the Darkroom's
+// safelight pip plus a slab on the same tile looked like a chimney). A
+// hovering octahedron at +LEAD_BASE_Y reads unambiguously as "marker, not
+// architecture" against the boxy toon-shaded building meshes; sin-bob
+// applied per-frame in _stepLeadBob.
+//
+// Flavor colors now sourced from js/render/lead-colors.js (single source
+// of truth shared with the minimap's lead-diamond renderer in hud.js).
+const LEAD_BASE_Y = 1.6;
+const LEAD_BOB_AMP_Y = 0.2;
+const LEAD_BOB_PERIOD_MS = 1200;
 
 function buildLeadMesh(gradient, flavor) {
   const group = new THREE.Group();
-  const color = LEAD_FLAVOR_COLOR[flavor] ?? 0x6a6a6a;
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.1, 0.15), toon(gradient, color));
-  slab.position.y = 0.6;
-  withOutline(slab);
-  group.add(slab);
+  const color = leadColorInt(flavor);
+  const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), toon(gradient, color));
+  diamond.position.y = LEAD_BASE_Y;
+  diamond.name = 'leadDiamond';
+  diamond.rotation.y = Math.PI / 4;  // rotate so a flat face reads to the iso camera
+  withOutline(diamond);
+  group.add(diamond);
   return group;
 }
 

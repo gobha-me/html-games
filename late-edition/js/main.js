@@ -13,6 +13,18 @@ import { hasWebGL, mountWebGLUnavailable } from './webgl-unavailable.js';
 import { newSlowMoState, triggerSlowMo, speedFactor } from './slow-mo.js';
 import { AudioBus } from './audio/audio-bus.js';
 import { HTMLAudioPlayer } from './audio/html-audio-player.js';
+import { VERSION, VERSION_TAGLINE } from './version.js';
+
+// 1.3.1: write the version string into the document title + HUD masthead
+// span at boot. Both surfaces stayed hardcoded before; this collapses them
+// to one source of truth in js/version.js. Boot-write (vs. setting at
+// element creation) keeps the HTML free of the version literal so an
+// editor can't drift it again.
+document.title = `Late Edition — v${VERSION} · ${VERSION_TAGLINE}`;
+{
+  const vEl = document.getElementById('hud-version');
+  if (vEl) vEl.textContent = `v${VERSION} · ${VERSION_TAGLINE}`;
+}
 
 const TICK_HZ = 30;
 const TICK_DT = 1 / TICK_HZ;
@@ -28,9 +40,14 @@ const hudRoots = {
   // HudCorkboard tolerates a null root so the page can mount without one
   // (e.g. headless / test harness). The launcher page always mounts it.
   minimap:  document.getElementById('hud-minimap'),
+  // 1.3.1: both pill widgets are optional for the same reason — when the
+  // host page omits the DOM nodes the HUD simply doesn't render them.
+  slowMoPill: document.getElementById('hud-slowmo-pill'),
+  zoomPill:   document.getElementById('hud-zoom-pill'),
 };
+const OPTIONAL_HUD_ROOTS = new Set(['minimap', 'slowMoPill', 'zoomPill']);
 for (const [k, el] of Object.entries(hudRoots)) {
-  if (k === 'minimap') continue;  // optional; null is allowed
+  if (OPTIONAL_HUD_ROOTS.has(k)) continue;  // null is allowed
   if (!el) throw new Error(`hud root ${k} not found`);
 }
 const panelRoot = document.getElementById('debrief-panel');
@@ -75,6 +92,10 @@ const hud = new HudCorkboard(hudRoots, {
   // World records the deal; the HUD stays projection-only.
   acceptPartnerOffer:  () => world.acceptPartnerOffer(),
   declinePartnerOffer: () => world.declinePartnerOffer(),
+  // 1.3.1: SlowMoPill reads remaining-active-ms each frame. State lives in
+  // this closure (line below initializes it); the HUD pulls via this
+  // getter so it doesn't need a slow-mo state reference of its own.
+  getSlowMo: () => slowMo,
 });
 new DebriefPanel(panelRoot, world);
 new GameOverOverlay(gameOverRoot, world);

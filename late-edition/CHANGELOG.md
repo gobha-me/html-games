@@ -1,5 +1,113 @@
 # Changelog — Late Edition
 
+## v1.3.1 — 2026-05-23 — Playtest UX polish round 3 (legibility pass)
+
+Second playtest UX-polish session (after v1.1.1 / v1.1.2). The v1.3.0
+same-day playtest reported the inner loop is mechanically wired
+(dispatch routes, pathfinding completes, leads spawn, investigation
+chain wiring landed at v1.1.0) but invisible to a first-time player:
+no role/affordance signal for which unit does what, lead marker reads
+as architectural detail, slow-mo has no visual feedback, zoom steps
+imperceptible, WASD pan too slow, version strings drifted. Seven
+items in one bundle. Tests at 419 cases (397 → 419 = +22).
+**No ICD bumps** — all surfaces render existing `WorldFrame` fields
+or are pure tuning constants; mirrors the v1.1.1 / v1.1.2 polish
+precedent.
+
+### Added
+
+- **`js/version.js`** — new module exporting `VERSION` + `VERSION_TAGLINE`.
+  Single source of truth for the version string; replaces the two
+  hardcoded literals that drifted across `<title>` (was 1.2.0) and the
+  HUD masthead span (was 1.1.1). `js/main.js` boot-writes both surfaces
+  from this module.
+- **`js/render/lead-colors.js`** — new module collapsing the duplicated
+  flavor → color maps that previously lived in `js/render/renderer.js`
+  (as 0x ints) and `js/hud.js` (as `#` hex strings). Exports
+  `LEAD_FLAVOR_HEX` + `leadColorHex(flavor)` + `leadColorInt(flavor)`
+  helpers so the minimap canvas and the 3D scene's diamond mesh always
+  agree on flavor color.
+- **`ROLE_CAPTIONS` map** (`js/hud.js`) — one-line role hint surfaced as
+  a third line under each selected unit's kind/state line in the §13
+  SELECTED dossier. Photog caption ("Plates leads at the Darkroom") is
+  the load-bearing line for inner-loop discoverability. Editor caption
+  ("Stationed at the Bureau — directs your reporters") substitutes for
+  a dispatch-rejection toast.
+- **`SlowMoPill` class** (`js/hud.js`) — transient HUD pill at top-right
+  of `#world` that surfaces remaining active-window seconds while
+  slow-mo is engaged. Reuses `js/slow-mo.js`'s `activeRemainingMs`
+  (previously dead-code export). State threads through `main.js`'s
+  existing `actions` callback bag via new `getSlowMo` callback.
+- **`ZoomPill` class** (`js/hud.js`) — transient HUD pill at top-center
+  that surfaces `ZOOM N/4` for 1.2 s after every `[` / `]` press,
+  including clamp-at-endpoint mashes (renderer's `stepZoom` increments
+  a monotonic `_zoomCallCount` before the early-return). Reads
+  `zoomStep` + `zoomStepCount` + `zoomCallCount` via the existing
+  `actions.getView` callback (v1.1.2 added it for the minimap frustum
+  overlay).
+- **`tests/version.test.mjs`** — 3 cases. `VERSION` shape, tagline
+  presence, explicit `'1.3.1'` lock checkpoint.
+- **`tests/lead-colors.test.mjs`** — 5 cases. Hex shape, named-flavor
+  lookups, unknown-flavor fallback distinct from canonical four,
+  hex/int composition, vice color spot-check `0x8a3a4a`.
+- **`js/preferences.js`** — thin localStorage-backed preferences layer.
+  Smallest credible scaffold: one knob (`getPanSpeedMultiplier()`),
+  console-tweakable, no UI. Defaults to 1.0 so the v1.3.1 `PAN_SPEED`
+  base value stays the default; player can run
+  `localStorage.setItem('lateEdition.panSpeedMultiplier', '0.5')` +
+  reload to halve it (or any value in `[0.1, 10]`; clamped). `input.js`
+  `syncPanVelocity` reads the multiplier on every key edge so a console
+  tweak takes effect without a reload. Added per playtest feedback that
+  the v1.3.1 `PAN_SPEED` value felt right but should be tunable.
+- **`tests/preferences.test.mjs`** — 10 cases. Storage absence /
+  presence / garbage / NaN / zero / negative / clamp-high / clamp-low /
+  default behavior + canonical-key lock.
+
+### Changed
+
+- **`buildLeadMesh`** (`js/render/renderer.js`) rewritten from a flat
+  upright slab to a hovering flavor-colored octahedron at +1.6 world
+  units with a global-phase sin-bob (±0.2u, 1.2 s period). The slab
+  read as architectural detail when it overlapped a building tile
+  (the playtest called out the Darkroom's safelight + slab as looking
+  like a chimney). Color sourced from `lead-colors.js`. New
+  `_stepLeadBob(nowMs)` step in the renderer's per-frame apply.
+- **`FRUSTUM_STEPS`** (`js/render/zoom-step.js`) `[30, 22, 16, 10]` →
+  `[36, 24, 16, 10]`. Outer step pulls back further so step 0 → 1 is
+  a noticeable zoom-out; inner steps preserve for deep-zoom. `FRUSTUM`
+  + `FRUSTUM_CITY` in `renderer.js` follow to 24.
+- **`PAN_SPEED`** (`js/input.js`) `TILE * 4` (24 u/s) → `TILE * 10`
+  (60 u/s). The v1.1.1 hold-to-pan integration was correct; the issue
+  was magnitude — at 24 u/s a fast tap nets ~0.4 u, at 60 u/s the
+  same tap nets ~1 u. Crossing the 10-tile grid now takes ~0.9 s held
+  or ~10 brisk taps.
+- **`renderer.getView()`** (`js/render/renderer.js`) widens to include
+  `zoomStep` + `zoomStepCount` + `zoomCallCount`. Backwards-compatible
+  for the existing minimap reader (which only consumes `pan` +
+  `frustum` + `aspect`).
+- **`HudCorkboard`** (`js/hud.js`) mounts the two new optional regions
+  (slow-mo pill + zoom pill) when their roots are non-null. Mirrors
+  the v1.1.2 `Minimap` pattern — the HUD still works when the host
+  page omits any/all of the optional roots.
+- **`index.html`** — `<title>` and HUD masthead version span both
+  emptied (filled at boot by `main.js`); new `#hud-slowmo-pill` +
+  `#hud-zoom-pill` divs inside `#world`; new `.hud-pill` /
+  `#hud-slowmo-pill` / `#hud-zoom-pill` / `.unit-role` CSS rules.
+
+### Notes
+
+- The role-aware **dispatch filtering** (rejecting Fixer→building etc.
+  with a toast) stayed out of scope. The caption makes the player
+  discover the right unit; filtering would block the wrong-target
+  dispatch entirely, but it touches the sim layer (and likely needs
+  an ICD-02 §Notes addition for the rejection-reason channel). A
+  future session can layer it on without revisiting the v1.3.1 work.
+- Headless-Chrome preview verification confirmed the static surfaces
+  (title + HUD version + CSS rules + module exports + role-caption
+  rendering via direct DOM construction). Live 3D scene verification
+  (the new lead diamond + pill animations) needs WebGL, which the
+  preview's Mesa stack lacks; the user's desktop Chrome has it.
+
 ## v1.3.0 — 2026-05-23 — Audio bus first caller (ICD-07)
 
 First caller against ICD-07 v0.1 (authored at PRE-0.10). Stands up the

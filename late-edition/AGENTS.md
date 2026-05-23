@@ -114,6 +114,109 @@ and commit it alongside whatever change triggered the need.
 
 ## Current state
 
+**v1.3.1 — Playtest UX polish round 3 (legibility pass).** Second
+playtest UX-polish session (after v1.1.1 / v1.1.2). The same-day
+playtest of v1.3.0 reported the inner loop is mechanically working
+(dispatch routes, pathfinding completes, leads spawn, investigation
+chain wiring shipped at v1.1.0) but invisible to a first-time
+player. Seven items landed in one bundled PR:
+
+- **Unit-role caption in dossier** ([`js/hud.js`](js/hud.js)). New
+  `ROLE_CAPTIONS` map ("Plates leads at the Darkroom" /
+  "Picks up leads in the field" / "Intercepts goons" /
+  "Stationed at the Bureau — directs your reporters") renders as a
+  third line under the kind/state line in the §13 Selected dossier
+  panel. The Photog caption is the load-bearing line — once a player
+  sees it, the Darkroom dispatch becomes self-teaching. The Editor
+  caption substitutes for a dispatch-rejection toast: the player
+  reads "Stationed" and stops trying to right-click them.
+- **Lead marker re-skin** ([`js/render/renderer.js`](js/render/renderer.js)
+  + new [`js/render/lead-colors.js`](js/render/lead-colors.js)).
+  `buildLeadMesh` rewritten from a flat upright slab to a hovering
+  flavor-colored octahedron at +1.6 world units with a global-phase
+  sin-bob (±0.2u, 1.2s period). The slab read as architectural
+  detail when it landed on a building tile (the v1.3.0 playtest
+  called out the Darkroom's safelight + slab as looking like a
+  chimney). The new diamond is unambiguous. Flavor colors collapsed
+  from two duplicated maps (renderer's `LEAD_FLAVOR_COLOR` and
+  hud.js's `MINIMAP_LEAD_COLOR`) into `js/render/lead-colors.js`
+  exporting both hex-string (minimap canvas) and 0x-int (THREE.js)
+  forms, with a per-frame `_stepLeadBob` step in the renderer.
+- **Slow-mo HUD pill** ([`js/hud.js`](js/hud.js) `SlowMoPill`).
+  Transient pill at top-right of #world that surfaces remaining
+  active-window seconds (`SLOW-MO · 4.2s`) while slow-mo is engaged.
+  Reuses [`js/slow-mo.js`](js/slow-mo.js)'s `activeRemainingMs`
+  (previously dead-code export). Slow-mo mechanic itself was already
+  wired in v0.10.1 — the gap was visual feedback. State threads
+  through the existing [`js/main.js`](js/main.js) `actions` object
+  via new `getSlowMo` callback.
+- **Zoom HUD pill** ([`js/hud.js`](js/hud.js) `ZoomPill`). Transient
+  `ZOOM 2/4` pill at top-center fires for 1.2s on every `[` / `]`
+  press. Renderer's `stepZoom` increments a monotonic
+  `_zoomCallCount` BEFORE the clamp early-return so the pill flashes
+  at endpoint mashes too (player learns the boundary). HUD detects
+  counter changes via the existing `actions.getView` callback
+  (v1.1.2 added it for the minimap frustum overlay).
+- **Zoom range widened** ([`js/render/zoom-step.js`](js/render/zoom-step.js)).
+  `FRUSTUM_STEPS` 30 → 22 → 16 → 10 becomes 36 → 24 → 16 → 10. The
+  outer step from 30 to 22 was a 27% reduction that read as
+  imperceptible under the iso angle + fog band; widening to 36 → 24
+  makes the outermost step a dramatic pull-back. Inner steps
+  preserve so the deep-zoom debugging case stays intact. `FRUSTUM_CITY`
+  in renderer.js tracks the new step 1 value (24).
+- **PAN_SPEED retune** ([`js/input.js`](js/input.js)). `TILE * 4`
+  (24 u/s) → `TILE * 10` (60 u/s). At 24 u/s a fast tap (~16ms) only
+  netted ~0.4u; at 60 u/s the same tap nets ~1u, so even tap-style
+  play crosses the 10-tile grid in well under 60 inputs. Hold-to-pan
+  was already integrated per-frame in `renderer._updateView` — the
+  issue was magnitude.
+- **Version centralization + bump** (new [`js/version.js`](js/version.js)
+  + [`js/main.js`](js/main.js) boot-write). Two stale hardcoded
+  strings caught the playtest (title at 1.2.0, HUD masthead at
+  1.1.1, repo actually at 1.3.0). Single source of truth in
+  `js/version.js` exports `VERSION` + `VERSION_TAGLINE`; `main.js`
+  writes `document.title` and `#hud-version` at boot. Next bump
+  touches one file.
+
+**No ICD bumps in-PR.** All changes live in the renderer/HUD layer
+reading existing `WorldFrame` fields, or are pure tuning constants.
+Mirrors v1.1.1 / v1.1.2 polish precedent — UX polish sessions can
+ship without a paper round. Tests at 419 cases (397 → 419 = +22; new
+[`tests/version.test.mjs`](tests/version.test.mjs) ·
+[`tests/lead-colors.test.mjs`](tests/lead-colors.test.mjs) ·
+[`tests/hud.test.mjs`](tests/hud.test.mjs) extended with
+`ROLE_CAPTIONS` / `SlowMoPill` / `ZoomPill` cases ·
+[`tests/zoom.test.mjs`](tests/zoom.test.mjs) +
+[`tests/input-pan.test.mjs`](tests/input-pan.test.mjs) updated for
+the new constants).
+
+**Next: same as v1.3.0's Next list — remaining Tier-1.x content +
+adversarial maturation.** Herald PUNISH + BUYOUT state bodies
+(mirrors v1.2.0 — caller methods exist, bodies need wiring) ·
+Star-vs-Observer raid mechanic (§06 matrix cell 3 · also triggers
+SILENCED so v1.2.0's body becomes reachable via two routes) ·
+second audio caller (press-silence beat once AMB-04/05 record) ·
+further authored arcs (Mayor's Mistress · Empty Vault · Frame the
+Observer) · district-disposition mechanical effect at the 1.1.x
+balance pass · role-aware dispatch filtering (rejecting Fixer→building
+etc.; the v1.3.1 role caption made dispatch discoverable, but a
+mis-targeted dispatch still silently no-ops — a future session can
+add filtering with rejection feedback) · **settings-menu HUD popover**
+(gear-icon panel exposing player-tunable preferences; seed knobs:
+pan-speed multiplier — already wired at v1.3.1 via
+[`js/preferences.js`](js/preferences.js), currently console-only —
+and per-channel volume / mute (audio bus's `mute(channel?)` primitive
+already ships unwired at v1.3.0; SFX / AMB / MUS / VO channels per
+ICD-07 v0.1); expand as tunables accumulate (zoom range, slow-mo
+opacity, rain density, etc.). The substrate is in place; this
+milestone is the discovery surface. Coordinates loosely with the
+second audio-bus caller — volume control + press-silence beat could
+land in one bundle since both wire against the existing `mute`
+primitive. No ICD bumps anticipated — preferences are renderer/HUD
+layer reading existing system primitives).
+
+---
+
 **v1.3.0 — Audio bus first caller (ICD-07).** First caller against
 ICD-07 v0.1 (PRE-0.10 / v0.9.4). The game gains audible cues for the
 inner loop's three diegetic beats: typewriter on Reporter pickup

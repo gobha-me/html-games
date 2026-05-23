@@ -17,10 +17,22 @@
 //   Space (non-repeat)         → slow-mo trigger (loop owns cooldown)
 
 import { GRID_W, GRID_H, TILE } from './sim/world-state.js';
+import { getPanSpeedMultiplier } from './preferences.js';
 
-// Pan speed in world units / sec. TILE=6; 24 u/s ≈ 4 tiles/sec — a brisk
-// RTS pan that crosses the 10-tile grid in under three seconds at City zoom.
-export const PAN_SPEED = TILE * 4;
+// Pan speed in world units / sec. TILE=6; 60 u/s ≈ 10 tiles/sec — crosses
+// the 10-tile grid in ~0.9 s held, ~10 brisk taps. 1.3.1 (#playtest-bug-4):
+// bumped from TILE*4 (24 u/s) after the v1.3.0 playtest reported "20 taps
+// to cross a single tile" — at 24 u/s, a fast tap (≤16ms) only nets ~0.4u.
+// At TILE*10 the same tap nets ~1u, so even tapping play crosses the map
+// in well under 60 inputs. Hold-to-pan was already wired (see syncPanVelocity
+// per-frame integration in renderer._updateView); the issue was magnitude.
+//
+// 1.3.1: PAN_SPEED is the BASE; the actual runtime velocity is
+// PAN_SPEED * getPanSpeedMultiplier() (default 1.0; player-tunable via
+// localStorage 'lateEdition.panSpeedMultiplier'). The base stays an export
+// so tests can lock the calibration and tooling can compute against the
+// design value without reaching through the preferences layer.
+export const PAN_SPEED = TILE * 10;
 
 // 1.1.1 (#333): exported so tests/input-pan.test.mjs can assert each key
 // maps to its screen-aligned axis under the iso camera (W=up · A=left ·
@@ -82,9 +94,15 @@ export function attachInput(root, renderer, world, hooks = {}) {
       const v = KEY_PAN[k];
       if (v) { vx += v.x; vz += v.z; }
     }
-    // Normalize so diagonal pan isn't faster than axis-aligned.
+    // Normalize so diagonal pan isn't faster than axis-aligned. 1.3.1: the
+    // user-tunable multiplier reads from preferences each sync so a console
+    // tweak takes effect on the next keypress (no reload strictly needed).
     const mag = Math.hypot(vx, vz);
-    if (mag > 0) { vx = (vx / mag) * PAN_SPEED; vz = (vz / mag) * PAN_SPEED; }
+    if (mag > 0) {
+      const speed = PAN_SPEED * getPanSpeedMultiplier();
+      vx = (vx / mag) * speed;
+      vz = (vz / mag) * speed;
+    }
     renderer.setPanVelocity(vx, vz);
   }
 

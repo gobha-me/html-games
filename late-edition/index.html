@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition — 1.2.0 Observer DESPERATE + SILENCED state bodies</title>
+<title>Late Edition</title>
+<!-- 1.3.1: title + HUD version span are filled at boot from js/version.js
+     so the next bump touches one file (was: hardcoded here + at the meta
+     line below, drifted across 1.2.0/1.1.1/1.3.0 by the v1.3.0 playtest). -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -196,6 +199,32 @@
     to   { opacity: 1; }
   }
 
+  /* 1.3.1 (#playtest-bug-7 + #playtest-bug-3b) — transient status pills
+     mounted inside #world. Both surface a one-line status string for a
+     short window: slow-mo while the active beat is counting down (top-
+     right); zoom step on every [ / ] press for 1.2s (top-center). Ink-on-
+     paper inverse so they pop against the noir scene. pointer-events:none
+     mirrors the deadline strip + minimap — clicks pass through to the
+     canvas underneath. */
+  .hud-pill {
+    position: absolute;
+    top: 40px;
+    z-index: 5;
+    pointer-events: none;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 4px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    box-shadow: 2px 2px 0 var(--paper-shadow);
+    font-feature-settings: "tnum";
+  }
+  .hud-pill[hidden] { display: none; }
+  #hud-slowmo-pill { right: 12px; }
+  #hud-zoom-pill { left: 50%; transform: translateX(-50%); }
+
   /* 1.1.2 (#337) — minimap HUD widget. Sits in the bottom-right of #world
      (top edge is owned by the deadline strip). pointer-events:none so the
      canvas underneath still receives click-to-dispatch / building-select
@@ -273,6 +302,21 @@
     font-size: 11px;
     letter-spacing: 0.16em;
     color: var(--ink);
+  }
+  /* 1.3.1 (#playtest-bug-1 + #playtest-bug-5): one-line role caption under
+     each selected unit's kind/state line. Italic serif at muted-gray reads
+     as a flavor description, not a UI affordance — players scan it as
+     "what does this person do?" without confusing it for an actionable
+     control. The Photog caption ("Plates leads at the Darkroom") is the
+     single most load-bearing line for the inner loop's discoverability. */
+  #hud-dossier .panel .body .unit-role {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--mid);
   }
   /* 1.0.1 (ICD-09 v0.1.1): per-story rows in the Story queue panel. Left-
      click on a row toggles verified ↔ archived. Compact two-line layout —
@@ -661,7 +705,7 @@
 <header class="masthead">
   <div class="title">Late <span class="ed">Edition</span></div>
   <div class="meta">
-    v1.1.1 &middot; UX polish &middot; WASD pan &middot; <kbd>[</kbd>/<kbd>]</kbd> zoom (4 steps) &middot; <kbd>Space</kbd> slow-mo &middot; L-click select unit or building &middot; R-click dispatch &middot;
+    <span id="hud-version"></span> &middot; WASD pan &middot; <kbd>[</kbd>/<kbd>]</kbd> zoom (4 steps) &middot; <kbd>Space</kbd> slow-mo &middot; L-click select unit or building &middot; R-click dispatch &middot;
     <a href="design/phase-0-roadmap.html">Phase 0 + Roadmap &rarr;</a>
     &middot;
     <a href="../">&larr; Arcade</a>
@@ -689,6 +733,10 @@
     <span class="val">12:00</span>
     <span class="ed">Edition № 001</span>
   </div>
+  <!-- 1.3.1: status pills below the deadline strip. Both hidden by default;
+       JS toggles `hidden` (slow-mo while active; zoom briefly on press). -->
+  <div id="hud-slowmo-pill" class="hud-pill" hidden></div>
+  <div id="hud-zoom-pill" class="hud-pill" hidden></div>
   <canvas id="hud-minimap" width="140" height="140"></canvas>
 </div>
 
