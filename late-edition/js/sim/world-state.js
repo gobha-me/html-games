@@ -314,6 +314,13 @@ export class World {
     // debrief pause pattern). Set when bureau.hp ≤ 0.
     this.gameOver = false;
 
+    // 1.1.1 (#334 · ICD-01 v0.6.6): id of the currently selected building, or
+    // null. UI state only — mirrors Unit.selected's UI-only treatment per
+    // ICD-04 §Notes, so the snap restore path also resets to null. Mutually
+    // exclusive with unit selection: selectBuilding/selectUnit clear each
+    // other so the SELECTED dossier card has exactly one source.
+    this.selectedBuildingId = null;
+
     this.effects = [];
 
     // 0.10.0 (G-13): rolling run stats fed by _buildEditionSummary. Read by
@@ -364,6 +371,8 @@ export class World {
     this.cycleSubscribers = [];
     this.debriefOpen = blob.debrief_open;
     this.gameOver = blob.game_over;
+    // 1.1.1 (#334): selection is UI state per ICD-04 §Notes — reset on load.
+    this.selectedBuildingId = null;
     this.resources = {
       ink:  blob.resources.ink,
       cash: blob.resources.cash,
@@ -435,14 +444,35 @@ export class World {
 
   selectUnit(unitId) {
     for (const u of this.units) u.selected = u.id === unitId;
+    this.selectedBuildingId = null;
   }
 
   deselectAll() {
     for (const u of this.units) u.selected = false;
+    this.selectedBuildingId = null;
   }
 
   unitAtTile(cell) {
     return this.units.find((u) => u.tile.x === cell.x && u.tile.y === cell.y) ?? null;
+  }
+
+  // 1.1.1 (#334 · ICD-01 v0.6.6 SelectedBuildingView). Returns the Building
+  // record at `cell` or null. Mirrors unitAtTile; called from input.js as the
+  // left-click fallback when no unit hit. Each tile holds at most one
+  // building (constructor enforces non-overlap; line 232 marks the tile
+  // unwalkable so no unit can co-occupy it).
+  buildingAtTile(cell) {
+    return this.buildings.find((b) => b.tile.x === cell.x && b.tile.y === cell.y) ?? null;
+  }
+
+  // 1.1.1 (#334): mirror of selectUnit for buildings. Stores by id (single
+  // field) instead of a per-building bool because at most one building can be
+  // selected at a time — same invariant as units, expressed differently.
+  // Clears unit selection so the SELECTED dossier has a single source.
+  selectBuilding(buildingId) {
+    if (!this.buildings.some((b) => b.id === buildingId)) return;
+    for (const u of this.units) u.selected = false;
+    this.selectedBuildingId = buildingId;
   }
 
   dispatch(unitId, target) {
@@ -572,6 +602,16 @@ export class World {
 
   _bureau() {
     return this.buildings.find((b) => b.kind === 'bureau');
+  }
+
+  // 1.1.1 (#334 · ICD-01 v0.6.6): SelectedBuildingView projection. Null when
+  // no building is selected (the common case). Lifts the building's HP +
+  // district for the dossier readout ("Bureau · 60/60 HP · The Docks").
+  _selectedBuildingView() {
+    if (!this.selectedBuildingId) return null;
+    const b = this.buildings.find((b) => b.id === this.selectedBuildingId);
+    if (!b) return null;
+    return selectedBuildingView(b);
   }
 
   // ICD-02 §RivalView projection (v0.2; v0.3.1 adds player.printed_lies).
@@ -1421,6 +1461,12 @@ export class World {
       // type is owned by ICD-02 — id/state/posture today; the dossier
       // Threats card reads this to render "Evening Star: scheming".
       rivals: this.rivals.map((r) => ({ id: r.id, state: r.state, posture: r.posture })),
+      // 1.1.1 (#334 · ICD-01 v0.6.6): SelectedBuildingView | null. Single
+      // top-level field so the dossier picks "selected unit OR selected
+      // building OR No selection" without re-walking units to find a flag.
+      // Building selection is mutually exclusive with unit selection — see
+      // World.selectBuilding / selectUnit / deselectAll.
+      selectedBuilding: this._selectedBuildingView(),
       rain: { intensity: rainIntensity },
       fog: { near: fogNear, far: 60, color: 0xc8c4bc },
       hud: {
@@ -1556,6 +1602,23 @@ function buildingView(b) {
     hp: b.hp,
     hp_max: b.hp_max,
     tier: b.tier,
+  };
+}
+
+// 1.1.1 (#334 · ICD-01 v0.6.6) — SelectedBuildingView. Widens BuildingView
+// with `district` (the district whose spawnRect contains the building's
+// tile, via districtForTile; central buildings between rects fall back to
+// DEFAULT_DISTRICT_ID per the districts.js contract). The dossier reads
+// kind / hp / hp_max / district.
+function selectedBuildingView(b) {
+  return {
+    id: b.id,
+    pos: tileToWorld(b.tile),
+    kind: b.kind,
+    hp: b.hp,
+    hp_max: b.hp_max,
+    tier: b.tier,
+    district: districtForTile(b.tile),
   };
 }
 

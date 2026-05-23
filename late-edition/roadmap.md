@@ -45,6 +45,7 @@ definitions.
 | **1.0.0** | Tier-1 opener — adversarial substrate · Herald state machine (IDLE / COURT / WIRED bodies; PUNISH / BUYOUT caller-triggered) · Observer state machine (INVESTIGATE / PUBLISH / WARN bodies; DESPERATE / SILENCED caller-triggered) · Switchboard building + goon LoS visibility filter (ICD-08) — *shipped v1.0.0* | First half of the 1.0 opener per the authorized split (0.7 / 0.10 precedent). ICD-01 → v0.6.4 (`BuildingKind` widens for `'switchboard'`); ICD-02 → v0.3.1 (`RivalView.player.printed_lies` field added); ICD-04 → v0.1.2 (`RivalsSnap` widens; v1.0 → v1.1 migration). Tests at 257 cases (199 → 257). | strong |
 | **1.0.1** | Tier-1 opener — Archive UI (ICD-09 · `archived` Story state · cap=5 · decay=10 editions · dossier `archived: N/5` · left-click per-row gesture) · `UnitView.stats` projector for Reporter trio · `LeadView.district` dossier read · 30 s minimum debrief gate (ICD-06 v0.4 code-side) — *shipped v1.0.1* | Second half of the 1.0 opener. ICD-01 → v0.6.5 (`WorldFrame.stories` + `UnitView.stats` projector + `HudState.resources.archived`); ICD-04 → v0.1.3 (`StorySnap.state` widens + `archived_at_ms` + `UnitSnap.stats`; v1.1 → v1.2 migration); ICD-05 → v0.4.2 (§Notes cross-ref to ICD-09); ICD-09 → v0.1.1 (§Open Q1 close). Tests at 281 cases (257 → 281). Closes Gitea #317. | strong |
 | **1.1.0** | Tier-1 content — first authored arc (Longshoreman Strike) + Investigation 3-step chain wiring · arc dispatcher in `_runSpawnerTick` (trigger predicate + district constraint + one-instance-per-arc-id) · `_handlePhotogArrival` chain hook (depth 3 cap, deterministic from parent.id) · `World.pickArcBranch` corkboard-chip player gesture · `_applyArcPlate` outcome application (cash/heat one-times + districtDispositions) · district-heat accumulator + flat -5/edition decay · Observer.recentStates ring (cap 5) — *shipped v1.1.0* | First Tier-1.x content session. Retires the `tier === 'arc'` lead-spawner collapse from 0.10.0. ICD-10 → v0.1.1 (negate-flag + StoryArc.district + arc registry + chain hook + observer_silent_n_editions semantics + §Save-surface lift + §Open-Qs Q1/Q3/Q4 closed). ICD-04 → v0.1.4 (`active_arcs`, `district_heat`, `district_dispositions`; `StorySnap` optional `parent_story_id` + `arc_episode_id` + `arc_branch_label`; `ObserverSnap.recent_states`; v1.2 → v1.3 migration). ICD-02 → v0.3.2 (§Notes Observer.recentStates). ICD-05 → v0.4.3 (§Notes cross-ref to ICD-10 v0.1.1). Tests at 334 cases (281 → 334). | strong |
+| **1.1.1** | Playtest UX polish — #332 fog camera-target distance (camera (40,35,40)→(24,22,24) via `CAMERA_OFFSET`) · #333 WASD pan rotated 45° to screen-aligned axes (KEY_PAN unit vectors) · #334 building dossier (Option A — `buildingAtTile` + `selectBuilding` mirror unit pattern; `WorldFrame.selectedBuilding: SelectedBuildingView \| null` projection; Switchboard + Branch Bureau gain player-readable HP) · #335 multi-step zoom (4-step ladder 30→22→16→10 with silent-clamp endpoints, `FRUSTUM_STEPS` + `nextZoomStep` in `js/render/zoom-step.js` for testability) — *shipped v1.1.1* | First Tier-1.x polish session against v1.1.0 same-day playtest reports. ICD-01 v0.6.5 → v0.6.6 (`SelectedBuildingView` widens `BuildingView` with `district`; `WorldFrame.selectedBuilding` top-level field). Tests at 355 cases (334 → 355 = +21; three new test files: `building-select.test.mjs` · `input-pan.test.mjs` · `zoom.test.mjs`). Closes Gitea issues #332/#333/#334/#335 + stale #330. Defers #336 (likely auto-resolved by fog fix) and #337 (minimap, separate ticket). | strong |
 
 13 Tier-0 code milestones (0.7 split into 0.7.0 + 0.7.1; 0.10 split into
 0.10.0 + 0.10.1 + 0.10.2), 4 re-evaluation slots, 5 architecture-session-
@@ -66,6 +67,33 @@ shipped end-to-end against the post-0.9 audit's PR-C / PR-D ordering. A
 precedent.
 
 ## Current status
+
+**v1.1.1 — Playtest UX polish (fog · WASD · building dossier · multi-step
+zoom).** First Tier-1.x polish session. v1.1.0 shipped at 14:22; the same-
+day playtest produced six issues — four cascading bugs (only the Darkroom
+visible · WASD drifts diagonally · building clicks deselect · `[`/`]`
+appears unresponsive) plus a dossier hierarchy bug and a minimap
+enhancement. This PR bundles the four bugs as one milestone; the two
+deferred issues are tracked separately. (1) **#332 fog calibration** —
+camera position (40,35,40) → (24,22,24) via `CAMERA_OFFSET` (renderer.js);
+camera-to-target distance shrinks ~65 → ~40 units, every grid tile inside
+the fog band [22, 60]. (2) **#333 WASD pan** — `KEY_PAN` unit vectors
+rotated 45° in XZ (input.js); each key maps to its screen axis under the
+iso camera. (3) **#334 building dossier (Option A)** — `World.buildingAtTile`
++ `World.selectBuilding` mirror the unit pattern, mutually exclusive with
+unit selection; `WorldFrame.selectedBuilding: SelectedBuildingView | null`
+projects when set; HUD renders `Bureau · 60/60 HP · The Docks` in the §13
+SELECTED card. Switchboard + Branch Bureau gain their first player-
+readable HP surface. (4) **#335 multi-step zoom** — replaced the 2-state
+toggle with a 4-step ladder `FRUSTUM_STEPS = [30, 22, 16, 10]` (renderer.js
++ zoom-step.js); `[` steps in, `]` steps out, clamped at endpoints. **One
+ICD bump in-PR (Constraint #4):** ICD-01 v0.6.5 → v0.6.6 (`SelectedBuildingView`
++ `WorldFrame.selectedBuilding`). Tests at 355 cases (334 → 355 = +21;
+three new test files). Closes Gitea issues #332/#333/#334/#335 + stale
+tracking #330. Defers #336 (verify post-fog-fix) and #337 (minimap, own
+ticket).
+
+---
 
 **v1.1.0 — Tier-1 content · first authored arc (Longshoreman Strike) +
 Investigation 3-step chain.** First Tier-1.x content session against the

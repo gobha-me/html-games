@@ -38,6 +38,16 @@ const UNIT_KIND_LABEL = {
   goon:     'Goon',
 };
 
+// 1.1.1 (#334 · ICD-01 v0.6.6) — building dossier labels. Reads against the
+// BuildingKind union from world-state.js. New kinds added there must extend
+// this map (defensive fallback uses the raw kind for unknowns).
+const BUILDING_KIND_LABEL = {
+  bureau:         'Bureau',
+  branch_bureau:  'Branch Bureau',
+  darkroom:       'Darkroom',
+  switchboard:    'Switchboard',
+};
+
 const UNIT_STATE_LABEL = {
   idle:     'Idle',
   walking:  'Walking',
@@ -224,7 +234,7 @@ class Dossier {
   }
 
   apply(frame, bureauHp) {
-    this._applySelected(frame.units);
+    this._applySelected(frame.units, frame.selectedBuilding ?? null);
     this._applyQueue(
       frame.leads,
       frame.stories ?? [],
@@ -234,12 +244,20 @@ class Dossier {
     this._applyThreats(frame.units, bureauHp);
   }
 
-  _applySelected(units) {
+  // 1.1.1 (#334 · ICD-01 v0.6.6): selection card now serves units OR buildings.
+  // Building selection wins when present — sim already enforces mutual
+  // exclusivity (selectBuilding/selectUnit clear each other), so this is a
+  // read-side check, not a precedence rule.
+  _applySelected(units, selectedBuilding) {
+    if (selectedBuilding) {
+      this._applySelectedBuilding(selectedBuilding);
+      return;
+    }
     const u = pickSelected(units);
     // 1.0.1 (ICD-01 v0.6 §UnitView.stats projector): bake stats into the
     // diff key so the Reporter trio change re-renders the pane.
     const statsKey = u && u.stats ? `${u.stats.nerve}/${u.stats.nose}/${u.stats.legs}` : '';
-    const key = u ? `${u.id}|${u.kind}|${u.state}|${u.carrying ?? ''}|${statsKey}` : '';
+    const key = u ? `unit|${u.id}|${u.kind}|${u.state}|${u.carrying ?? ''}|${statsKey}` : '';
     if (key === this._lastSelected) return;
     this._lastSelected = key;
     if (!u) {
@@ -257,6 +275,17 @@ class Dossier {
       ? `<span class="stats">Nerve ${u.stats.nerve} · Nose ${u.stats.nose} · Legs ${u.stats.legs}</span>`
       : '';
     this.selectedBody.innerHTML = `${escapeHtml(kindLabel)}<span class="note">${escapeHtml(stateLabel)}${escapeHtml(carryingNote)}</span>${statsLine}`;
+  }
+
+  _applySelectedBuilding(b) {
+    const key = `building|${b.id}|${b.kind}|${b.hp}/${b.hp_max}|${b.district}`;
+    if (key === this._lastSelected) return;
+    this._lastSelected = key;
+    this.selectedEl.classList.remove('empty');
+    const kindLabel = BUILDING_KIND_LABEL[b.kind] ?? b.kind;
+    const districtLabel = getDistrict(b.district)?.name ?? b.district;
+    const hp = Math.ceil(b.hp);
+    this.selectedBody.innerHTML = `${escapeHtml(kindLabel)}<span class="note">${hp}/${b.hp_max} HP · ${escapeHtml(districtLabel)}</span>`;
   }
 
   _applyQueue(leads, stories, storyCount, archivedCount) {

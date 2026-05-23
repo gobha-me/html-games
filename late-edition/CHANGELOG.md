@@ -1,5 +1,99 @@
 # Changelog — Late Edition
 
+## v1.1.1 — 2026-05-22 — Playtest UX polish (fog · WASD · building dossier · multi-step zoom)
+
+First Tier-1.x polish session. v1.1.0 shipped at 14:22; the same-day
+playtest produced six issues, four of which made the game feel broken on
+first launch — only the Darkroom rendered (camera-target distance >
+`fog.far`), WASD pan drifted diagonally, building clicks deselected
+everything, and `[`/`]` looked unresponsive (2-state toggle). This PR
+bundles the four cascading bugs into one milestone. Tests at 355 cases
+(334 → 355 = +21). Closes Gitea issues #332 · #333 · #334 · #335; also
+closes stale tracking ticket #330 (1.1.0 already shipped).
+
+### Fixed
+
+- **#332 fog · camera too far.** [`js/render/renderer.js`](js/render/renderer.js):
+  camera position (40, 35, 40) → (24, 22, 24), introduced as
+  `CAMERA_OFFSET` so the boot `lookAt` and the per-frame `_updateView`
+  pan integration share one source. Camera-to-target distance shrinks
+  ~65 → ~40 units; every grid tile now sits inside the fog band [22,
+  60] at default pan, leaving ~20 units of slack. Iso angle preserved
+  (the camera moves along the same diagonal). The fog ramp endpoint
+  `fog.near` 22 → 14 across the last 60 s reads at the edges without
+  hiding center buildings, per the original Design Doc §15 intent.
+- **#333 WASD pan · diagonal drift.** [`js/input.js`](js/input.js):
+  `KEY_PAN` unit vectors rotated 45° in XZ so each key maps to its
+  screen axis under the iso camera. W=(-1,-1) screen-up; A=(-1,1)
+  screen-left; S=(1,1) screen-down; D=(1,-1) screen-right. The
+  existing `Math.hypot` normalize in `syncPanVelocity` keeps |v| at
+  `PAN_SPEED` for single-key inputs (√2 pre-normalize) and
+  two-key diagonals alike. `KEY_PAN` + `PAN_SPEED` exported so
+  `tests/input-pan.test.mjs` can assert each axis without
+  simulating DOM events.
+- **#335 zoom · 2-state toggle reads as broken.** Replaced the
+  `setZoom('city'|'block')` enum with a 4-step ladder per design-
+  doc-§12 spirit: `FRUSTUM_STEPS = [30, 22, 16, 10]`. `[` calls
+  `renderer.stepZoom(+1)` (zoom in, smaller frustum); `]` calls
+  `stepZoom(-1)` (zoom out, larger frustum). Endpoints clamp
+  silently. The existing 250 ms ease-out cubic re-targets mid-ease
+  on a quick press-press. `FRUSTUM_STEPS` + `nextZoomStep`
+  factored into [`js/render/zoom-step.js`](js/render/zoom-step.js)
+  so the index math is testable without spinning up THREE.
+
+### Added
+
+- **#334 building dossier (Option A).** [`js/sim/world-state.js`](js/sim/world-state.js)
+  gains `buildingAtTile(cell)` (mirrors `unitAtTile`) and
+  `selectBuilding(id)` (mirrors `selectUnit`). `selectedBuildingId`
+  field is mutually exclusive with unit selection — `selectUnit`,
+  `selectBuilding`, and `deselectAll` all clear the other side.
+  `World.snapshot()` projects `WorldFrame.selectedBuilding:
+  SelectedBuildingView | null` (a widening of `BuildingView` with
+  `district: DistrictId`). [`js/input.js`](js/input.js) left-click
+  now falls through unit → building → deselect, so the previously-
+  silent Bureau/Branch Bureau/Switchboard clicks populate the
+  Selected dossier with `Bureau · 60/60 HP · The Docks`. Switchboard
+  + Branch Bureau gain their first player-readable HP surface.
+  [`js/hud.js`](js/hud.js) `Dossier._applySelected` routes to
+  `_applySelectedBuilding` when the projection is non-null.
+
+### Out of scope
+
+- **#336 dossier panels feel covered by world viewport.** Verify
+  post-fog-fix; the issue itself notes the visual bleed is mostly
+  downstream of #332. If the visual hierarchy still reads as
+  crammed after this PR, file a follow-up CSS-only ticket.
+- **#337 minimap (enhancement).** Filed separately; benefits from
+  #332 calibration landing first so the rendered area is known.
+
+### ICD bumps in-PR (Constraint #4)
+
+- **ICD-01 v0.6.5 → v0.6.6** —
+  [`icds/ICD-01-world-renderer.md`](icds/ICD-01-world-renderer.md).
+  One new view-struct (`SelectedBuildingView` widens `BuildingView`
+  with `district: DistrictId`); one new top-level `WorldFrame`
+  field (`selectedBuilding: SelectedBuildingView | null`). Mutually
+  exclusive with unit selection — sim-side enforcement; HUD reads
+  building-first.
+
+### Tests
+
+- 355 cases (334 → 355).
+- New: `building-select.test.mjs` (8 cases — buildingAtTile,
+  selectBuilding/Unit/deselectAll mutual exclusivity, snapshot
+  projection, hp + district readouts, defensive unknown-id no-op).
+- New: `input-pan.test.mjs` (7 cases — each key's unit vector,
+  single-key + two-key normalize to PAN_SPEED, opposing keys
+  cancel, W+D resolves to pure screen-up).
+- New: `zoom.test.mjs` (6 cases — FRUSTUM_STEPS shape, boot from
+  step 1, endpoint clamp both directions, repeated-press ladder
+  walk).
+- Updated: `world-frame.test.mjs` adds `selectedBuilding` to
+  `FRAME_KEYS`.
+
+---
+
 ## v1.1.0 — 2026-05-22 — Tier-1 content · first authored arc (Longshoreman Strike) + Investigation 3-step chain
 
 First Tier-1.x content session against the ten authored ICDs. Lights up

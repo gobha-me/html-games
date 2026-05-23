@@ -46,7 +46,10 @@ working as designed, not a delay.
   — 1.0.0 (adversarial substrate: Herald + Observer + Switchboard) and
   1.0.1 (Archive UI · Reporter trio projector · 30 s debrief gate);
   **milestone 1.1.0** shipped the first authored arc (Longshoreman
-  Strike) + Investigation 3-step chain wiring. Remaining Tier-1 content
+  Strike) + Investigation 3-step chain wiring; **milestone 1.1.1**
+  shipped the same-day-playtest UX polish bundle (fog camera distance ·
+  WASD screen-aligned pan · building dossier (Option A) · multi-step
+  zoom). Remaining Tier-1 content
   (Herald PUNISH / BUYOUT · Observer DESPERATE / SILENCED · Star-vs-
   Observer raid · audio bus first caller · further authored arcs)
   stays at Tier-1.x.
@@ -110,6 +113,56 @@ cues remain unrecorded; a session that needs one should record it then
 and commit it alongside whatever change triggered the need.
 
 ## Current state
+
+**v1.1.1 — Playtest UX polish (fog · WASD · building dossier · multi-step
+zoom).** First Tier-1.x polish session. v1.1.0 shipped 2026-05-22 at 14:22;
+the same-day playtest produced six issues, four of which made the game
+feel broken on first launch. Four deliverables landed:
+
+- **#332 fog calibration** — [`js/render/renderer.js`](js/render/renderer.js)
+  camera position (40,35,40) → (24,22,24) introduced as `CAMERA_OFFSET`
+  (shared between boot `lookAt` and `_updateView` pan integration).
+  Camera-to-target distance shrinks ~65 → ~40 units; every grid tile now
+  sits inside the fog band [22, 60] at default pan. Iso angle preserved.
+- **#333 WASD pan** — [`js/input.js`](js/input.js) `KEY_PAN` unit vectors
+  rotated 45° in XZ so each key maps to its screen axis under the iso
+  camera (W=up, A=left, S=down, D=right). `Math.hypot` normalize keeps
+  |v| at PAN_SPEED for single + two-key inputs. `KEY_PAN` + `PAN_SPEED`
+  exported for `tests/input-pan.test.mjs`.
+- **#334 building dossier (Option A)** — new `World.buildingAtTile(cell)`
+  and `World.selectBuilding(id)` mirror the unit selection API
+  (`unitAtTile` / `selectUnit`). Mutually exclusive with unit selection
+  — `selectUnit` / `selectBuilding` / `deselectAll` clear each other.
+  `World.snapshot()` projects `WorldFrame.selectedBuilding:
+  SelectedBuildingView | null` (widens `BuildingView` with
+  `district: DistrictId`). Left-click on a building tile now populates
+  the §13 SELECTED dossier with `Bureau · 60/60 HP · The Docks` —
+  Switchboard + Branch Bureau gain their first player-readable HP
+  surface.
+- **#335 multi-step zoom** — replaced the 2-state `setZoom('city'|'block')`
+  enum with a 4-step ladder `FRUSTUM_STEPS = [30, 22, 16, 10]` per
+  design-doc-§12 spirit. `[` calls `renderer.stepZoom(+1)` (zoom in,
+  smaller frustum); `]` calls `stepZoom(-1)` (zoom out, larger frustum).
+  Endpoints clamp silently. `FRUSTUM_STEPS` + `nextZoomStep` factored
+  into [`js/render/zoom-step.js`](js/render/zoom-step.js) so the index
+  math is testable without spinning up THREE.
+
+**ICD bump in-PR (Constraint #4):** ICD-01 v0.6.5 → v0.6.6 — new
+`SelectedBuildingView` view-struct + new `WorldFrame.selectedBuilding`
+top-level field. Tests at 355 cases (334 → 355 = +21; three new test
+files). Closes Gitea issues #332/#333/#334/#335 + stale tracking #330.
+Defers #336 (likely auto-resolved by fog fix — verify post-merge) and
+#337 (minimap enhancement; benefits from #332 landing first).
+
+**Next: remaining Tier-1.x content + adversarial maturation.** Same set
+as v1.1.0 next-up: Herald PUNISH + BUYOUT state bodies · Observer
+DESPERATE + SILENCED state bodies · Star-vs-Observer raid mechanic
+(§06 matrix cell 3) · audio bus first caller against ICD-07 · further
+authored arcs (Mayor's Mistress · Empty Vault · etc.) · district-
+disposition mechanical effect (spawn-rate / raid-prob modifiers) at the
+1.1.x balance pass.
+
+---
 
 **v1.1.0 — Tier-1 content · first authored arc + Investigation chain.**
 First Tier-1.x content session. Seven deliverables landed:

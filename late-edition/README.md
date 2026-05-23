@@ -8,6 +8,40 @@ resource optimization on a print-cycle clock.
 
 ## Status
 
+**v1.1.1 — Playtest UX polish (fog · WASD · building dossier · multi-step zoom).**
+First Tier-1.x polish session. v1.1.0 shipped at 14:22; the same-day
+playtest produced six issues, four of which made the game feel broken
+on first launch. This bundle restores baseline playability:
+(1) **#332 fog** — `js/render/renderer.js` camera (40,35,40) → (24,22,24)
+introduced as `CAMERA_OFFSET`; every grid tile now sits inside the fog
+band [22, 60] at default pan (was: only the Darkroom at (7,7) drew, all
+other buildings + units were past `fog.far`).
+(2) **#333 WASD pan** — `js/input.js` `KEY_PAN` unit vectors rotated 45°
+in XZ so each key maps to its screen axis under the iso camera (W=up,
+A=left, S=down, D=right). `Math.hypot` normalize keeps |v| at PAN_SPEED
+for single + two-key inputs.
+(3) **#334 building dossier (Option A)** — left-click on a building tile
+now populates the §13 SELECTED dossier (`Bureau · 60/60 HP · The Docks`).
+New `World.buildingAtTile` + `World.selectBuilding` mirror the unit
+selection API; mutually exclusive with unit selection (sim-side
+enforcement). `WorldFrame.selectedBuilding: SelectedBuildingView | null`
+projects when set. Switchboard + Branch Bureau gain their first
+player-readable HP surface. **ICD-01 v0.6.5 → v0.6.6** in-PR
+(Constraint #4) — one new view-struct + one new top-level
+`WorldFrame` field.
+(4) **#335 multi-step zoom** — replaced the 2-state `setZoom('city'|'block')`
+toggle (read as broken when the player mashed one key, since the first
+`]` at City was a no-op) with a 4-step ladder `FRUSTUM_STEPS = [30, 22,
+16, 10]`. `[` steps in, `]` steps out, clamped silently at endpoints.
+Pure index math (`nextZoomStep`) factored into `js/render/zoom-step.js`
+for testability.
+Tests at 355 cases (334 → 355 = +21 — three new test files:
+`building-select.test.mjs` · `input-pan.test.mjs` · `zoom.test.mjs`).
+Closes Gitea issues #332 · #333 · #334 · #335 + stale tracking #330.
+Defers #336 (likely auto-resolved by fog fix — verify post-merge) and
+#337 (minimap enhancement; benefits from #332 calibration landing
+first). See [`roadmap.md`](roadmap.md) and [`CHANGELOG.md`](CHANGELOG.md).
+
 **v1.0.1 — Tier-1 opener · Archive UI + projectors + debrief gate.**
 Second half of the Tier-1 opener split (issue #317; 1.0.0 / 1.0.1
 precedent followed from 0.7 / 0.10). Four deliverables land here:

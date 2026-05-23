@@ -9,6 +9,7 @@
 
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { TILE } from '../sim/world-state.js';
+import { FRUSTUM_STEPS, nextZoomStep } from './zoom-step.js';
 
 const FRUSTUM = 22;
 // 0.10.2 (C-06): baseline rain count is 600 lines per Design Doc §15 / the
@@ -24,10 +25,26 @@ const RAIN_MAX = 1500;
 // ≈10)" with a 250 ms ease-out cubic transition. WASD pan integrates a
 // velocity supplied by input.js; clamp to the grid extent so the player
 // cannot lose the bureau by panning off the world.
-const FRUSTUM_CITY = 22;
-const FRUSTUM_BLOCK = 10;
+//
+// 1.1.1 (#335 multi-step zoom): the 2-state {city,block} toggle reads as
+// unresponsive when the player mashes one key (first ']' at City is a no-op).
+// Convert to a 4-step ladder per design-doc-§12 spirit, sharing the same
+// ease loop. FRUSTUM_CITY/BLOCK are kept as named anchors at indices 1/3.
+// FRUSTUM_STEPS + nextZoomStep moved to ./zoom-step.js (pure helpers,
+// imported above) so tests/zoom.test.mjs can exercise the index math
+// without spinning up THREE.js.
+const FRUSTUM_CITY = 22;   // step 1 — boot default
+const FRUSTUM_BLOCK = 10;  // step 3 — tightest
 const ZOOM_EASE_MS = 250;
 const PAN_CLAMP = 27;  // half-width of the grid in world units (TILE * GRID_W / 2 ≈ 30 minus a small margin)
+
+// 1.1.1 (#332 fog calibration): camera-to-target distance must fit inside the
+// scene fog band [22, 60]. The v0.1-era (40,35,40) lift puts the world origin
+// at depth ~65 — past fog.far — so only tiles in the SE corner draw at boot.
+// (24,22,24) keeps the iso angle (45° / atan(22/√1152)≈33°) and brings the
+// origin to depth ~40, leaving ~20 units of band slack on every grid tile.
+// Used at both boot lookAt and the per-frame _updateView pan integration.
+const CAMERA_OFFSET = { x: 24, y: 22, z: 24 };
 
 export class Renderer {
   constructor(root) {
@@ -49,16 +66,18 @@ export class Renderer {
       FRUSTUM / 2, -FRUSTUM / 2,
       0.1, 200,
     );
-    this.camera.position.set(40, 35, 40);
+    this.camera.position.set(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z);
     this.camera.lookAt(0, 0, 0);
 
     // 0.10.1 (G-07) view state — pan offset (XZ ground plane) + zoom
     // step. Both are renderer-local: the sim never sees the view; the
     // WorldFrame's cameraTarget stays canonically (0,0,0) per ICD-01 v0.6.
+    // 1.1.1 (#335): zoom is now a step index into FRUSTUM_STEPS, advanced
+    // by stepZoom(+1) (out) / stepZoom(-1) (in), clamped at the endpoints.
     this._pan = { x: 0, z: 0 };
     this._panVel = { x: 0, z: 0 };
-    this._zoomLevel = 'city';
-    this._frustum = FRUSTUM_CITY;
+    this._zoomStep = FRUSTUM_STEPS.indexOf(FRUSTUM_CITY);  // boot at step 1 (City)
+    this._frustum = FRUSTUM_STEPS[this._zoomStep];
     this._zoomEase = null;  // { fromFrustum, toFrustum, startMs, durMs } | null
     this._lastFrameMs = null;
 
@@ -150,17 +169,22 @@ export class Renderer {
     this._panVel.z = vz;
   }
 
-  setZoom(level) {
-    if (level !== 'city' && level !== 'block') return;
-    if (level === this._zoomLevel) return;
-    const target = level === 'block' ? FRUSTUM_BLOCK : FRUSTUM_CITY;
+  // 1.1.1 (#335): step the zoom one rung in (+1, smaller frustum / tighter)
+  // or out (-1, larger frustum / wider) along FRUSTUM_STEPS. Endpoints clamp
+  // silently — at step 0 a further out-press is a no-op; same at the
+  // innermost step. The ease loop re-targets even mid-ease so a quick
+  // press-press doesn't get stuck on a stale target.
+  stepZoom(direction) {
+    const next = nextZoomStep(this._zoomStep, direction);
+    if (next === this._zoomStep) return;
+    const target = FRUSTUM_STEPS[next];
     this._zoomEase = {
       fromFrustum: this._frustum,
       toFrustum: target,
       startMs: performance.now(),
       durMs: ZOOM_EASE_MS,
     };
-    this._zoomLevel = level;
+    this._zoomStep = next;
   }
 
   // Per-frame view integration. Splits camera-update concerns from
@@ -189,7 +213,7 @@ export class Renderer {
 
     // Camera position + lookAt translate together so the isometric angle
     // is preserved — we are panning the target, not orbiting around it.
-    this.camera.position.set(40 + this._pan.x, 35, 40 + this._pan.z);
+    this.camera.position.set(CAMERA_OFFSET.x + this._pan.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z + this._pan.z);
     this.camera.lookAt(this._pan.x, 0, this._pan.z);
     this._applyFrustum(this._frustum);
   }

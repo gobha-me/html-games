@@ -1,6 +1,7 @@
 # ICD-01 · World ↔ Renderer
 
-**Status:** v0.6.5 (shipped against milestone 1.0.1 — `WorldFrame.stories: StoryQueueView[]` top-level field authored + projected for the Archive UI per-story rows; `UnitView.stats` projector wires the Reporter trio; `HudState.resources.archived` field added)
+**Status:** v0.6.6 (shipped against milestone 1.1.1 — `WorldFrame.selectedBuilding: SelectedBuildingView | null` top-level field authored + projected for the §13 Selected dossier when the player left-clicks a building (issue #334); new `SelectedBuildingView` view-struct widens `BuildingView` with `district`. Mutually exclusive with unit selection (sim-side enforcement in `World.selectUnit` / `selectBuilding` / `deselectAll`). The two existing buildings without a player-readable HP surface — Switchboard + Branch Bureau — gain one.)
+**Prior:** v0.6.5 (milestone 1.0.1 — `WorldFrame.stories: StoryQueueView[]` top-level field authored + projected for the Archive UI per-story rows; `UnitView.stats` projector wires the Reporter trio; `HudState.resources.archived` field added)
 **Prior:** v0.6.4 (milestone 1.0.0 — `BuildingKind` vocabulary widens to include `'switchboard'`; no shape change)
 **Prior:** v0.6.3 (PRE-1.0 — §Notes addition only; pinned the authored-but-deferred-projection pattern surfaced at the post-Tier-0 → Tier-1 re-eval; no shape change)
 **Prior:** v0.6.2 (shipped against milestone 0.10.2 — `WorldFrame.rain.intensity` range comment widened from `0-1` to `0+ unbounded; 1 = baseline, ~2 at deadline`; no shape change)
@@ -26,6 +27,7 @@ interface WorldFrame {
   leads:     LeadView[];
   stories:   StoryQueueView[];  // verified + archived at Darkroom; Archive UI per-row click target (v0.6.5)
   rivals:    RivalStatusView[]; // posture surface for Threats dossier (v0.6; type owned by ICD-02 v0.2)
+  selectedBuilding: SelectedBuildingView | null; // §13 Selected dossier on building left-click (v0.6.6)
   rain:      RainConfig;        // intensity 0+ unbounded; 1 = baseline, ~2 at deadline (PR-D — v0.6.2)
   fog:       { near: number, far: number, color: number };
   hud:       HudState;          // edition, deadline_ms, resources
@@ -264,6 +266,50 @@ the projection surface — the top-level `rivals` array on `WorldFrame`.
   locked at v0.6; per-entry shape grows under ICD-02's authoritative
   window.
 
+### SelectedBuildingView (v0.6.6)
+
+`WorldFrame.selectedBuilding: SelectedBuildingView | null` is the §13 Selected
+dossier's projection when the player has left-clicked a building. Mirrors how
+the existing unit-selection projection feeds the same dossier card via
+`UnitView.selected = true` — except buildings carry their selection in a
+single sim-side id (`World.selectedBuildingId`) instead of per-record flags,
+since at most one building can be selected at a time.
+
+```ts
+interface SelectedBuildingView {
+  id:       BuildingId;
+  pos:      Vec3;
+  kind:     BuildingKind;
+  hp:       number;
+  hp_max:   number;
+  tier:     1 | 2 | 3;
+  district: DistrictId;   // districtForTile(b.tile); central buildings fall back to DEFAULT_DISTRICT_ID
+}
+```
+
+- **Why a separate view-struct, not just `BuildingView`.** The dossier read
+  needs `district` (e.g. "Bureau · 60/60 HP · The Docks") for player
+  orientation; the every-frame `WorldFrame.buildings: BuildingView[]` does
+  not — the renderer draws buildings at world positions, not at
+  district-labelled positions. Keeps the by-default-projected
+  `BuildingView` minimal and admits the heavier projection only on the
+  selection edge.
+- **Mutually exclusive with unit selection.** Sim-side `selectUnit` /
+  `selectBuilding` / `deselectAll` clear each other so the dossier's
+  source-picking rule is *"building wins when present, then any unit
+  with `selected === true`, then 'No selection'"*. The HUD reads `frame.
+  selectedBuilding` first and only consults `frame.units` when the
+  building field is null.
+- **Player gesture.** Left-click on a building tile populates the field;
+  left-click on a unit tile clears it (selection moves to the unit);
+  left-click on empty ground clears it (no selection). Right-click is
+  unaffected — dispatch still routes through the currently-selected
+  unit only. See [`../js/input.js`](../js/input.js) `mousedown` handler.
+- **Why a single nullable field, not an array.** At most one selection
+  is held; an array would invite future "multi-select" reads that are
+  out of scope today. Keeps the dossier's render path one branch
+  shallower.
+
 ### FxEvent union (v0.6)
 
 `WorldFrame.effects: FxEvent[]` has existed on the per-frame contract
@@ -437,6 +483,22 @@ they live here as implementation pins.
   per game run.
 
 ## Revision history
+
+- **v0.6.6** (milestone 1.1.1, 2026-05-22) — One new view-struct + one new
+  top-level `WorldFrame` field. **`SelectedBuildingView`** widens
+  `BuildingView` with `district: DistrictId` for the §13 Selected dossier
+  building card (issue #334). **`WorldFrame.selectedBuilding:
+  SelectedBuildingView | null`** projects the currently-selected building
+  or null; mutually exclusive with unit selection (sim-side enforcement in
+  `World.selectUnit` / `selectBuilding` / `deselectAll`). The HUD reads
+  `frame.selectedBuilding` first and falls back to `frame.units` for unit
+  selection. Player gesture is left-click on a building tile (see
+  [`../js/input.js`](../js/input.js) — the `unitAtTile` / `buildingAtTile`
+  fallback chain). Closes the previously-invisible HP surface for
+  Switchboard + Branch Bureau (neither building had a player-readable HP
+  readout before v0.6.6). No bump to `BuildingView` itself — the every-
+  frame draw projection stays minimal; the heavier `SelectedBuildingView`
+  ships only on the selection edge.
 
 - **v0.6.5** (milestone 1.0.1, 2026-05-22) — Three field additions wiring the
   Tier-1 opener's deferred projectors and the Archive UI. **`WorldFrame.stories:
