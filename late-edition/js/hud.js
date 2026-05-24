@@ -20,7 +20,7 @@
 // `formatMs`, `formatEdition`) are exported so `tests/hud.test.mjs` can
 // exercise them in node without jsdom.
 
-import { currentTutorialBeat, BEAT_COPY } from './sim/tutorial.js';
+import { currentTutorialBeat, BEAT_COPY, TUTORIAL_BEATS } from './sim/tutorial.js';
 import { getDistrict } from './sim/districts.js';
 import { ARCHIVE_CAP } from './sim/world-state.js';
 import { tileToPixel, worldXZToPixel, frustumQuad, GRID_W, MARGIN } from './render/minimap.js';
@@ -94,6 +94,10 @@ export function pickSelected(units) {
   return units.find((u) => u.selected) ?? null;
 }
 
+export function displaySelected(units) {
+  return pickSelected(units) ?? units.find((u) => u.kind === 'reporter') ?? null;
+}
+
 export function countByKind(units, kind) {
   let n = 0;
   for (const u of units) if (u.kind === kind) n++;
@@ -127,31 +131,13 @@ export class HudCorkboard {
   // Threats panel.
   constructor(roots, actions = {}) {
     this.top      = new TopCards(roots.topCards);
-    this.deadline = new DeadlineStrip(roots.deadline);
     this.dossier  = new Dossier(roots.dossier, actions);
-    // 0.10.1 (G-09): the tutorial-note pin sits above the resource cards;
-    // hides itself when currentTutorialBeat() returns null (edition ≥ 3
-    // or after the 30 s welcome window). Re-derives every frame so a
-    // save/load lands on the correct beat with no persistence.
-    this.tutorial = new TutorialNote(roots.tutorial);
-    // 1.1.2 (#337): minimap is optional — when no canvas is mounted (or
-    // the host page omits it), the rest of the HUD still functions.
-    this.minimap = roots.minimap ? new Minimap(roots.minimap, actions) : null;
-    // 1.3.1 (#playtest-bug-7): slow-mo pill — transient HUD readout that
-    // surfaces the remaining active window. Reads via actions.getSlowMo()
-    // each frame; hides itself when the window expires.
+    this.tutorial = new TutorialBubble(roots.tutorial);
+    this.minimap = roots.minimap ? new Minimap(roots.minimap, actions, roots.minimapLabel) : null;
     this.slowMoPill = roots.slowMoPill ? new SlowMoPill(roots.slowMoPill, actions) : null;
-    // 1.3.1 (#playtest-bug-3b): zoom pill — transient HUD readout that
-    // surfaces the current zoom step for 1.2s after every [ / ] press
-    // (including clamp-at-endpoint presses, which were previously invisible).
-    // Reads zoomCallCount + zoomStep via actions.getView().
     this.zoomPill = roots.zoomPill ? new ZoomPill(roots.zoomPill, actions) : null;
-    // 1.4.0: settings popover — gear icon + panel surfacing pan-speed
-    // multiplier + per-channel audio mute toggles. Optional sibling; when
-    // either DOM root is missing the panel simply doesn't mount (e.g. a
-    // headless host page that omits the controls).
-    this.settings = roots.settingsPanel
-      ? new SettingsPanel(roots.settingsPanel, actions)
+    this.helpPopover = roots.helpPopover
+      ? new HelpPopover(roots.helpPopover, actions)
       : null;
   }
 
@@ -159,13 +145,12 @@ export class HudCorkboard {
     const bureau = frame.buildings.find((b) => b.kind === 'bureau');
     const bureauHp = bureau ? Math.ceil(bureau.hp) : 0;
     this.top.apply(frame.hud, bureauHp);
-    this.deadline.apply(frame.hud);
     this.dossier.apply(frame, bureauHp);
     this.tutorial.apply(frame);
     if (this.minimap) this.minimap.apply(frame);
     if (this.slowMoPill) this.slowMoPill.apply(frame);
     if (this.zoomPill) this.zoomPill.apply(frame);
-    if (this.settings) this.settings.apply(frame);
+    if (this.helpPopover) this.helpPopover.apply(frame);
   }
 }
 
@@ -263,9 +248,9 @@ const ZOOM_PILL_VISIBLE_MS = 1200;
 // / 'vo'). Buttons should carry a data-channel attribute matching their
 // channel id ('master' for the undefined channel) so the click handler can
 // recover it without an in-class lookup.
-export class SettingsPanel {
+export class HelpPopover {
   constructor(refs, actions = {}) {
-    this.gearButton    = refs.gearButton ?? null;
+    this.helpButton    = refs.helpButton ?? null;
     this.panel         = refs.panel ?? null;
     this.slider        = refs.slider ?? null;
     this.sliderValue   = refs.sliderValue ?? null;
@@ -274,8 +259,8 @@ export class SettingsPanel {
     this.actions = actions;
     this._open = false;
 
-    if (this.gearButton && typeof this.gearButton.addEventListener === 'function') {
-      this.gearButton.addEventListener('click', () => this.toggle());
+    if (this.helpButton && typeof this.helpButton.addEventListener === 'function') {
+      this.helpButton.addEventListener('click', () => this.toggle());
     }
     if (this.closeButton && typeof this.closeButton.addEventListener === 'function') {
       this.closeButton.addEventListener('click', () => this.close());
@@ -313,8 +298,8 @@ export class SettingsPanel {
     if (this._open) return;
     this._open = true;
     if (this.panel) this.panel.hidden = false;
-    if (this.gearButton && typeof this.gearButton.setAttribute === 'function') {
-      this.gearButton.setAttribute('aria-expanded', 'true');
+    if (this.helpButton && typeof this.helpButton.setAttribute === 'function') {
+      this.helpButton.setAttribute('aria-expanded', 'true');
     }
     this._refresh();
   }
@@ -323,8 +308,8 @@ export class SettingsPanel {
     if (!this._open) return;
     this._open = false;
     if (this.panel) this.panel.hidden = true;
-    if (this.gearButton && typeof this.gearButton.setAttribute === 'function') {
-      this.gearButton.setAttribute('aria-expanded', 'false');
+    if (this.helpButton && typeof this.helpButton.setAttribute === 'function') {
+      this.helpButton.setAttribute('aria-expanded', 'false');
     }
   }
 
@@ -370,7 +355,7 @@ export class SettingsPanel {
     if (!this._open) return;
     const target = ev && ev.target;
     if (!target) return;
-    if (this.gearButton && typeof this.gearButton.contains === 'function' && this.gearButton.contains(target)) return;
+    if (this.helpButton && typeof this.helpButton.contains === 'function' && this.helpButton.contains(target)) return;
     if (this.panel && typeof this.panel.contains === 'function' && this.panel.contains(target)) return;
     this.close();
   }
@@ -439,11 +424,12 @@ export function renderBuyoutOfferChip(offer) {
     + `</div>`;
 }
 
-class TutorialNote {
+class TutorialBubble {
   constructor(rootEl) {
     this.root = rootEl;
     this.bodyEl = rootEl.querySelector('.body');
-    this._lastBeat = undefined;  // distinct from null so the first apply latches
+    this.stepEl = rootEl.querySelector('.step');
+    this._lastBeat = undefined;
   }
 
   apply(frame) {
@@ -457,6 +443,10 @@ class TutorialNote {
     this.root.hidden = false;
     this.bodyEl.textContent = BEAT_COPY[beat];
     this.root.dataset.beat = beat;
+    if (this.stepEl) {
+      const idx = TUTORIAL_BEATS.indexOf(beat) + 1;
+      this.stepEl.textContent = `${idx} / ${TUTORIAL_BEATS.length}`;
+    }
   }
 }
 
@@ -503,11 +493,13 @@ const MINIMAP_DISTRICTS = [
 ];
 
 class Minimap {
-  constructor(canvasEl, actions = {}) {
+  constructor(canvasEl, actions = {}, labelEl = null) {
     this.canvas = canvasEl;
     this.ctx = canvasEl.getContext('2d');
-    this.size = canvasEl.width;  // square — width === height
+    this.size = canvasEl.width;
     this.getView = actions.getView ?? null;
+    this.labelEl = labelEl;
+    this._lastLabel = '';
   }
 
   apply(frame) {
@@ -603,6 +595,15 @@ class Minimap {
         ctx.stroke();
       }
     }
+
+    if (this.labelEl) {
+      const bureau = frame.buildings.find((b) => b.kind === 'bureau');
+      const label = bureau ? `Press · ${Math.ceil(bureau.hp)} HP` : '';
+      if (label !== this._lastLabel) {
+        this.labelEl.textContent = label;
+        this._lastLabel = label;
+      }
+    }
   }
 }
 
@@ -621,15 +622,16 @@ class TopCards {
   constructor(rootEl) {
     this.root = rootEl;
     this.cards = {
-      edition:  rootEl.querySelector('[data-card="edition"] .val'),
-      deadline: rootEl.querySelector('[data-card="deadline"] .val'),
-      leads:    rootEl.querySelector('[data-card="leads"] .val'),
-      stories:  rootEl.querySelector('[data-card="stories"] .val'),
-      ink:      rootEl.querySelector('[data-card="ink"] .val'),
-      cash:     rootEl.querySelector('[data-card="cash"] .val'),
-      heat:     rootEl.querySelector('[data-card="heat"] .val'),
+      edition:  rootEl.querySelector('[data-stat="edition"] .v'),
+      deadline: rootEl.querySelector('[data-stat="deadline"] .v'),
+      leads:    rootEl.querySelector('[data-stat="leads"] .v'),
+      stories:  rootEl.querySelector('[data-stat="stories"] .v'),
+      ink:      rootEl.querySelector('[data-stat="ink"] .v'),
+      cash:     rootEl.querySelector('[data-stat="cash"] .v'),
+      heat:     rootEl.querySelector('[data-stat="heat"] .v'),
     };
-    this.heatCard = rootEl.querySelector('[data-card="heat"]');
+    this.deadlineStat = rootEl.querySelector('[data-stat="deadline"]');
+    this.heatStat = rootEl.querySelector('[data-stat="heat"]');
     this._last = {};
   }
 
@@ -649,44 +651,18 @@ class TopCards {
         this._last[k] = next[k];
       }
     }
-    // Heat is reverse currency — design doc §06 ties §19 thresholds at 40/60/80.
-    // Use 40 as the visual hot line; matches the heat-driven raid trigger.
+    let dlCls = '';
+    if (hud.deadline_ms <= CRITICAL_MS && hud.deadline_ms > 0) dlCls = 'is-critical';
+    else if (hud.deadline_ms <= WARNING_MS && hud.deadline_ms > 0) dlCls = 'is-warning';
+    if (dlCls !== this._lastDlCls) {
+      this.deadlineStat.classList.remove('is-warning', 'is-critical');
+      if (dlCls) this.deadlineStat.classList.add(dlCls);
+      this._lastDlCls = dlCls;
+    }
     const hot = hud.resources.heat >= 40;
     if (this._lastHot !== hot) {
-      this.heatCard.classList.toggle('is-hot', hot);
+      this.heatStat.classList.toggle('is-hot', hot);
       this._lastHot = hot;
-    }
-  }
-}
-
-class DeadlineStrip {
-  constructor(rootEl) {
-    this.root = rootEl;
-    this.valEl = rootEl.querySelector('.val');
-    this.edEl  = rootEl.querySelector('.ed');
-    this._lastVal = '';
-    this._lastEd = '';
-    this._lastClass = '';
-  }
-
-  apply(hud) {
-    const val = formatMs(hud.deadline_ms);
-    if (val !== this._lastVal) {
-      this.valEl.textContent = val;
-      this._lastVal = val;
-    }
-    const ed = `Edition ${formatEdition(hud.edition)}`;
-    if (ed !== this._lastEd) {
-      this.edEl.textContent = ed;
-      this._lastEd = ed;
-    }
-    let cls = '';
-    if (hud.deadline_ms <= CRITICAL_MS && hud.deadline_ms > 0) cls = 'is-critical';
-    else if (hud.deadline_ms <= WARNING_MS && hud.deadline_ms > 0) cls = 'is-warning';
-    if (cls !== this._lastClass) {
-      this.root.classList.remove('is-warning', 'is-critical');
-      if (cls) this.root.classList.add(cls);
-      this._lastClass = cls;
     }
   }
 }
@@ -745,7 +721,7 @@ class Dossier {
       this._applySelectedBuilding(selectedBuilding);
       return;
     }
-    const u = pickSelected(units);
+    const u = displaySelected(units);
     // 1.0.1 (ICD-01 v0.6 §UnitView.stats projector): bake stats into the
     // diff key so the Reporter trio change re-renders the pane.
     const statsKey = u && u.stats ? `${u.stats.nerve}/${u.stats.nose}/${u.stats.legs}` : '';

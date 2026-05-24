@@ -38,25 +38,16 @@ const TICK_DT = 1 / TICK_HZ;
 const root = document.getElementById('world');
 if (!root) throw new Error('world root not found');
 const hudRoots = {
-  topCards: document.getElementById('hud-top-cards'),
-  deadline: document.getElementById('hud-deadline-strip'),
-  dossier:  document.getElementById('hud-dossier'),
-  tutorial: document.getElementById('hud-tutorial-note'),
-  // 1.1.2 (#337): minimap is optional from the HUD's perspective — the
-  // HudCorkboard tolerates a null root so the page can mount without one
-  // (e.g. headless / test harness). The launcher page always mounts it.
+  topCards:  document.getElementById('hud-stats'),
+  dossier:  document.getElementById('hud-dock'),
+  tutorial: document.getElementById('hud-tutorial-bubble'),
   minimap:  document.getElementById('hud-minimap'),
-  // 1.3.1: both pill widgets are optional for the same reason — when the
-  // host page omits the DOM nodes the HUD simply doesn't render them.
+  minimapLabel: document.getElementById('hud-minimap-label'),
   slowMoPill: document.getElementById('hud-slowmo-pill'),
   zoomPill:   document.getElementById('hud-zoom-pill'),
-  // 1.4.0: settings popover refs. The HUD wires SettingsPanel only when
-  // both the gear button + panel exist; either-or absence skips the
-  // widget. Channel button refs are queried up-front so the panel doesn't
-  // need to walk the DOM at construction.
-  settingsPanel: buildSettingsPanelRefs(),
+  helpPopover: buildHelpPopoverRefs(),
 };
-const OPTIONAL_HUD_ROOTS = new Set(['minimap', 'slowMoPill', 'zoomPill', 'settingsPanel']);
+const OPTIONAL_HUD_ROOTS = new Set(['minimap', 'minimapLabel', 'slowMoPill', 'zoomPill', 'helpPopover']);
 for (const [k, el] of Object.entries(hudRoots)) {
   if (OPTIONAL_HUD_ROOTS.has(k)) continue;  // null is allowed
   if (!el) throw new Error(`hud root ${k} not found`);
@@ -181,24 +172,19 @@ let accumulator = 0;
 // Latch initial interp endpoints so the first frame doesn't lerp from origin.
 renderer.noteTick(world.snapshot(), TICK_DT);
 
-// 1.4.0: settings popover refs. Queries every control inside #hud-settings-
-// panel up front and assembles the refs object the SettingsPanel class
-// consumes (it doesn't query the DOM itself — keeps the class testable
-// under node:test with minimal stubs). Returns null when either the gear
-// or the panel is absent, so a headless host page bypasses the widget.
-function buildSettingsPanelRefs() {
-  const gearButton = document.getElementById('hud-settings-gear');
-  const panel      = document.getElementById('hud-settings-panel');
-  if (!gearButton || !panel) return null;
+function buildHelpPopoverRefs() {
+  const helpButton = document.getElementById('hud-help-btn');
+  const panel      = document.getElementById('hud-help-popover');
+  if (!helpButton || !panel) return null;
   const slider      = panel.querySelector('#hud-settings-pan-speed');
   const sliderValue = panel.querySelector('[data-target="pan-speed-value"]');
-  const closeButton = panel.querySelector('[data-action="close-settings"]');
+  const closeButton = panel.querySelector('[data-action="close-help"]');
   const channelButtons = Array.from(panel.querySelectorAll('.settings-toggle'))
     .map((el) => {
       const attr = el.dataset.channel;
       return { channel: attr === 'master' ? undefined : attr, el };
     });
-  return { gearButton, panel, slider, sliderValue, closeButton, channelButtons };
+  return { helpButton, panel, slider, sliderValue, closeButton, channelButtons };
 }
 
 function loop() {

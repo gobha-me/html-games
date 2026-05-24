@@ -5,5 +5,5 @@
 // behind the actual repo at v1.3.0). main.js boot-writes both surfaces from
 // these constants so the next version bump touches one file.
 
-export const VERSION = '1.5.0';
-export const VERSION_TAGLINE = 'Herald PUNISH + BUYOUT state bodies';
+export const VERSION = '1.6.0';
+export const VERSION_TAGLINE = 'HUD polish — dark bar + pinned dock';

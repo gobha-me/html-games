@@ -4,6 +4,7 @@ import {
   formatMs,
   formatEdition,
   pickSelected,
+  displaySelected,
   countByKind,
   tierHistogram,
   renderStoryRow,
@@ -13,7 +14,7 @@ import {
   ROLE_CAPTIONS,
   SlowMoPill,
   ZoomPill,
-  SettingsPanel,
+  HelpPopover,
   formatPanSpeedLabel,
 } from '../js/hud.js';
 import { World } from '../js/sim/world-state.js';
@@ -478,7 +479,7 @@ function makeSettingsActions(initial = {}) {
   };
 }
 
-test('SettingsPanel starts hidden and isOpen() returns false', () => {
+test('HelpPopover starts hidden and isOpen() returns false', () => {
   const panel = makeSettingsStubEl();
   const gear = makeSettingsStubEl();
   const slider = makeSettingsStubEl({ value: '1.0' });
@@ -486,15 +487,15 @@ test('SettingsPanel starts hidden and isOpen() returns false', () => {
   const close = makeSettingsStubEl();
   const channelButtons = makeChannelButtons([{ channel: undefined }, { channel: 'sfx' }]);
   const { actions } = makeSettingsActions();
-  const sp = new SettingsPanel(
-    { gearButton: gear, panel, slider, sliderValue, closeButton: close, channelButtons, document: null },
+  const sp = new HelpPopover(
+    { helpButton: gear, panel, slider, sliderValue, closeButton: close, channelButtons, document: null },
     actions,
   );
   assert.equal(sp.isOpen(), false);
   assert.equal(panel.hidden, true);
 });
 
-test('SettingsPanel.open() shows the panel and refreshes slider + toggles from actions', () => {
+test('HelpPopover.open() shows the panel and refreshes slider + toggles from actions', () => {
   const panel = makeSettingsStubEl();
   const gear = makeSettingsStubEl();
   const slider = makeSettingsStubEl();
@@ -508,8 +509,8 @@ test('SettingsPanel.open() shows the panel and refreshes slider + toggles from a
   state.muted.set('sfx', true);
   state.muted.set('amb', false);
   state.muted.set(undefined, false);
-  const sp = new SettingsPanel(
-    { gearButton: gear, panel, slider, sliderValue, channelButtons, document: null },
+  const sp = new HelpPopover(
+    { helpButton: gear, panel, slider, sliderValue, channelButtons, document: null },
     actions,
   );
   sp.open();
@@ -527,39 +528,39 @@ test('SettingsPanel.open() shows the panel and refreshes slider + toggles from a
   assert.equal(ambBtn._attrs['aria-pressed'], 'false');
 });
 
-test('SettingsPanel.close() hides the panel', () => {
+test('HelpPopover.close() hides the panel', () => {
   const panel = makeSettingsStubEl();
-  const sp = new SettingsPanel({ gearButton: makeSettingsStubEl(), panel, document: null }, {});
+  const sp = new HelpPopover({ helpButton: makeSettingsStubEl(), panel, document: null }, {});
   sp.open();
   sp.close();
   assert.equal(panel.hidden, true);
   assert.equal(sp.isOpen(), false);
 });
 
-test('SettingsPanel.toggle() flips between open and close', () => {
+test('HelpPopover.toggle() flips between open and close', () => {
   const panel = makeSettingsStubEl();
-  const sp = new SettingsPanel({ gearButton: makeSettingsStubEl(), panel, document: null }, {});
+  const sp = new HelpPopover({ helpButton: makeSettingsStubEl(), panel, document: null }, {});
   sp.toggle();
   assert.equal(sp.isOpen(), true);
   sp.toggle();
   assert.equal(sp.isOpen(), false);
 });
 
-test('SettingsPanel: clicking the gear button toggles the panel', () => {
+test('HelpPopover: clicking the gear button toggles the panel', () => {
   const panel = makeSettingsStubEl();
   const gear = makeSettingsStubEl();
-  const sp = new SettingsPanel({ gearButton: gear, panel, document: null }, {});
+  const sp = new HelpPopover({ helpButton: gear, panel, document: null }, {});
   gear.dispatch('click');
   assert.equal(sp.isOpen(), true);
   gear.dispatch('click');
   assert.equal(sp.isOpen(), false);
 });
 
-test('SettingsPanel: clicking the close button closes the panel', () => {
+test('HelpPopover: clicking the close button closes the panel', () => {
   const panel = makeSettingsStubEl();
   const closeBtn = makeSettingsStubEl();
-  const sp = new SettingsPanel(
-    { gearButton: makeSettingsStubEl(), panel, closeButton: closeBtn, document: null },
+  const sp = new HelpPopover(
+    { helpButton: makeSettingsStubEl(), panel, closeButton: closeBtn, document: null },
     {},
   );
   sp.open();
@@ -567,12 +568,12 @@ test('SettingsPanel: clicking the close button closes the panel', () => {
   assert.equal(sp.isOpen(), false);
 });
 
-test('SettingsPanel: slider input event dispatches setPanSpeedMultiplier with the new value', () => {
+test('HelpPopover: slider input event dispatches setPanSpeedMultiplier with the new value', () => {
   const slider = makeSettingsStubEl({ value: '1.0' });
   const sliderValue = makeSettingsStubEl();
   const { state, actions } = makeSettingsActions();
-  new SettingsPanel(
-    { gearButton: makeSettingsStubEl(), panel: makeSettingsStubEl(), slider, sliderValue, document: null },
+  new HelpPopover(
+    { helpButton: makeSettingsStubEl(), panel: makeSettingsStubEl(), slider, sliderValue, document: null },
     actions,
   );
   slider.value = '2.3';
@@ -581,11 +582,11 @@ test('SettingsPanel: slider input event dispatches setPanSpeedMultiplier with th
   assert.equal(sliderValue.textContent, '2.3×');
 });
 
-test('SettingsPanel: slider input ignores non-finite / non-positive values', () => {
+test('HelpPopover: slider input ignores non-finite / non-positive values', () => {
   const slider = makeSettingsStubEl({ value: '1.0' });
   const { state, actions } = makeSettingsActions();
-  new SettingsPanel(
-    { gearButton: makeSettingsStubEl(), panel: makeSettingsStubEl(), slider, document: null },
+  new HelpPopover(
+    { helpButton: makeSettingsStubEl(), panel: makeSettingsStubEl(), slider, document: null },
     actions,
   );
   slider.value = 'NaN';
@@ -597,16 +598,16 @@ test('SettingsPanel: slider input ignores non-finite / non-positive values', () 
   assert.equal(state.setMultCalls.length, 0);
 });
 
-test('SettingsPanel: clicking a channel toggle dispatches toggleChannelMute with the right channel', () => {
+test('HelpPopover: clicking a channel toggle dispatches toggleChannelMute with the right channel', () => {
   const channelButtons = makeChannelButtons([
     { channel: undefined },  // master
     { channel: 'sfx' },
     { channel: 'amb' },
   ]);
   const { state, actions } = makeSettingsActions();
-  new SettingsPanel(
+  new HelpPopover(
     {
-      gearButton: makeSettingsStubEl(),
+      helpButton: makeSettingsStubEl(),
       panel: makeSettingsStubEl(),
       channelButtons,
       document: null,
@@ -618,15 +619,15 @@ test('SettingsPanel: clicking a channel toggle dispatches toggleChannelMute with
   assert.deepEqual(state.toggleCalls, ['sfx', undefined]);
 });
 
-test('SettingsPanel: clicking a channel toggle re-renders the button state from the bus', () => {
+test('HelpPopover: clicking a channel toggle re-renders the button state from the bus', () => {
   // Bus is the single source of truth; the panel reads back after toggling
   // rather than tracking its own copy. Sequence: click → toggle changes the
   // bus state → panel reads via getChannelMuted → renders is-muted class.
   const channelButtons = makeChannelButtons([{ channel: 'sfx' }]);
   const { actions } = makeSettingsActions();
-  new SettingsPanel(
+  new HelpPopover(
     {
-      gearButton: makeSettingsStubEl(),
+      helpButton: makeSettingsStubEl(),
       panel: makeSettingsStubEl(),
       channelButtons,
       document: null,
@@ -642,12 +643,12 @@ test('SettingsPanel: clicking a channel toggle re-renders the button state from 
   assert.equal(sfxBtn._attrs['aria-pressed'], 'false');
 });
 
-test('SettingsPanel: optional refs absence does not throw (headless / partial mount)', () => {
+test('HelpPopover: optional refs absence does not throw (headless / partial mount)', () => {
   // Mirrors the SlowMoPill / ZoomPill defensive pattern — a host page that
-  // omits a control still gets a working SettingsPanel for the rest.
+  // omits a control still gets a working HelpPopover for the rest.
   const panel = makeSettingsStubEl();
-  const sp = new SettingsPanel(
-    { gearButton: makeSettingsStubEl(), panel, document: null },  // no slider, no toggles, no close
+  const sp = new HelpPopover(
+    { helpButton: makeSettingsStubEl(), panel, document: null },  // no slider, no toggles, no close
     {},
   );
   sp.open();
@@ -656,10 +657,10 @@ test('SettingsPanel: optional refs absence does not throw (headless / partial mo
   assert.equal(sp.isOpen(), true);
 });
 
-test('SettingsPanel: gear button gets aria-expanded synced with open/close state', () => {
+test('HelpPopover: gear button gets aria-expanded synced with open/close state', () => {
   const gear = makeSettingsStubEl();
   const panel = makeSettingsStubEl();
-  const sp = new SettingsPanel({ gearButton: gear, panel, document: null }, {});
+  const sp = new HelpPopover({ helpButton: gear, panel, document: null }, {});
   sp.open();
   assert.equal(gear._attrs['aria-expanded'], 'true');
   sp.close();
@@ -671,4 +672,26 @@ test('formatPanSpeedLabel renders one decimal place with a multiplier suffix', (
   assert.equal(formatPanSpeedLabel(1.5), '1.5×');
   assert.equal(formatPanSpeedLabel(2),   '2.0×');
   assert.equal(formatPanSpeedLabel(0.5), '0.5×');
+});
+
+test('displaySelected falls back to first reporter when nothing is selected', () => {
+  const units = [
+    { id: 'u-1', kind: 'photog',   selected: false },
+    { id: 'u-2', kind: 'reporter', selected: false },
+    { id: 'u-3', kind: 'reporter', selected: false },
+  ];
+  const result = displaySelected(units);
+  assert.equal(result.id, 'u-2');
+});
+
+test('displaySelected returns the explicitly selected unit over the reporter fallback', () => {
+  const units = [
+    { id: 'u-1', kind: 'reporter', selected: false },
+    { id: 'u-2', kind: 'photog',   selected: true  },
+  ];
+  assert.equal(displaySelected(units).id, 'u-2');
+});
+
+test('displaySelected returns null when no units exist', () => {
+  assert.equal(displaySelected([]), null);
 });
