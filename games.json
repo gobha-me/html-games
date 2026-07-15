@@ -10,6 +10,15 @@
       "theme": "forge"
     },
     {
+      "slug": "frontline",
+      "title": "Frontline",
+      "description": "A dieselpunk trench-warfare card battler — hold the line across three sectors and break the enemy's morale.",
+      "tag": "Card Battler",
+      "icon": "⚔️",
+      "href": "frontline/",
+      "theme": "frontline"
+    },
+    {
       "slug": "kimi",
       "title": "Kimi",
       "description": "Protect the factory core with zoom controls and precision strategy.",
