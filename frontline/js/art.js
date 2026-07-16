@@ -3,13 +3,26 @@
 // layer removes itself and the text-only card (the prototype look) remains.
 // Canonical ids come from engine.js POOL — see art/README.md + venice-asset-brief.md.
 
+// Per-card focal point (vanilla stand-in for the notes' cards.yaml `focal`): the
+// y-fraction of the authored portrait's subject, applied as object-position wherever
+// the art crops (hand band, board cell, roster thumb, zoom preview) so the "wrong
+// slice" never cuts off a head. Default .5 (center) for anything unlisted.
+export const FOCAL = {
+  scout: .38, skirm: .34, picket: .64, foot: .26, archer: .68,
+  shieldb: .34, duel: .30, adder: .26, banner: .54, vet: .24,
+  cross: .52, warden: .36, champ: .48, lancer: .46, marks: .5,
+  outrider: .26, van: .5, warlord: .52, ballista: .52,
+};
+
+export function focalY(id) { return Math.round((FOCAL[id] ?? .5) * 100) + '%'; }
+
 export function cardArt(id, extra) {
   const wrap = document.createElement('div');
   wrap.setAttribute('style', 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;' + (extra || ''));
   const img = document.createElement('img');
   img.src = 'art/cards/' + id + '.webp';
   img.alt = '';
-  img.setAttribute('style', 'width:100%;height:100%;object-fit:cover;display:block');
+  img.setAttribute('style', 'width:100%;height:100%;object-fit:cover;object-position:50% ' + focalY(id) + ';display:block');
   img.addEventListener('error', () => wrap.remove());
   const scrim = document.createElement('div');
   scrim.setAttribute('style', 'position:absolute;inset:0;background:linear-gradient(180deg,rgba(38,34,26,.12) 0%,rgba(38,34,26,.74) 100%)');
@@ -26,7 +39,7 @@ export function cardArtBand(id, height) {
   const img = document.createElement('img');
   img.src = 'art/cards/' + id + '.webp';
   img.alt = '';
-  img.setAttribute('style', 'width:100%;height:100%;object-fit:cover;object-position:50% 30%;display:block');
+  img.setAttribute('style', 'width:100%;height:100%;object-fit:cover;object-position:50% ' + focalY(id) + ';display:block');
   img.addEventListener('error', () => band.remove());
   band.append(img);
   return band;
@@ -41,7 +54,7 @@ export function cardThumb(id, w, h) {
   const img = document.createElement('img');
   img.src = 'art/cards/' + id + '.webp';
   img.alt = '';
-  img.setAttribute('style', 'width:100%;height:100%;object-fit:cover;object-position:50% 28%;display:block');
+  img.setAttribute('style', 'width:100%;height:100%;object-fit:cover;object-position:50% ' + focalY(id) + ';display:block');
   img.addEventListener('error', () => img.remove());
   box.append(img);
   return box;
