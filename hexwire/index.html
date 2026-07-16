@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hexwire — Street Magic</title>
+  <link rel="stylesheet" href="../shared/back-to-arcade.css">
+  <style>
+    :root { --muted: #5a6474; --accent: #ff8a3d; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: #0b0d11;
+      color: #e6eaf0;
+      font-family: Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: #e6eaf0; }
+    a:hover { color: #ff8a3d; }
+    input::placeholder { color: #5a6474; }
+    .hw-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: clamp(10px, 2vw, 26px);
+      padding-bottom: 56px;
+      box-sizing: border-box;
+    }
+    #app { width: 100%; max-width: 960px; }
+    @keyframes flPop { 0% { transform: scale(.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes flSpinA { 0% { transform: rotateY(0); } 100% { transform: rotateY(1800deg); } }
+    @keyframes flSpinB { 0% { transform: rotateY(0); } 100% { transform: rotateY(1620deg); } }
+    @keyframes flFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes flPulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+    .hw-scroll::-webkit-scrollbar { height: 8px; }
+    .hw-scroll::-webkit-scrollbar-thumb { background: #2a3140; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="hw-shell">
+    <div id="app"></div>
+  </div>
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

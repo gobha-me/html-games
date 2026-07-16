@@ -170,6 +170,15 @@
       "icon": "📰",
       "href": "late-edition/",
       "theme": "late-edition"
+    },
+    {
+      "slug": "hexwire",
+      "title": "Hexwire",
+      "description": "A neon-noir cyberpunk lane battler — magic leaked out of the network. Deploy street crews across three city blocks and drop the enemy to zero.",
+      "tag": "Card Battler",
+      "icon": "🎴",
+      "href": "hexwire/",
+      "theme": "hexwire"
     }
   ]
 }
