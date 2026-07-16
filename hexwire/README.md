@@ -39,7 +39,9 @@ Reduce the rival crew's **life to 0** before yours breaks. Both sides start at 2
    **+1 permanent income** (**+2** if it costs 4+). Energy refills to your income
    every turn — there is no passive ramp, so fencing is the whole economy.
 2. **Deploy**: tap a card, then an empty cell — street for melee, overwatch for
-   Strike units. Fresh units can't act the turn they land unless they are **Wired**.
+   Strike units. Every unit shows two numbers, `power/strike`; the active half
+   lights up by row (melee on the street, strike on overwatch). Fresh units can't
+   act the turn they land unless they are **Wired**.
 3. **Cast** (spells): Hexbolt (3 dmg to a unit), Grid Surge (1 dmg to all enemies),
    Combat Stims (+1 pow / +2 ♥), Datamine (draw 2), Blinkstep (move one of your
    units), **Possession** (steal an enemy unit into an empty cell — two-step target).
@@ -50,7 +52,7 @@ Reduce the rival crew's **life to 0** before yours breaks. Both sides start at 2
 |---|---|---|
 | GRD | Guard | Must be destroyed before units behind it are hit |
 | WRD | Ward | Ignores the first point of damage each hit |
-| ⚔X | Strike | Fires from the overwatch row for X, no retaliation |
+| /X | Strike | The right-hand stat number (`power/strike`) — fires from the overwatch row for X, no retaliation |
 | R+X | Rally | Buffs row neighbours by X |
 | WIRED | Wired | Can act the turn it deploys |
 | CURSE | Curse | Poisons on hit |
@@ -64,7 +66,9 @@ hides beneath the thief — kill the top unit to expose and reclaim it.
 ### Modes
 - **Play vs AI** — a match against a randomised rival crew, with a rated result
   when a wallet is connected.
-- **Tutorial** — a six-step guided walkthrough, then a live finish. No record change.
+- **Tutorial** — an eight-lesson scenario curriculum (Fence, rows, Guard, Ward,
+  Wired, Pierce, Links), each a hand-crafted board that gates one action at a time,
+  capped by **THE SOLVE**: an exact-lethal placement puzzle. No record change.
 - **Decks** — build 24-card decks (max 2 copies each), star a default.
 - **Lobbies / Ladders** — THE BLOCK (casual) and SYNDICATE FLOOR (rated, wallet-gated),
   plus Standard / Collector ladders. All simulated in this build.

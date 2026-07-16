@@ -19,7 +19,7 @@ export const state = {
   queue: null,         // lobby key being queued: 'block' | 'synd'
   ladderTab: 'std',    // 'std' | 'col'
   crewKey: 'MID',      // rival crew playbook for the active match
-  tut: null,           // tutorial step index into TUT, or null
+  tut: null,           // active lesson: { les, step, phase:'act'|'recap' }, or null
   zoom: null,          // card id shown in the art-zoom modal, or null
 };
 
