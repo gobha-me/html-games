@@ -105,6 +105,6 @@ export function overlays() {
   const out = [settingsButton()];
   if (state.settingsOpen) out.push(...settingsPanel());
   if (state.coin) out.push(coinOverlay());
-  else if (state.screen === 'match' && session.g && session.g.over) out.push(gameOverOverlay());
+  else if (state.screen === 'match' && session.g && session.g.over && !state.tut) out.push(gameOverOverlay());
   return out;
 }

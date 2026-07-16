@@ -2,11 +2,11 @@
 // Layout: enemy rear+line on top, sector-threat strip, my line+emplacements below;
 // banner state machine; hand scroller; supply/requisition/end-turn; dispatches log.
 import { h } from '../dom.js';
-import { state, session, myTurn } from '../state.js';
+import { state, session, setState, myTurn } from '../state.js';
 import { SPELL_LINE } from '../theme.js';
 import { kwTags, defTags } from '../labels.js';
 import { cardArt, cardArtBand, boardField } from '../art.js';
-import { tapCard, tapCell, toggleBank, endTurn, concede, tutTurn1Done } from '../match.js';
+import { tapCard, tapCell, toggleBank, endTurn, concede, TUT_LESSONS, loadLesson } from '../match.js';
 
 function cellView(side, lane, row) {
   const g = session.g, FL = session.FL;
@@ -24,6 +24,10 @@ function cellView(side, lane, row) {
       if (k === 'reinforce' && mine && u) clickable = true;
       if (k === 'redeploy' && mine && (state.pendFrom ? !u : !!u)) clickable = true;
     }
+  }
+  if (clickable && state.tut) {
+    const L = TUT_LESSONS[state.tutStep];
+    if (state.tutStage !== 'act' || !mine || !selDef || selDef.type !== 'unit' || !L.allow(selDef.id, lane, row)) clickable = false;
   }
   const pendHere = state.pendFrom && mine && state.pendFrom.lane === lane && state.pendFrom.row === row;
   const border = pendHere ? '2px solid #e8dfc6' : clickable ? '2px dashed #c9a227' : row === 0 ? `1.5px solid ${mine ? '#4e5535' : '#5c3b31'}` : `1.5px dashed ${mine ? '#454b30' : '#50352c'}`;
@@ -56,6 +60,26 @@ function cellView(side, lane, row) {
 
 function lifeBox(bg, life) {
   return h('div', { style: `width:46px;height:46px;background:${bg};color:#f0e8d2;display:flex;align-items:center;justify-content:center;font:700 20px 'IBM Plex Mono';flex:none;clip-path:polygon(8% 0,100% 0,92% 100%,0 100%)` }, Math.max(0, life));
+}
+
+function tutPanel() {
+  const step = state.tutStep, last = TUT_LESSONS.length - 1, L = TUT_LESSONS[step];
+  const passOk = state.tutStage === 'review' && state.tutPass;
+  const btn = (label, style, onclick) => h('button', { onclick, style }, label);
+  return h('div', { style: 'margin:12px 0 0;background:#efe6cf;color:#2a2517;border-left:4px solid #c9a227;padding:14px 18px' },
+    h('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap' },
+      h('div', { style: 'font:700 12px \'IBM Plex Mono\';letter-spacing:.18em;color:#a4402c' }, L.title),
+      h('div', { style: 'font:600 10px \'IBM Plex Mono\';color:#7a7052' }, 'FIELD TRAINING · ' + (step + 1) + ' / ' + TUT_LESSONS.length),
+    ),
+    h('div', { style: 'font:500 16px/1.5 \'Barlow Condensed\';margin-top:6px' }, L.brief),
+    h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center' },
+      passOk ? btn(step >= last ? 'Complete training' : 'Next drill →',
+        'background:#2a2517;color:#efe6cf;border:none;padding:11px 20px;font:700 14px \'Barlow Condensed\';letter-spacing:.08em;text-transform:uppercase;cursor:pointer',
+        () => step >= last ? setState({ screen: 'home', tut: false }) : loadLesson(step + 1)) : null,
+      btn('Reset drill', 'background:transparent;color:#5a5138;border:1px solid #a89c78;padding:11px 18px;font:600 13px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;cursor:pointer', () => loadLesson(step)),
+      btn('Exit training', 'background:transparent;color:#7a7052;border:none;padding:11px 8px;font:600 13px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;cursor:pointer', () => setState({ screen: 'home', tut: false })),
+    ),
+  );
 }
 
 export function matchView() {
@@ -110,7 +134,7 @@ export function matchView() {
   let bannerText, bannerCol = '#b3a88a';
   const selCard = state.sel != null ? P.hand.find(c => c.uid === state.sel) : null;
   const selDef = selCard ? FL.byId(selCard.id) : null;
-  if (g.over) bannerText = 'Engagement over.';
+  if (g.over && !state.tut) bannerText = 'Engagement over.';
   else if (state.coin) bannerText = 'Awaiting field orders…';
   else if (state.busy) { bannerText = g.active === 'o' ? 'Enemy command is deliberating…' : 'The guns speak…'; bannerCol = '#d06a52'; }
   else if (state.mode === 'bank') { bannerText = P.banked ? 'Already requisitioned this turn.' : 'Tap a card to requisition it: +1 supply, +2 if it costs 4+.'; bannerCol = '#c9a227'; }
@@ -120,21 +144,15 @@ export function matchView() {
     bannerText = k === 'bolt' ? 'Tap an enemy unit to shell it.' : k === 'reinforce' ? 'Tap one of your units to Fortify.' : k === 'redeploy' ? (state.pendFrom ? 'Now tap an empty position to march to.' : 'Tap one of your units to march.') : 'Tap the card again to issue ' + selDef.name + '.';
     bannerCol = '#c9a227';
   }
-  else if (state.tut && my) {
-    let front = false, back = false;
-    for (let l = 0; l < 3; l++) { if (g.board.p[l][0]) front = true; if (g.board.p[l][1]) back = true; }
-    if (g.tc.p === 1) {
-      bannerText = 'TRAINING — ' + (P.banked ? '✓ requisitioned' : '① press Requisition, then tap a card to bank it') +
-        ' · ' + (front ? '✓ line held' : '② deploy the Rifleman on THE LINE') +
-        ' · ' + (back ? '✓ guns dug in' : '③ deploy the Mortar Team in the EMPLACEMENT behind him');
-    } else {
-      bannerText = 'TRAINING — free fire. Flanks ◀▶ lend power to row neighbours; Bulwark units must be shot first; open sectors hit HQ. Break their morale (' + Math.max(0, O.life) + ' left).';
-    }
-    bannerCol = '#c9a227';
+  else if (state.tut) {
+    const L = TUT_LESSONS[state.tutStep];
+    if (state.tutStage === 'review') { bannerText = state.tutPass ? '✓ ' + L.passMsg : '✗ ' + (L.failMsg || 'Not quite — reset the drill and follow the orders exactly.'); bannerCol = state.tutPass ? '#9db35e' : '#d06a52'; }
+    else if (L.placed(g)) { bannerText = '✓ In position — press End Turn to execute.'; bannerCol = '#9db35e'; }
+    else { bannerText = 'ORDERS: ' + L.goal; bannerCol = '#c9a227'; }
   }
   else bannerText = 'Your move — tap a card, then a position. Requisition once for supply. End turn to fight.';
 
-  const endReady = my && !(state.tut && g.tc.p === 1 && !tutTurn1Done());
+  const endReady = my && (!state.tut || (state.tutStage === 'act' && TUT_LESSONS[state.tutStep].placed(g)));
 
   const board = h('div', { style: 'position:relative;overflow:hidden;background:#2f2a1f;border:1px solid #4a422e;padding:10px' },
     boardField(),
@@ -151,7 +169,7 @@ export function matchView() {
           h('div', { style: 'font:500 11px \'IBM Plex Mono\';color:#8a8065' }, O.hand.length + ' hand · ' + O.deck.length + ' supply · ⚡' + O.energy + '/' + O.income),
         ),
       ),
-      h('div', { style: 'font:700 12px \'IBM Plex Mono\';letter-spacing:.16em;color:#c9a227' }, state.tut ? 'FIELD TRAINING' : 'TURN ' + Math.max(1, g.tc.p)),
+      h('div', { style: 'font:700 12px \'IBM Plex Mono\';letter-spacing:.16em;color:#c9a227' }, state.tut ? 'DRILL ' + (state.tutStep + 1) + '/' + TUT_LESSONS.length : 'TURN ' + Math.max(1, g.tc.p)),
       h('div', { style: 'display:flex;align-items:center;gap:11px;flex-direction:row-reverse' },
         lifeBox('#6b7a3f', P.life),
         h('div', { style: 'text-align:right' },
@@ -161,6 +179,8 @@ export function matchView() {
       ),
     ),
     board,
+    // field-training panel (amber card)
+    state.tut ? tutPanel() : null,
     // banner
     h('div', { style: `margin:12px 0 8px;padding:11px 16px;background:#2f2a1f;border:1px solid ${state.tut && !g.over && !state.busy ? '#c9a227' : '#4a422e'};font:500 15px 'Barlow Condensed';letter-spacing:.03em;color:${bannerCol};text-align:center` }, bannerText),
     // hand scroller

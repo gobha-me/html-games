@@ -14,6 +14,9 @@ export const state = {
   pendFrom: null,      // redeploy source {lane,row}
   coin: null,          // { first: 'p'|'o' }
   tut: false,
+  tutStep: 0,          // current Field Training drill index
+  tutStage: 'act',     // 'act' | 'review'
+  tutPass: false,      // did the current drill's pass() succeed
   oppName: '',
   settingsOpen: false,
 };
