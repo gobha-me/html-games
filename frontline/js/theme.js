@@ -12,6 +12,17 @@ export const THEME_NAMES = {
 
 export const KW_NAMES = { guard: 'Bulwark', shield: 'Plated', rally: 'Rally', haste: 'Rapid', venom: 'Gas', pierce: 'Overrun' };
 
+// One-line reminder text per keyword, for the deck-builder card zoom. {n} = the
+// keyword's numeric value (rally strength).
+export const KW_REMINDER = {
+  guard: 'Enemies in this sector must strike this unit first — before your back row.',
+  shield: 'The first hit each engagement bounces off with no damage.',
+  rally: 'On deploy: +{n} power to adjacent allies in its row.',
+  haste: 'Fights the turn it deploys — no dig-in.',
+  venom: 'Any damage it deals reduces the target to 0 ♥.',
+  pierce: 'Damage past the target’s ♥ carries through to the enemy HQ.',
+};
+
 export const SPELL_LINE = { bolt: '3 dmg to a unit', volley: '1 dmg to all enemies', reinforce: '+1 pow / +2 ♥', insight: 'draw 2 cards', redeploy: 'move your unit' };
 
 export const AI_DECKS = {

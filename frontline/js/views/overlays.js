@@ -5,6 +5,106 @@ import { h } from '../dom.js';
 import { state, session, setState, ping } from '../state.js';
 import { savePrefs } from '../store.js';
 import { startMatch } from '../match.js';
+import { focalY } from '../art.js';
+import { SPELL_LINE, KW_NAMES, KW_REMINDER } from '../theme.js';
+
+// ─── Deck-builder card zoom ──────────────────────────────────────────────────
+// A shared, imperative overlay (body-appended, outside the render loop so hover
+// intent never churns the pool list). Desktop: hover-intent ~250ms opens, leaving
+// the thumb closes. Mobile: tap toggles, tap-away / Esc closes. Anchored to the
+// viewport half opposite the pointer so it never covers the row you're on.
+let _zTimer = null, _zEl = null, _zId = null, _zEsc = null, _zAway = null;
+
+export function scheduleCardZoom(id, anchorEl) {
+  clearTimeout(_zTimer);
+  _zTimer = setTimeout(() => showCardZoom(id, anchorEl), 250);
+  new Image().src = 'art/cards/' + id + '.webp'; // preload; never blocks the list
+}
+export function cancelCardZoom() { clearTimeout(_zTimer); closeCardZoom(); }
+export function toggleCardZoom(id, anchorEl) {
+  clearTimeout(_zTimer);
+  if (_zId === id) closeCardZoom(); else showCardZoom(id, anchorEl);
+}
+export function closeCardZoom() {
+  clearTimeout(_zTimer);
+  if (_zEl) _zEl.remove();
+  _zEl = null; _zId = null;
+  if (_zEsc) { window.removeEventListener('keydown', _zEsc); _zEsc = null; }
+  if (_zAway) { document.removeEventListener('pointerdown', _zAway, true); _zAway = null; }
+}
+
+function showCardZoom(id, anchorEl) {
+  closeCardZoom();
+  const c = (session.FL?.POOL || []).find(x => x.id === id);
+  if (!c) return;
+  const r = anchorEl.getBoundingClientRect();
+  const side = (r.left + r.right) / 2 < window.innerWidth / 2 ? 'right' : 'left';
+  _zEl = zoomCard(c, side, anchorEl);
+  _zId = id;
+  document.body.append(_zEl);
+  _zEsc = e => { if (e.key === 'Escape') closeCardZoom(); };
+  window.addEventListener('keydown', _zEsc);
+  _zAway = e => { if (_zEl && !_zEl.contains(e.target) && !anchorEl.contains(e.target)) closeCardZoom(); };
+  setTimeout(() => _zAway && document.addEventListener('pointerdown', _zAway, true), 0);
+}
+
+function statChip(label, val, accent) {
+  return h('div', { style: `display:flex;align-items:baseline;gap:3px;padding:4px 9px;background:#26221a;border:1px solid #4a422e` },
+    h('span', { style: 'font:700 10px \'IBM Plex Mono\';letter-spacing:.1em;color:#8a8065' }, label),
+    h('span', { style: `font:700 17px 'IBM Plex Mono';color:${accent}` }, val),
+  );
+}
+
+function zoomCard(c, side, anchorEl) {
+  const isSpell = c.type === 'spell';
+  const pos = side === 'left' ? 'left:24px' : 'right:24px';
+  const wrap = h('div', {
+    onmouseleave: () => { if (window.matchMedia('(hover:hover)').matches) closeCardZoom(); },
+    style: `position:fixed;${pos};top:50%;transform:translateY(-50%);width:420px;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto;background:#2f2a1f;border:2px solid #c9a227;box-shadow:0 30px 70px -20px rgba(0,0,0,.8);z-index:70;animation:flPop .16s ease`,
+  });
+
+  const art = h('div', { style: 'position:relative;height:300px;background:#1c1913;overflow:hidden' });
+  const img = h('img', { src: 'art/cards/' + c.id + '.webp', alt: '', style: `width:100%;height:100%;object-fit:cover;object-position:50% ${focalY(c.id)};display:block` });
+  img.addEventListener('error', () => { art.style.height = '120px'; });
+  const scrim = h('div', { style: 'position:absolute;inset:0;background:linear-gradient(180deg,rgba(38,34,26,0) 55%,rgba(38,34,26,.85) 100%)' });
+  const cost = h('div', { style: 'position:absolute;top:0;left:0;min-width:32px;height:32px;padding:0 7px;background:#c9a227;color:#26221a;display:flex;align-items:center;justify-content:center;font:700 20px \'IBM Plex Mono\'' }, c.cost);
+  const kind = h('div', { style: 'position:absolute;top:8px;right:10px;font:700 10px \'IBM Plex Mono\';letter-spacing:.16em;color:#e8dfc6;text-shadow:0 1px 3px rgba(0,0,0,.8)' }, isSpell ? 'ORDER' : 'UNIT');
+  art.append(img, scrim, cost, kind);
+
+  const stats = isSpell
+    ? h('div', { style: 'font:600 15px \'Barlow Condensed\';letter-spacing:.03em;color:#c9a227;margin-bottom:4px' }, SPELL_LINE[c.spell.kind])
+    : h('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px' },
+        statChip('M', c.pow, '#e8dfc6'),
+        c.rng > 0 ? statChip('R', c.rng, '#9db35e') : null,
+        statChip('♥', c.hp, '#d06a52'),
+        (c.flanks && (c.flanks[0] || c.flanks[1])) ? statChip('◀▶', c.flanks[0] + '·' + c.flanks[1], '#c9a227') : null,
+      );
+
+  const kwRows = [];
+  if (!isSpell) {
+    for (const k of ['guard', 'shield', 'rally', 'haste', 'venom', 'pierce']) {
+      if (!c.kw[k]) continue;
+      kwRows.push(h('div', { style: 'margin-top:9px' },
+        h('div', { style: 'font:700 12px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;color:#c9a227' }, KW_NAMES[k] + (k === 'rally' ? ' ' + c.kw[k] : '')),
+        h('div', { style: 'font:500 12px/1.5 \'IBM Plex Mono\';color:#b3a88a' }, KW_REMINDER[k].replace('{n}', c.kw[k])),
+      ));
+    }
+    const role = c.rng > 0
+      ? 'Fires from the emplacement (back row), over the line it holds.'
+      : 'Fights on the line (front row), down its sector.';
+    kwRows.push(h('div', { style: 'margin-top:12px;padding-top:9px;border-top:1px dashed #4a422e;font:500 11px/1.5 \'IBM Plex Mono\';color:#6e654d' }, role));
+  }
+
+  const body = h('div', { style: 'padding:14px 16px 16px' },
+    h('div', { style: 'font:700 22px \'Barlow Condensed\';letter-spacing:.03em;text-transform:uppercase;color:#e8dfc6;margin-bottom:8px' }, c.name),
+    stats,
+    ...kwRows,
+  );
+
+  wrap.append(art, body);
+  return wrap;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function coinOverlay() {
   const first = state.coin.first;
