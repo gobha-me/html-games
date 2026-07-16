@@ -2,6 +2,29 @@
 
 All notable changes to Hexwire (the HTML-Games playtest client) are recorded here.
 
+## v1.1.0 — 2026-07-16 — Art-legibility polish
+
+Playtest feedback pass on how the venice art reads across surfaces.
+
+### Added
+- **Card-art zoom**: tap a card thumbnail in the deck manager to open a modal with
+  the full, uncropped portrait (`object-fit:contain`) plus name / cost / faction /
+  stats / keyword line. Backdrop or × closes it.
+- **Per-card focal points** (`ART_FOCUS` in `art.js`): each card carries a tuned
+  vertical crop (`object-position` Y) so full-body figures keep their head in frame
+  while abstract pieces sit mid-frame — applied to board cells, hand bands, and
+  roster thumbnails.
+
+### Changed
+- **Battlefield backdrop reads through the board**: empty board cells are now
+  translucent and the `board_field` backdrop opacity is raised, so the environment
+  shows instead of being ~fully occluded by opaque cells. Unit text stays legible.
+- **Taller deployed slots**: board cells grew so a deployed unit shows much more of
+  its portrait; unit name / power / ♥ / tags pin to the bottom over the darkest part
+  of the scrim, with a text-shadow for legibility.
+- **Taller hand-card art window**: the hand-card art band is taller (and the card
+  grew to fit), showing more of each portrait with the per-card framing above.
+
 ## v1.0.0 — 2026-07-16 — Neon-noir playtest client
 
 Initial vanilla playtest client for the *Hexwire* lane card-battler design, a

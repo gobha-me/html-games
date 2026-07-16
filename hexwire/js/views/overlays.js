@@ -3,7 +3,9 @@
 // appends whatever overlays() returns after the screen view.
 import { h } from '../dom.js';
 import { state, session, setState } from '../state.js';
-import { AI_DECKS } from '../theme.js';
+import { AI_DECKS, FCOL, SPELL_LINE } from '../theme.js';
+import { defTags } from '../labels.js';
+import { cardArtFull } from '../art.js';
 import { startMatch, connect } from '../match.js';
 
 const shell = (z, kids, onBackdrop) => h('div', {
@@ -86,6 +88,33 @@ function gameOverOverlay() {
   );
 }
 
+function zoomOverlay() {
+  const d = session.FL.byId(state.zoom);
+  if (!d) return null;
+  const isSpell = d.type === 'spell';
+  const fc = FCOL[d.f] || '#5a6474';
+  const line = isSpell ? SPELL_LINE[d.spell.kind] : defTags(d);
+  const close = () => setState({ zoom: null });
+  return shell(80,
+    h('div', { onclick: e => e.stopPropagation(), style: 'position:relative;background:#131720;border:1px solid #2a3140;border-top:3px solid ' + fc + ';border-radius:16px;padding:16px;max-width:420px;width:100%;box-shadow:0 30px 60px -20px rgba(0,0,0,.85);animation:flPop .2s ease' },
+      h('button', { onclick: close, style: 'position:absolute;top:12px;right:14px;z-index:2;background:rgba(11,13,17,.6);border:1px solid #2a3140;color:#e6eaf0;border-radius:8px;width:30px;height:30px;font:700 15px Helvetica;cursor:pointer' }, '×'),
+      cardArtFull(state.zoom),
+      h('div', { style: 'display:flex;align-items:center;gap:9px;margin-top:13px' },
+        h('div', { style: `width:26px;height:26px;border-radius:7px;background:#e6eaf0;color:#0b0d11;display:flex;align-items:center;justify-content:center;font:700 14px monospace;flex:none` }, d.cost),
+        h('span', { style: `width:8px;height:8px;border-radius:2px;background:${fc};flex:none` }),
+        h('div', { style: 'font:700 18px Helvetica;flex:1;min-width:0' }, d.name),
+        h('div', { style: `font:600 9.5px monospace;letter-spacing:.08em;color:${fc}` }, isSpell ? 'SPELL' : 'UNIT'),
+      ),
+      h('div', { style: 'display:flex;align-items:center;gap:14px;margin-top:8px' },
+        !isSpell && h('div', { style: 'font:700 15px monospace;color:#e6eaf0' }, d.pow, h('span', { style: 'color:#7a8494;font-weight:400' }, ' pow')),
+        !isSpell && h('div', { style: 'font:700 15px monospace;color:#e6eaf0' }, '♥' + d.hp),
+        h('div', { style: 'font:500 11.5px/1.5 monospace;color:#7a8494;flex:1' }, line),
+      ),
+    ),
+    close,
+  );
+}
+
 // Everything that layers over the current screen, bottom-to-top.
 export function overlays() {
   const out = [];
@@ -93,5 +122,6 @@ export function overlays() {
   else if (state.screen === 'match' && session.g && session.g.over) out.push(gameOverOverlay());
   if (state.showConnect) out.push(connectOverlay());
   if (state.queue) out.push(queueOverlay());
+  if (state.zoom) out.push(zoomOverlay());
   return out;
 }

@@ -36,10 +36,10 @@ function cellView(side, lane, row) {
   const hexSel = clickable && isPossess;
   const accent = hexSel ? '#c77dff' : '#ff8a3d';
   const border = pendHere ? '2px solid #c77dff' : clickable ? (u ? `2px solid ${accent}` : `2px dashed ${accent}`) : row === 0 ? `1.5px solid ${mine ? '#1e4a41' : '#4a1e28'}` : `1.5px dashed ${mine ? '#1a3a34' : '#3a1a22'}`;
-  const bg = u ? (mine ? 'rgba(47,214,184,.07)' : 'rgba(255,77,105,.07)') : '#0e1117';
+  const bg = u ? (mine ? 'rgba(47,214,184,.07)' : 'rgba(255,77,105,.07)') : 'rgba(14,17,23,.48)';
   const cell = h('div', {
     onclick: () => tapCell(side, lane, row),
-    style: `position:relative;overflow:hidden;min-height:84px;border-radius:9px;border:${border};background:${bg};display:flex;align-items:center;justify-content:center;padding:6px 4px;cursor:${clickable ? 'pointer' : 'default'};box-shadow:${clickable ? `0 0 0 3px ${hexSel ? 'rgba(199,125,255,.15)' : 'rgba(255,138,61,.14)'}` : 'none'};transition:.12s`,
+    style: `position:relative;overflow:hidden;min-height:122px;border-radius:9px;border:${border};background:${bg};display:flex;align-items:${u ? 'flex-end' : 'center'};justify-content:center;padding:6px 4px;cursor:${clickable ? 'pointer' : 'default'};box-shadow:${clickable ? `0 0 0 3px ${hexSel ? 'rgba(199,125,255,.15)' : 'rgba(255,138,61,.14)'}` : 'none'};transition:.12s`,
   });
   if (u) {
     const eff = FL.effPow(g, side, lane, row);
@@ -48,7 +48,7 @@ function cellView(side, lane, row) {
     const under = u.beneath ? '▼ ' + u.beneath.name + ' · channeling' : u.viaSpell ? '▼ possessed' : null;
     cell.append(
       cardArt(u.id),
-      h('div', { style: `position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:#e6eaf0;opacity:${u.sick ? .62 : 1};animation:flPop .22s ease` },
+      h('div', { style: `position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:#e6eaf0;opacity:${u.sick ? .62 : 1};text-shadow:0 1px 4px rgba(0,0,0,.9);animation:flPop .22s ease` },
         h('div', { style: 'font:700 11px/1.1 Helvetica;text-align:center' }, u.name),
         h('div', { style: 'display:flex;gap:7px;align-items:baseline;justify-content:center' },
           h('span', { style: `font:800 17px monospace;color:${bonus > 0 ? '#ff8a3d' : mine ? '#2fd6b8' : '#ff4d69'}` }, bonus > 0 ? u.pow + '+' + bonus : String(u.pow)),
@@ -99,9 +99,9 @@ export function matchView() {
     const costBg = (aff || bankMode) && tutOk ? '#e6eaf0' : '#5a6474';
     return h('div', {
       onclick: () => tapCard(c.uid),
-      style: `position:relative;overflow:hidden;flex:none;width:104px;min-height:150px;display:flex;flex-direction:column;border-radius:11px;background:#171c26;border:1.5px solid ${isSel ? '#ff8a3d' : (t && tutOk) ? '#53c7ff' : bankMode ? '#ff8a3d55' : fc + '44'};border-top:2.5px solid ${fc};cursor:pointer;transform:translateY(${isSel ? '-8px' : '0'});box-shadow:${isSel ? '0 12px 22px -10px rgba(0,0,0,.7)' : (t && tutOk) ? '0 0 0 3px rgba(83,199,255,.15)' : '0 2px 5px -3px rgba(0,0,0,.5)'};opacity:${((aff || bankMode) && tutOk) || !my ? 1 : .5};transition:.13s`,
+      style: `position:relative;overflow:hidden;flex:none;width:104px;min-height:180px;display:flex;flex-direction:column;border-radius:11px;background:#171c26;border:1.5px solid ${isSel ? '#ff8a3d' : (t && tutOk) ? '#53c7ff' : bankMode ? '#ff8a3d55' : fc + '44'};border-top:2.5px solid ${fc};cursor:pointer;transform:translateY(${isSel ? '-8px' : '0'});box-shadow:${isSel ? '0 12px 22px -10px rgba(0,0,0,.7)' : (t && tutOk) ? '0 0 0 3px rgba(83,199,255,.15)' : '0 2px 5px -3px rgba(0,0,0,.5)'};opacity:${((aff || bankMode) && tutOk) || !my ? 1 : .5};transition:.13s`,
     },
-      cardArtBand(c.id, 46),
+      cardArtBand(c.id, 74),
       h('div', { style: 'position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-height:0;padding:9px 10px' },
         h('div', { style: 'display:flex;justify-content:space-between;align-items:flex-start' },
           h('div', { style: `width:22px;height:22px;border-radius:6px;background:${costBg};color:#0b0d11;display:flex;align-items:center;justify-content:center;font:700 12px monospace` }, d.cost),
@@ -169,7 +169,7 @@ export function matchView() {
     // banner
     h('div', { onclick: onBanner || undefined, style: `margin:12px 0 8px;padding:11px 16px;border-radius:10px;background:${bannerBg};border:1px solid ${t && !g.over ? '#2a4a5e' : '#232a36'};font:500 13px Helvetica;color:${bannerCol};text-align:center;cursor:${onBanner ? 'pointer' : 'default'}` }, bannerText),
     // hand scroller
-    h('div', { class: 'hw-scroll', style: 'display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;min-height:160px' }, hand),
+    h('div', { class: 'hw-scroll', style: 'display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;min-height:190px' }, hand),
     // controls
     h('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px' },
       h('div', { style: 'display:flex;align-items:center;gap:8px;background:#131720;border:1px solid #232a36;border-radius:9px;padding:8px 12px' },

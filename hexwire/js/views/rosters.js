@@ -36,9 +36,10 @@ export function rostersView() {
   const pool = FL.POOL.map(c => {
     const n = ed.cards[c.id] || 0;
     const line = c.type === 'spell' ? 'spell · ' + SPELL_LINE[c.spell.kind] : `${c.pow}/${c.hp}${defTags(c) ? ' · ' + defTags(c) : ''}`;
-    const thumb = h('div', { style: 'position:relative;flex:none' },
+    const thumb = h('div', { title: 'Zoom art', onclick: () => setState({ zoom: c.id }), style: 'position:relative;flex:none;cursor:zoom-in' },
       cardThumb(c.id, 44, 56),
       h('div', { style: 'position:absolute;top:0;left:0;min-width:18px;height:18px;padding:0 3px;background:#ff8a3d;color:#0b0d11;display:flex;align-items:center;justify-content:center;font:700 12px monospace;box-shadow:0 0 0 1px #0b0d11' }, c.cost),
+      h('div', { style: 'position:absolute;bottom:0;right:0;width:15px;height:15px;background:rgba(11,13,17,.72);color:#e6eaf0;display:flex;align-items:center;justify-content:center;font:700 10px monospace;border-top-left-radius:5px' }, '⤢'),
     );
     return h('div', { style: `display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;background:${n ? '#181d29' : '#131720'};border:1px solid ${n ? '#3c4454' : '#1c222d'}` },
       thumb,

@@ -20,6 +20,7 @@ export const state = {
   ladderTab: 'std',    // 'std' | 'col'
   crewKey: 'MID',      // rival crew playbook for the active match
   tut: null,           // tutorial step index into TUT, or null
+  zoom: null,          // card id shown in the art-zoom modal, or null
 };
 
 // Non-reactive session data (engine game object, prefs, lookups).
