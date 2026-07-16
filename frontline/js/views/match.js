@@ -34,7 +34,7 @@ function cellView(side, lane, row) {
   const bg = u ? (mine ? 'rgba(57,64,42,.62)' : 'rgba(70,48,42,.62)') : 'rgba(42,38,28,.3)';
   const cell = h('div', {
     onclick: () => tapCell(side, lane, row),
-    style: `position:relative;overflow:hidden;min-height:80px;border:${border};background:${bg};display:flex;align-items:center;justify-content:center;padding:6px 4px;cursor:${clickable ? 'pointer' : 'default'};box-shadow:${clickable ? '0 0 0 3px rgba(201,162,39,.18)' : 'none'};transition:.12s`,
+    style: `position:relative;overflow:hidden;min-height:108px;border:${border};background:${bg};display:flex;align-items:${u ? 'flex-end' : 'center'};justify-content:center;padding:6px 4px;cursor:${clickable ? 'pointer' : 'default'};box-shadow:${clickable ? '0 0 0 3px rgba(201,162,39,.18)' : 'none'};transition:.12s`,
   });
   if (u) {
     const eff = FL.effPow(g, side, lane, row);
@@ -60,6 +60,21 @@ function cellView(side, lane, row) {
 
 function lifeBox(bg, life) {
   return h('div', { style: `width:46px;height:46px;background:${bg};color:#f0e8d2;display:flex;align-items:center;justify-content:center;font:700 20px 'IBM Plex Mono';flex:none;clip-path:polygon(8% 0,100% 0,92% 100%,0 100%)` }, Math.max(0, life));
+}
+
+function logTicker(g) {
+  const col = t => /^(⚔ )?You|^Your/.test(t) ? '#9db35e' : /^(⚔ )?AI/.test(t) ? '#d06a52' : '#8a8065';
+  const latest = g.log[0] || '—';
+  const header = h('div', { onclick: () => setState({ logOpen: !state.logOpen }), style: 'display:flex;align-items:center;gap:8px;cursor:pointer' },
+    h('span', { style: 'font:700 9px \'IBM Plex Mono\';letter-spacing:.16em;color:#6e654d;flex:none' }, 'DISPATCHES'),
+    h('span', { style: `font:700 9px 'IBM Plex Mono';color:#6e654d;flex:none;transition:.15s;transform:rotate(${state.logOpen ? 90 : 0}deg)` }, '▸'),
+    state.logOpen ? null : h('span', { style: `flex:1;min-width:0;font:500 11.5px 'IBM Plex Mono';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${col(latest)}` }, latest),
+  );
+  return h('div', { style: 'margin-top:10px;padding-top:8px;border-top:1px solid #4a422e' },
+    header,
+    state.logOpen ? h('div', { style: 'font:500 11.5px/1.7 \'IBM Plex Mono\';margin-top:4px' },
+      g.log.slice(0, 6).map((t, i) => h('div', { style: `opacity:${1 - i * .14};color:${col(t)}` }, t))) : null,
+  );
 }
 
 function tutPanel() {
@@ -198,10 +213,7 @@ export function matchView() {
       h('button', { onclick: () => concede(), style: 'background:none;border:none;color:#6e654d;font:600 13px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;cursor:pointer' }, 'surrender'),
       h('button', { onclick: () => endTurn(), style: `background:${endReady ? '#c9a227' : '#3a3526'};color:${endReady ? '#26221a' : '#6e654d'};border:none;padding:11px 22px;font:700 15px 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase;cursor:${endReady ? 'pointer' : 'default'}` }, 'End turn ⚔'),
     ),
-    // dispatches log
-    h('div', { style: 'margin-top:12px;padding-top:10px;border-top:1px solid #4a422e;font:500 11.5px/1.7 \'IBM Plex Mono\';min-height:20px' },
-      h('div', { style: 'font:700 9px \'IBM Plex Mono\';letter-spacing:.16em;color:#6e654d;margin-bottom:3px' }, 'DISPATCHES'),
-      g.log.slice(0, 6).map((t, i) => h('div', { style: `opacity:${1 - i * .14};color:${/^(⚔ )?You|^Your/.test(t) ? '#9db35e' : /^(⚔ )?AI/.test(t) ? '#d06a52' : '#8a8065'}` }, t)),
-    ),
+    // dispatches — collapsed to a 1-line ticker; click the header to expand
+    logTicker(g),
   );
 }

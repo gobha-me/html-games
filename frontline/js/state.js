@@ -19,6 +19,7 @@ export const state = {
   tutPass: false,      // did the current drill's pass() succeed
   oppName: '',
   settingsOpen: false,
+  logOpen: false,      // dispatches ticker expanded
 };
 
 // Non-reactive session data (engine game object, standing, prefs, lookups).
