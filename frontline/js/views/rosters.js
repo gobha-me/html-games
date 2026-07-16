@@ -4,6 +4,7 @@ import { SPELL_LINE } from '../theme.js';
 import { defTags } from '../labels.js';
 import { deckCountOf, editDeck, addCard, remCard, newDeck, deleteDeck, setDefault, renameDeck } from '../deck.js';
 import { startMatch } from '../match.js';
+import { cardThumb } from '../art.js';
 
 export function rostersView() {
   const FL = session.FL;
@@ -32,8 +33,12 @@ export function rostersView() {
   const pool = FL.POOL.map(c => {
     const n = ed.cards[c.id] || 0;
     const line = c.type === 'spell' ? 'order · ' + SPELL_LINE[c.spell.kind] : `${c.pow}/${c.hp}${defTags(c) ? ' · ' + defTags(c) : ''}`;
+    const thumb = h('div', { style: 'position:relative;flex:none' },
+      cardThumb(c.id, 44, 56),
+      h('div', { style: 'position:absolute;top:0;left:0;min-width:18px;height:18px;padding:0 3px;background:#c9a227;color:#26221a;display:flex;align-items:center;justify-content:center;font:700 12px \'IBM Plex Mono\';box-shadow:0 0 0 1px #26221a' }, c.cost),
+    );
     return h('div', { style: `display:flex;align-items:center;gap:9px;padding:9px 11px;background:${n ? '#3a3423' : '#2f2a1f'};border:1px solid ${n ? '#c9a227' : '#4a422e'};color:#e8dfc6` },
-      h('div', { style: 'width:26px;height:26px;flex:none;background:#c9a227;color:#26221a;display:flex;align-items:center;justify-content:center;font:700 13px \'IBM Plex Mono\'' }, c.cost),
+      thumb,
       h('div', { style: 'flex:1;min-width:0' },
         h('div', { style: 'font:700 14px \'Barlow Condensed\';letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, c.name),
         h('div', { style: 'font:500 10px \'IBM Plex Mono\';color:#8a8065' }, line),

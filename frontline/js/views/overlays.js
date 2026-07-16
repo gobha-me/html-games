@@ -1,4 +1,4 @@
-// Fixed overlays layered above the current screen: coin-flip (1900ms), game-over
+// Fixed overlays layered above the current screen: weathervane initiative (2500ms), game-over
 // armistice card, and a gear settings popover for playtest knobs (start life,
 // fast AI). main.js appends whatever overlays() returns after the screen view.
 import { h } from '../dom.js';
@@ -8,15 +8,33 @@ import { startMatch } from '../match.js';
 
 function coinOverlay() {
   const first = state.coin.first;
-  const face = first === 'p' ? 'YOU' : 'FOE';
-  const text = first === 'p' ? 'You move first' : state.oppName + ' moves first';
-  const dot = first === 'p' ? '#6b7a3f' : '#a4402c';
+  const mine = first === 'p';
+  const win = mine ? '#6b7a3f' : '#a4402c';
+  const text = mine ? 'The wind favors you' : 'The wind favors ' + state.oppName;
+  const sub = mine ? 'You move first' : state.oppName + ' moves first';
+
+  // The needle whirls, then settles pointing DOWN (toward you) or UP (toward the foe).
+  // Kept neutral brass so the direction is only readable once it lands (a true flip).
+  const needle = h('div', { style: `position:absolute;left:50%;top:50%;width:22px;height:70px;margin:-35px 0 0 -11px;background:#c9a227;clip-path:polygon(50% 0,100% 40%,63% 40%,63% 100%,37% 100%,37% 40%,0 40%);transform-origin:50% 50%;animation:${mine ? 'flVaneDown' : 'flVaneUp'} 1.4s cubic-bezier(.16,.84,.28,1.04) forwards;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))` });
+
+  const poleLabel = (txt, top) => h('div', {
+    style: `position:absolute;left:0;right:0;${top ? 'top:5px' : 'bottom:5px'};text-align:center;font:700 9px 'IBM Plex Mono';letter-spacing:.16em;color:#6e654d`,
+  }, txt);
+
+  const dial = h('div', { style: 'position:relative;width:112px;height:112px;margin:6px auto 18px;border-radius:50%;background:radial-gradient(circle at 50% 45%,#efe6cf,#d8ceb0);border:3px double #b39a3a;box-shadow:inset 0 0 16px rgba(120,100,50,.35),0 4px 10px -4px rgba(0,0,0,.4)' },
+    poleLabel('FOE', true),
+    poleLabel('YOU', false),
+    needle,
+    h('div', { style: 'position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#8a6f26;box-shadow:0 0 0 2px #efe6cf' }),
+  );
+
   return h('div', { style: 'position:fixed;inset:0;background:rgba(20,17,11,.72);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:60' },
-    h('div', { style: 'background:#efe6cf;color:#2a2517;padding:30px 40px;text-align:center;box-shadow:0 30px 60px -20px rgba(0,0,0,.7);animation:flPop .2s ease;border:2px solid #c9a227' },
-      h('div', { style: 'font:700 11px \'IBM Plex Mono\';letter-spacing:.2em;color:#7a7052;margin-bottom:16px' }, 'FIELD ORDERS'),
-      h('div', { style: `width:68px;height:68px;border-radius:50%;background:${dot};color:#f0e8d2;display:flex;align-items:center;justify-content:center;font:700 16px 'IBM Plex Mono';margin:0 auto 16px;animation:flCoin .85s ease;border:3px double #efe6cf;box-shadow:0 0 0 3px ${dot}` }, face),
-      h('div', { style: 'font:400 26px \'Saira Stencil One\';text-transform:uppercase;animation:flFade .3s ease .85s backwards' }, text),
-      h('div', { style: 'font:500 11.5px \'IBM Plex Mono\';color:#7a7052;margin-top:8px;animation:flFade .3s ease .95s backwards' }, 'first to move forfeits its first draw'),
+    h('div', { style: 'background:#efe6cf;color:#2a2517;padding:28px 40px;text-align:center;box-shadow:0 30px 60px -20px rgba(0,0,0,.7);animation:flPop .2s ease;border:2px solid #c9a227' },
+      h('div', { style: 'font:700 11px \'IBM Plex Mono\';letter-spacing:.2em;color:#7a7052;margin-bottom:6px' }, 'READING THE WIND'),
+      dial,
+      h('div', { style: `font:400 24px 'Saira Stencil One';text-transform:uppercase;color:${win};animation:flFade .3s ease 1.35s backwards` }, text),
+      h('div', { style: 'font:600 13px \'Barlow Condensed\';letter-spacing:.08em;text-transform:uppercase;color:#5a5138;margin-top:2px;animation:flFade .3s ease 1.45s backwards' }, sub),
+      h('div', { style: 'font:500 11.5px \'IBM Plex Mono\';color:#7a7052;margin-top:8px;animation:flFade .3s ease 1.55s backwards' }, 'first to move forfeits its first draw'),
     ),
   );
 }

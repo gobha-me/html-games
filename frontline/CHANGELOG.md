@@ -2,6 +2,22 @@
 
 All notable changes to Frontline (the HTML-Games playtest client) are recorded here.
 
+## v1.2.0 — 2026-07-16 — Deck-builder art + weathervane initiative
+
+### Added
+- **Deck-builder card art**: the roster pool (the "NFT browser") now shows each
+  card's WebP portrait as a 44×56 thumbnail with the cost badge overlaid on its
+  corner (`cardThumb` in `js/art.js`). Missing art falls back to a dark tile that
+  still carries the cost badge.
+
+### Changed
+- **Weathervane initiative** replaces the coin flip. The old disc rendered
+  pre-colored with the result on first paint (it never actually hid the outcome);
+  the new brass weathervane needle whirls neutral, then settles pointing **down
+  (you)** or **up (the foe)** as the "wind favors…" reveal fades in — a true
+  hidden-until-it-lands flip. The wind framing ties into the game's Gas keyword.
+  The overlay window widened 1900→2500ms to give the reveal room to breathe.
+
 ## v1.1.0 — 2026-07-15 — Venice draft card art
 
 The venice drop-in target from v1.0.0 is now populated with a full draft art set.

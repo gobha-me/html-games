@@ -32,6 +32,21 @@ export function cardArtBand(id, height) {
   return band;
 }
 
+// Small fixed-size card thumbnail for the roster pool (the NFT browser). Portrait
+// art in a dark box; if the webp 404s the img removes itself and the box stays as a
+// plain dark tile (the caller overlays the cost badge so cost is always visible).
+export function cardThumb(id, w, h) {
+  const box = document.createElement('div');
+  box.setAttribute('style', `position:relative;flex:none;width:${w || 44}px;height:${h || 56}px;overflow:hidden;background:#26221a;border:1px solid #4a422e`);
+  const img = document.createElement('img');
+  img.src = 'art/cards/' + id + '.webp';
+  img.alt = '';
+  img.setAttribute('style', 'width:100%;height:100%;object-fit:cover;object-position:50% 28%;display:block');
+  img.addEventListener('error', () => img.remove());
+  box.append(img);
+  return box;
+}
+
 // Optional battlefield backdrop behind the board grid (art/env/board_field.webp).
 export function boardField() {
   const img = document.createElement('img');

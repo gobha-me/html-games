@@ -26,7 +26,7 @@ export function startMatch(cardsMap) {
   setTimeout(() => {
     setState({ coin: null, busy: first === 'o' });
     if (first === 'o') aiLoop();
-  }, 1900);
+  }, 2500);
 }
 
 export function startTutorial() {

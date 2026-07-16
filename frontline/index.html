@@ -31,6 +31,9 @@
     @keyframes flPop { 0% { transform: scale(.85); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     @keyframes flCoin { 0% { transform: rotateY(0); } 70% { transform: rotateY(720deg); } 100% { transform: rotateY(900deg); } }
     @keyframes flFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    /* Weathervane initiative: needle whirls, then settles pointing up (FOE) or down (YOU). */
+    @keyframes flVaneUp { 0% { transform: rotate(-90deg); } 100% { transform: rotate(1080deg); } }
+    @keyframes flVaneDown { 0% { transform: rotate(-90deg); } 100% { transform: rotate(1260deg); } }
     .fl-scroll::-webkit-scrollbar { height: 8px; }
     .fl-scroll::-webkit-scrollbar-thumb { background: #5a5238; border-radius: 8px; }
   </style>
