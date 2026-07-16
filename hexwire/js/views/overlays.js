@@ -6,7 +6,7 @@ import { state, session, setState } from '../state.js';
 import { AI_DECKS, FCOL, SPELL_LINE } from '../theme.js';
 import { defTags } from '../labels.js';
 import { cardArtFull } from '../art.js';
-import { startMatch, connect } from '../match.js';
+import { startMatch, connect, loadLesson } from '../match.js';
 
 const shell = (z, kids, onBackdrop) => h('div', {
   onclick: onBackdrop || undefined,
@@ -72,17 +72,27 @@ function queueOverlay() {
 function gameOverOverlay() {
   const g = session.g, P = g.players.p, O = g.players.o;
   const win = g.winner === 'p';
-  const title = g.winner === 'draw' ? 'Draw' : win ? 'Block secured' : 'The block falls';
   const color = win ? '#2fd6b8' : '#ff4d69';
-  const sub = 'Life ' + Math.max(0, P.life) + '–' + Math.max(0, O.life) + ' · ' + g.tc.p + ' turns · they ran the ' + AI_DECKS[state.crewKey].name + ' playbook.' + (state.tut != null ? ' Tutorial complete — you know the streets now.' : '');
+  let label, title, sub, again;
+  if (state.tut) {
+    label = 'TRAINING COMPLETE';
+    title = win ? 'Solve — clean' : 'The daemon got there';
+    sub = win ? 'Exactly lethal. Tutorial complete — Fence, rows, Guard, Ward, Wired, Pierce, Links. The streets are yours.' : 'Run it back to retry the lesson.';
+    again = win ? () => { setState({ tut: null }); startMatch(); } : () => loadLesson(state.tut.les);
+  } else {
+    label = 'MATCH COMPLETE';
+    title = g.winner === 'draw' ? 'Draw' : win ? 'Block secured' : 'The block falls';
+    sub = 'Life ' + Math.max(0, P.life) + '–' + Math.max(0, O.life) + ' · ' + g.tc.p + ' turns · they ran the ' + AI_DECKS[state.crewKey].name + ' playbook.';
+    again = () => startMatch();
+  }
   return shell(50,
     h('div', { style: 'background:#131720;border:1px solid #2a3140;border-radius:16px;padding:28px 30px;max-width:400px;width:100%;box-shadow:0 30px 60px -20px rgba(0,0,0,.8);animation:flPop .25s ease' },
-      h('div', { style: 'font:700 11px monospace;letter-spacing:.15em;color:#5a6474' }, 'MATCH COMPLETE'),
+      h('div', { style: 'font:700 11px monospace;letter-spacing:.15em;color:#5a6474' }, label),
       h('h2', { style: `font-size:30px;font-weight:700;margin:6px 0 14px;letter-spacing:-.01em;color:${color}` }, title),
       h('div', { style: 'font-size:14px;line-height:1.6;color:#9aa4b4;margin-bottom:22px' }, sub),
       h('div', { style: 'display:flex;gap:10px' },
         h('button', { onclick: () => setState({ screen: 'home', tut: null }), style: 'flex:0 0 auto;background:transparent;color:#9aa4b4;border:1px solid #2a3140;border-radius:9px;padding:13px 18px;font:600 14px Helvetica;cursor:pointer' }, 'Lobby'),
-        h('button', { onclick: () => startMatch(), style: 'flex:1;background:#ff8a3d;color:#0b0d11;border:none;border-radius:9px;padding:13px;font:700 14px Helvetica;cursor:pointer' }, 'Run it back'),
+        h('button', { onclick: again, style: 'flex:1;background:#ff8a3d;color:#0b0d11;border:none;border-radius:9px;padding:13px;font:700 14px Helvetica;cursor:pointer' }, state.tut && !win ? 'Retry lesson' : 'Run it back'),
       ),
     ),
   );

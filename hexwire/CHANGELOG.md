@@ -2,6 +2,27 @@
 
 All notable changes to Hexwire (the HTML-Games playtest client) are recorded here.
 
+## v1.2.0 — 2026-07-16 — Scenario tutorial + street/overwatch readout
+
+Ported from an updated Claude Design handoff. Rules engine unchanged — this is a
+teaching + readability pass.
+
+### Added
+- **Eight-lesson scenario tutorial** replaces the old single hand-held game. Each
+  lesson sets a fixed board, hand and energy, then gates every step to one action
+  and shows a recap on success: FENCE & THE CLOCK · STREET vs OVERWATCH · GUARD ·
+  WARD · WIRED · PIERCE · LINKS & RALLY · **THE SOLVE** — a final exact-lethal
+  placement puzzle (rival at 6♥) that verifies the answer and offers a retry on a
+  miss.
+
+### Changed
+- **Street/overwatch stat readout**: a unit's two combat numbers now read as
+  `power/strike` everywhere (board cells, hand cards, deck pool). On the board the
+  *active* half lights up by row — melee lit on the street, strike lit on
+  overwatch — and the idle half dims.
+- Dropped the now-redundant `⚔X` board tag and `Strike X` card tag; the number
+  carries that information.
+
 ## v1.1.0 — 2026-07-16 — Art-legibility polish
 
 Playtest feedback pass on how the venice art reads across surfaces.
