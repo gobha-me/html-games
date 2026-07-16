@@ -47,12 +47,19 @@ export function cardThumb(id, w, h) {
   return box;
 }
 
-// Optional battlefield backdrop behind the board grid (art/env/board_field.webp).
+// Battlefield backdrop behind the board grid (art/env/board_field.webp). The terrain
+// reads at full strength; a single ~20% dark overlay on top keeps it from competing
+// with the translucent cells and stat text layered above it.
 export function boardField() {
+  const wrap = document.createElement('div');
+  wrap.setAttribute('style', 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0');
   const img = document.createElement('img');
   img.src = 'art/env/board_field.webp';
   img.alt = '';
-  img.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.2;pointer-events:none;z-index:0');
-  img.addEventListener('error', () => img.remove());
-  return img;
+  img.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block');
+  img.addEventListener('error', () => wrap.remove());
+  const dim = document.createElement('div');
+  dim.setAttribute('style', 'position:absolute;inset:0;background:rgba(20,17,11,.2)');
+  wrap.append(img, dim);
+  return wrap;
 }

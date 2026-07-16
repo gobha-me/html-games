@@ -31,7 +31,7 @@ function cellView(side, lane, row) {
   }
   const pendHere = state.pendFrom && mine && state.pendFrom.lane === lane && state.pendFrom.row === row;
   const border = pendHere ? '2px solid #e8dfc6' : clickable ? '2px dashed #c9a227' : row === 0 ? `1.5px solid ${mine ? '#4e5535' : '#5c3b31'}` : `1.5px dashed ${mine ? '#454b30' : '#50352c'}`;
-  const bg = u ? (mine ? '#39402a' : '#46302a') : '#2a261c';
+  const bg = u ? (mine ? 'rgba(57,64,42,.62)' : 'rgba(70,48,42,.62)') : 'rgba(42,38,28,.3)';
   const cell = h('div', {
     onclick: () => tapCell(side, lane, row),
     style: `position:relative;overflow:hidden;min-height:80px;border:${border};background:${bg};display:flex;align-items:center;justify-content:center;padding:6px 4px;cursor:${clickable ? 'pointer' : 'default'};box-shadow:${clickable ? '0 0 0 3px rgba(201,162,39,.18)' : 'none'};transition:.12s`,
@@ -42,7 +42,7 @@ function cellView(side, lane, row) {
     const tags = kwTags(u) + (u.sick ? (kwTags(u) ? ' · ' : '') + 'DIG IN' : '');
     cell.append(
       cardArt(u.id),
-      h('div', { style: `position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:#e8dfc6;opacity:${u.sick ? .6 : 1};animation:flPop .22s ease` },
+      h('div', { style: `position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:#e8dfc6;opacity:${u.sick ? .6 : 1};text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.7);animation:flPop .22s ease` },
         h('div', { style: 'font:700 12px/1.1 \'Barlow Condensed\';letter-spacing:.04em;text-transform:uppercase;text-align:center' }, u.name),
         h('div', { style: 'display:flex;gap:7px;align-items:baseline;justify-content:center' },
           h('span', { style: `font:700 17px 'IBM Plex Mono';color:${bonus > 0 ? '#c9a227' : mine ? '#b7cb76' : '#e08a70'}` }, (bonus > 0 ? u.pow + '+' + bonus : String(u.pow)) + '/' + u.rng),
@@ -52,7 +52,7 @@ function cellView(side, lane, row) {
       ),
     );
   } else {
-    cell.append(h('span', { style: `position:relative;z-index:1;font:700 8.5px 'IBM Plex Mono';letter-spacing:.16em;color:${mine ? '#4e5535' : '#5c3b31'}` },
+    cell.append(h('span', { style: `position:relative;z-index:1;font:700 8.5px 'IBM Plex Mono';letter-spacing:.16em;color:${mine ? '#8a9068' : '#a06d5f'};text-shadow:0 1px 2px rgba(0,0,0,.8)` },
       row === 0 ? (mine ? 'THE LINE' : 'THEIR LINE') : (mine ? 'EMPLACEMENT' : 'REAR')));
   }
   return cell;
@@ -154,7 +154,7 @@ export function matchView() {
 
   const endReady = my && (!state.tut || (state.tutStage === 'act' && TUT_LESSONS[state.tutStep].placed(g)));
 
-  const board = h('div', { style: 'position:relative;overflow:hidden;background:#2f2a1f;border:1px solid #4a422e;padding:10px' },
+  const board = h('div', { style: 'position:relative;overflow:hidden;border:1px solid #4a422e;padding:10px' },
     boardField(),
     h('div', { style: 'position:relative;z-index:1' }, grid(cellsTop), laneMid, grid(cellsBot)),
   );
