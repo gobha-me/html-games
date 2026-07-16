@@ -14,8 +14,12 @@ export const state = {
   pendFrom: null,      // redeploy source {lane,row}
   coin: null,          // { first: 'p'|'o' }
   tut: false,
+  tutStep: 0,          // current Field Training drill index
+  tutStage: 'act',     // 'act' | 'review'
+  tutPass: false,      // did the current drill's pass() succeed
   oppName: '',
   settingsOpen: false,
+  logOpen: false,      // dispatches ticker expanded
 };
 
 // Non-reactive session data (engine game object, standing, prefs, lookups).

@@ -2,11 +2,11 @@
 // Layout: enemy rear+line on top, sector-threat strip, my line+emplacements below;
 // banner state machine; hand scroller; supply/requisition/end-turn; dispatches log.
 import { h } from '../dom.js';
-import { state, session, myTurn } from '../state.js';
+import { state, session, setState, myTurn } from '../state.js';
 import { SPELL_LINE } from '../theme.js';
 import { kwTags, defTags } from '../labels.js';
 import { cardArt, cardArtBand, boardField } from '../art.js';
-import { tapCard, tapCell, toggleBank, endTurn, concede, tutTurn1Done } from '../match.js';
+import { tapCard, tapCell, toggleBank, endTurn, concede, TUT_LESSONS, loadLesson } from '../match.js';
 
 function cellView(side, lane, row) {
   const g = session.g, FL = session.FL;
@@ -25,12 +25,16 @@ function cellView(side, lane, row) {
       if (k === 'redeploy' && mine && (state.pendFrom ? !u : !!u)) clickable = true;
     }
   }
+  if (clickable && state.tut) {
+    const L = TUT_LESSONS[state.tutStep];
+    if (state.tutStage !== 'act' || !mine || !selDef || selDef.type !== 'unit' || !L.allow(selDef.id, lane, row)) clickable = false;
+  }
   const pendHere = state.pendFrom && mine && state.pendFrom.lane === lane && state.pendFrom.row === row;
   const border = pendHere ? '2px solid #e8dfc6' : clickable ? '2px dashed #c9a227' : row === 0 ? `1.5px solid ${mine ? '#4e5535' : '#5c3b31'}` : `1.5px dashed ${mine ? '#454b30' : '#50352c'}`;
-  const bg = u ? (mine ? '#39402a' : '#46302a') : '#2a261c';
+  const bg = u ? (mine ? 'rgba(57,64,42,.62)' : 'rgba(70,48,42,.62)') : 'rgba(42,38,28,.3)';
   const cell = h('div', {
     onclick: () => tapCell(side, lane, row),
-    style: `position:relative;overflow:hidden;min-height:80px;border:${border};background:${bg};display:flex;align-items:center;justify-content:center;padding:6px 4px;cursor:${clickable ? 'pointer' : 'default'};box-shadow:${clickable ? '0 0 0 3px rgba(201,162,39,.18)' : 'none'};transition:.12s`,
+    style: `position:relative;overflow:hidden;min-height:108px;border:${border};background:${bg};display:flex;align-items:${u ? 'flex-end' : 'center'};justify-content:center;padding:6px 4px;cursor:${clickable ? 'pointer' : 'default'};box-shadow:${clickable ? '0 0 0 3px rgba(201,162,39,.18)' : 'none'};transition:.12s`,
   });
   if (u) {
     const eff = FL.effPow(g, side, lane, row);
@@ -38,17 +42,17 @@ function cellView(side, lane, row) {
     const tags = kwTags(u) + (u.sick ? (kwTags(u) ? ' · ' : '') + 'DIG IN' : '');
     cell.append(
       cardArt(u.id),
-      h('div', { style: `position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:#e8dfc6;opacity:${u.sick ? .6 : 1};animation:flPop .22s ease` },
+      h('div', { style: `position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:#e8dfc6;opacity:${u.sick ? .6 : 1};text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.7);animation:flPop .22s ease` },
         h('div', { style: 'font:700 12px/1.1 \'Barlow Condensed\';letter-spacing:.04em;text-transform:uppercase;text-align:center' }, u.name),
         h('div', { style: 'display:flex;gap:7px;align-items:baseline;justify-content:center' },
-          h('span', { style: `font:700 17px 'IBM Plex Mono';color:${bonus > 0 ? '#c9a227' : mine ? '#b7cb76' : '#e08a70'}` }, bonus > 0 ? u.pow + '+' + bonus : String(u.pow)),
+          h('span', { style: `font:700 17px 'IBM Plex Mono';color:${bonus > 0 ? '#c9a227' : mine ? '#b7cb76' : '#e08a70'}` }, (bonus > 0 ? u.pow + '+' + bonus : String(u.pow)) + '/' + u.rng),
           h('span', { style: 'font:600 11px \'IBM Plex Mono\';opacity:.8' }, '♥' + u.hp),
         ),
         h('div', { style: `font:600 8.5px 'IBM Plex Mono';letter-spacing:.05em;color:${mine ? '#9db35e' : '#d06a52'};opacity:.9;min-height:10px;text-align:center` }, tags),
       ),
     );
   } else {
-    cell.append(h('span', { style: `position:relative;z-index:1;font:700 8.5px 'IBM Plex Mono';letter-spacing:.16em;color:${mine ? '#4e5535' : '#5c3b31'}` },
+    cell.append(h('span', { style: `position:relative;z-index:1;font:700 8.5px 'IBM Plex Mono';letter-spacing:.16em;color:${mine ? '#8a9068' : '#a06d5f'};text-shadow:0 1px 2px rgba(0,0,0,.8)` },
       row === 0 ? (mine ? 'THE LINE' : 'THEIR LINE') : (mine ? 'EMPLACEMENT' : 'REAR')));
   }
   return cell;
@@ -56,6 +60,41 @@ function cellView(side, lane, row) {
 
 function lifeBox(bg, life) {
   return h('div', { style: `width:46px;height:46px;background:${bg};color:#f0e8d2;display:flex;align-items:center;justify-content:center;font:700 20px 'IBM Plex Mono';flex:none;clip-path:polygon(8% 0,100% 0,92% 100%,0 100%)` }, Math.max(0, life));
+}
+
+function logTicker(g) {
+  const col = t => /^(⚔ )?You|^Your/.test(t) ? '#9db35e' : /^(⚔ )?AI/.test(t) ? '#d06a52' : '#8a8065';
+  const latest = g.log[0] || '—';
+  const header = h('div', { onclick: () => setState({ logOpen: !state.logOpen }), style: 'display:flex;align-items:center;gap:8px;cursor:pointer' },
+    h('span', { style: 'font:700 9px \'IBM Plex Mono\';letter-spacing:.16em;color:#6e654d;flex:none' }, 'DISPATCHES'),
+    h('span', { style: `font:700 9px 'IBM Plex Mono';color:#6e654d;flex:none;transition:.15s;transform:rotate(${state.logOpen ? 90 : 0}deg)` }, '▸'),
+    state.logOpen ? null : h('span', { style: `flex:1;min-width:0;font:500 11.5px 'IBM Plex Mono';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${col(latest)}` }, latest),
+  );
+  return h('div', { style: 'margin-top:10px;padding-top:8px;border-top:1px solid #4a422e' },
+    header,
+    state.logOpen ? h('div', { style: 'font:500 11.5px/1.7 \'IBM Plex Mono\';margin-top:4px' },
+      g.log.slice(0, 6).map((t, i) => h('div', { style: `opacity:${1 - i * .14};color:${col(t)}` }, t))) : null,
+  );
+}
+
+function tutPanel() {
+  const step = state.tutStep, last = TUT_LESSONS.length - 1, L = TUT_LESSONS[step];
+  const passOk = state.tutStage === 'review' && state.tutPass;
+  const btn = (label, style, onclick) => h('button', { onclick, style }, label);
+  return h('div', { style: 'margin:12px 0 0;background:#efe6cf;color:#2a2517;border-left:4px solid #c9a227;padding:14px 18px' },
+    h('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap' },
+      h('div', { style: 'font:700 12px \'IBM Plex Mono\';letter-spacing:.18em;color:#a4402c' }, L.title),
+      h('div', { style: 'font:600 10px \'IBM Plex Mono\';color:#7a7052' }, 'FIELD TRAINING · ' + (step + 1) + ' / ' + TUT_LESSONS.length),
+    ),
+    h('div', { style: 'font:500 16px/1.5 \'Barlow Condensed\';margin-top:6px' }, L.brief),
+    h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center' },
+      passOk ? btn(step >= last ? 'Complete training' : 'Next drill →',
+        'background:#2a2517;color:#efe6cf;border:none;padding:11px 20px;font:700 14px \'Barlow Condensed\';letter-spacing:.08em;text-transform:uppercase;cursor:pointer',
+        () => step >= last ? setState({ screen: 'home', tut: false }) : loadLesson(step + 1)) : null,
+      btn('Reset drill', 'background:transparent;color:#5a5138;border:1px solid #a89c78;padding:11px 18px;font:600 13px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;cursor:pointer', () => loadLesson(step)),
+      btn('Exit training', 'background:transparent;color:#7a7052;border:none;padding:11px 8px;font:600 13px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;cursor:pointer', () => setState({ screen: 'home', tut: false })),
+    ),
+  );
 }
 
 export function matchView() {
@@ -98,7 +137,7 @@ export function matchView() {
         h('div', { style: 'flex:1' }),
         h('div', { style: 'font:500 9.5px/1.35 \'IBM Plex Mono\';color:#7a7052;min-height:13px' }, isSpell ? SPELL_LINE[d.spell.kind] : defTags(d)),
         h('div', { style: 'display:flex;justify-content:space-between;align-items:flex-end;margin-top:4px' },
-          h('div', { style: 'font:700 17px \'IBM Plex Mono\';color:#2a2517' }, isSpell ? '✦' : String(d.pow)),
+          h('div', { style: 'font:700 17px \'IBM Plex Mono\';color:#2a2517' }, isSpell ? '✦' : d.pow + '/' + d.rng),
           h('div', { style: 'font:600 11px \'IBM Plex Mono\';color:#7a7052' }, isSpell ? '' : '♥' + d.hp),
         ),
       ),
@@ -110,33 +149,27 @@ export function matchView() {
   let bannerText, bannerCol = '#b3a88a';
   const selCard = state.sel != null ? P.hand.find(c => c.uid === state.sel) : null;
   const selDef = selCard ? FL.byId(selCard.id) : null;
-  if (g.over) bannerText = 'Engagement over.';
+  if (g.over && !state.tut) bannerText = 'Engagement over.';
   else if (state.coin) bannerText = 'Awaiting field orders…';
   else if (state.busy) { bannerText = g.active === 'o' ? 'Enemy command is deliberating…' : 'The guns speak…'; bannerCol = '#d06a52'; }
   else if (state.mode === 'bank') { bannerText = P.banked ? 'Already requisitioned this turn.' : 'Tap a card to requisition it: +1 supply, +2 if it costs 4+.'; bannerCol = '#c9a227'; }
-  else if (selDef && selDef.type === 'unit') { bannerText = P.energy >= selDef.cost ? 'Tap an empty position — the line for melee, emplacements for Bombard units.' : 'Not enough supply for ' + selDef.name + '.'; bannerCol = '#c9a227'; }
+  else if (selDef && selDef.type === 'unit') { bannerText = P.energy >= selDef.cost ? 'Tap an empty position — M power fights on the line, R power fires from emplacements.' : 'Not enough supply for ' + selDef.name + '.'; bannerCol = '#c9a227'; }
   else if (selDef && selDef.type === 'spell') {
     const k = selDef.spell.kind;
     bannerText = k === 'bolt' ? 'Tap an enemy unit to shell it.' : k === 'reinforce' ? 'Tap one of your units to Fortify.' : k === 'redeploy' ? (state.pendFrom ? 'Now tap an empty position to march to.' : 'Tap one of your units to march.') : 'Tap the card again to issue ' + selDef.name + '.';
     bannerCol = '#c9a227';
   }
-  else if (state.tut && my) {
-    let front = false, back = false;
-    for (let l = 0; l < 3; l++) { if (g.board.p[l][0]) front = true; if (g.board.p[l][1]) back = true; }
-    if (g.tc.p === 1) {
-      bannerText = 'TRAINING — ' + (P.banked ? '✓ requisitioned' : '① press Requisition, then tap a card to bank it') +
-        ' · ' + (front ? '✓ line held' : '② deploy the Rifleman on THE LINE') +
-        ' · ' + (back ? '✓ guns dug in' : '③ deploy the Mortar Team in the EMPLACEMENT behind him');
-    } else {
-      bannerText = 'TRAINING — free fire. Flanks ◀▶ lend power to row neighbours; Bulwark units must be shot first; open sectors hit HQ. Break their morale (' + Math.max(0, O.life) + ' left).';
-    }
-    bannerCol = '#c9a227';
+  else if (state.tut) {
+    const L = TUT_LESSONS[state.tutStep];
+    if (state.tutStage === 'review') { bannerText = state.tutPass ? '✓ ' + L.passMsg : '✗ ' + (L.failMsg || 'Not quite — reset the drill and follow the orders exactly.'); bannerCol = state.tutPass ? '#9db35e' : '#d06a52'; }
+    else if (L.placed(g)) { bannerText = '✓ In position — press End Turn to execute.'; bannerCol = '#9db35e'; }
+    else { bannerText = 'ORDERS: ' + L.goal; bannerCol = '#c9a227'; }
   }
   else bannerText = 'Your move — tap a card, then a position. Requisition once for supply. End turn to fight.';
 
-  const endReady = my && !(state.tut && g.tc.p === 1 && !tutTurn1Done());
+  const endReady = my && (!state.tut || (state.tutStage === 'act' && TUT_LESSONS[state.tutStep].placed(g)));
 
-  const board = h('div', { style: 'position:relative;overflow:hidden;background:#2f2a1f;border:1px solid #4a422e;padding:10px' },
+  const board = h('div', { style: 'position:relative;overflow:hidden;border:1px solid #4a422e;padding:10px' },
     boardField(),
     h('div', { style: 'position:relative;z-index:1' }, grid(cellsTop), laneMid, grid(cellsBot)),
   );
@@ -151,7 +184,7 @@ export function matchView() {
           h('div', { style: 'font:500 11px \'IBM Plex Mono\';color:#8a8065' }, O.hand.length + ' hand · ' + O.deck.length + ' supply · ⚡' + O.energy + '/' + O.income),
         ),
       ),
-      h('div', { style: 'font:700 12px \'IBM Plex Mono\';letter-spacing:.16em;color:#c9a227' }, state.tut ? 'FIELD TRAINING' : 'TURN ' + Math.max(1, g.tc.p)),
+      h('div', { style: 'font:700 12px \'IBM Plex Mono\';letter-spacing:.16em;color:#c9a227' }, state.tut ? 'DRILL ' + (state.tutStep + 1) + '/' + TUT_LESSONS.length : 'TURN ' + Math.max(1, g.tc.p)),
       h('div', { style: 'display:flex;align-items:center;gap:11px;flex-direction:row-reverse' },
         lifeBox('#6b7a3f', P.life),
         h('div', { style: 'text-align:right' },
@@ -161,6 +194,8 @@ export function matchView() {
       ),
     ),
     board,
+    // field-training panel (amber card)
+    state.tut ? tutPanel() : null,
     // banner
     h('div', { style: `margin:12px 0 8px;padding:11px 16px;background:#2f2a1f;border:1px solid ${state.tut && !g.over && !state.busy ? '#c9a227' : '#4a422e'};font:500 15px 'Barlow Condensed';letter-spacing:.03em;color:${bannerCol};text-align:center` }, bannerText),
     // hand scroller
@@ -178,10 +213,7 @@ export function matchView() {
       h('button', { onclick: () => concede(), style: 'background:none;border:none;color:#6e654d;font:600 13px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;cursor:pointer' }, 'surrender'),
       h('button', { onclick: () => endTurn(), style: `background:${endReady ? '#c9a227' : '#3a3526'};color:${endReady ? '#26221a' : '#6e654d'};border:none;padding:11px 22px;font:700 15px 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase;cursor:${endReady ? 'pointer' : 'default'}` }, 'End turn ⚔'),
     ),
-    // dispatches log
-    h('div', { style: 'margin-top:12px;padding-top:10px;border-top:1px solid #4a422e;font:500 11.5px/1.7 \'IBM Plex Mono\';min-height:20px' },
-      h('div', { style: 'font:700 9px \'IBM Plex Mono\';letter-spacing:.16em;color:#6e654d;margin-bottom:3px' }, 'DISPATCHES'),
-      g.log.slice(0, 6).map((t, i) => h('div', { style: `opacity:${1 - i * .14};color:${/^(⚔ )?You|^Your/.test(t) ? '#9db35e' : /^(⚔ )?AI/.test(t) ? '#d06a52' : '#8a8065'}` }, t)),
-    ),
+    // dispatches — collapsed to a 1-line ticker; click the header to expand
+    logTicker(g),
   );
 }

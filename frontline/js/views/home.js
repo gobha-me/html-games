@@ -65,7 +65,7 @@ export function homeView() {
           h('li', {}, 'An empty supply deck bleeds escalating morale.'),
         ),
         h('div', { style: 'margin-top:14px;border-top:1px dashed #4a422e;padding-top:12px;font:500 11.5px/1.6 \'IBM Plex Mono\';color:#6e654d' },
-          'New to the front? Run ', h('b', { style: 'color:#8a8065' }, 'Field training'), ' — one guided turn, then a live finish against a green conscript company.'),
+          'New to the front? Run ', h('b', { style: 'color:#8a8065' }, 'Field training'), ' — five scripted drills, from Hold the Line through Gas & Overrun to a Break Through final exam.'),
       ),
     ),
   );

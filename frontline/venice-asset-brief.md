@@ -127,6 +127,7 @@ AMBIENCE / MUSIC
 ## 4. ACCEPTANCE CHECKLIST (per batch)
 - [ ] Palette check: sampled dominant colors within the 5-color bible
 - [ ] Thumbnail check: card art readable at 100×125
+- [ ] Focal point recorded: subject y-fraction added to `FOCAL` in `js/art.js` (drives the object-position crop on hand band / board cell / roster thumb / zoom preview)
 - [ ] No text/lettering artifacts anywhere
 - [ ] Seed + prompt logged per accepted asset (reproducibility for graded variants)
 - [ ] Audio: loudness + true-peak measured, loops verified seamless

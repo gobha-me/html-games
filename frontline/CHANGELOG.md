@@ -2,6 +2,39 @@
 
 All notable changes to Frontline (the HTML-Games playtest client) are recorded here.
 
+## v1.3.0 — 2026-07-16 — Dual-power M/R + 5-drill Field Training + art-forward board
+
+### Changed
+- **Dual-power M/R replaces the Bombard keyword.** Every unit now carries a
+  dedicated **Melee (`pow`, fights on the line / front row)** and **Ranged
+  (`rng`, fires from the emplacement / back row, untargetable while the line in
+  front holds)** stat. The old `strike`/Bombard keyword is gone; back-row combat
+  and the AI heuristics fire on `rng` (`engine.js` adopted verbatim from the
+  handoff). Rosters, hand cards, and board cells read `M{pow}/R{rng}`.
+
+### Added
+- **Field Training is now a five-drill curriculum** (`TUT_LESSONS` in
+  `js/match.js`): DRILL 1 Hold the Line, DRILL 2 Bulwark & Plated, DRILL 3 Rally
+  & Flanks, DRILL 4 Gas & Overrun, FINAL EXAM Break Through. Each drill briefs a
+  tactic, gates where you may deploy (`allow`), runs the enemy phase, and grades
+  a pass with Next / Reset / Exit controls (amber panel; `tutStep`/`tutStage`/
+  `tutPass` state).
+- **Deck-builder card zoom**: hover-intent (~250ms) or tap on a roster thumbnail
+  opens a shared 420px preview — focal-cropped art, cost, M/R/♥ chips, and every
+  keyword with reminder text — anchored to the viewport half opposite the pointer
+  (`js/views/overlays.js`, `KW_REMINDER` in `js/theme.js`).
+
+### Art & display ("art is the product" — `ui-art-notes.md`)
+- **Battlefield reads through the board**: the board container and cells go
+  translucent (occupied ~0.62, empty ~0.3) over the full-strength terrain, with a
+  per-cell text-shadow keeping stat numbers legible.
+- **Taller portrait slots**: deployed cells grow to 108px so the art reads as a
+  unit portrait with the stat strip on the bottom edge; the DISPATCHES log
+  collapses to a one-line ticker (expand on click, `logOpen`) to hold 1080p.
+- **Per-card focal crop**: a `FOCAL` map (`js/art.js`) supplies one authored
+  `object-position:50% <y>` used everywhere the art crops — hand band, board
+  cell, roster thumb, and the zoom — so no portrait loses its head to the crop.
+
 ## v1.2.0 — 2026-07-16 — Deck-builder art + weathervane initiative
 
 ### Added
