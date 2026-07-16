@@ -10,7 +10,7 @@ export const THEME_NAMES = {
   bolt: 'Artillery Strike', volley: 'Creeping Barrage', reinf: 'Fortify', insight: 'Intel Report', redeploy: 'Forced March',
 };
 
-export const KW_NAMES = { guard: 'Bulwark', shield: 'Plated', strike: 'Bombard', rally: 'Rally', haste: 'Rapid', venom: 'Gas', pierce: 'Overrun' };
+export const KW_NAMES = { guard: 'Bulwark', shield: 'Plated', rally: 'Rally', haste: 'Rapid', venom: 'Gas', pierce: 'Overrun' };
 
 export const SPELL_LINE = { bolt: '3 dmg to a unit', volley: '1 dmg to all enemies', reinforce: '+1 pow / +2 ♥', insight: 'draw 2 cards', redeploy: 'move your unit' };
 

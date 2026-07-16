@@ -32,7 +32,7 @@ export function rostersView() {
 
   const pool = FL.POOL.map(c => {
     const n = ed.cards[c.id] || 0;
-    const line = c.type === 'spell' ? 'order · ' + SPELL_LINE[c.spell.kind] : `${c.pow}/${c.hp}${defTags(c) ? ' · ' + defTags(c) : ''}`;
+    const line = c.type === 'spell' ? 'order · ' + SPELL_LINE[c.spell.kind] : `M${c.pow}/R${c.rng} · ${c.hp}♥${defTags(c) ? ' · ' + defTags(c) : ''}`;
     const thumb = h('div', { style: 'position:relative;flex:none' },
       cardThumb(c.id, 44, 56),
       h('div', { style: 'position:absolute;top:0;left:0;min-width:18px;height:18px;padding:0 3px;background:#c9a227;color:#26221a;display:flex;align-items:center;justify-content:center;font:700 12px \'IBM Plex Mono\';box-shadow:0 0 0 1px #26221a' }, c.cost),

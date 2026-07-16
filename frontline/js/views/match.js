@@ -41,7 +41,7 @@ function cellView(side, lane, row) {
       h('div', { style: `position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:#e8dfc6;opacity:${u.sick ? .6 : 1};animation:flPop .22s ease` },
         h('div', { style: 'font:700 12px/1.1 \'Barlow Condensed\';letter-spacing:.04em;text-transform:uppercase;text-align:center' }, u.name),
         h('div', { style: 'display:flex;gap:7px;align-items:baseline;justify-content:center' },
-          h('span', { style: `font:700 17px 'IBM Plex Mono';color:${bonus > 0 ? '#c9a227' : mine ? '#b7cb76' : '#e08a70'}` }, bonus > 0 ? u.pow + '+' + bonus : String(u.pow)),
+          h('span', { style: `font:700 17px 'IBM Plex Mono';color:${bonus > 0 ? '#c9a227' : mine ? '#b7cb76' : '#e08a70'}` }, (bonus > 0 ? u.pow + '+' + bonus : String(u.pow)) + '/' + u.rng),
           h('span', { style: 'font:600 11px \'IBM Plex Mono\';opacity:.8' }, '♥' + u.hp),
         ),
         h('div', { style: `font:600 8.5px 'IBM Plex Mono';letter-spacing:.05em;color:${mine ? '#9db35e' : '#d06a52'};opacity:.9;min-height:10px;text-align:center` }, tags),
@@ -98,7 +98,7 @@ export function matchView() {
         h('div', { style: 'flex:1' }),
         h('div', { style: 'font:500 9.5px/1.35 \'IBM Plex Mono\';color:#7a7052;min-height:13px' }, isSpell ? SPELL_LINE[d.spell.kind] : defTags(d)),
         h('div', { style: 'display:flex;justify-content:space-between;align-items:flex-end;margin-top:4px' },
-          h('div', { style: 'font:700 17px \'IBM Plex Mono\';color:#2a2517' }, isSpell ? '✦' : String(d.pow)),
+          h('div', { style: 'font:700 17px \'IBM Plex Mono\';color:#2a2517' }, isSpell ? '✦' : d.pow + '/' + d.rng),
           h('div', { style: 'font:600 11px \'IBM Plex Mono\';color:#7a7052' }, isSpell ? '' : '♥' + d.hp),
         ),
       ),
@@ -114,7 +114,7 @@ export function matchView() {
   else if (state.coin) bannerText = 'Awaiting field orders…';
   else if (state.busy) { bannerText = g.active === 'o' ? 'Enemy command is deliberating…' : 'The guns speak…'; bannerCol = '#d06a52'; }
   else if (state.mode === 'bank') { bannerText = P.banked ? 'Already requisitioned this turn.' : 'Tap a card to requisition it: +1 supply, +2 if it costs 4+.'; bannerCol = '#c9a227'; }
-  else if (selDef && selDef.type === 'unit') { bannerText = P.energy >= selDef.cost ? 'Tap an empty position — the line for melee, emplacements for Bombard units.' : 'Not enough supply for ' + selDef.name + '.'; bannerCol = '#c9a227'; }
+  else if (selDef && selDef.type === 'unit') { bannerText = P.energy >= selDef.cost ? 'Tap an empty position — M power fights on the line, R power fires from emplacements.' : 'Not enough supply for ' + selDef.name + '.'; bannerCol = '#c9a227'; }
   else if (selDef && selDef.type === 'spell') {
     const k = selDef.spell.kind;
     bannerText = k === 'bolt' ? 'Tap an enemy unit to shell it.' : k === 'reinforce' ? 'Tap one of your units to Fortify.' : k === 'redeploy' ? (state.pendFrom ? 'Now tap an empty position to march to.' : 'Tap one of your units to march.') : 'Tap the card again to issue ' + selDef.name + '.';

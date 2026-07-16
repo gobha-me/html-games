@@ -1,28 +1,28 @@
-// Frontline v0.1 engine — pure logic, UMD-ish (globalThis.FL). Used by the DC UI and by headless balance sims.
+// Frontline engine — pure logic, UMD-ish (globalThis.FL). Units have dual power: pow (melee, front row) / rng (ranged, back row).
 (function (G) {
-  const U = (id, name, cost, pow, hp, flanks, kw) => ({ id, name, cost, type: 'unit', pow, hp, flanks, kw: kw || {} });
+  const U = (id, name, cost, pow, rng, hp, flanks, kw) => ({ id, name, cost, type: 'unit', pow, rng, hp, flanks, kw: kw || {} });
   const S = (id, name, cost, spell) => ({ id, name, cost, type: 'spell', spell });
 
   const POOL = [
-    U('scout', 'Scout', 1, 1, 2, [0, 1], {}),
-    U('skirm', 'Skirmisher', 1, 2, 1, [0, 0], { haste: 1 }),
-    U('picket', 'Picket', 1, 0, 3, [0, 0], { guard: 1 }),
-    U('foot', 'Footman', 2, 2, 3, [1, 1], {}),
-    U('archer', 'Archer', 2, 1, 2, [0, 0], { strike: 2 }),
-    U('shieldb', 'Shieldbearer', 2, 1, 4, [0, 0], { guard: 1 }),
-    U('duel', 'Duelist', 2, 3, 2, [0, 0], {}),
-    U('adder', 'Adder', 2, 1, 1, [0, 0], { venom: 1 }),
-    U('banner', 'Banner', 3, 1, 3, [2, 2], { rally: 1 }),
-    U('vet', 'Veteran', 3, 3, 4, [1, 1], {}),
-    U('cross', 'Crossbow', 3, 1, 4, [0, 0], { strike: 3 }),
-    U('warden', 'Warden', 3, 2, 3, [0, 0], { guard: 1, shield: 1 }),
-    U('champ', 'Champion', 4, 4, 5, [1, 1], {}),
-    U('lancer', 'Lancer', 4, 4, 3, [0, 0], { pierce: 1 }),
-    U('marks', 'Marksman', 4, 2, 4, [0, 0], { strike: 4 }),
-    U('outrider', 'Outrider', 4, 3, 3, [0, 1], { haste: 1 }),
-    U('van', 'Vanguard', 5, 5, 6, [1, 1], {}),
-    U('ballista', 'Ballista', 5, 1, 5, [0, 0], { strike: 6 }),
-    U('warlord', 'Warlord', 5, 3, 5, [1, 1], { rally: 2 }),
+    U('scout', 'Scout', 1, 1, 0, 2, [0, 1], {}),
+    U('skirm', 'Skirmisher', 1, 2, 0, 1, [0, 0], { haste: 1 }),
+    U('picket', 'Picket', 1, 0, 0, 3, [0, 0], { guard: 1 }),
+    U('foot', 'Footman', 2, 2, 0, 3, [1, 1], {}),
+    U('archer', 'Archer', 2, 1, 2, 2, [0, 0], {}),
+    U('shieldb', 'Shieldbearer', 2, 1, 0, 4, [0, 0], { guard: 1 }),
+    U('duel', 'Duelist', 2, 3, 0, 2, [0, 0], {}),
+    U('adder', 'Adder', 2, 1, 0, 1, [0, 0], { venom: 1 }),
+    U('banner', 'Banner', 3, 1, 0, 3, [2, 2], { rally: 1 }),
+    U('vet', 'Veteran', 3, 3, 0, 4, [1, 1], {}),
+    U('cross', 'Crossbow', 3, 1, 3, 4, [0, 0], {}),
+    U('warden', 'Warden', 3, 2, 0, 3, [0, 0], { guard: 1, shield: 1 }),
+    U('champ', 'Champion', 4, 4, 0, 5, [1, 1], {}),
+    U('lancer', 'Lancer', 4, 4, 0, 3, [0, 0], { pierce: 1 }),
+    U('marks', 'Marksman', 4, 2, 4, 4, [0, 0], {}),
+    U('outrider', 'Outrider', 4, 3, 0, 3, [0, 1], { haste: 1 }),
+    U('van', 'Vanguard', 5, 5, 0, 6, [1, 1], {}),
+    U('ballista', 'Ballista', 5, 1, 6, 5, [0, 0], {}),
+    U('warlord', 'Warlord', 5, 3, 0, 5, [1, 1], { rally: 2 }),
     S('bolt', 'Bolt', 2, { kind: 'bolt', dmg: 3 }),
     S('volley', 'Volley', 4, { kind: 'volley', dmg: 1 }),
     S('reinf', 'Reinforce', 1, { kind: 'reinforce', pow: 1, hp: 2 }),
@@ -89,7 +89,7 @@
   }
   function laneThreat(g, w, lane) { // damage lane deals if unanswered
     const f = g.board[w][lane][0], b = g.board[w][lane][1];
-    return (f ? effPow(g, w, lane, 0) : 0) + (b && b.kw.strike ? b.kw.strike : 0);
+    return (f ? effPow(g, w, lane, 0) : 0) + (b && b.rng ? b.rng : 0);
   }
   function pickTarget(g, atkSide, lane) {
     const e = other(atkSide), f = g.board[e][lane][0], b = g.board[e][lane][1];
@@ -136,7 +136,7 @@
     const c = byId(pl.hand[i].id);
     if (c.type !== 'unit' || pl.energy < c.cost || g.board[w][lane][row]) return false;
     pl.energy -= c.cost; pl.hand.splice(i, 1);
-    const u = { uid: _uid++, id: c.id, name: c.name, pow: c.pow, hp: c.hp, maxhp: c.hp, flanks: c.flanks.slice(), kw: { ...c.kw }, shieldUp: !!c.kw.shield, sick: !c.kw.haste };
+    const u = { uid: _uid++, id: c.id, name: c.name, pow: c.pow, rng: c.rng, hp: c.hp, maxhp: c.hp, flanks: c.flanks.slice(), kw: { ...c.kw }, shieldUp: !!c.kw.shield, sick: !c.kw.haste };
     g.board[w][lane][row] = u;
     ev(g, { t: 'deploy', side: w, lane, row });
     log(g, (w === 'p' ? 'You deploy ' : 'AI deploys ') + c.name + ' → L' + (lane + 1) + ' ' + (row ? 'back' : 'front') + '.');
@@ -198,13 +198,13 @@
       for (let row = 0; row < 2 && !g.over; row++) {
         const u = g.board[w][lane][row];
         if (!u || u.sick) continue;
-        if (row === 1) { // back row: only strike attacks
-          if (!u.kw.strike) continue;
+        if (row === 1) { // back row: attacks with ranged power
+          if (!u.rng) continue;
           const t = pickTarget(g, w, lane);
-          if (!t) { damageFace(g, e, u.kw.strike, u.name); continue; }
+          if (!t) { damageFace(g, e, u.rng, u.name); continue; }
           const nm = t.u.name;
-          const r = damageUnit(g, e, lane, t.row, u.kw.strike, u.kw.venom);
-          log(g, '⚔ ' + (w === 'p' ? 'Your ' : 'AI ') + u.name + ' strikes ' + nm + (r.blocked ? ' — Shield blocks.' : r.died ? ' — destroyed.' : ' for ' + u.kw.strike + '.'));
+          const r = damageUnit(g, e, lane, t.row, u.rng, u.kw.venom);
+          log(g, '⚔ ' + (w === 'p' ? 'Your ' : 'AI ') + u.name + ' fires at ' + nm + (r.blocked ? ' — Shield blocks.' : r.died ? ' — destroyed.' : ' for ' + u.rng + '.'));
           continue;
         }
         // front row melee
@@ -241,7 +241,7 @@
   }
 
   // ================= AI =================
-  const cardValue = c => c.type === 'spell' ? 3 + c.cost * 0.5 : (c.pow + c.hp) / 2 + (c.kw.strike || 0) * 0.9 + (c.kw.guard ? 1 : 0) + (c.kw.rally || 0);
+  const cardValue = c => c.type === 'spell' ? 3 + c.cost * 0.5 : (c.pow + c.hp) / 2 + (c.rng || 0) * 0.9 + (c.kw.guard ? 1 : 0) + (c.kw.rally || 0);
 
   function aiBankChoice(g, w) {
     const pl = g.players[w];
@@ -267,11 +267,11 @@
     const threat = laneThreat(g, e, lane);
     const eEmpty = !g.board[e][lane][0] && !g.board[e][lane][1];
     let s = 0;
-    if (card.kw.strike) {
-      if (row === 1) s = 3 + card.kw.strike * 0.8 + (myFront ? 1.6 : -2.2) + (threat > 0 ? 0.4 : 0);
+    if (card.rng > card.pow) {
+      if (row === 1) s = 3 + card.rng * 0.8 + (myFront ? 1.6 : -2.2) + (threat > 0 ? 0.4 : 0);
       else s = card.pow * 0.5 - 1.5;
     } else if (row === 1) {
-      s = -6; // melee in back does nothing
+      s = card.rng > 0 ? 1 + card.rng * 0.8 + (myFront ? 1.2 : -2) : -6; // pure melee in back does nothing
     } else {
       s = 1.5 + card.pow * 0.55 + card.hp * 0.3;
       if (eEmpty) s += 1.2;                             // open lane = clock
@@ -307,7 +307,7 @@
       if (sp.kind === 'bolt') {
         for (let l = 0; l < 3; l++) for (let r = 0; r < 2; r++) {
           const u = g.board[e][l][r]; if (!u) continue;
-          const val = u.pow + (u.kw.strike || 0) * 1.1 + (u.kw.guard ? 1 : 0);
+          const val = u.pow + (u.rng || 0) * 1.1 + (u.kw.guard ? 1 : 0);
           const kills = !u.shieldUp && u.hp <= sp.dmg;
           const s = kills ? 3 + val * 0.7 : (u.shieldUp ? 1 : val * 0.35 - 0.5);
           if (s > bs) { bs = s; best = { uid: c.uid, target: { side: e, lane: l, row: r } }; }
