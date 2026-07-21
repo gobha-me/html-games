@@ -92,10 +92,49 @@ window.addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 'p') togglePause();
 });
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+canvas.addEventListener('mousemove', e => {
+  mouse.x = e.clientX; mouse.y = e.clientY;
+  if (touch.seen) { touch.seen = false; $('pauseBtn').classList.add('hidden'); }
+});
 canvas.addEventListener('mousedown', e => { if (e.button === 0) mouse.down = true; });
 window.addEventListener('mouseup', () => mouse.down = false);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// touch: left half = floating move stick, right half = hold to aim & fire
+const touch = {
+  seen: false,
+  move: { id: null, ox: 0, oy: 0, x: 0, y: 0 },
+  aim:  { id: null, x: 0, y: 0 },
+};
+const STICK_R = 60;   // px stick throw
+const AIM_DEAD = 20;  // px deadzone around player before angle updates
+function clearTouch() { touch.move.id = null; touch.aim.id = null; }
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  e.preventDefault();
+  if (!touch.seen) { touch.seen = true; $('pauseBtn').classList.remove('hidden'); }
+  if (e.clientX < W / 2) {
+    if (touch.move.id === null) {
+      touch.move.id = e.pointerId;
+      touch.move.ox = touch.move.x = e.clientX;
+      touch.move.oy = touch.move.y = e.clientY;
+    }
+  } else if (touch.aim.id === null) {
+    touch.aim.id = e.pointerId;
+    touch.aim.x = e.clientX; touch.aim.y = e.clientY;
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'touch') return;
+  if (e.pointerId === touch.move.id) { touch.move.x = e.clientX; touch.move.y = e.clientY; }
+  else if (e.pointerId === touch.aim.id) { touch.aim.x = e.clientX; touch.aim.y = e.clientY; }
+});
+function touchEnd(e) {
+  if (e.pointerId === touch.move.id) touch.move.id = null;
+  else if (e.pointerId === touch.aim.id) touch.aim.id = null;
+}
+canvas.addEventListener('pointerup', touchEnd);
+canvas.addEventListener('pointercancel', touchEnd);
 
 function toggleMute() {
   muted = !muted;
@@ -335,6 +374,7 @@ function resetGame() {
 
 function startGame() {
   audioUnlocked = true;
+  clearTouch();
   resetGame();
   state = S.PLAY;
   $('menu').classList.add('hidden');
@@ -366,7 +406,7 @@ function gameOver() {
 }
 
 function togglePause() {
-  if (state === S.PLAY) { state = S.PAUSE; $('pause').classList.remove('hidden'); SND.music.pause(); }
+  if (state === S.PLAY) { state = S.PAUSE; clearTouch(); $('pause').classList.remove('hidden'); SND.music.pause(); }
   else if (state === S.PAUSE) { state = S.PLAY; $('pause').classList.add('hidden'); startMusic(); }
 }
 
@@ -380,22 +420,32 @@ function update(dt) {
   if (keys['s'] || keys['arrowdown']) dy += 1;
   if (keys['a'] || keys['arrowleft']) dx -= 1;
   if (keys['d'] || keys['arrowright']) dx += 1;
+  if (touch.move.id !== null) {
+    dx += clamp((touch.move.x - touch.move.ox) / STICK_R, -1, 1);
+    dy += clamp((touch.move.y - touch.move.oy) / STICK_R, -1, 1);
+  }
   if (dx || dy) {
-    const l = Math.hypot(dx, dy);
-    player.x += (dx / l) * player.speed * dt;
-    player.y += (dy / l) * player.speed * dt;
+    let l = Math.hypot(dx, dy);
+    if (l > 1) { dx /= l; dy /= l; }
+    player.x += dx * player.speed * dt;
+    player.y += dy * player.speed * dt;
   }
   player.x = clamp(player.x, 30, WORLD.w - 30);
   player.y = clamp(player.y, 30, WORLD.h - 30);
 
-  // --- aim (world space)
-  const wx = mouse.x + cam.x - cam.sx, wy = mouse.y + cam.y - cam.sy;
-  player.a = Math.atan2(wy - player.y, wx - player.x);
+  // --- aim (touch: screen-space from player; mouse: world space)
+  if (touch.aim.id !== null) {
+    const ax = touch.aim.x - (player.x - cam.x), ay = touch.aim.y - (player.y - cam.y);
+    if (ax * ax + ay * ay > AIM_DEAD * AIM_DEAD) player.a = Math.atan2(ay, ax);
+  } else {
+    const wx = mouse.x + cam.x - cam.sx, wy = mouse.y + cam.y - cam.sy;
+    player.a = Math.atan2(wy - player.y, wx - player.x);
+  }
 
   // --- fire
   player.fireCd -= dt;
   player.hurtT -= dt;
-  if (mouse.down && player.fireCd <= 0) shoot();
+  if ((mouse.down || touch.aim.id !== null) && player.fireCd <= 0) shoot();
 
   // --- camera
   cam.x = clamp(player.x - W / 2, 0, WORLD.w - W);
@@ -692,19 +742,46 @@ function render() {
   }
   ctx.restore();
 
-  // crosshair
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,60,60,.9)';
-  ctx.lineWidth = 1.6;
-  const cr = 9 + Math.sin(elapsed * 5) * 1.2;
-  ctx.beginPath();
-  ctx.arc(mouse.x, mouse.y, cr, 0, Math.PI * 2);
-  ctx.moveTo(mouse.x - cr - 5, mouse.y); ctx.lineTo(mouse.x - cr + 2, mouse.y);
-  ctx.moveTo(mouse.x + cr + 5, mouse.y); ctx.lineTo(mouse.x + cr - 2, mouse.y);
-  ctx.moveTo(mouse.x, mouse.y - cr - 5); ctx.lineTo(mouse.x, mouse.y - cr + 2);
-  ctx.moveTo(mouse.x, mouse.y + cr + 5); ctx.lineTo(mouse.x, mouse.y + cr - 2);
-  ctx.stroke();
-  ctx.restore();
+  // crosshair (mouse) / touch stick visuals
+  if (!touch.seen) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,60,60,.9)';
+    ctx.lineWidth = 1.6;
+    const cr = 9 + Math.sin(elapsed * 5) * 1.2;
+    ctx.beginPath();
+    ctx.arc(mouse.x, mouse.y, cr, 0, Math.PI * 2);
+    ctx.moveTo(mouse.x - cr - 5, mouse.y); ctx.lineTo(mouse.x - cr + 2, mouse.y);
+    ctx.moveTo(mouse.x + cr + 5, mouse.y); ctx.lineTo(mouse.x + cr - 2, mouse.y);
+    ctx.moveTo(mouse.x, mouse.y - cr - 5); ctx.lineTo(mouse.x, mouse.y - cr + 2);
+    ctx.moveTo(mouse.x, mouse.y + cr + 5); ctx.lineTo(mouse.x, mouse.y + cr - 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (touch.move.id !== null) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,.18)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(touch.move.ox, touch.move.oy, STICK_R, 0, Math.PI * 2);
+    ctx.stroke();
+    let kx = touch.move.x - touch.move.ox, ky = touch.move.y - touch.move.oy;
+    const kl = Math.hypot(kx, ky);
+    if (kl > STICK_R) { kx *= STICK_R / kl; ky *= STICK_R / kl; }
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
+    ctx.beginPath();
+    ctx.arc(touch.move.ox + kx, touch.move.oy + ky, 24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  if (touch.aim.id !== null) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,60,60,.9)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(touch.aim.x, touch.aim.y, 12, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 // menu background idle render (slow pan behind menu overlays)
@@ -753,6 +830,7 @@ $('ageNo').addEventListener('click', () => {
 $('startBtn').addEventListener('click', startGame);
 $('retryBtn').addEventListener('click', startGame);
 $('pause').addEventListener('click', togglePause);
+$('pauseBtn').addEventListener('click', togglePause);
 $('mute').addEventListener('click', toggleMute);
 
 loadSounds();
