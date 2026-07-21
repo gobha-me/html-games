@@ -1,0 +1,150 @@
+/* ============ DEAD DISTRICT — style.css ============ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #050505;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+canvas#game { display: block; position: fixed; inset: 0; cursor: crosshair; }
+
+.hidden { display: none !important; }
+
+/* ---------- overlays ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; text-align: center;
+}
+
+/* ---------- age gate ---------- */
+#ageGate { background: #0a0a0a; z-index: 100; }
+.gate-box {
+  max-width: 560px; padding: 48px 56px;
+  border: 2px solid #7a0d0d; background: #101010;
+  box-shadow: 0 0 60px rgba(160, 10, 10, .35), inset 0 0 40px rgba(0,0,0,.8);
+}
+.warn-tri { font-size: 54px; color: #c9a227; text-shadow: 0 0 18px rgba(201,162,39,.6); margin-bottom: 10px; }
+#ageGate h2 { color: #c81e1e; letter-spacing: 4px; font-size: 26px; margin-bottom: 18px; }
+.gate-sub { color: #9a9a9a; line-height: 1.5; margin-bottom: 22px; font-size: 15px; }
+.gate-sub strong { color: #d33; }
+.gate-q { color: #ddd; font-size: 18px; margin-bottom: 24px; }
+.gate-btns { display: flex; gap: 16px; justify-content: center; }
+
+/* ---------- buttons ---------- */
+.btn {
+  font-family: inherit; cursor: pointer; letter-spacing: 2px;
+  padding: 13px 30px; font-size: 16px; font-weight: 700;
+  border: 2px solid; background: transparent; color: #eee;
+  transition: all .15s ease; text-transform: uppercase;
+}
+.btn-red { border-color: #a31212; color: #ff5a5a; background: rgba(120, 8, 8, .25); }
+.btn-red:hover { background: #a31212; color: #fff; box-shadow: 0 0 26px rgba(200, 20, 20, .55); transform: scale(1.04); }
+.btn-dim { border-color: #444; color: #888; }
+.btn-dim:hover { background: #222; color: #bbb; }
+.btn.big { font-size: 22px; padding: 18px 54px; }
+
+/* ---------- menu ---------- */
+#menu {
+  background:
+    linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.78)),
+    url('../assets/img/menu_bg.png') center/cover no-repeat;
+}
+.title-block { animation: fadeUp 1s ease both; }
+.game-title {
+  font-size: clamp(56px, 11vw, 120px); font-weight: 900; color: #e8e8e8;
+  letter-spacing: 10px; line-height: .95;
+  text-shadow: 0 0 30px rgba(0,0,0,.9), 0 4px 0 #400;
+}
+.game-title span {
+  display: block; color: #c81e1e;
+  text-shadow: 0 0 34px rgba(200, 30, 30, .8), 0 4px 0 #300;
+}
+.tagline { color: #bbb; margin: 18px 0 34px; font-size: clamp(14px, 2vw, 19px); letter-spacing: 3px; font-style: italic; }
+.controls-hint { margin-top: 34px; color: #888; font-size: 14px; line-height: 1.9; letter-spacing: 1px; }
+.controls-hint b { color: #d8b13c; }
+.hiscore { margin-top: 16px; color: #c9a227; letter-spacing: 2px; font-size: 14px; min-height: 18px; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+#healthWrap {
+  position: absolute; top: 18px; left: 20px;
+  width: min(320px, 34vw); height: 24px;
+  border: 2px solid #611; background: rgba(0,0,0,.6);
+}
+#healthBar {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, #7d0d0d, #c81e1e 60%, #ff4d4d);
+  transition: width .18s ease;
+}
+#healthText {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 700; text-shadow: 0 1px 2px #000; letter-spacing: 1px;
+}
+#stats {
+  position: absolute; top: 18px; right: 20px;
+  display: flex; gap: 22px; align-items: baseline;
+  color: #ddd; font-weight: 700; letter-spacing: 2px;
+  text-shadow: 0 2px 3px #000;
+}
+#ammo::before { content: '⬤ '; color: #d8b13c; font-size: 11px; }
+#ammo { color: #d8b13c; font-size: 22px; }
+#score { font-size: 22px; }
+#score::before { content: 'SCORE '; font-size: 11px; color: #888; }
+#wave { color: #c81e1e; font-size: 22px; animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
+#mute { position: absolute; bottom: 16px; right: 18px; font-size: 22px; opacity: .8; pointer-events: auto; cursor: pointer; }
+
+/* ---------- fx ---------- */
+#vignette {
+  position: fixed; inset: 0; z-index: 15; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,.55) 88%, rgba(20,0,0,.85) 100%);
+  transition: box-shadow .2s;
+}
+#vignette.hurt { box-shadow: inset 0 0 140px 60px rgba(180, 10, 10, .55); }
+#dmgFlash {
+  position: fixed; inset: 0; z-index: 16; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(160,0,0,.28), rgba(120,0,0,.5));
+  opacity: 0;
+}
+#dmgFlash.on { animation: dmg .35s ease-out; }
+@keyframes dmg { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- pause ---------- */
+#pause { background: rgba(0,0,0,.72); z-index: 40; }
+.pause-title { color: #ddd; font-size: 64px; letter-spacing: 14px; text-shadow: 0 0 24px #000; }
+.dim { color: #777; margin-top: 14px; letter-spacing: 2px; }
+
+/* ---------- game over ---------- */
+#gameover {
+  background:
+    linear-gradient(rgba(10,0,0,.55), rgba(0,0,0,.88)),
+    url('../assets/img/gameover_bg.png') center/cover no-repeat;
+}
+.go-block { animation: fadeUp .8s ease both; }
+.go-title {
+  font-size: clamp(54px, 10vw, 110px); color: #c81e1e; font-weight: 900; letter-spacing: 10px;
+  text-shadow: 0 0 44px rgba(180, 10, 10, .75), 0 5px 0 #200;
+}
+.go-cause { color: #a99; font-style: italic; margin: 12px 0 30px; letter-spacing: 2px; }
+.go-stats { display: flex; gap: clamp(20px, 5vw, 60px); justify-content: center; margin-bottom: 38px; }
+.go-stat { display: flex; flex-direction: column; }
+.go-num { font-size: clamp(28px, 5vw, 46px); font-weight: 900; color: #eee; text-shadow: 0 2px 4px #000; }
+.go-lbl { font-size: 11px; color: #d8b13c; letter-spacing: 3px; margin-top: 4px; }
+
+/* ---------- back to arcade ---------- */
+/* z-index 60: above menu/pause/game-over overlays, below the 18+ age gate (z 100),
+   so it stays hidden until the player passes the gate. */
+.back-to-arcade {
+  position: fixed; left: 16px; bottom: 14px; z-index: 60;
+  color: #6a4a4a; text-decoration: none; font-size: 13px; letter-spacing: 2px;
+  text-transform: uppercase; padding: 6px 10px;
+  transition: color .15s ease, text-shadow .15s ease;
+}
+.back-to-arcade:hover { color: #ff5a5a; text-shadow: 0 0 14px rgba(200, 20, 20, .5); }

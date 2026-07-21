@@ -179,6 +179,15 @@
       "icon": "🎴",
       "href": "hexwire/",
       "theme": "hexwire"
+    },
+    {
+      "slug": "dead-district",
+      "title": "DEAD DISTRICT",
+      "description": "A mature survival-horror wave shooter — hold the streets against the horde. Graphic violence and gore; a built-in 18+ age gate guards the door.",
+      "tag": "Survival Horror",
+      "icon": "🧟",
+      "href": "dead-district/",
+      "theme": "dead-district"
     }
   ]
 }
