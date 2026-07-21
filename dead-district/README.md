@@ -20,6 +20,8 @@ down.
 - **Click / hold** — fire (ammo is unlimited)
 - **P** — pause / resume
 - **M** — mute / unmute
+- **Touch** — left half of screen: virtual stick to move; right half: hold to
+  aim & fire; **❚❚** button (next to mute) pauses
 
 ### Rules
 1. Zombies spawn from the edges of the map and close on your position.
@@ -50,12 +52,13 @@ Score accrues per kill (see table above). Your best score is saved to
 - Blood, gore particles, and spent-casing effects
 - Health pickups dropped on kill (brutes drop them far more often)
 - Web Audio SFX (shotgun, hits, groans, deaths) + background music, mutable
+- Dual virtual-stick touch controls for phones/tablets
 - Built-in 18+ age gate, pause, and a stats-rich game-over screen
 - High-score persistence via `localStorage`
 
 ## 🛠️ Tech Stack
 Vanilla HTML / CSS / JS. Single `<canvas>` render loop, no build step, no
-dependencies. Art and audio are baked WebP/PNG + MP3 assets under `assets/`.
+dependencies. Art and audio are baked PNG + MP3 assets under `assets/`.
 
 ## 📁 File Layout
 ```
@@ -69,8 +72,9 @@ dead-district/
 ```
 
 ## 📌 Status
-Playable. Imported into the arcade from a standalone prototype; registered on the
-launcher with a blood-crimson (`#c81e1e`) theme.
+Playable, v1.1.0. Imported into the arcade from a standalone prototype; registered
+on the launcher with a blood-crimson (`#c81e1e`) theme. Mobile/touch supported via
+dual virtual sticks (see Controls).
 
 ---
 ← [Back to Arcade](../)
