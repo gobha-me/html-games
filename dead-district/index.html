@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DEAD DISTRICT — 18+ Survival Horror</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ======= 18+ AGE GATE ======= -->
+  <div id="ageGate" class="overlay">
+    <div class="gate-box">
+      <div class="warn-tri">⚠</div>
+      <h2>RESTRICTED — ADULTS ONLY</h2>
+      <p class="gate-sub">This game contains <strong>graphic violence, blood &amp; gore</strong>,<br>
+      and intense horror themes. Intended for mature audiences only.</p>
+      <p class="gate-q">Are you 18 years of age or older?</p>
+      <div class="gate-btns">
+        <button id="ageYes" class="btn btn-red">I AM 18+ — ENTER</button>
+        <button id="ageNo" class="btn btn-dim">LEAVE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= GAME CANVAS ======= -->
+  <canvas id="game"></canvas>
+
+  <!-- ======= HUD ======= -->
+  <div id="hud" class="hidden">
+    <div id="healthWrap"><div id="healthBar"></div><span id="healthText">100</span></div>
+    <div id="stats">
+      <span id="ammo">∞</span>
+      <span id="score">0</span>
+      <span id="wave">WAVE 1</span>
+    </div>
+    <div id="mute">🔊</div>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="dmgFlash"></div>
+
+  <!-- ======= MAIN MENU ======= -->
+  <div id="menu" class="overlay hidden">
+    <div class="title-block">
+      <h1 class="game-title">DEAD<span>DISTRICT</span></h1>
+      <p class="tagline">They own the streets now. Take them back.</p>
+      <button id="startBtn" class="btn btn-red big">▶ SURVIVE</button>
+      <div class="controls-hint">
+        <div><b>WASD</b> / <b>Arrows</b> — move</div>
+        <div><b>Mouse</b> — aim &nbsp;•&nbsp; <b>Click / Hold</b> — fire</div>
+        <div><b>M</b> — mute &nbsp;•&nbsp; <b>P</b> — pause</div>
+      </div>
+      <p id="hiscore" class="hiscore"></p>
+    </div>
+  </div>
+
+  <!-- ======= PAUSE ======= -->
+  <div id="pause" class="overlay hidden">
+    <h1 class="pause-title">PAUSED</h1>
+    <p class="dim">Press P or click to resume</p>
+  </div>
+
+  <!-- ======= GAME OVER ======= -->
+  <div id="gameover" class="overlay hidden">
+    <div class="go-block">
+      <h1 class="go-title">YOU DIED</h1>
+      <p class="go-cause" id="goCause">The horde dragged you down.</p>
+      <div class="go-stats">
+        <div class="go-stat"><span class="go-num" id="goScore">0</span><span class="go-lbl">SCORE</span></div>
+        <div class="go-stat"><span class="go-num" id="goKills">0</span><span class="go-lbl">KILLS</span></div>
+        <div class="go-stat"><span class="go-num" id="goWave">1</span><span class="go-lbl">WAVE</span></div>
+        <div class="go-stat"><span class="go-num" id="goTime">0:00</span><span class="go-lbl">SURVIVED</span></div>
+      </div>
+      <button id="retryBtn" class="btn btn-red big">↻ TRY AGAIN</button>
+    </div>
+  </div>
+
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+
+<script src="js/game.js"></script>
+</body>
+</html>
