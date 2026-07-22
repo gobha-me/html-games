@@ -1,0 +1,73 @@
+{
+  "title": "Test Pulse (dev)",
+  "artist": "Venice (generated)",
+  "audio": "assets/test-track.wav",
+  "bpm": 120.0,
+  "offset": 0,
+  "notes": [
+    {
+      "time": 0.0,
+      "lane": 3
+    },
+    {
+      "time": 0.975,
+      "lane": 0
+    },
+    {
+      "time": 1.974,
+      "lane": 1
+    },
+    {
+      "time": 2.972,
+      "lane": 0
+    },
+    {
+      "time": 3.971,
+      "lane": 1
+    },
+    {
+      "time": 4.969,
+      "lane": 2
+    },
+    {
+      "time": 5.968,
+      "lane": 1
+    },
+    {
+      "time": 6.966,
+      "lane": 2
+    },
+    {
+      "time": 7.964,
+      "lane": 3
+    },
+    {
+      "time": 8.963,
+      "lane": 2
+    },
+    {
+      "time": 9.961,
+      "lane": 3
+    },
+    {
+      "time": 10.96,
+      "lane": 0
+    },
+    {
+      "time": 11.958,
+      "lane": 3
+    },
+    {
+      "time": 12.98,
+      "lane": 0
+    },
+    {
+      "time": 13.978,
+      "lane": 1
+    },
+    {
+      "time": 14.977,
+      "lane": 0
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "tracks": [
+    { "file": "test-pulse.json", "title": "Test Pulse (dev)", "bpm": 120 }
+  ]
+}

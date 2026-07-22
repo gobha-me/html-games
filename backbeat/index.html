@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BACKBEAT — Rhythm Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Menu Screen -->
+        <div id="menu-screen" class="screen active">
+            <div class="menu-header">
+                <h1 class="game-title">BACKBEAT</h1>
+                <p class="game-subtitle">hit the beat &middot; feel the groove</p>
+            </div>
+
+            <div class="menu-panel">
+                <div class="menu-section">
+                    <h2>Select Track</h2>
+                    <div id="track-list" class="track-list">
+                        <!-- populated by JS from charts/manifest.json -->
+                    </div>
+                </div>
+
+                <div class="menu-section">
+                    <h2>Select Difficulty</h2>
+                    <div class="diff-row" id="diff-row">
+                        <button class="diff-btn" data-diff="easy">Easy</button>
+                        <button class="diff-btn selected" data-diff="normal">Normal</button>
+                        <button class="diff-btn" data-diff="hard">Hard</button>
+                    </div>
+                </div>
+
+                <div class="menu-section">
+                    <h2>Controls</h2>
+                    <div class="controls-info">
+                        <div class="lane-keys">
+                            <span class="key">D</span>
+                            <span class="key">F</span>
+                            <span class="key">J</span>
+                            <span class="key">K</span>
+                        </div>
+                        <p>Hit the falling notes when they reach the line. <b>P</b> pauses.</p>
+                    </div>
+                </div>
+
+                <div class="menu-section">
+                    <h2>Audio Calibration</h2>
+                    <p class="cal-note">If hits feel early/late, adjust the offset until taps land on the pulse.</p>
+                    <div class="cal-row">
+                        <button id="cal-down" class="cal-btn">&minus;</button>
+                        <span id="cal-value" class="cal-value">0 ms</span>
+                        <button id="cal-up" class="cal-btn">+</button>
+                        <button id="cal-test" class="cal-test-btn">Test pulse</button>
+                    </div>
+                </div>
+
+                <button id="start-btn" class="main-btn">Start</button>
+                <div class="high-score">High Score: <span id="menu-high-score">0</span></div>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div id="game-header">
+                <div class="hud-item"><span class="hud-label">Score</span><span class="hud-value" id="score">0</span></div>
+                <div class="hud-item"><span class="hud-label">Combo</span><span class="hud-value" id="combo">0</span></div>
+                <div class="hud-item"><span class="hud-label">Accuracy</span><span class="hud-value" id="accuracy">100%</span></div>
+            </div>
+            <canvas id="game-canvas" width="480" height="640"></canvas>
+            <div id="judgement" class="judgement"></div>
+            <div id="pause-overlay" class="pause-overlay" style="display:none;">
+                <div class="pause-box">
+                    <h2>Paused</h2>
+                    <button id="resume-btn" class="main-btn">Resume</button>
+                    <button id="quit-btn" class="ghost-btn">Quit to Menu</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="screen">
+            <div class="results-panel">
+                <h1 class="results-title">Track Complete</h1>
+                <div id="new-high-score" class="new-high-score" style="display:none;">&#127942; New High Score! &#127942;</div>
+                <div class="results-grid">
+                    <div class="stat-item"><span class="stat-label">Score</span><span class="stat-value" id="final-score">0</span></div>
+                    <div class="stat-item"><span class="stat-label">Max Combo</span><span class="stat-value" id="final-combo">0</span></div>
+                    <div class="stat-item"><span class="stat-label">Accuracy</span><span class="stat-value" id="final-accuracy">0%</span></div>
+                </div>
+                <div class="judgement-tally">
+                    <span class="tally perfect">Perfect: <b id="t-perfect">0</b></span>
+                    <span class="tally good">Good: <b id="t-good">0</b></span>
+                    <span class="tally miss">Miss: <b id="t-miss">0</b></span>
+                </div>
+                <div class="results-actions">
+                    <button id="retry-btn" class="main-btn">Retry</button>
+                    <button id="menu-btn" class="ghost-btn">Menu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="../" class="back-to-arcade">&larr; Back to Arcade</a>
+    <link rel="stylesheet" href="../shared/back-to-arcade.css">
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
