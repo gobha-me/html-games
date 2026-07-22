@@ -19,3 +19,7 @@ npm-debug.log*
 # Per-game tooling owns its own .gitignore (e.g. cogfall/.gitignore handles
 # node_modules, dist preservation, .vite, tsconfig.tsbuildinfo). This root
 # file is just for OS / editor cruft that can leak in from any contributor.
+
+# Agent session state (Claude Code and similar harnesses drop per-session
+# dirs here). Same category as .vscode/ / .idea/ above — never commit.
+**/.claude/
