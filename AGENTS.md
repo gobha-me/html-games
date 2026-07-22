@@ -23,6 +23,35 @@ for the broader picture; this file is the short, tactical version.
    topology" below). Cross-game refactors need a ticket and explicit
    approval.
 
+## Agent attribution
+
+Multiple LLM agents and humans push here. To make per-model quality
+trackable over time ("does it work, does the change meet the goal"),
+any agent-authored change must carry structured attribution:
+
+1. **Commit trailer** — every agent-authored commit ends with:
+
+   ```
+   Co-authored-by: <Model Name> (<agent harness>) <noreply@venice.ai>
+   Agent: <harness> / <model id>
+   ```
+
+   (Commit *authorship* reflects the local git config and says nothing
+   about who wrote the change — the trailer is the source of truth.)
+
+2. **PR label** — tag the PR with a per-model label: `llm:kimi-k3`,
+   `llm:claude-opus-4`, etc. (create the label if missing), or `human`
+   for unassisted human work. One PR = one primary model; if a second
+   model materially contributed, say so in the PR body.
+
+3. **Verification line** — the PR body states what check was run and
+   its result (e.g. "node --check on 9 modules: pass; linkcheck:
+   pass"). "No automated tests exist for X" is a valid entry — the
+   point is that the claim is explicit, not that a suite exists.
+
+With those three, `tea` can answer "show every <model> PR and whether
+it merged cleanly" without manual bookkeeping.
+
 ## Multi-session topology
 
 Multiple LLM sessions work this repo concurrently. The split is by
