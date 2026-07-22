@@ -138,7 +138,7 @@ function init() {
     const saved = loadGame(createRNGStub);
     if (saved && !saved.state.gameOver) {
       gameState = deserializeState(saved.state);
-      trailLedger = saved.ledger ? createLedger(saved.ledger) : createLedger();
+      trailLedger = createLedger(saved.ledger);
       statsTracker = deserializeStats(saved.stats);
       turnLog = ['Loaded saved game.'];
     } else {
