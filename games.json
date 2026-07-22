@@ -188,6 +188,15 @@
       "icon": "🧟",
       "href": "dead-district/",
       "theme": "dead-district"
+    },
+    {
+      "slug": "backbeat",
+      "title": "BACKBEAT",
+      "description": "A 4-lane rhythm game — hit D F J K in time with a generated track. Onset-charted, fully self-contained audio + art.",
+      "tag": "Rhythm",
+      "icon": "🎵",
+      "href": "backbeat/",
+      "theme": "backbeat"
     }
   ]
 }
