@@ -30,8 +30,7 @@ import {
 
 import {
   dispatchEvent,
-  createLedger,
-  selectVoiceQuote
+  createLedger
 } from './event-runner.js';
 import {
   saveGame,
