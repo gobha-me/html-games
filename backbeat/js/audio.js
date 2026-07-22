@@ -13,6 +13,7 @@ export class AudioEngine {
     this.pauseOffset = 0;    // seconds into track when paused
     this.playing = false;
     this.hitGain = null;
+    this.hitBuffer = null;  // optional loaded sfx for note hits
   }
 
   async init() {
@@ -24,6 +25,33 @@ export class AudioEngine {
   }
 
   async resume() { if (this.ctx && this.ctx.state === 'suspended') await this.ctx.resume(); }
+
+  /** Load a hit-sound file; falls back to synthesized blip on failure. */
+  async loadHitSfx(url) {
+    try {
+      await this.init();
+      const res = await fetch(url);
+      const arr = await res.arrayBuffer();
+      this.hitBuffer = await this.ctx.decodeAudioData(arr);
+    } catch (e) {
+      this.hitBuffer = null;
+    }
+  }
+
+  /** Play the loaded hit sfx, or a blip if none. */
+  hit(lane = 0) {
+    if (!this.ctx) return;
+    if (this.hitBuffer) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.hitBuffer;
+      // slight pitch variation per lane for texture
+      src.playbackRate.value = 1 + lane * 0.06;
+      src.connect(this.hitGain || this.ctx.destination);
+      src.start();
+    } else {
+      this.blip(660 + lane * 110, 0.05);
+    }
+  }
 
   async loadTrack(url) {
     await this.init();

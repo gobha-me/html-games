@@ -1,5 +1,5 @@
 {
   "tracks": [
-    { "file": "test-pulse.json", "title": "Test Pulse (dev)", "bpm": 120 }
+    { "file": "backbeat-anthem.json", "title": "Backbeat Anthem", "bpm": 120 }
   ]
 }

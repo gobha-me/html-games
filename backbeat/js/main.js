@@ -97,6 +97,7 @@ async function startGame() {
   if (!state.chart) { alert('No track loaded yet.'); return; }
   await audio.init();
   await audio.resume();
+  audio.loadHitSfx('assets/hit.mp3'); // fire-and-forget; falls back to blip
 
   // load audio (chart.audio points to assets/)
   try {
@@ -202,7 +203,7 @@ window.addEventListener('keydown', async e => {
   const result = state.game.press(lane, audio.getTime());
   if (result) {
     state.renderer.addFlash(lane, result);
-    if (result !== JUDGE.MISS) audio.blip(660 + lane * 110, 0.05);
+    if (result !== JUDGE.MISS) audio.hit(lane);
   }
 });
 
@@ -215,7 +216,7 @@ $('game-canvas').addEventListener('pointerdown', e => {
   const result = state.game.press(lane, audio.getTime());
   if (result) {
     state.renderer.addFlash(lane, result);
-    if (result !== JUDGE.MISS) audio.blip(660 + lane * 110, 0.05);
+    if (result !== JUDGE.MISS) audio.hit(lane);
   }
 });
 

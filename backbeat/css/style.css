@@ -25,8 +25,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background-image: radial-gradient(circle at 50% 20%, #16162e 0%, var(--bg) 70%);
     overflow-x: hidden;
+    background-image:
+        linear-gradient(rgba(10,10,20,0.82), rgba(10,10,20,0.88)),
+        url("../assets/bg.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
 }
 
 #app { width: 100%; max-width: 560px; padding: 16px; }
