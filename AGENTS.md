@@ -101,6 +101,42 @@ For any non-trivial change:
 6. **Open a PR** linking the issue. Tag a label so the triage view
    stays useful.
 
+## Verifying rendered pages headlessly
+
+There's no human to open a browser for you, but the container has
+**Brave** (`brave-browser`, Chromium-compatible) and **Firefox**
+headless. Use them to confirm a page actually renders — especially
+JS-injected content, which `node --check` and linkcheck can't see.
+
+```bash
+# serve the repo, then:
+python3 -m http.server 8123 &
+
+# rendered screenshot (PNG) — feed to a vision tool to "look" at it
+brave-browser --headless=new --no-sandbox --disable-gpu \
+  --disable-dev-shm-usage --window-size=1280,900 \
+  --screenshot=/tmp/shot.png --virtual-time-budget=4000 \
+  http://localhost:8123/<game>/
+
+# post-JS rendered DOM (HTML) — grep it to confirm injected content
+brave-browser --headless=new --no-sandbox --disable-gpu \
+  --disable-dev-shm-usage --virtual-time-budget=4000 --dump-dom \
+  http://localhost:8123/<game>/ | grep "expected-string"
+```
+
+- **`--virtual-time-budget=<ms>` is the important flag** — it lets JS
+  run before capture. Without it you get a blank pre-JS frame (the
+  launcher's card grid is JS-injected from inlined JSON and won't
+  appear).
+- The `--no-sandbox --disable-gpu --disable-dev-shm-usage` flags are
+  required in the container; OOM/dbus/GPU stderr noise is cosmetic.
+- **Firefox** (`firefox --headless --screenshot out.png <url>`) works
+  too but is **screenshot-only** — no DOM dump, no wait-for-JS. Prefer
+  Brave; keep Firefox as fallback.
+- A vision tool reading a screenshot can **misread layout** (it once
+  reported two separate text runs as overlapping). Cross-check any
+  visual claim against the DOM dump or the CSS before filing a bug.
+
 ## Repo layout (cliff notes)
 
 - One game per top-level directory: `cogfall/`, `forge-defense/`,
