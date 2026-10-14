@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check launcher links
+        run: bash scripts/linkcheck.sh
+
+      - name: Verify games.json and index.html manifest parity
+        run: |
+          node -e '
+            const fs = require("fs");
+            const gamesJson = JSON.parse(fs.readFileSync("games.json", "utf8"));
+            const html = fs.readFileSync("index.html", "utf8");
+            const m = html.match(/<script type="application\/json" id="games-data">\s*([\s\S]*?)\s*<\/script>/);
+            if (!m) { console.error("Missing games-data script block in index.html"); process.exit(1); }
+            const inlineJson = JSON.parse(m[1]);
+            if (JSON.stringify(gamesJson) !== JSON.stringify(inlineJson)) {
+              console.error("games.json and index.html #games-data are out of sync");
+              process.exit(1);
+            }
+            for (const g of gamesJson.games) {
+              if (g.slug === "cogfall") continue;
+              const target = g.href.endsWith("/") ? g.href + "index.html" : g.href;
+              if (!fs.existsSync(target)) {
+                console.error("Missing target file for", g.slug, target);
+                process.exit(1);
+              }
+            }
+            console.log("Verified", gamesJson.games.length, "games in manifest.");
+          '
+
+      - name: Syntax-check BREACH // 2099 scripts
+        run: |
+          for f in breach/js/*.js; do
+            node --check "$f"
+          done
