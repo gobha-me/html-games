@@ -31,6 +31,8 @@ no accounts.
 | [Late Edition](late-edition/) | 1940s noir RTS — a newspaper fronting an information empire (design phase) | vanilla JS |
 | [Hexwire](hexwire/) | Neon-noir cyberpunk lane battler across three city blocks | vanilla JS |
 | [DEAD DISTRICT](dead-district/) | Survival-horror wave shooter with an 18+ age gate | vanilla JS |
+| [BACKBEAT](backbeat/) | 4-lane rhythm game with onset-charted generated audio | vanilla JS |
+| [BREACH // 2099](breach/) | 2.5D normal-mapped WebGL2 cyberpunk tactical room-clear | WebGL2 + vanilla JS |
 
 The launcher at [`index.html`](index.html) is the entry point, and
 [`games.json`](games.json) is the canonical manifest it renders from.

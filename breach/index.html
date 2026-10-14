@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BREACH // 2099 — Cyberpunk Tactical Room-Clear</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app-shell">
+    <!-- Top Tactical HUD Bar -->
+    <header id="hud-top">
+      <div class="hud-block brand-block">
+        <span class="hud-tag">SYNDICATE // WETWARE OPS</span>
+        <h1 class="hud-title">BREACH <span class="accent">// 2099</span></h1>
+      </div>
+
+      <div class="hud-block sector-block">
+        <span class="hud-label">ACTIVE SECTOR</span>
+        <div id="hud-sector-name" class="hud-value">01 // KOWLOON CHECKPOINT</div>
+      </div>
+
+      <div class="hud-block vitals-block">
+        <div class="bar-row">
+          <span class="bar-name">ARMOR</span>
+          <div class="bar-track"><div id="bar-health" class="bar-fill health-fill" style="width: 100%"></div></div>
+          <span id="val-health" class="bar-num">100</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-name">OVERCLOCK [SPACE]</span>
+          <div class="bar-track"><div id="bar-overclock" class="bar-fill overclock-fill" style="width: 100%"></div></div>
+          <span id="val-overclock" class="bar-num">100%</span>
+        </div>
+      </div>
+
+      <div class="hud-block weapon-block">
+        <span class="hud-label">WEAPON LOADOUT [1-3 / Q]</span>
+        <div id="hud-weapon" class="hud-value cyan">1: SILENCED FLECHETTE</div>
+        <div id="hud-ammo" class="hud-sub">MAG: 12 / 12 · [R] RELOAD</div>
+      </div>
+
+      <div class="hud-block score-block">
+        <div class="score-line">
+          <span class="hud-label">HOSTILES</span>
+          <span id="hud-hostiles" class="hud-value warn">08</span>
+        </div>
+        <div class="score-line">
+          <span class="hud-label">SCORE</span>
+          <span id="hud-score" class="hud-value">000000</span>
+        </div>
+        <div class="score-line">
+          <span class="hud-label">COMBO</span>
+          <span id="hud-combo" class="hud-value accent">x1</span>
+        </div>
+      </div>
+
+      <div class="hud-block controls-block">
+        <button id="btn-mode-campaign" class="hud-btn active" title="Play 3-Floor Spire Campaign">SPIRE CAMPAIGN</button>
+        <button id="btn-mode-daily" class="hud-btn" title="Play Today's Deterministic Seeded Contract">DAILY CONTRACT</button>
+        <button id="btn-mute" class="hud-btn icon-btn" title="Mute / Unmute Synth & SFX [M]">🔊</button>
+      </div>
+    </header>
+
+    <!-- Main Viewport Stage -->
+    <main id="stage-wrap">
+      <canvas id="game-canvas" width="1280" height="720"></canvas>
+
+      <!-- Tactical Briefing / Start Overlay -->
+      <div id="overlay-menu" class="tactical-overlay visible">
+        <div class="modal-card">
+          <div class="modal-eyebrow">EUROCORP BLACK-OPS // NEURAL UPLINK ESTABLISHED</div>
+          <h2 class="modal-title">BREACH <span class="accent">// 2099</span></h2>
+          <p class="modal-subtitle">
+            2.5D Normal-Mapped WebGL2 Cyberpunk Breach-and-Clear. Kick doors, shatter glass, spike your
+            <strong>Adrenaline Overclock</strong> into bullet-time, and eliminate every syndicate hostile on the floor.
+          </p>
+
+          <div class="loadout-grid">
+            <div class="loadout-card">
+              <div class="loadout-key">[1] FLECHETTE PISTOL</div>
+              <p>Subsonic needle rounds. Silent execution — won't alert adjacent rooms.</p>
+            </div>
+            <div class="loadout-card">
+              <div class="loadout-key">[2] SMART-SMG</div>
+              <p>High-RPM caseless burst. Ricochets off reinforced steel bulkheads.</p>
+            </div>
+            <div class="loadout-card">
+              <div class="loadout-key">[3] GAUSS SCATTERGUN</div>
+              <p>Hyper-velocity tungsten flechettes. Blows doors off hinges &amp; shatters cover.</p>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <div><kbd>W A S D</kbd> Move Operative</div>
+            <div><kbd>MOUSE</kbd> 360° Laser Sight Aim</div>
+            <div><kbd>L-CLICK</kbd> Fire Weapon</div>
+            <div><kbd>SPACE</kbd> / <kbd>R-CLICK</kbd> Adrenaline Overclock (Slow-Mo)</div>
+            <div><kbd>E</kbd> / <kbd>F</kbd> Kick / Breach Door (Stuns Guards)</div>
+            <div><kbd>1 2 3</kbd> / <kbd>Q</kbd> Swap Weapon · <kbd>R</kbd> Reload</div>
+          </div>
+
+          <div class="modal-actions">
+            <button id="btn-start-campaign" class="cta-btn primary">INITIATE SPIRE BREACH (3 FLOORS)</button>
+            <button id="btn-start-daily" class="cta-btn secondary">DAILY SEEDED CONTRACT</button>
+          </div>
+
+          <div class="best-score-bar">
+            <span>BEST SPIRE SCORE: <strong id="menu-best-score">0</strong></span>
+            <span>RENDER PIPELINE: <strong id="menu-renderer-tag">WEBGL2 2.5D NORMAL SHADER</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floor Cleared / Game Over / Victory Overlay -->
+      <div id="overlay-status" class="tactical-overlay">
+        <div class="modal-card compact">
+          <div id="status-eyebrow" class="modal-eyebrow">SECTOR SECURED</div>
+          <h2 id="status-title" class="modal-title">FLOOR CLEARED</h2>
+          <p id="status-desc" class="modal-subtitle">All syndicate hostiles neutralized. Elevators unlocked.</p>
+
+          <div class="stats-table">
+            <div class="stat-cell">
+              <span class="stat-label">FLOOR SCORE</span>
+              <span id="stat-score" class="stat-val">0</span>
+            </div>
+            <div class="stat-cell">
+              <span class="stat-label">MAX COMBO</span>
+              <span id="stat-combo" class="stat-val accent">x1</span>
+            </div>
+            <div class="stat-cell">
+              <span class="stat-label">CLEAR TIME</span>
+              <span id="stat-time" class="stat-val">0.0s</span>
+            </div>
+            <div class="stat-cell">
+              <span class="stat-label">STYLE RANK</span>
+              <span id="stat-rank" class="stat-val rank-s">S+</span>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button id="btn-next-action" class="cta-btn primary">BREACH NEXT FLOOR</button>
+            <button id="btn-retry-floor" class="cta-btn secondary">RETRY FLOOR [R]</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Status Strip -->
+    <footer id="hud-bottom">
+      <div class="bottom-left">
+        <span class="status-dot"></span>
+        <span id="hud-prompt">PRESS [E] NEAR DOORS TO KICK BREACH · [SPACE] ADRENALINE OVERCLOCK · [P] PAUSE</span>
+      </div>
+      <div class="bottom-right">
+        <span id="hud-seed">SEED: CAMPAIGN-01</span>
+      </div>
+    </footer>
+  </div>
+
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+
+  <script src="js/sprites.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/levels.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

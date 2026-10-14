@@ -197,6 +197,15 @@
       "icon": "🎵",
       "href": "backbeat/",
       "theme": "backbeat"
+    },
+    {
+      "slug": "breach",
+      "title": "BREACH // 2099",
+      "description": "2.5D normal-mapped WebGL2 cyberpunk tactical room-clear — kick doors, shatter glass, and spike Adrenaline Overclock into bullet-time across 3 Spire floors.",
+      "tag": "Tactical Action",
+      "icon": "🕶️",
+      "href": "breach/",
+      "theme": "breach"
     }
   ]
 }
