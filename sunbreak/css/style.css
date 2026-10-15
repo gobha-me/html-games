@@ -189,16 +189,16 @@ html, body {
 .tuner-cluster {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tuner-select {
   display: flex;
   flex-direction: column;
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   color: var(--text-dim);
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 
 .tuner-select select {
@@ -207,8 +207,8 @@ html, body {
   color: var(--text-main);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 5px;
-  padding: 3px 6px;
-  font-size: 0.72rem;
+  padding: 3px 4px;
+  font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -218,10 +218,11 @@ html, body {
   color: var(--text-main);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
+  padding: 5px 8px;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
 }

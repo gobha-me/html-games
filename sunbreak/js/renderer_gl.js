@@ -1372,6 +1372,10 @@
         ctx.fillRect(sx - 22, sy + 6, 44 * turboPct, 3);
       });
 
+      if (state.rallyState === 'serve') {
+        this.renderServeMeterOverlay(ctx, state, time);
+      }
+
       state.callouts.forEach((c) => {
         ctx.save();
         ctx.font = '900 19px Inter, sans-serif';
@@ -1386,6 +1390,105 @@
       if (cardActive) {
         this.renderPoseCamOverlay(ctx, state, time);
       }
+    }
+
+    renderServeMeterOverlay(ctx, state, time) {
+      const srv = state.players[state.serverSlot || 0];
+      if (!srv) return;
+
+      const sx = srv.x;
+      const sy = srv.y - srv.z * 0.88;
+
+      ctx.save();
+      if (state.servePhase === 'toss' || state.serveCharge > 0.01) {
+        const charge = Math.max(0, Math.min(1.0, state.serveCharge || 0));
+        const barW = 14;
+        const barH = 92;
+        const bx = srv.team === 0 ? sx - 54 : sx + 40;
+        const by = sy - 118;
+
+        // Outer dark neon frame
+        ctx.fillStyle = 'rgba(6, 11, 22, 0.90)';
+        ctx.fillRect(bx - 3, by - 3, barW + 6, barH + 6);
+        ctx.strokeStyle = srv.onFire ? '#ff5500' : '#ffb84d';
+        ctx.lineWidth = 1.6;
+        ctx.strokeRect(bx - 3, by - 3, barW + 6, barH + 6);
+
+        // Background zone bands (measured from bottom = 0.0 to top = 1.0):
+        // Overcharge Red Zone: 0.92 -> 1.00 (top 8%)
+        const overH = barH * 0.08;
+        ctx.fillStyle = 'rgba(255, 56, 100, 0.42)';
+        ctx.fillRect(bx, by, barW, overH);
+
+        // Sweet-Spot Gold/Emerald Zone: 0.74 -> 0.92 (18% height)
+        const sweetTop = by + overH;
+        const sweetH = barH * 0.18;
+        ctx.fillStyle = 'rgba(52, 211, 153, 0.38)';
+        ctx.fillRect(bx, sweetTop, barW, sweetH);
+
+        // Active charge fill from bottom up
+        const fillH = barH * charge;
+        const fillY = by + barH - fillH;
+        const inSweet = charge >= 0.74 && charge <= 0.92;
+        const inOver = charge > 0.92;
+
+        const grad = ctx.createLinearGradient(bx, by + barH, bx, by);
+        if (srv.onFire) {
+          grad.addColorStop(0.0, '#ffb84d');
+          grad.addColorStop(0.6, '#ff5500');
+          grad.addColorStop(1.0, '#ff1e56');
+        } else {
+          grad.addColorStop(0.0, '#2ce6ff');
+          grad.addColorStop(0.74, '#ffb84d');
+          grad.addColorStop(0.92, '#34d399');
+          grad.addColorStop(1.0, '#ff3864');
+        }
+        ctx.fillStyle = grad;
+        ctx.fillRect(bx, fillY, barW, fillH);
+
+        // Sweet-spot bracket lines
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(bx - 3, sweetTop);
+        ctx.lineTo(bx + barW + 3, sweetTop);
+        ctx.moveTo(bx - 3, sweetTop + sweetH);
+        ctx.lineTo(bx + barW + 3, sweetTop + sweetH);
+        ctx.stroke();
+
+        // Live charge cursor line
+        ctx.fillStyle = inOver ? '#ff3864' : inSweet ? '#ffffff' : '#ffb84d';
+        ctx.fillRect(bx - 4, fillY - 1.5, barW + 8, 3);
+
+        // Label beside/above meter
+        ctx.font = '900 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        const modeTxt = srv.onFire
+          ? '🔥 METEOR'
+          : state.serveType === 'jump'
+          ? 'JUMP LASER'
+          : state.serveAimDrop
+          ? 'SHORT DROP'
+          : 'FLOAT SERVE';
+        ctx.fillStyle = inOver ? '#ff3864' : inSweet ? '#34d399' : '#ffb84d';
+        ctx.fillText(inSweet ? '★ SWEET ★' : inOver ? 'OVER!' : `${Math.round(charge * 100)}%`, bx + barW * 0.5, by - 7);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText(modeTxt, bx + barW * 0.5, by + barH + 14);
+      } else if (srv.controllerType !== 'ai' && !state.demoFreeze) {
+        const pulse = 0.78 + 0.22 * Math.sin(time * 5.0);
+        ctx.globalAlpha = pulse;
+        ctx.font = '800 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        const prompt = srv.onFire
+          ? '🔥 HOLD/TAP [K] METEOR JUMP SERVE • [J] FLOAT'
+          : 'HOLD/TAP [J] FLOAT/DROP • [K] JUMP LASER';
+        const pw = ctx.measureText(prompt).width + 14;
+        ctx.fillStyle = 'rgba(6, 12, 24, 0.80)';
+        ctx.fillRect(sx - pw * 0.5, sy + 18, pw, 16);
+        ctx.fillStyle = srv.onFire ? '#ff7b29' : '#2ce6ff';
+        ctx.fillText(prompt, sx, sy + 29);
+      }
+      ctx.restore();
     }
 
     renderPoseCamOverlay(ctx, state, time) {
