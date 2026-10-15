@@ -47,6 +47,13 @@
       this.touchCount = 0;
       this.lastTouchPlayer = -1;
       this.requestedSetType = [null, null]; // 'high' | 'quick'
+      this.defenseTactic = ['block', 'block']; // 'block' (🧱 Roof Block Net) | 'peel' (🛡️ Peel Deep)
+      this.tacticFlashTimer = [0, 0];
+
+      // Dynamic Beach Trade-Wind (affects High Sets, Lobs & Knuckle Float Serves!)
+      this.windX = 38;
+      this.windKnots = 9;
+      this.windLabel = '9 KT → E';
 
       this.poseCamActive = false;
       this.poseCamPlayerIdx = 0;
@@ -430,6 +437,46 @@
       document.getElementById('solar-right-fill').style.width = `${Math.min(100, this.solar[1])}%`;
     }
 
+    rollWind() {
+      const presets = [
+        { knots: 0, dir: 0, label: 'CALM 0 KT' },
+        { knots: 7, dir: 1, label: '7 KT → E' },
+        { knots: 9, dir: -1, label: '9 KT ← W' },
+        { knots: 12, dir: 1, label: '12 KT → E' },
+        { knots: 14, dir: -1, label: '14 KT ← W' },
+        { knots: 17, dir: 1, label: 'GUST 17 KT → E' }
+      ];
+      const pick = presets[Math.floor(Math.random() * presets.length)];
+      this.windKnots = pick.knots;
+      this.windX = pick.dir * pick.knots * 4.2;
+      this.windLabel = pick.label;
+    }
+
+    isDeuce() {
+      return this.score[0] >= 14 && this.score[1] >= 14 && Math.abs(this.score[0] - this.score[1]) <= 1;
+    }
+
+    getMatchPointTeam() {
+      if (this.score[0] >= 14 && this.score[0] - this.score[1] >= 1) return 0;
+      if (this.score[1] >= 14 && this.score[1] - this.score[0] >= 1) return 1;
+      return -1;
+    }
+
+    toggleDefenseTactic(team) {
+      const next = this.defenseTactic[team] === 'block' ? 'peel' : 'block';
+      this.defenseTactic[team] = next;
+      this.tacticFlashTimer[team] = 1.65;
+      const partnerSlot = team === 0 ? 1 : 2;
+      const partner = this.players[partnerSlot] || this.players[team === 0 ? 0 : 2];
+      const label =
+        next === 'block'
+          ? '🧱 TACTIC: PARTNER ROOF BLOCK NET!'
+          : '🛡️ TACTIC: PARTNER PEEL DEEP!';
+      const col = next === 'block' ? '#ffb84d' : '#2ce6ff';
+      this.addCallout(label, partner.x, partner.y - 102, col);
+      AudioSys.playHit(0.45, next === 'block' ? 1.28 : 0.92);
+    }
+
     resetServe(servingTeam) {
       this.servingTeam = servingTeam;
       this.touchTeam = servingTeam;
@@ -442,6 +489,7 @@
       this.serveHoldMode = false;
       this.serveAimDrop = false;
       this.aiServeTargetCharge = 0.78 + Math.random() * 0.12;
+      this.rollWind();
 
       this.ball.topspin = 0;
       this.ball.curveY = 0;
@@ -501,9 +549,27 @@
       this.ballLanding = null;
       this.aiServeTimer = 0.65;
 
+      // Deuce / Match-Point Adrenaline Boost!
+      const mpTeam = this.getMatchPointTeam();
+      if (this.isDeuce() && this.score[0] === this.score[1]) {
+        this.solar[0] = Math.min(100, this.solar[0] + 25);
+        this.solar[1] = Math.min(100, this.solar[1] + 25);
+        this.updateScoreHud();
+        this.addCallout('⚡ DEUCE! WIN BY 2 • +25% SOLAR SURGE! ⚡', 640, 225, '#ffb84d');
+      } else if (mpTeam !== -1) {
+        const mpName = mpTeam === 0 ? 'SUNSET' : 'RIPTIDE';
+        this.addCallout(`🔥 MATCH POINT • ${mpName}! 🔥`, 640, 225, '#ff3864');
+      }
+
       this.updateTouchHud();
+      const statusPrefix =
+        mpTeam !== -1
+          ? `MATCH POINT (${mpTeam === 0 ? 'SUNSET' : 'RIPTIDE'}) • `
+          : this.isDeuce()
+          ? 'DEUCE (WIN BY 2) • '
+          : '';
       document.getElementById('match-meta').textContent =
-        servingTeam === 0 ? 'SUNSET SERVE • HOLD/TAP J OR K' : 'RIPTIDE SERVE';
+        statusPrefix + (servingTeam === 0 ? 'SUNSET SERVE • HOLD/TAP J OR K' : 'RIPTIDE SERVE');
     }
 
     enforceAutoHandoffOnTeam(team, targetSlot) {
@@ -548,7 +614,7 @@
     /**
      * Predicts both where the ball will hit the sand (z = 8) AND where a defender's
      * dig forearm platform (`z = 42`) will intercept it so athletes position their HANDS
-     * under the ball rather than their knees/feet! Accounts for topspin gravity & curve!
+     * under the ball rather than their knees/feet! Accounts for topspin, curve & trade-wind!
      */
     predictBallLanding() {
       const b = this.ball;
@@ -566,13 +632,22 @@
       const tHand = Math.max(0.05, (b.vz + Math.sqrt(discHand)) / g);
 
       const curveAcc = b.curveY || 0;
-      const lx = Math.max(COURT.leftX - 35, Math.min(COURT.rightX + 35, b.x + b.vx * tSand));
+      const windMult = b.knuckle > 0 ? 1.65 : b.z > 62 ? 1.25 : 0.85;
+      const windAccX = (this.windX || 0) * windMult;
+
+      const lx = Math.max(
+        COURT.leftX - 35,
+        Math.min(COURT.rightX + 35, b.x + b.vx * tSand + 0.5 * windAccX * tSand * tSand)
+      );
       const ly = Math.max(
         COURT.topY - 25,
         Math.min(COURT.botY + 25, b.y + b.vy * tSand + 0.5 * curveAcc * tSand * tSand)
       );
 
-      const hx = Math.max(COURT.leftX - 35, Math.min(COURT.rightX + 35, b.x + b.vx * tHand));
+      const hx = Math.max(
+        COURT.leftX - 35,
+        Math.min(COURT.rightX + 35, b.x + b.vx * tHand + 0.5 * windAccX * tHand * tHand)
+      );
       const hy = Math.max(
         COURT.topY - 25,
         Math.min(COURT.botY + 25, b.y + b.vy * tHand + 0.5 * curveAcc * tHand * tHand)
@@ -755,22 +830,45 @@
           targetY = partner.y < 475 ? 535 : 410;
         }
       } else {
-        const isFrontBlocker = p.slot % 2 === 0;
-        if (isFrontBlocker) {
-          targetX = isLeft ? COURT.netX - 42 : COURT.netX + 42;
+        const tactic = this.defenseTactic[team] || 'block';
+        const isFrontBlocker =
+          partner.controllerType !== 'ai' ? true : p.slot % 2 === 0;
+
+        if (tactic === 'block' && isFrontBlocker) {
+          // 🧱 BLOCK NET TACTIC: Partner charges to 36px off the net, shadows attacker Y, and jumps for Roof Blocks!
+          targetX = isLeft ? COURT.netX - 36 : COURT.netX + 36;
           targetY = Math.max(COURT.topY + 35, Math.min(COURT.botY - 35, this.ball.y));
+          if (Math.hypot(targetX - p.x, targetY - p.y) > 45) out.turbo = true;
+
           const oppJumpingAtNet = this.players.some(
             (op) =>
               op.team !== team &&
-              (op.z > 20 || op.jumpCoilTimer > 0) &&
-              Math.abs(op.x - COURT.netX) < 120 &&
-              Math.hypot(this.ball.x - op.x, this.ball.y - op.y) < 68
+              (op.z > 16 || op.jumpCoilTimer > 0) &&
+              Math.abs(op.x - COURT.netX) < 135 &&
+              Math.hypot(this.ball.x - op.x, this.ball.y - op.y) < 78
           );
-          if (oppJumpingAtNet && p.z === 0 && p.jumpCoilTimer <= 0 && Math.random() < 0.22) {
+          const ballApproachingNetHigh =
+            Math.abs(this.ball.x - COURT.netX) < 95 &&
+            this.ball.z > COURT.netHeight - 8 &&
+            ((isLeft && this.ball.vx < -40) || (!isLeft && this.ball.vx > 40));
+
+          if (
+            (oppJumpingAtNet || ballApproachingNetHigh) &&
+            p.z === 0 &&
+            p.jumpCoilTimer <= 0 &&
+            Math.abs(p.x - COURT.netX) < 62 &&
+            Math.random() < 0.42
+          ) {
             out.btnA = true;
           }
+        } else if (tactic === 'peel') {
+          // 🛡️ PEEL DEEP TACTIC: Partner peels back to mid/deep court to cover cross-court lasers & cut drops!
+          targetX = isLeft ? (isFrontBlocker ? 430 : 335) : isFrontBlocker ? 850 : 945;
+          const partnerTop = partner.y < 475;
+          targetY = partner.controllerType !== 'ai' ? (partnerTop ? 548 : 405) : p.slot % 2 === 0 ? 405 : 548;
+          if (Math.hypot(targetX - p.x, targetY - p.y) > 65) out.turbo = true;
         } else {
-          targetX = isLeft ? 360 : 920;
+          targetX = isLeft ? 355 : 925;
           targetY = 480 + (this.ball.y - 480) * 0.45;
         }
       }
@@ -1439,6 +1537,12 @@
       if (this.cutInTimer > 0) {
         this.cutInTimer = Math.max(0, this.cutInTimer - dt);
       }
+      if (this.tacticFlashTimer[0] > 0) {
+        this.tacticFlashTimer[0] = Math.max(0, this.tacticFlashTimer[0] - dt);
+      }
+      if (this.tacticFlashTimer[1] > 0) {
+        this.tacticFlashTimer[1] = Math.max(0, this.tacticFlashTimer[1] - dt);
+      }
 
       // Hit-stop freeze on heavy spikes / roof blocks (soft-body springs continue vibrating during freeze!)
       if (this.hitStopTimer > 0) {
@@ -1494,8 +1598,14 @@
         }
 
         if (p.controllerType !== 'ai') {
-          if (input.btnSwitch && this.rallyState === 'play') {
-            this.manualSwapTeamControl(p.team);
+          if (input.btnSwitch) {
+            const onDefServe = this.rallyState === 'serve' && this.servingTeam !== p.team;
+            const onDefPlay = this.rallyState === 'play' && this.touchTeam !== p.team;
+            if (onDefServe || onDefPlay) {
+              this.toggleDefenseTactic(p.team);
+            } else if (this.rallyState === 'play') {
+              this.manualSwapTeamControl(p.team);
+            }
           }
           if (this.rallyState === 'play' && this.touchTeam === p.team && this.touchCount === 1) {
             if (input.btnA) this.requestedSetType[p.team] = 'high';
@@ -1693,8 +1803,12 @@
         const b = this.ball;
         const prevX = b.x;
 
-        // Apply Topspin downward dive, Meteor lateral curve, and Knuckle-Float aerodynamic wobble!
+        // Apply Topspin downward dive, Meteor lateral curve, Beach Trade-Wind, and Knuckle-Float aerodynamic wobble!
         const gravMult = 1.0 + (b.topspin || 0) * 0.34;
+        const windMult = b.knuckle > 0 ? 1.65 : b.z > 62 ? 1.25 : 0.85;
+        if (this.windX) {
+          b.vx += this.windX * windMult * dt;
+        }
         if (b.curveY) {
           b.vy += b.curveY * dt;
         }
@@ -1802,6 +1916,11 @@
       g.servePhase = 'toss';
       g.serveType = 'jump';
       g.serveCharge = 0.84; // Showcase the new Serve Power & Sweet-Spot Bar right in the ★ SWEET ★ zone!
+      g.windKnots = 12;
+      g.windX = 50.4;
+      g.windLabel = '12 KT → E';
+      g.defenseTactic = ['block', 'peel'];
+      g.tacticFlashTimer = [4.0, 4.0];
       g.demoFreeze = true;
       const aParam = params.get('athlete');
       if (aParam !== null) {
@@ -1815,7 +1934,9 @@
       g.players[0].actionTimer = 4.0;
       g.players[0].ghostTrail = [{ x: 248, y: 502, z: 8, poseKey: 'pose_jump_coil' }];
       g.players[0].rig.applyActionImpulse('celebrate', 1.45);
-      // Showcase keyed Jump Coil on Partner Elena and Dig on Nyx!
+      // Showcase keyed Jump Coil on Partner Elena at net (`🧱 BLOCK NET`) and Dig on Nyx (`🛡️ PEEL DEEP`)!
+      g.players[1].x = 598;
+      g.players[1].y = 435;
       g.players[1].actionState = 'jump_coil';
       g.players[1].actionTimer = 4.0;
       g.players[2].actionState = 'dig';
@@ -1831,6 +1952,12 @@
       g.physicsPreset = 'overdrive';
       g.rallyState = 'play';
       g.demoFreeze = true;
+      g.score = [14, 14]; // Showcase DEUCE (WIN BY 2) + Match-State & Wind HUD!
+      g.windKnots = 14;
+      g.windX = -58.8;
+      g.windLabel = '14 KT ← W';
+      g.defenseTactic = ['block', 'peel'];
+      g.tacticFlashTimer = [4.0, 4.0];
       g.teamOnFire = [true, false];
       g.streak = [3, 0];
       g.players[0].onFire = true;
