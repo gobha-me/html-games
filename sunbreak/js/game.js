@@ -254,17 +254,22 @@
             this.players[this.poseCamPlayerIdx].rig = new SoftBodyRig(ROSTER[rIdx]);
           } else if (e.code === 'Space') {
             const fp = this.players[this.poseCamPlayerIdx];
+            fp.posePreviewTimer = 0;
             fp.vz = 240;
-            fp.rig.applyActionImpulse('jump', 1.25);
+            fp.rig.applyActionImpulse('jump', 1.35);
             AudioSys.playHit(0.7, 1.1);
           } else if (e.code === 'KeyK') {
             const fp = this.players[this.poseCamPlayerIdx];
             fp.actionState = 'spike';
-            fp.actionTimer = 0.35;
+            fp.actionTimer = 0.55;
+            fp.posePreviewTimer = 0.65;
             fp.rig.applyActionImpulse('spike', 1.35);
             AudioSys.playSolarSpike();
           } else if (e.code === 'KeyL') {
             const fp = this.players[this.poseCamPlayerIdx];
+            fp.actionState = 'dive';
+            fp.actionTimer = 0.55;
+            fp.posePreviewTimer = 0.65;
             fp.rig.applyActionImpulse('dive', 1.3);
             AudioSys.playSandDive();
           }
@@ -820,6 +825,7 @@
           this.cutInTimer = 1.65;
           this.cutInLabel = p.profile.signatureMove;
           this.poseCamPlayerIdx = p.slot;
+          p.posePreviewTimer = 1.65;
           this.addCallout(`★ ${p.profile.signatureMove}! ★`, p.x, p.y - 105, p.profile.signatureColor);
           AudioSys.playSolarSpike();
         } else if (airborne) {
@@ -1063,6 +1069,9 @@
             p.actionState = 'idle';
           }
         }
+        if (p.posePreviewTimer > 0) {
+          p.posePreviewTimer = Math.max(0, p.posePreviewTimer - dt);
+        }
 
         p.rig.update(dt, p, this.physicsPreset);
       });
@@ -1158,24 +1167,59 @@
     if (shot === 'pose') {
       g.toggleLobbyModal(false);
       g.poseCamActive = true;
-      g.executeServeHit(g.players[0], true, { mx: 1, my: -0.25 });
-      g.players[0].rig.applyActionImpulse('spike', 1.4);
+      g.rallyState = 'serve';
+      const aParam = params.get('athlete');
+      if (aParam !== null) {
+        const aIdx = parseInt(aParam, 10);
+        g.players[0].profile = ROSTER[aIdx % ROSTER.length];
+        g.players[0].rig = new SoftBodyRig(g.players[0].profile);
+      }
+      g.poseCamPlayerIdx = 0;
+      g.players[0].rig.applyActionImpulse('celebrate', 1.45);
+      g.players[1].actionState = 'set';
+      g.players[1].actionTimer = 4.0;
+      g.players[2].actionState = 'dig';
+      g.players[2].actionTimer = 4.0;
     } else if (shot === 'neon') {
       g.toggleLobbyModal(false);
       g.lightingTheme = 'neon';
       g.renderer.theme = 'neon';
       g.physicsPreset = 'overdrive';
-      g.solar[0] = 100;
-      g.rallyState = 'play';
-      g.players[0].x = 565;
-      g.players[0].y = 455;
-      g.players[0].z = 42;
-      g.ball.x = 575;
-      g.ball.y = 455;
-      g.ball.z = 84;
-      g.touchTeam = 0;
-      g.touchCount = 2;
-      g.handleBallContact(g.players[0], { mx: 1, my: 0.35, btnA: false, btnB: true, btnSwitch: false });
+      g.rallyState = 'serve';
+      g.poseCamPlayerIdx = 0;
+      g.cutInTimer = 4.0;
+      g.cutInLabel = g.players[0].profile.signatureMove;
+      g.players[0].x = 555;
+      g.players[0].y = 445;
+      g.players[0].z = 52;
+      g.players[0].vz = 140;
+      g.players[0].actionState = 'spike';
+      g.players[0].actionTimer = 4.0;
+      g.players[0].posePreviewTimer = 4.0;
+      g.players[0].rig.applyActionImpulse('spike', 1.65);
+      g.addCallout(`★ ${g.players[0].profile.signatureMove}! ★`, 555, 315, '#ff477e');
+      g.ball.x = 590;
+      g.ball.y = 445;
+      g.ball.z = 86;
+      g.ball.solarSpike = true;
+      g.ball.trail = [
+        { x: 545, y: 445, z: 98 },
+        { x: 560, y: 445, z: 94 },
+        { x: 575, y: 445, z: 90 }
+      ];
+      g.players[1].x = 425;
+      g.players[1].y = 535;
+      g.players[1].actionState = 'set';
+      g.players[1].actionTimer = 4.0;
+      g.players[2].x = 760;
+      g.players[2].y = 465;
+      g.players[2].actionState = 'dive';
+      g.players[2].actionTimer = 4.0;
+      g.players[2].diveLockTimer = 4.0;
+      g.players[3].x = 910;
+      g.players[3].y = 545;
+      g.players[3].actionState = 'dig';
+      g.players[3].actionTimer = 4.0;
     }
   });
 })();

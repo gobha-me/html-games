@@ -1,6 +1,6 @@
-// WebGL2 2.5D Deformable Sand, Ocean Shader & Articulated Soft-Body Athlete Renderer
+// WebGL2 2.5D Deformable Sand, Ocean Shader & Soft-Body UV-Warped Normal-Lit Sprite Renderer
 (function () {
-  const VS_SOURCE = `#version 300 es
+  const BG_VS_SOURCE = `#version 300 es
   in vec2 a_pos;
   out vec2 v_uv;
   void main() {
@@ -9,7 +9,7 @@
     gl_Position = vec4(a_pos, 0.0, 1.0);
   }`;
 
-  const FS_SOURCE = `#version 300 es
+  const BG_FS_SOURCE = `#version 300 es
   precision highp float;
   in vec2 v_uv;
   out vec4 outColor;
@@ -116,7 +116,6 @@
     }
 
     // 3. Normal-Mapped Deformable Beach Sand & Court (0.315 .. 1.0)
-    // Compute procedural sand ripples + dynamic footprint/dive craters
     float hC = noise(pixUv * vec2(140.0, 220.0)) * 0.18;
     float hX = noise((pixUv + vec2(0.002, 0.0)) * vec2(140.0, 220.0)) * 0.18;
     float hY = noise((pixUv + vec2(0.0, 0.002)) * vec2(140.0, 220.0)) * 0.18;
@@ -132,7 +131,6 @@
       if (dist2 < r * r * 2.2) {
         float fade = 1.0 - tr.w;
         float normD = sqrt(dist2) / r;
-        // Indent center, raised sand rim at normD ~ 0.85
         float profile = (normD < 1.0) ? (-cos(normD * 3.14159) * 0.5 - 0.2) : exp(-(normD - 1.0) * 4.0) * 0.3;
         craterDepth += profile * fade;
         vec2 dir = d / max(1.0, sqrt(dist2));
@@ -159,7 +157,6 @@
     }
 
     // 4. Perspective Court Boundary Lines (Trapezoid)
-    // Court world coordinates: X in [220..1060], Y in [295..655]
     float yNorm = (px.y - 295.0) / (655.0 - 295.0);
     if (yNorm >= -0.02 && yNorm <= 1.02) {
       float halfW = mix(340.0, 445.0, clamp(yNorm, 0.0, 1.0));
@@ -184,7 +181,7 @@
       vec2 d = (px - (pl.xy + shOffset)) * vec2(1.0, 1.85);
       float r = max(14.0, 26.0 - pl.z * 0.08);
       if (length(d) < r) {
-        sandCol *= mix(0.48, 0.85, length(d) / r);
+        sandCol *= mix(0.42, 0.88, length(d) / r);
       }
     }
 
@@ -195,13 +192,272 @@
     }
 
     if (u_ball.w > 0.5) {
-      // Solar Overdrive energy aura on court under ball
       float dGlow = length(px - u_ball.xy);
       sandCol += vec3(1.0, 0.42, 0.15) * exp(-dGlow * 0.035) * 0.45 * u_ball.w;
     }
 
     outColor = vec4(sandCol, 1.0);
   }`;
+
+  // WebGL2 Soft-Body UV-Warped & Normal-Lit Character Sprite Shader
+  const CHAR_VS_SOURCE = `#version 300 es
+  in vec2 a_uv;
+  out vec2 v_uv;
+  uniform vec2 u_center; // pixel center in [0..1280, 0..720]
+  uniform vec2 u_size;   // width, height in screen pixels
+  uniform float u_flip;  // 1.0 or -1.0
+  uniform float u_rot;   // radians
+  uniform vec2 u_res;    // 1280, 720
+
+  void main() {
+    // Local quad position: X in [-0.5..0.5], Y in [-1.0..0.0] (anchored near feet)
+    vec2 local = vec2((a_uv.x - 0.5) * u_size.x, (a_uv.y - 0.93) * u_size.y);
+    float c = cos(u_rot);
+    float s = sin(u_rot);
+    vec2 rotPos = vec2(local.x * c - local.y * s, local.x * s + local.y * c);
+    vec2 screenPx = u_center + rotPos;
+
+    vec2 ndc = (screenPx / u_res) * 2.0 - 1.0;
+    ndc.y = -ndc.y;
+    gl_Position = vec4(ndc, 0.0, 1.0);
+
+    // Flip U horizontally when facing left (-1.0)
+    v_uv = vec2(u_flip < 0.0 ? (1.0 - a_uv.x) : a_uv.x, a_uv.y);
+  }`;
+
+  const CHAR_FS_SOURCE = `#version 300 es
+  precision highp float;
+  in vec2 v_uv;
+  out vec4 outColor;
+
+  uniform sampler2D u_texAlbedo;
+  uniform sampler2D u_texNormal;
+
+  // 5 Anatomical UV Pin Zones: [u, v, radius] in unflipped texture UV space
+  uniform vec3 u_zoneBustL;
+  uniform vec3 u_zoneBustR;
+  uniform vec3 u_zoneHipL;
+  uniform vec3 u_zoneHipR;
+  uniform vec3 u_zoneHair;
+
+  // 5 Live Spring-Damper UV Displacement vectors + rest proportion scales
+  uniform vec2 u_dispBustL;
+  uniform vec2 u_dispBustR;
+  uniform vec2 u_dispHipL;
+  uniform vec2 u_dispHipR;
+  uniform vec2 u_dispHair;
+  uniform vec2 u_propScale; // x = bustScale, y = hipScale
+
+  // Per-athlete palette customization & lighting
+  uniform vec3 u_suitColor;
+  uniform vec3 u_trimColor;
+  uniform vec3 u_hairColor;
+  uniform vec3 u_skinTint;
+  uniform vec3 u_lightDir;
+  uniform vec3 u_sunColor;
+  uniform float u_wetness;
+  uniform float u_sandCoat;
+  uniform float u_flip;
+
+  float hash21(vec2 p) {
+    p = fract(p * vec2(127.1, 311.7));
+    p += dot(p, p + 19.19);
+    return fract(p.x * p.y);
+  }
+
+  // Computes smooth Gaussian radial UV warp + rest-proportion volume expansion + normal tilt
+  void applySoftZone(
+    vec2 uv,
+    vec3 zone,
+    vec2 disp,
+    float scaleBoost,
+    inout vec2 warpedUv,
+    inout vec2 normalTilt,
+    out float zoneWeight
+  ) {
+    vec2 d = (uv - zone.xy) * vec2(1.0, 1.22); // aspect-corrected radial distance
+    float r = max(0.015, zone.z);
+    float r2 = dot(d, d) / (r * r);
+    if (r2 < 3.2) {
+      float w = exp(-r2 * 1.45);
+      zoneWeight = w;
+      // 1) Spring-damper bounce & counter-sway displacement (inverse UV lookup)
+      warpedUv -= disp * w;
+      // 2) Per-athlete proportion fullness (radial magnification around zone center)
+      warpedUv -= (uv - zone.xy) * (scaleBoost - 1.0) * 0.34 * w;
+      // 3) Perturb 2.5D surface normal based on spring displacement & hemisphere slope
+      normalTilt += disp * 16.5 * w - (d / r) * (scaleBoost - 1.0) * 0.45 * w;
+    } else {
+      zoneWeight = 0.0;
+    }
+  }
+
+  void main() {
+    vec2 warpedUv = v_uv;
+    vec2 normalTilt = vec2(0.0);
+    float wBL = 0.0, wBR = 0.0, wHL = 0.0, wHR = 0.0, wHair = 0.0;
+
+    float bBoost = u_propScale.x;
+    float hBoost = u_propScale.y;
+
+    applySoftZone(v_uv, u_zoneBustL, u_dispBustL, bBoost, warpedUv, normalTilt, wBL);
+    applySoftZone(v_uv, u_zoneBustR, u_dispBustR, bBoost, warpedUv, normalTilt, wBR);
+    applySoftZone(v_uv, u_zoneHipL,  u_dispHipL,  hBoost, warpedUv, normalTilt, wHL);
+    applySoftZone(v_uv, u_zoneHipR,  u_dispHipR,  hBoost, warpedUv, normalTilt, wHR);
+    applySoftZone(v_uv, u_zoneHair,  u_dispHair,  1.0,    warpedUv, normalTilt, wHair);
+
+    if (warpedUv.x < 0.0 || warpedUv.x > 1.0 || warpedUv.y < 0.0 || warpedUv.y > 1.0) {
+      discard;
+    }
+
+    vec4 texCol = texture(u_texAlbedo, warpedUv);
+    if (texCol.a < 0.12) {
+      discard;
+    }
+
+    vec3 col = texCol.rgb;
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+
+    // Classify source pixel material using exact measured RGB characteristics:
+    // 1) Coral-Red Bikini Top & Bottom: high R (>0.55) and strong red-over-green excess (R - G > 0.48), with G <= B * 1.40
+    // 2) Crimson Hair: upper/ponytail envelope with R > 0.24, G < 0.18, and R - G > 0.22
+    // 3) Dark Burgundy/Plum Pixel-Art Outlines (R < 0.48 outside hair): leave untouched as dark ink outlines!
+    float redOverGreen = col.r - col.g;
+    float yellowness = min(col.r, col.g) - col.b;
+
+    bool isHairEnvelope =
+      warpedUv.y < 0.26 ||
+      wHair > 0.08 ||
+      (warpedUv.x < 0.44 && warpedUv.y < 0.64);
+
+    bool isHairPixel = isHairEnvelope && (col.r > 0.22) && (col.g < 0.22) && (redOverGreen > 0.20);
+    bool isBikiniPixel =
+      !isHairEnvelope &&
+      (col.r > 0.56) &&
+      (redOverGreen > 0.48) &&
+      (col.g <= col.b * 1.42);
+
+    if (isHairPixel) {
+      // Hair region: remap to athlete's hairColor while preserving pixel-art shading contrast
+      col = u_hairColor * (0.42 + lum * 1.35);
+    } else if (isBikiniPixel) {
+      // Bikini top & high-cut bottom: remap to athlete's suitPrimary across full highlight+shadow range
+      col = u_suitColor * (0.38 + lum * 1.18);
+    } else if (yellowness > 0.26 && col.r > 0.72 && col.g > 0.58 && (wBL + wBR + wHL + wHR) > 0.05) {
+      // Gold trim accents on bikini straps/ties
+      col = mix(col, u_trimColor * (0.55 + lum * 0.75), 0.75);
+    } else if (col.r > col.g && col.g > col.b && lum > 0.22) {
+      // Sun-kissed skin: apply subtle athlete skin tone tint while preserving hand-pixelated shading
+      col *= mix(vec3(1.0), u_skinTint / vec3(0.98, 0.78, 0.67), 0.55);
+    }
+
+    // Sample 2.5D Normal Map & perturb with live soft-body spring tilt
+    vec3 nSample = texture(u_texNormal, warpedUv).xyz * 2.0 - 1.0;
+    nSample.x *= u_flip; // Flip normal X when sprite is mirrored horizontally
+    vec3 N = normalize(vec3(
+      nSample.x + normalTilt.x * u_flip,
+      nSample.y + normalTilt.y,
+      max(0.25, nSample.z)
+    ));
+
+    vec3 L = normalize(vec3(-u_lightDir.x, -u_lightDir.y, u_lightDir.z));
+    float ndl = clamp(dot(N, L), 0.0, 1.0);
+
+    // Dynamic soft-body self-shadowing (under-bust & glute crease AO shift during vertical bounce)
+    float softZoneMask = clamp(wBL + wBR + wHL + wHR, 0.0, 1.0);
+    float bounceShade = 0.88 + 0.24 * ndl;
+    col *= mix(0.94 + 0.12 * ndl, bounceShade, softZoneMask);
+
+    // Wetness / sweat specular highlights on curved anatomical surfaces (bust, shoulders, glutes, thighs)
+    vec3 V = vec3(0.0, 0.0, 1.0);
+    vec3 H = normalize(L + V);
+    float specPower = mix(18.0, 36.0, u_wetness);
+    float spec = pow(max(0.0, dot(N, H)), specPower);
+    float specMask = (0.35 + 0.65 * softZoneMask) * (0.25 + 0.75 * u_wetness);
+    col += u_sunColor * spec * specMask * 0.68;
+
+    // Clinging golden beach sand grains on lower body & knees/hips after diving
+    if (u_sandCoat > 0.08 && warpedUv.y > 0.46) {
+      vec2 grainCell = floor(warpedUv * vec2(128.0, 160.0));
+      float hGrain = hash21(grainCell);
+      float lowerMask = smoothstep(0.46, 0.78, warpedUv.y);
+      if (hGrain > (1.0 - u_sandCoat * 0.38 * lowerMask) && lum > 0.18) {
+        col = mix(col, vec3(0.96, 0.80, 0.55), 0.72);
+      }
+    }
+
+    outColor = vec4(clamp(col, 0.0, 1.0), texCol.a);
+  }`;
+
+  // Hand-calibrated & visually verified anatomical UV landmarks for all 6 poses
+  const CALIBRATED_LANDMARKS = {
+    pose_ready: {
+      width: 256,
+      height: 320,
+      zones: {
+        bustL: [0.535, 0.348, 0.062],
+        bustR: [0.582, 0.354, 0.062],
+        hipL: [0.345, 0.515, 0.082],
+        hipR: [0.435, 0.520, 0.078],
+        hair: [0.335, 0.235, 0.125]
+      }
+    },
+    pose_dig: {
+      width: 256,
+      height: 320,
+      zones: {
+        bustL: [0.545, 0.345, 0.062],
+        bustR: [0.592, 0.350, 0.062],
+        hipL: [0.348, 0.515, 0.082],
+        hipR: [0.438, 0.520, 0.078],
+        hair: [0.340, 0.235, 0.125]
+      }
+    },
+    pose_set: {
+      width: 256,
+      height: 320,
+      zones: {
+        bustL: [0.540, 0.355, 0.065],
+        bustR: [0.590, 0.360, 0.065],
+        hipL: [0.358, 0.520, 0.082],
+        hipR: [0.445, 0.525, 0.078],
+        hair: [0.335, 0.240, 0.125]
+      }
+    },
+    pose_spike: {
+      width: 256,
+      height: 320,
+      zones: {
+        bustL: [0.565, 0.345, 0.065],
+        bustR: [0.622, 0.348, 0.065],
+        hipL: [0.495, 0.535, 0.082],
+        hipR: [0.585, 0.538, 0.078],
+        hair: [0.275, 0.285, 0.115]
+      }
+    },
+    pose_dive: {
+      width: 320,
+      height: 224,
+      zones: {
+        bustL: [0.635, 0.525, 0.068],
+        bustR: [0.665, 0.548, 0.068],
+        hipL: [0.445, 0.525, 0.085],
+        hipR: [0.478, 0.575, 0.080],
+        hair: [0.425, 0.285, 0.125]
+      }
+    },
+    plate_closeup: {
+      width: 384,
+      height: 480,
+      zones: {
+        bustL: [0.575, 0.458, 0.095],
+        bustR: [0.668, 0.468, 0.098],
+        hipL: [0.415, 0.775, 0.115],
+        hipR: [0.565, 0.785, 0.110],
+        hair: [0.335, 0.245, 0.130]
+      }
+    }
+  };
 
   class SunbreakRenderer {
     constructor(glCanvas, hudCanvas) {
@@ -210,7 +466,7 @@
       this.ctx = hudCanvas.getContext('2d');
       this.ctx.imageSmoothingEnabled = false;
 
-      // Offscreen low-res pixel-art buffer for crisp HD-2D sprite scaling
+      // Offscreen low-res pixel-art buffer for crisp HD-2D net, ball & court indicators
       this.spriteCanvas = document.createElement('canvas');
       this.spriteCanvas.width = 640;
       this.spriteCanvas.height = 360;
@@ -219,11 +475,19 @@
 
       this.theme = 'sunset';
       this.trails = [];
+      this.poseTextures = {};
+      this.assetsReady = false;
+
       this.initGL();
+      this.loadPoseSprites();
     }
 
     initGL() {
-      const gl = this.glCanvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+      const gl = this.glCanvas.getContext('webgl2', {
+        antialias: false,
+        alpha: false,
+        preserveDrawingBuffer: true
+      });
       this.gl = gl;
       if (!gl) {
         document.getElementById('renderer-pill').textContent = 'Canvas2D HD-Pixel Fallback';
@@ -241,24 +505,29 @@
         return sh;
       };
 
-      const vs = compile(gl.VERTEX_SHADER, VS_SOURCE);
-      const fs = compile(gl.FRAGMENT_SHADER, FS_SOURCE);
-      if (!vs || !fs) {
+      const makeProg = (vsSrc, fsSrc) => {
+        const vs = compile(gl.VERTEX_SHADER, vsSrc);
+        const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+        if (!vs || !fs) return null;
+        const p = gl.createProgram();
+        gl.attachShader(p, vs);
+        gl.attachShader(p, fs);
+        gl.linkProgram(p);
+        if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+          console.error('Link error:', gl.getProgramInfoLog(p));
+          return null;
+        }
+        return p;
+      };
+
+      this.prog = makeProg(BG_VS_SOURCE, BG_FS_SOURCE);
+      this.charProg = makeProg(CHAR_VS_SOURCE, CHAR_FS_SOURCE);
+      if (!this.prog || !this.charProg) {
         this.gl = null;
         return;
       }
 
-      const prog = gl.createProgram();
-      gl.attachShader(prog, vs);
-      gl.attachShader(prog, fs);
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-        console.error('Link error:', gl.getProgramInfoLog(prog));
-        this.gl = null;
-        return;
-      }
-
-      this.prog = prog;
+      // Fullscreen background quad VAO
       this.vao = gl.createVertexArray();
       gl.bindVertexArray(this.vao);
       const buf = gl.createBuffer();
@@ -268,16 +537,247 @@
         new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
         gl.STATIC_DRAW
       );
-      const loc = gl.getAttribLocation(prog, 'a_pos');
+      const loc = gl.getAttribLocation(this.prog, 'a_pos');
       gl.enableVertexAttribArray(loc);
       gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-      this.uTime = gl.getUniformLocation(prog, 'u_time');
-      this.uTheme = gl.getUniformLocation(prog, 'u_theme');
-      this.uRes = gl.getUniformLocation(prog, 'u_res');
-      this.uBall = gl.getUniformLocation(prog, 'u_ball');
-      this.uPlayers = gl.getUniformLocation(prog, 'u_players');
-      this.uTrails = gl.getUniformLocation(prog, 'u_trails');
+      this.uTime = gl.getUniformLocation(this.prog, 'u_time');
+      this.uTheme = gl.getUniformLocation(this.prog, 'u_theme');
+      this.uRes = gl.getUniformLocation(this.prog, 'u_res');
+      this.uBall = gl.getUniformLocation(this.prog, 'u_ball');
+      this.uPlayers = gl.getUniformLocation(this.prog, 'u_players');
+      this.uTrails = gl.getUniformLocation(this.prog, 'u_trails');
+
+      // Character UV quad VAO (0..1 UV coordinates)
+      this.charVao = gl.createVertexArray();
+      gl.bindVertexArray(this.charVao);
+      const cbuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, cbuf);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1]),
+        gl.STATIC_DRAW
+      );
+      const cloc = gl.getAttribLocation(this.charProg, 'a_uv');
+      gl.enableVertexAttribArray(cloc);
+      gl.vertexAttribPointer(cloc, 2, gl.FLOAT, false, 0, 0);
+
+      // Cache character shader uniform locations
+      const cp = this.charProg;
+      this.cu = {
+        center: gl.getUniformLocation(cp, 'u_center'),
+        size: gl.getUniformLocation(cp, 'u_size'),
+        flip: gl.getUniformLocation(cp, 'u_flip'),
+        rot: gl.getUniformLocation(cp, 'u_rot'),
+        res: gl.getUniformLocation(cp, 'u_res'),
+        texAlbedo: gl.getUniformLocation(cp, 'u_texAlbedo'),
+        texNormal: gl.getUniformLocation(cp, 'u_texNormal'),
+        zoneBustL: gl.getUniformLocation(cp, 'u_zoneBustL'),
+        zoneBustR: gl.getUniformLocation(cp, 'u_zoneBustR'),
+        zoneHipL: gl.getUniformLocation(cp, 'u_zoneHipL'),
+        zoneHipR: gl.getUniformLocation(cp, 'u_zoneHipR'),
+        zoneHair: gl.getUniformLocation(cp, 'u_zoneHair'),
+        dispBustL: gl.getUniformLocation(cp, 'u_dispBustL'),
+        dispBustR: gl.getUniformLocation(cp, 'u_dispBustR'),
+        dispHipL: gl.getUniformLocation(cp, 'u_dispHipL'),
+        dispHipR: gl.getUniformLocation(cp, 'u_dispHipR'),
+        dispHair: gl.getUniformLocation(cp, 'u_dispHair'),
+        propScale: gl.getUniformLocation(cp, 'u_propScale'),
+        suitColor: gl.getUniformLocation(cp, 'u_suitColor'),
+        trimColor: gl.getUniformLocation(cp, 'u_trimColor'),
+        hairColor: gl.getUniformLocation(cp, 'u_hairColor'),
+        skinTint: gl.getUniformLocation(cp, 'u_skinTint'),
+        lightDir: gl.getUniformLocation(cp, 'u_lightDir'),
+        sunColor: gl.getUniformLocation(cp, 'u_sunColor'),
+        wetness: gl.getUniformLocation(cp, 'u_wetness'),
+        sandCoat: gl.getUniformLocation(cp, 'u_sandCoat')
+      };
+    }
+
+    loadPoseSprites() {
+      const gl = this.gl;
+      const poseNames = [
+        'pose_ready',
+        'pose_dig',
+        'pose_set',
+        'pose_spike',
+        'pose_dive',
+        'plate_closeup'
+      ];
+      let loadedCount = 0;
+      const totalImages = poseNames.length * 2;
+
+      const createGLTex = (img, isNearest = true) => {
+        if (!gl) return null;
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MIN_FILTER,
+          isNearest ? gl.NEAREST : gl.LINEAR
+        );
+        gl.texParameteri(
+          gl.TEXTURE_2D,
+          gl.TEXTURE_MAG_FILTER,
+          isNearest ? gl.NEAREST : gl.LINEAR
+        );
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        return tex;
+      };
+
+      poseNames.forEach((name) => {
+        const entry = {
+          meta: CALIBRATED_LANDMARKS[name],
+          imgAlbedo: new Image(),
+          imgNormal: new Image(),
+          texAlbedo: null,
+          texNormal: null
+        };
+        this.poseTextures[name] = entry;
+
+        entry.imgAlbedo.onload = () => {
+          entry.texAlbedo = createGLTex(entry.imgAlbedo, true);
+          loadedCount++;
+          if (loadedCount === totalImages) this.assetsReady = true;
+        };
+        entry.imgNormal.onload = () => {
+          entry.texNormal = createGLTex(entry.imgNormal, false);
+          loadedCount++;
+          if (loadedCount === totalImages) this.assetsReady = true;
+        };
+
+        entry.imgAlbedo.src = `assets/sprites/${name}.png`;
+        entry.imgNormal.src = `assets/sprites/${name}_normal.png`;
+      });
+    }
+
+    selectPoseKey(p, isCloseup = false) {
+      if (isCloseup) {
+        if (p.posePreviewTimer > 0) {
+          if (p.actionState === 'spike' || p.z > 16) return 'pose_spike';
+          if (p.actionState === 'dive') return 'pose_dive';
+          if (p.actionState === 'set') return 'pose_set';
+          if (p.actionState === 'dig') return 'pose_dig';
+        }
+        return 'plate_closeup';
+      }
+      if (p.actionState === 'dive' || p.diveLockTimer > 0) return 'pose_dive';
+      if (p.z > 14 || p.actionState === 'spike') return 'pose_spike';
+      if (p.actionState === 'set') return 'pose_set';
+      if (p.actionState === 'dig') return 'pose_dig';
+      return 'pose_ready';
+    }
+
+    getThemeLighting() {
+      if (this.theme === 'noon') {
+        return {
+          lightDir: [-0.18, -0.28, 0.94],
+          sunColor: [1.0, 0.98, 0.86]
+        };
+      }
+      if (this.theme === 'neon') {
+        return {
+          lightDir: [0.35, -0.45, 0.82],
+          sunColor: [1.0, 0.28, 0.78]
+        };
+      }
+      return {
+        lightDir: [-0.45, -0.52, 0.72],
+        sunColor: [1.0, 0.84, 0.42]
+      };
+    }
+
+    /**
+     * Renders a painted HD pixel-art athlete pose through the WebGL2 Soft-Body
+     * UV-Warp & 2.5D Normal-Mapped Specular Shader.
+     */
+    drawAthleteGL(p, centerX, centerY, baseHeightPx, isCloseup = false) {
+      const gl = this.gl;
+      if (!gl || !this.charProg) return;
+
+      const poseKey = this.selectPoseKey(p, isCloseup);
+      const entry = this.poseTextures[poseKey];
+      if (!entry || !entry.texAlbedo || !entry.texNormal) return;
+
+      const prof = p.profile;
+      const rig = p.rig;
+      const facing = isCloseup ? 1.0 : p.facing || (p.team === 0 ? 1.0 : -1.0);
+      const hScale = prof.heightScale || 1.0;
+
+      // Running stride bob & tilt when in pose_ready
+      const speedXY = Math.hypot(p.vx || 0, p.vy || 0);
+      let bobY = 0;
+      let rot = 0;
+      if (!isCloseup) {
+        if (poseKey === 'pose_ready' && p.z <= 1 && speedXY > 15) {
+          bobY = -Math.abs(Math.sin(rig.stridePhase)) * 6.5;
+          rot = facing * Math.sin(rig.stridePhase) * 0.065;
+        } else if (poseKey === 'pose_spike' && p.z > 6) {
+          rot = facing * Math.max(-0.14, Math.min(0.16, -p.vz * 0.0004));
+        }
+      }
+
+      const aspect = entry.meta.width / entry.meta.height;
+      const drawH = baseHeightPx * hScale * (poseKey === 'pose_dive' ? 0.74 : 1.0);
+      const drawW = drawH * aspect;
+
+      gl.useProgram(this.charProg);
+      gl.bindVertexArray(this.charVao);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+      gl.uniform2f(this.cu.center, centerX, centerY + bobY);
+      gl.uniform2f(this.cu.size, drawW, drawH);
+      gl.uniform1f(this.cu.flip, facing);
+      gl.uniform1f(this.cu.rot, rot);
+      gl.uniform2f(this.cu.res, 1280.0, 720.0);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, entry.texAlbedo);
+      gl.uniform1i(this.cu.texAlbedo, 0);
+
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, entry.texNormal);
+      gl.uniform1i(this.cu.texNormal, 1);
+
+      const z = entry.meta.zones;
+      gl.uniform3fv(this.cu.zoneBustL, z.bustL);
+      gl.uniform3fv(this.cu.zoneBustR, z.bustR);
+      gl.uniform3fv(this.cu.zoneHipL, z.hipL);
+      gl.uniform3fv(this.cu.zoneHipR, z.hipR);
+      gl.uniform3fv(this.cu.zoneHair, z.hair);
+
+      // Convert spring-damper displacements (typically -10..+10) into smooth UV offsets
+      // Notice: horizontal displacement is mirrored by `facing` so world-space inertia maps into texture U
+      const uvGain = isCloseup ? 0.0046 : 0.0038;
+      gl.uniform2f(this.cu.dispBustL, rig.bustL.x * uvGain * facing, rig.bustL.y * uvGain);
+      gl.uniform2f(this.cu.dispBustR, rig.bustR.x * uvGain * facing, rig.bustR.y * uvGain);
+      gl.uniform2f(this.cu.dispHipL, rig.hipL.x * uvGain * 0.9 * facing, rig.hipL.y * uvGain * 0.9);
+      gl.uniform2f(this.cu.dispHipR, rig.hipR.x * uvGain * 0.9 * facing, rig.hipR.y * uvGain * 0.9);
+
+      // Hair ponytail whip derived from Verlet tail tip relative to root
+      const hRoot = rig.hairNodes[0];
+      const hTip = rig.hairNodes[rig.hairNodes.length - 1];
+      const hairDx = ((hTip.x - hRoot.x) + facing * 14.0) * 0.0022 * facing;
+      const hairDy = ((hTip.y - hRoot.y) - 12.0) * 0.0022;
+      gl.uniform2f(this.cu.dispHair, hairDx, hairDy);
+
+      gl.uniform2f(this.cu.propScale, prof.bustScale || 1.08, prof.hipScale || 1.08);
+      gl.uniform3fv(this.cu.suitColor, prof.suitPrimary);
+      gl.uniform3fv(this.cu.trimColor, prof.suitTrim);
+      gl.uniform3fv(this.cu.hairColor, prof.hairColor);
+      gl.uniform3fv(this.cu.skinTint, prof.skinBase);
+
+      const light = this.getThemeLighting();
+      gl.uniform3fv(this.cu.lightDir, light.lightDir);
+      gl.uniform3fv(this.cu.sunColor, light.sunColor);
+      gl.uniform1f(this.cu.wetness, rig.wetness);
+      gl.uniform1f(this.cu.sandCoat, rig.sandCoat);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.disable(gl.BLEND);
     }
 
     addSandTrail(x, y, radius = 18) {
@@ -296,17 +796,9 @@
       }
     }
 
-    rgbCss(arr, mult = 1.0, alpha = 1.0) {
-      const r = Math.max(0, Math.min(255, Math.round(arr[0] * 255 * mult)));
-      const g = Math.max(0, Math.min(255, Math.round(arr[1] * 255 * mult)));
-      const b = Math.max(0, Math.min(255, Math.round(arr[2] * 255 * mult)));
-      return alpha < 1.0 ? `rgba(${r},${g},${b},${alpha})` : `rgb(${r},${g},${b})`;
-    }
-
     renderBackground(time, state) {
       const gl = this.gl;
       if (!gl) {
-        // Fallback 2D background if WebGL2 unavailable
         const ctx = this.ctx;
         ctx.fillStyle = '#d89b65';
         ctx.fillRect(0, 0, 1280, 720);
@@ -314,6 +806,7 @@
       }
 
       gl.viewport(0, 0, this.glCanvas.width, this.glCanvas.height);
+      gl.disable(gl.BLEND);
       gl.useProgram(this.prog);
       gl.bindVertexArray(this.vao);
 
@@ -348,343 +841,6 @@
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
 
-    /**
-     * Renders an articulated 2.5D athlete with real-time normal-mapped lighting,
-     * specular sweat/ocean sheen, clinging sand grains, and independent Left/Right
-     * bust & glute/hip spring-damper soft-body physics.
-     */
-    drawAthlete25D(ctx, p, scale = 1.0, isCloseup = false) {
-      const prof = p.profile;
-      const rig = p.rig;
-      const facing = p.facing || (p.team === 0 ? 1 : -1);
-
-      // Convert world court coordinates to pixel-art canvas (or closeup center)
-      const cx = isCloseup ? 0 : p.x * 0.5;
-      const cy = isCloseup ? 0 : (p.y - p.z * 0.88) * 0.5;
-
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(scale * (prof.heightScale || 1.0), scale * (prof.heightScale || 1.0));
-
-      // Dive rotation tilt
-      if (p.actionState === 'dive') {
-        ctx.rotate(facing * 0.92);
-      } else if (p.z > 6) {
-        ctx.rotate(facing * Math.max(-0.22, Math.min(0.24, -p.vz * 0.0005)));
-      }
-
-      const skinBase = this.rgbCss(prof.skinBase);
-      const skinShadow = this.rgbCss(prof.skinShadow);
-      const skinHighlight = this.rgbCss(prof.skinBase, 1.16);
-      const suitMain = this.rgbCss(prof.suitPrimary);
-      const suitTrim = this.rgbCss(prof.suitTrim);
-      const hairMain = this.rgbCss(prof.hairColor);
-      const hairHi = this.rgbCss(prof.hairHighlight);
-
-      // Lighting vector for normal-mapped soft-body specular roll
-      const lightX = this.theme === 'neon' ? 0.45 : -0.45;
-      const lightY = -0.62;
-      const wet = rig.wetness;
-
-      // 1. Verlet Hair Ponytail (drawn behind shoulders)
-      ctx.lineCap = 'round';
-      for (let i = 0; i < rig.hairNodes.length - 1; i++) {
-        const n0 = rig.hairNodes[i];
-        const n1 = rig.hairNodes[i + 1];
-        ctx.strokeStyle = i === 0 ? hairHi : hairMain;
-        ctx.lineWidth = Math.max(2.2, 6.2 - i * 0.95);
-        ctx.beginPath();
-        ctx.moveTo(n0.x, n0.y - 22);
-        ctx.lineTo(n1.x, n1.y - 22);
-        ctx.stroke();
-      }
-
-      // Stride & jump knee bend animation
-      const stride = p.z > 2 ? 0.55 : Math.sin(rig.stridePhase) * (Math.hypot(p.vx, p.vy) > 15 ? 1.0 : 0.08);
-      const squat = p.actionState === 'dig' ? 3.5 : 0;
-
-      // 2. Back Leg & Front Leg (Toned Thighs, Calves, Sand-Dusted Shins)
-      const drawLeg = (hipOffsetX, phaseSign, isFront) => {
-        const kneeX = hipOffsetX + phaseSign * stride * 5.5 + facing * 1.2;
-        const kneeY = -12 + squat * 0.5;
-        const footX = hipOffsetX - phaseSign * stride * 6.5;
-        const footY = 0;
-
-        // Thigh
-        ctx.strokeStyle = isFront ? skinBase : skinShadow;
-        ctx.lineWidth = 5.6 * (prof.hipScale || 1.0);
-        ctx.beginPath();
-        ctx.moveTo(hipOffsetX, -22 + squat);
-        ctx.lineTo(kneeX, kneeY);
-        ctx.stroke();
-
-        // Specular thigh sheen
-        if (isFront && wet > 0.25) {
-          ctx.strokeStyle = `rgba(255, 248, 230, ${0.28 * wet})`;
-          ctx.lineWidth = 1.6;
-          ctx.beginPath();
-          ctx.moveTo(hipOffsetX + facing * 1.1, -21 + squat);
-          ctx.lineTo(kneeX + facing * 1.1, kneeY - 1);
-          ctx.stroke();
-        }
-
-        // Calf & Ankle
-        ctx.strokeStyle = isFront ? skinBase : skinShadow;
-        ctx.lineWidth = 4.1;
-        ctx.beginPath();
-        ctx.moveTo(kneeX, kneeY);
-        ctx.lineTo(footX, footY);
-        ctx.stroke();
-
-        // Clinging golden sand on lower legs after diving
-        if (rig.sandCoat > 0.12) {
-          ctx.strokeStyle = `rgba(244, 206, 142, ${Math.min(0.75, rig.sandCoat * 0.8)})`;
-          ctx.lineWidth = 3.2;
-          ctx.beginPath();
-          ctx.moveTo((kneeX + footX) * 0.5, (kneeY + footY) * 0.5);
-          ctx.lineTo(footX, footY);
-          ctx.stroke();
-        }
-
-        // Bare foot / ankle wrap
-        ctx.fillStyle = suitTrim;
-        ctx.fillRect(footX - 2, footY - 2.5, 4.5, 2.2);
-      };
-
-      drawLeg(-facing * 2.6, -1, false);
-
-      // 3. Pelvis, Hips & Independent Glute/Hip Soft-Body Spring Nodes
-      const hipY = -23.5 + squat;
-      const hL = rig.hipL;
-      const hR = rig.hipR;
-      const hipRad = 4.6 * (prof.hipScale || 1.0);
-
-      // Back glute/hip curve (deforms with hipL)
-      const gluteX = -facing * 3.4 + hL.x * 0.35;
-      const gluteY = hipY + 1.0 + hL.y * 0.38;
-      ctx.fillStyle = skinShadow;
-      ctx.beginPath();
-      ctx.arc(gluteX, gluteY, hipRad, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Front hip curve (deforms with hipR)
-      const frontHipX = facing * 2.2 + hR.x * 0.32;
-      const frontHipY = hipY + 0.6 + hR.y * 0.35;
-      ctx.fillStyle = skinBase;
-      ctx.beginPath();
-      ctx.arc(frontHipX, frontHipY, hipRad * 0.96, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Glute specular sun highlight shifted by spring velocity
-      ctx.fillStyle = `rgba(255, 245, 225, ${0.34 * wet})`;
-      ctx.beginPath();
-      ctx.arc(
-        gluteX - lightX * 1.4 + hL.x * 0.15,
-        gluteY + lightY * 1.4 + hL.y * 0.15,
-        hipRad * 0.42,
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-
-      // High-cut Bikini Bottom & Side Ties
-      ctx.fillStyle = suitMain;
-      ctx.beginPath();
-      ctx.moveTo(-5.2, hipY - 2.2 + hL.y * 0.2);
-      ctx.lineTo(5.2, hipY - 2.2 + hR.y * 0.2);
-      ctx.lineTo(facing * 2.6, hipY + 4.2 + hR.y * 0.25);
-      ctx.lineTo(-facing * 3.0, hipY + 3.8 + hL.y * 0.25);
-      ctx.closePath();
-      ctx.fill();
-
-      // Bikini hip tie ribbon flutter
-      ctx.strokeStyle = suitTrim;
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.moveTo(0, hipY - 1.8);
-      ctx.lineTo(-facing * 3.5 + hL.x * 0.6, hipY + 2.5 + Math.abs(hL.y) * 0.5);
-      ctx.stroke();
-
-      // Front Leg drawn over back hip
-      drawLeg(facing * 2.4, 1, true);
-
-      // 4. Sculpted Hourglass Waist, Midriff & Ribcage
-      const waistY = -30.5 + squat * 0.7;
-      const chestY = -37.2 + squat * 0.5;
-
-      // Back arm (drawn behind ribcage)
-      const swingAngle =
-        p.actionState === 'spike'
-          ? -2.35 + p.actionTimer * 9.5
-          : p.actionState === 'set'
-          ? -1.85
-          : p.actionState === 'dig'
-          ? 0.72
-          : Math.sin(rig.stridePhase) * 0.55;
-
-      ctx.strokeStyle = skinShadow;
-      ctx.lineWidth = 3.6;
-      ctx.beginPath();
-      ctx.moveTo(-facing * 3.2, chestY);
-      ctx.lineTo(
-        -facing * 3.2 + facing * Math.sin(swingAngle + 0.5) * 11,
-        chestY + Math.cos(swingAngle + 0.5) * 11
-      );
-      ctx.stroke();
-
-      // Midriff & Ribcage silhouette
-      ctx.fillStyle = skinBase;
-      ctx.beginPath();
-      ctx.moveTo(-4.2, hipY - 1.5);
-      ctx.quadraticCurveTo(-3.1, waistY, -5.2, chestY);
-      ctx.lineTo(5.2, chestY);
-      ctx.quadraticCurveTo(3.1, waistY, 4.2, hipY - 1.5);
-      ctx.closePath();
-      ctx.fill();
-
-      // Toned abdominal line & warm subsurface rim shadow
-      ctx.strokeStyle = skinShadow;
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      ctx.moveTo(facing * 1.1, chestY + 2.5);
-      ctx.lineTo(facing * 0.9, waistY + 2.2);
-      ctx.stroke();
-
-      // 5. Coupled Left/Right Bust Soft-Body Oscillators + Dynamic Normal-Lit Specular Shader
-      const bScale = prof.bustScale || 1.1;
-      const baseBustR = 3.95 * bScale;
-
-      // Position Left and Right bust hemispheres in 2.5D 3/4 view
-      const bBack = facing > 0 ? rig.bustL : rig.bustR;
-      const bFront = facing > 0 ? rig.bustR : rig.bustL;
-
-      const bxBack = facing * 3.4 + bBack.x * 0.42;
-      const byBack = chestY + 2.4 + bBack.y * 0.48;
-
-      const bxFront = facing * 1.1 + bFront.x * 0.42;
-      const byFront = chestY + 2.7 + bFront.y * 0.48;
-
-      // Halterneck straps connecting shoulders to dynamic bust nodes
-      ctx.strokeStyle = suitTrim;
-      ctx.lineWidth = 1.35;
-      ctx.beginPath();
-      ctx.moveTo(0, chestY - 3.2);
-      ctx.lineTo(bxBack, byBack - baseBustR * 0.55);
-      ctx.moveTo(-facing * 1.2, chestY - 3.2);
-      ctx.lineTo(bxFront, byFront - baseBustR * 0.55);
-      ctx.stroke();
-
-      const renderSoftHemisphere = (bx, by, node, radius, isFrontSphere) => {
-        // Under-bust ambient occlusion shadow (shifts and compresses with vertical bounce)
-        const aoStretch = Math.max(0.5, 1.0 + node.y * 0.08);
-        ctx.fillStyle = skinShadow;
-        ctx.beginPath();
-        ctx.arc(bx, by + 1.15 * aoStretch, radius * 0.98, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Main skin hemisphere
-        ctx.fillStyle = isFrontSphere ? skinBase : skinHighlight;
-        ctx.beginPath();
-        ctx.arc(bx, by, radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Bikini cup (covers lower/outer 68% of hemisphere, leaving upper cleavage & normal highlight)
-        ctx.fillStyle = suitMain;
-        ctx.beginPath();
-        ctx.arc(bx - facing * 0.35, by + 0.55, radius * 0.94, -0.15, Math.PI + 0.35);
-        ctx.closePath();
-        ctx.fill();
-
-        // Trim band along bikini cup edge
-        ctx.strokeStyle = suitTrim;
-        ctx.lineWidth = 1.1;
-        ctx.beginPath();
-        ctx.arc(bx, by, radius * 0.92, 0.15, Math.PI - 0.15);
-        ctx.stroke();
-
-        // Real-time normal-mapped upper skin slope & wet specular highlight
-        // As node.y moves up/down, normal tilts toward/away from key light
-        const normalTiltX = -node.x * 0.18 - lightX * 1.15;
-        const normalTiltY = -node.y * 0.18 + lightY * 1.25;
-        const specIntensity = Math.max(0.22, Math.min(0.95, 0.45 + wet * 0.45 - node.y * 0.04));
-
-        ctx.fillStyle = `rgba(255, 248, 232, ${specIntensity})`;
-        ctx.beginPath();
-        ctx.arc(
-          bx + normalTiltX + facing * 0.6,
-          by + normalTiltY - radius * 0.28,
-          radius * 0.34,
-          0,
-          Math.PI * 2
-        );
-        ctx.fill();
-      };
-
-      // Draw far hemisphere first, cleavage shadow crease in between, then near hemisphere
-      renderSoftHemisphere(bxBack, byBack, bBack, baseBustR * 0.94, false);
-
-      // Dynamic cleavage shadow line between the two independent oscillators
-      ctx.strokeStyle = skinShadow;
-      ctx.lineWidth = 1.25;
-      ctx.beginPath();
-      ctx.moveTo((bxBack + bxFront) * 0.5, Math.min(byBack, byFront) - baseBustR * 0.55);
-      ctx.lineTo((bxBack + bxFront) * 0.5 + facing * 0.7, Math.max(byBack, byFront) + baseBustR * 0.25);
-      ctx.stroke();
-
-      renderSoftHemisphere(bxFront, byFront, bFront, baseBustR, true);
-
-      // 6. Neck, Head, Hair Bangs & Sun Visor
-      const headY = chestY - 7.8;
-      ctx.fillStyle = skinShadow;
-      ctx.fillRect(-1.6, chestY - 4.2, 3.2, 3.8);
-
-      // Head oval
-      ctx.fillStyle = skinBase;
-      ctx.beginPath();
-      ctx.arc(facing * 0.6, headY, 5.1, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Hair crown & bangs
-      ctx.fillStyle = hairMain;
-      ctx.beginPath();
-      ctx.arc(0, headY - 0.8, 5.4, Math.PI * 0.85, Math.PI * 2.15);
-      ctx.fill();
-
-      // Translucent Arcade Sun Visor
-      ctx.fillStyle = this.rgbCss(prof.visorColor, 1.0, 0.88);
-      ctx.beginPath();
-      ctx.moveTo(facing * 1.2, headY - 2.2);
-      ctx.lineTo(facing * 7.4, headY - 1.1);
-      ctx.lineTo(facing * 2.2, headY + 0.2);
-      ctx.closePath();
-      ctx.fill();
-
-      // Eye highlight
-      ctx.fillStyle = '#181425';
-      ctx.fillRect(facing * 2.4, headY - 0.6, 1.4, 1.6);
-
-      // 7. Foreground Articulated Arm (Dig / Set / Spike Whip)
-      const frontArmX = -facing * 1.6;
-      const frontArmY = chestY + 0.6;
-      const handX = frontArmX + facing * Math.sin(swingAngle) * 12.5;
-      const handY = frontArmY + Math.cos(swingAngle) * 12.5;
-
-      ctx.strokeStyle = skinBase;
-      ctx.lineWidth = 3.8;
-      ctx.beginPath();
-      ctx.moveTo(frontArmX, frontArmY);
-      ctx.lineTo(handX, handY);
-      ctx.stroke();
-
-      // Wristband
-      ctx.fillStyle = suitMain;
-      ctx.beginPath();
-      ctx.arc(handX, handY, 2.2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
-    }
-
     drawNetAndBall(sctx, state, time) {
       // Perspective Net at X = 320 (half of 640 internal HD-2D width)
       const netX = 320;
@@ -708,7 +864,7 @@
         sctx.fillRect(netX - 2, y, 4, 1);
       }
 
-      // Top net tape (flashes neon in night mode or when ball grazes cord)
+      // Top net tape & posts
       sctx.fillStyle = this.theme === 'neon' ? '#ff36b5' : '#ffffff';
       sctx.fillRect(netX - 3, netTopY - 2, 6, netBotY - netTopY - 18);
       sctx.fillStyle = '#ff477e';
@@ -743,15 +899,23 @@
         for (let i = 0; i < b.trail.length; i++) {
           const tr = b.trail[i];
           const alpha = ((i + 1) / b.trail.length) * (b.solarSpike ? 0.65 : 0.28);
-          sctx.fillStyle = b.solarSpike ? `rgba(255, 92, 54, ${alpha})` : `rgba(44, 230, 255, ${alpha})`;
+          sctx.fillStyle = b.solarSpike
+            ? `rgba(255, 92, 54, ${alpha})`
+            : `rgba(44, 230, 255, ${alpha})`;
           sctx.beginPath();
-          sctx.arc(tr.x * 0.5, (tr.y - tr.z * 0.88) * 0.5, 4.5 + (i / b.trail.length) * 3.5, 0, Math.PI * 2);
+          sctx.arc(
+            tr.x * 0.5,
+            (tr.y - tr.z * 0.88) * 0.5,
+            4.5 + (i / b.trail.length) * 3.5,
+            0,
+            Math.PI * 2
+          );
           sctx.fill();
         }
       }
 
       // Volleyball sphere with rotating panels
-      const rad = 8.2;
+      const rad = 8.5;
       sctx.save();
       sctx.translate(bx, by);
       sctx.rotate(b.spinAngle || 0);
@@ -782,15 +946,45 @@
     }
 
     renderScene(time, state) {
+      // 1. Render normal-mapped beach, ocean, shadows & sand craters on WebGL2 canvas
       this.renderBackground(time, state);
 
+      // 2. Sort athletes by Y depth and render each through the WebGL2 Soft-Body UV-Warped Sprite Shader
+      const sorted = [...state.players].sort((a, b) => a.y - b.y);
+      sorted.forEach((p) => {
+        const screenX = p.x;
+        const screenY = p.y - p.z * 0.88;
+        // Perspective depth scaling: athletes closer to bottom baseline appear slightly larger
+        const depthScale = 0.90 + ((p.y - 300) / 360) * 0.22;
+        this.drawAthleteGL(p, screenX, screenY + 8, 152.0 * depthScale, false);
+      });
+
+      // 3. If Pose & Soft-Body Telemetry Studio or Cut-In is active, clear card studio box in WebGL2 & render close-up portrait!
+      if (state.poseCamActive || state.cutInTimer > 0) {
+        const focusPlayer = state.players[state.poseCamPlayerIdx || 0] || state.players[0];
+        const cardW = state.poseCamActive ? 410 : 320;
+        const cardH = state.poseCamActive ? 360 : 250;
+        const cardX = state.poseCamActive ? 845 : 935;
+        const cardY = 64;
+
+        const gl = this.gl;
+        if (gl) {
+          gl.enable(gl.SCISSOR_TEST);
+          gl.scissor(cardX, this.glCanvas.height - (cardY + cardH), cardW, cardH);
+          gl.clearColor(0.035, 0.06, 0.12, 1.0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          const portraitCenterX = cardX + (state.poseCamActive ? 126 : 94);
+          const portraitBottomY = cardY + cardH - 10;
+          const portraitH = state.poseCamActive ? 322 : 216;
+          this.drawAthleteGL(focusPlayer, portraitCenterX, portraitBottomY, portraitH, true);
+          gl.disable(gl.SCISSOR_TEST);
+        }
+      }
+
+      // 4. Draw crisp underfoot rings, net, and volleyball onto HUD overlay canvas
       const sctx = this.sctx;
       sctx.clearRect(0, 0, 640, 360);
 
-      // Sort athletes by Y depth for proper painter's order
-      const sorted = [...state.players].sort((a, b) => a.y - b.y);
-
-      // Draw underfoot player indicators (P1..P4 / Partner Target)
       sorted.forEach((p) => {
         const px = p.x * 0.5;
         const py = p.y * 0.5;
@@ -799,35 +993,39 @@
           sctx.strokeStyle = p.team === 0 ? '#ffb84d' : '#2ce6ff';
           sctx.lineWidth = 1.8;
           sctx.beginPath();
-          sctx.ellipse(px, py, 13, 6.5, 0, 0, Math.PI * 2);
+          sctx.ellipse(px, py, 14, 7.0, 0, 0, Math.PI * 2);
           sctx.stroke();
         } else if (p.isPartnerTarget) {
           sctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
           sctx.setLineDash([3, 3]);
           sctx.beginPath();
-          sctx.ellipse(px, py, 11, 5.5, 0, 0, Math.PI * 2);
+          sctx.ellipse(px, py, 12, 6.0, 0, 0, Math.PI * 2);
           sctx.stroke();
         }
         sctx.restore();
       });
 
-      // Draw back-row athletes, net/ball, front-row athletes
-      sorted.forEach((p) => {
-        this.drawAthlete25D(sctx, p, 1.15, false);
-      });
-
       this.drawNetAndBall(sctx, state, time);
 
-      // Blit crisp HD-2D pixel-art layer onto 1280x720 HUD canvas
       const ctx = this.ctx;
       ctx.clearRect(0, 0, 1280, 720);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(this.spriteCanvas, 0, 0, 1280, 720);
 
       // Draw Player Tags & Timing Callouts on crisp 1280x720 overlay
+      const cardActive = state.poseCamActive || state.cutInTimer > 0;
+      const cX = state.poseCamActive ? 845 : 935;
+      const cY = 64;
+      const cW = state.poseCamActive ? 410 : 320;
+      const cH = state.poseCamActive ? 360 : 250;
+
       state.players.forEach((p) => {
         const sx = p.x;
-        const sy = p.y - p.z * 0.88 - 68;
+        const sy = p.y - p.z * 0.88 - 134;
+        // Skip player floating tag if it falls inside the active Pose Cam card
+        if (cardActive && sx > cX - 20 && sx < cX + cW + 20 && sy > cY - 10 && sy < cY + cH + 15) {
+          return;
+        }
         ctx.font = '800 11px Inter, sans-serif';
         ctx.textAlign = 'center';
         const label = p.badgeText || p.profile.name;
@@ -838,7 +1036,6 @@
         ctx.fillText(label, sx, sy);
       });
 
-      // Floating hit-timing / super-spike callouts
       state.callouts.forEach((c) => {
         ctx.save();
         ctx.font = '900 18px Inter, sans-serif';
@@ -850,8 +1047,7 @@
         ctx.restore();
       });
 
-      // Picture-in-Picture / Cut-In Close-Up Physics & Pose Cam Window
-      if (state.poseCamActive || state.cutInTimer > 0) {
+      if (cardActive) {
         this.renderPoseCamOverlay(ctx, state, time);
       }
     }
@@ -865,81 +1061,90 @@
       const cardH = state.poseCamActive ? 360 : 250;
       const cardX = state.poseCamActive ? 845 : 935;
       const cardY = 64;
+      const telemetryX = cardX + (state.poseCamActive ? 242 : 182);
+
+      // Clear any 2D court HUD elements inside the Pose Cam card so only the WebGL2 portrait + telemetry appear
+      ctx.clearRect(cardX, cardY, cardW, cardH);
 
       ctx.save();
-      // Glass card background
-      ctx.fillStyle = 'rgba(8, 16, 30, 0.90)';
+      // Right-side telemetry panel backdrop
+      ctx.fillStyle = 'rgba(6, 11, 22, 0.90)';
+      ctx.beginPath();
+      ctx.roundRect(telemetryX - 10, cardY + 30, cardX + cardW - telemetryX + 4, cardH - 36, 8);
+      ctx.fill();
+
+      // Top header bar
+      ctx.fillStyle = 'rgba(6, 11, 22, 0.94)';
+      ctx.beginPath();
+      ctx.roundRect(cardX + 2, cardY + 2, cardW - 4, 28, [10, 10, 0, 0]);
+      ctx.fill();
+
       ctx.strokeStyle = prof.signatureColor || '#ffb84d';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.2;
       ctx.beginPath();
       ctx.roundRect(cardX, cardY, cardW, cardH, 12);
-      ctx.fill();
       ctx.stroke();
 
-      // Header
+      // Header text
       ctx.fillStyle = prof.signatureColor || '#ffb84d';
-      ctx.font = '900 13px Inter, sans-serif';
+      ctx.font = '900 12px Inter, sans-serif';
       ctx.textAlign = 'left';
       const title = state.poseCamActive
         ? `POSE & SOFT-BODY TELEMETRY // ${prof.name}`
         : `${prof.name} — ${state.cutInLabel || prof.signatureMove}`;
-      ctx.fillText(title, cardX + 14, cardY + 22);
-
-      // Render zoomed 2.5D character into sprite buffer region & blit crisp
-      this.sctx.clearRect(0, 0, 180, 180);
-      this.sctx.save();
-      this.sctx.translate(88, 145);
-      this.drawAthlete25D(this.sctx, focusPlayer, 2.75, true);
-      this.sctx.restore();
-
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(
-        this.spriteCanvas,
-        0,
-        0,
-        180,
-        180,
-        cardX + 12,
-        cardY + 28,
-        cardH - 36,
-        cardH - 36
-      );
+      ctx.fillText(title, cardX + 14, cardY + 20);
 
       // Live Spring-Damper Telemetry Bars & Phase Plot on right side of card
-      const tx = cardX + cardW - 155;
-      let ty = cardY + 48;
+      const tx = telemetryX;
+      let ty = cardY + 50;
       ctx.font = '700 11px Inter, sans-serif';
       ctx.fillStyle = '#d6e4f5';
-      ctx.fillText(`Profile: ${state.physicsPreset.toUpperCase()}`, tx, ty);
-      ty += 18;
+      const poseLabel = this.selectPoseKey(focusPlayer, true)
+        .replace('pose_', '')
+        .replace('plate_', '')
+        .toUpperCase();
+      ctx.fillText(`Pose: ${poseLabel}`, tx, ty);
+      ty += 17;
+      ctx.fillText(`Rig: ${state.physicsPreset.toUpperCase()}`, tx, ty);
+      ty += 17;
       ctx.fillText(`Wetness Sheen: ${Math.round(rig.wetness * 100)}%`, tx, ty);
-      ty += 16;
+      ty += 17;
       ctx.fillText(`Sand Cling: ${Math.round(rig.sandCoat * 100)}%`, tx, ty);
-      ty += 22;
+      ty += 18;
 
       // 2D Oscillator Phase Reticle (Bust L/R & Hip L/R)
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-      ctx.strokeRect(tx, ty, 130, 82);
+      const boxW = state.poseCamActive ? 152 : 124;
+      const boxH = state.poseCamActive ? 86 : 74;
+      ctx.fillStyle = 'rgba(4, 8, 18, 0.82)';
+      ctx.fillRect(tx, ty, boxW, boxH);
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.strokeRect(tx, ty, boxW, boxH);
       ctx.fillStyle = '#9ab0c9';
       ctx.font = '700 10px Inter, sans-serif';
-      ctx.fillText('L/R SPRING PHASE', tx + 6, ty + 13);
+      ctx.fillText('UV PIN SPRING PHASE', tx + 6, ty + 13);
 
-      const midX = tx + 65;
-      const midY = ty + 48;
+      const midX = tx + boxW * 0.5;
+      const midY = ty + boxH * 0.60;
+      const clampX = (v) => Math.max(-24, Math.min(24, v));
+      const clampY = (v) => Math.max(-16, Math.min(18, v));
       // Bust L dot
       ctx.fillStyle = '#ff477e';
       ctx.beginPath();
-      ctx.arc(midX - 18 + rig.bustL.x * 2.4, midY + rig.bustL.y * 2.4, 5, 0, Math.PI * 2);
+      ctx.arc(midX - 18 + clampX(rig.bustL.x * 2.2), midY - 6 + clampY(rig.bustL.y * 2.2), 5, 0, Math.PI * 2);
       ctx.fill();
       // Bust R dot
       ctx.fillStyle = '#ffb84d';
       ctx.beginPath();
-      ctx.arc(midX + 18 + rig.bustR.x * 2.4, midY + rig.bustR.y * 2.4, 5, 0, Math.PI * 2);
+      ctx.arc(midX + 18 + clampX(rig.bustR.x * 2.2), midY - 6 + clampY(rig.bustR.y * 2.2), 5, 0, Math.PI * 2);
       ctx.fill();
       // Hip L/R dots
       ctx.fillStyle = '#2ce6ff';
       ctx.beginPath();
-      ctx.arc(midX + rig.hipL.x * 2.2, midY + 16 + rig.hipL.y * 2.2, 4, 0, Math.PI * 2);
+      ctx.arc(midX - 14 + clampX(rig.hipL.x * 2.0), midY + 12 + clampY(rig.hipL.y * 2.0), 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#34d399';
+      ctx.beginPath();
+      ctx.arc(midX + 14 + clampX(rig.hipR.x * 2.0), midY + 12 + clampY(rig.hipR.y * 2.0), 4.5, 0, Math.PI * 2);
       ctx.fill();
 
       if (state.poseCamActive) {
@@ -947,9 +1152,9 @@
         ctx.fillStyle = '#ffb84d';
         ctx.font = '800 10px Inter, sans-serif';
         ctx.fillText('[1-6] Switch Athlete', tx, ty);
-        ctx.fillText('[SPACE] Jump Impulse', tx, ty + 15);
-        ctx.fillText('[K] Spike Torque Whip', tx, ty + 30);
-        ctx.fillText('[L] Sand Dive & Splash', tx, ty + 45);
+        ctx.fillText('[SPACE] Portrait Bounce', tx, ty + 15);
+        ctx.fillText('[K] Spike Bow-Arch', tx, ty + 30);
+        ctx.fillText('[L] Sand Dive Pose', tx, ty + 45);
       }
 
       ctx.restore();
