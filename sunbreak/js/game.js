@@ -22,6 +22,7 @@
       this.renderer = new Renderer(this.glCanvas, this.hudCanvas);
 
       this.physicsPreset = 'doax';
+      this.serveRules = 'arcade'; // arcade (No Faults) | pro (Net/Out Risk)
       this.lightingTheme = 'sunset';
       this.mode = 'solo'; // solo | coop | versus2p | party4p
 
@@ -33,6 +34,12 @@
       this.servingTeam = 0;
       this.serverSlot = 0;
       this.rallyState = 'serve'; // serve | play | point_scored
+      this.servePhase = 'hold'; // hold | toss
+      this.serveType = 'float'; // float | jump
+      this.serveCharge = 0; // 0.0 -> 1.0 power & sweet-spot bar
+      this.serveHoldMode = false;
+      this.serveAimDrop = false;
+      this.aiServeTargetCharge = 0.84;
       this.pointTimer = 0;
       this.hitStopTimer = 0; // 3-4 frame impact hit-stop freeze on spikes & blocks
 
@@ -68,6 +75,10 @@
         vy: 0,
         vz: 0,
         spinAngle: 0,
+        topspin: 0,
+        curveY: 0,
+        knuckle: 0,
+        knucklePhase: 0,
         solarSpike: false,
         onFireBall: false,
         tandemSync: false,
@@ -115,6 +126,7 @@
           jumpCoilTimer: 0,
           pendingJumpImpulse: 0,
           diveLockTimer: 0,
+          activeDigTimer: 0,
           posePreviewTimer: 0,
           turbo: 100,
           turboActive: false,
@@ -302,6 +314,13 @@
         this.physicsPreset = e.target.value;
       });
 
+      const serveRulesSel = document.getElementById('select-serve-rules');
+      if (serveRulesSel) {
+        serveRulesSel.addEventListener('change', (e) => {
+          this.serveRules = e.target.value;
+        });
+      }
+
       document.getElementById('select-lighting').addEventListener('change', (e) => {
         this.lightingTheme = e.target.value;
         this.renderer.theme = e.target.value;
@@ -417,6 +436,17 @@
       this.touchCount = 0;
       this.lastTouchPlayer = -1;
       this.rallyState = 'serve';
+      this.servePhase = 'hold';
+      this.serveType = 'float';
+      this.serveCharge = 0;
+      this.serveHoldMode = false;
+      this.serveAimDrop = false;
+      this.aiServeTargetCharge = 0.78 + Math.random() * 0.12;
+
+      this.ball.topspin = 0;
+      this.ball.curveY = 0;
+      this.ball.knuckle = 0;
+      this.ball.knucklePhase = 0;
       this.ball.solarSpike = false;
       this.ball.onFireBall = this.teamOnFire[servingTeam];
       this.ball.tandemSync = false;
@@ -451,6 +481,7 @@
         p.actionState = 'idle';
         p.actionTimer = 0;
         p.jumpCoilTimer = 0;
+        p.activeDigTimer = 0;
         p.facing = p.team === 0 ? 1 : -1;
         p.onFire = this.teamOnFire[p.team];
         p.ghostTrail = [];
@@ -468,11 +499,11 @@
       this.ball.vy = 0;
       this.ball.vz = 0;
       this.ballLanding = null;
-      this.aiServeTimer = 0.75;
+      this.aiServeTimer = 0.65;
 
       this.updateTouchHud();
       document.getElementById('match-meta').textContent =
-        servingTeam === 0 ? 'SUNSET SERVE • PRESS J OR K' : 'RIPTIDE SERVE';
+        servingTeam === 0 ? 'SUNSET SERVE • HOLD/TAP J OR K' : 'RIPTIDE SERVE';
     }
 
     enforceAutoHandoffOnTeam(team, targetSlot) {
@@ -517,7 +548,7 @@
     /**
      * Predicts both where the ball will hit the sand (z = 8) AND where a defender's
      * dig forearm platform (`z = 42`) will intercept it so athletes position their HANDS
-     * under the ball rather than their knees/feet!
+     * under the ball rather than their knees/feet! Accounts for topspin gravity & curve!
      */
     predictBallLanding() {
       const b = this.ball;
@@ -525,7 +556,7 @@
         this.ballLanding = null;
         return;
       }
-      const g = COURT.gravity;
+      const g = COURT.gravity * (1.0 + (b.topspin || 0) * 0.34);
       // Sand impact time (z = 8)
       const discSand = b.vz * b.vz + 2 * g * Math.max(0, b.z - 8);
       const tSand = (b.vz + Math.sqrt(discSand)) / g;
@@ -534,11 +565,18 @@
       const discHand = Math.max(0, b.vz * b.vz + 2 * g * (b.z - 44));
       const tHand = Math.max(0.05, (b.vz + Math.sqrt(discHand)) / g);
 
+      const curveAcc = b.curveY || 0;
       const lx = Math.max(COURT.leftX - 35, Math.min(COURT.rightX + 35, b.x + b.vx * tSand));
-      const ly = Math.max(COURT.topY - 25, Math.min(COURT.botY + 25, b.y + b.vy * tSand));
+      const ly = Math.max(
+        COURT.topY - 25,
+        Math.min(COURT.botY + 25, b.y + b.vy * tSand + 0.5 * curveAcc * tSand * tSand)
+      );
 
       const hx = Math.max(COURT.leftX - 35, Math.min(COURT.rightX + 35, b.x + b.vx * tHand));
-      const hy = Math.max(COURT.topY - 25, Math.min(COURT.botY + 25, b.y + b.vy * tHand));
+      const hy = Math.max(
+        COURT.topY - 25,
+        Math.min(COURT.botY + 25, b.y + b.vy * tHand + 0.5 * curveAcc * tHand * tHand)
+      );
 
       this.ballLanding = {
         x: lx,
@@ -551,7 +589,16 @@
     }
 
     readControllerInput(ctrlType) {
-      const out = { mx: 0, my: 0, btnA: false, btnB: false, btnSwitch: false, turbo: false };
+      const out = {
+        mx: 0,
+        my: 0,
+        btnA: false,
+        btnB: false,
+        holdA: false,
+        holdB: false,
+        btnSwitch: false,
+        turbo: false
+      };
       if (ctrlType === 'kb1') {
         if (this.keys['KeyA']) out.mx -= 1;
         if (this.keys['KeyD']) out.mx += 1;
@@ -559,6 +606,8 @@
         if (this.keys['KeyS']) out.my += 1;
         out.btnA = this.justPressed('KeyJ') || this.justPressed('Space');
         out.btnB = this.justPressed('KeyK');
+        out.holdA = !!(this.keys['KeyJ'] || this.keys['Space']);
+        out.holdB = !!this.keys['KeyK'];
         out.btnSwitch = this.justPressed('KeyL');
         out.turbo = !!(this.keys['ShiftLeft'] || this.keys['KeyL']);
       } else if (ctrlType === 'kb2') {
@@ -568,6 +617,8 @@
         if (this.keys['ArrowDown']) out.my += 1;
         out.btnA = this.justPressed('KeyM') || this.justPressed('Numpad1');
         out.btnB = this.justPressed('Comma') || this.justPressed('Numpad2');
+        out.holdA = !!(this.keys['KeyM'] || this.keys['Numpad1']);
+        out.holdB = !!(this.keys['Comma'] || this.keys['Numpad2']);
         out.btnSwitch = this.justPressed('Period') || this.justPressed('Numpad3');
         out.turbo = !!(this.keys['ShiftRight'] || this.keys['Period']);
       } else if (ctrlType.startsWith('gp')) {
@@ -592,6 +643,8 @@
 
           out.btnA = b0 && !this.prevGpButtons[gpIdx][0];
           out.btnB = (b1 && !this.prevGpButtons[gpIdx][1]) || (b2 && !this.prevGpButtons[gpIdx][2]);
+          out.holdA = b0;
+          out.holdB = b1 || b2;
           out.btnSwitch = b4 && !this.prevGpButtons[gpIdx][4];
           out.turbo = b7 || b5Pressed(gp);
 
@@ -609,7 +662,16 @@
     }
 
     computeAIInput(p, dt) {
-      const out = { mx: 0, my: 0, btnA: false, btnB: false, btnSwitch: false, turbo: false };
+      const out = {
+        mx: 0,
+        my: 0,
+        btnA: false,
+        btnB: false,
+        holdA: false,
+        holdB: false,
+        btnSwitch: false,
+        turbo: false
+      };
       const team = p.team;
       const isLeft = team === 0;
       const partnerSlot = p.slot % 2 === 0 ? p.slot + 1 : p.slot - 1;
@@ -617,10 +679,19 @@
 
       if (this.rallyState === 'serve') {
         if (this.serverSlot === p.slot) {
-          this.aiServeTimer -= dt;
-          if (this.aiServeTimer <= 0) {
-            out.btnB = Math.random() < 0.65;
-            out.btnA = !out.btnB;
+          if (this.servePhase === 'hold') {
+            this.aiServeTimer -= dt;
+            if (this.aiServeTimer <= 0) {
+              out.btnB = p.onFire || Math.random() < 0.68;
+              out.btnA = !out.btnB;
+              out.holdB = out.btnB;
+              out.holdA = out.btnA;
+            }
+          } else if (this.servePhase === 'toss') {
+            const keepHolding = this.serveCharge < (this.aiServeTargetCharge || 0.84);
+            out.holdB = keepHolding && this.serveType === 'jump';
+            out.holdA = keepHolding && this.serveType === 'float';
+            out.my = Math.sin(performance.now() * 0.003) * 0.65;
           }
         }
         return out;
@@ -711,46 +782,239 @@
       return out;
     }
 
-    executeServeHit(p, isPowerJumpServe, aimInput) {
+    /**
+     * Phase 1 of Serve: Toss the volleyball upward from the server's calibrated handSocket
+     * and start filling the Serve Power & Sweet-Spot Bar (`0.0 -> 1.0`).
+     */
+    startServeToss(p, isJumpServe) {
+      this.servePhase = 'toss';
+      this.serveType = isJumpServe || p.onFire ? 'jump' : 'float';
+      this.serveCharge = 0.03;
+      this.serveHoldMode = true;
+      this.serveAimDrop = false;
+
+      const dir = p.team === 0 ? 1 : -1;
+      const hs = this.renderer.getHandSocketWorld(p, 'pose_ready');
+      this.ball.x = hs.x;
+      this.ball.y = hs.y;
+      this.ball.z = hs.z;
+      this.ball.vx = dir * (this.serveType === 'jump' ? 30 : 12);
+      this.ball.vy = 0;
+      this.ball.vz = this.serveType === 'jump' ? 235 : 168;
+      this.ball.spinAngle = 0;
+
+      if (this.serveType === 'jump') {
+        this.triggerKeyedJump(p, p.onFire ? 268 : 235);
+      } else {
+        p.actionState = 'set';
+        p.actionTimer = 0.65;
+        p.rig.applyActionImpulse('set', 0.85);
+      }
+      AudioSys.playHit(0.35, 1.35);
+    }
+
+    /**
+     * Phase 2 of Serve: Strike the tossed volleyball at `charge` (`0.0 -> 1.0`).
+     * Supports 4 distinct archetypes (Meteor On-Fire Jump Serve, Topspin Jump Laser,
+     * Knuckle Float Serve, and Short Cut Drop Serve) plus configurable Arcade/Pro Overcharge rules!
+     */
+    executeServeHit(p, isPowerJumpServe, aimInput, charge = 0.84) {
       this.rallyState = 'play';
+      this.servePhase = 'hold';
+      this.serveCharge = 0;
       this.touchTeam = p.team;
       this.touchCount = 1;
       this.lastTouchPlayer = p.slot;
 
-      const dir = p.team === 0 ? 1 : -1;
-      const fireBoost = p.onFire ? 1.18 : 1.0;
-      const speedX = (isPowerJumpServe ? 470 + p.profile.power * 95 : 375 + p.profile.control * 60) * fireBoost;
+      const isLeft = p.team === 0;
+      const dir = isLeft ? 1 : -1;
+      const forwardStick = (aimInput.mx || 0) * dir;
+      const isJump = isPowerJumpServe || this.serveType === 'jump' || p.onFire;
+      const isDrop = !isJump && forwardStick < -0.22;
 
-      const servePose = isPowerJumpServe ? 'pose_spike_follow' : 'pose_set';
-      p.actionState = servePose;
-      p.actionTimer = 0.34;
-      if (isPowerJumpServe) {
-        p.z = 26;
-        p.vz = 175;
-        p.rig.applyActionImpulse('spike', 1.25);
-        this.addCallout(p.onFire ? '🔥 FLAME SERVE!' : 'SKY SERVE!', p.x, p.y - 95, '#ffb84d');
-      } else {
-        p.rig.applyActionImpulse('set', 0.95);
-      }
+      const isSweetSpot = charge >= 0.74 && charge <= 0.92;
+      const isOvercharged = charge > 0.92;
+      const isEarly = charge < 0.45;
 
-      // Launch ball from the exact handSocket of the serve pose!
-      const hs = this.renderer.getHandSocketWorld(p, isPowerJumpServe ? 'pose_spike' : 'pose_set');
+      // Keyed strike follow-through pose (fixed: use 'spike_follow' / 'set' without 'pose_' prefix!)
+      p.actionState = isJump || isSweetSpot ? 'spike_follow' : 'set';
+      p.actionTimer = 0.38;
+      p.rig.applyActionImpulse(isJump ? 'spike' : 'set', isSweetSpot ? 1.45 : 1.1);
+
+      const contactPose = isJump ? 'pose_spike_follow' : 'pose_set';
+      const hs = this.renderer.getHandSocketWorld(p, contactPose);
       this.ball.x = hs.x;
       this.ball.y = hs.y;
-      this.ball.z = Math.max(48, hs.z);
-      this.ball.vx = dir * speedX;
-      this.ball.vy = (aimInput.my || (Math.random() - 0.5) * 0.8) * 155;
-      this.ball.vz = isPowerJumpServe ? 220 : 285;
+      this.ball.z = Math.max(isJump ? 52 : 44, hs.z);
+      this.ball.topspin = 0;
+      this.ball.curveY = 0;
+      this.ball.knuckle = 0;
+      this.ball.knucklePhase = 0;
       this.ball.solarSpike = false;
-      this.ball.onFireBall = p.onFire;
-      this.ball.impactSquash = 0.85;
+      this.ball.onFireBall = false;
+      this.ball.impactSquash = isSweetSpot ? 1.0 : 0.8;
 
-      this.renderer.addImpactRing(hs.screenX, hs.screenY, '#ffb84d', 36);
-      AudioSys.playHit(isPowerJumpServe ? 0.9 : 0.6, 1.0);
+      let targetX = isLeft ? COURT.netX + 235 : COURT.netX - 235;
+      let targetY = Math.max(
+        COURT.topY + 42,
+        Math.min(COURT.botY - 42, p.y + (aimInput.my || (Math.random() - 0.5) * 0.7) * 145)
+      );
+      let tFlight = 0.85;
+      let ringColor = '#ffb84d';
+
+      if (isOvercharged) {
+        if (this.serveRules === 'pro') {
+          // Pro Risk Mode: Overcharging past 92% faults into the net or sails long out of bounds!
+          const netFault = Math.random() < 0.5;
+          if (netFault) {
+            targetX = COURT.netX;
+            tFlight = 0.44;
+            this.ball.vz = -35;
+            this.ball.vx = (targetX - this.ball.x) / tFlight;
+            this.ball.vy = (targetY - this.ball.y) / tFlight;
+            this.addCallout('OVERCHARGED! NET FAULT!', p.x, p.y - 105, '#ff3864');
+          } else {
+            targetX = isLeft ? COURT.rightX + 65 : COURT.leftX - 65;
+            tFlight = 0.68;
+            this.ball.vz = 0.5 * COURT.gravity * tFlight + (10 - this.ball.z) / tFlight;
+            this.ball.vx = (targetX - this.ball.x) / tFlight;
+            this.ball.vy = (targetY - this.ball.y) / tFlight;
+            this.addCallout('OVERCHARGED! LONG OUT!', p.x, p.y - 105, '#ff3864');
+          }
+          ringColor = '#ff3864';
+        } else {
+          // Arcade Mode (No Faults): Overcharging clips the net tape for a dramatic Net Cord Trickle!
+          const tNet = 0.46;
+          this.ball.vz = 0.5 * COURT.gravity * tNet + (COURT.netHeight - 4 - this.ball.z) / tNet;
+          this.ball.vx = (COURT.netX + dir * 6 - this.ball.x) / tNet;
+          this.ball.vy = (targetY - this.ball.y) / (tNet * 1.6);
+          this.addCallout('OVERCHARGED! NET TAPE!', p.x, p.y - 105, '#ff3864');
+          ringColor = '#ff3864';
+        }
+      } else if (isEarly) {
+        // Early release (< 45%): High, slow meatball lob that opponents can tee off on
+        tFlight = 1.18;
+        targetX = isLeft ? COURT.netX + 195 : COURT.netX - 195;
+        this.ball.vz = 0.5 * COURT.gravity * tFlight + (10 - this.ball.z) / tFlight;
+        this.ball.vx = (targetX - this.ball.x) / tFlight;
+        this.ball.vy = (targetY - this.ball.y) / tFlight;
+        this.addCallout('EARLY RELEASE • SOFT SERVE', p.x, p.y - 95, '#9ab0c9');
+        ringColor = '#9ab0c9';
+      } else if (p.onFire) {
+        // 🔥 ON FIRE! METEOR JUMP SERVE: Screaming low-arc fireball with heavy topspin dive & lateral curve!
+        this.ball.onFireBall = true;
+        this.ball.solarSpike = true;
+        this.ball.topspin = isSweetSpot ? 1.68 : 1.38;
+        this.ball.curveY = ((aimInput.my || (Math.random() > 0.5 ? 1 : -1)) >= 0 ? 1 : -1) * 165;
+        tFlight = isSweetSpot ? 0.54 : 0.62;
+        const depth = isSweetSpot ? 305 : 265;
+        targetX = isLeft ? COURT.netX + depth : COURT.netX - depth;
+        const effG = COURT.gravity * (1.0 + this.ball.topspin * 0.34);
+        this.ball.vz = 0.5 * effG * tFlight + (10 - this.ball.z) / tFlight;
+        this.ball.vx = (targetX - this.ball.x) / tFlight;
+        this.ball.vy = (targetY - this.ball.y) / tFlight - 0.5 * this.ball.curveY * tFlight;
+        this.hitStopTimer = 0.055;
+        this.cutInTimer = 1.35;
+        this.cutInLabel = '🔥 METEOR JUMP SERVE!';
+        this.poseCamPlayerIdx = p.slot;
+        p.posePreviewTimer = 1.35;
+        ringColor = '#ff5500';
+        this.addCallout(
+          isSweetSpot ? '🔥 SWEET SPOT! METEOR SERVE! 🔥' : '🔥 ON FIRE JUMP SERVE! 🔥',
+          p.x,
+          p.y - 115,
+          '#ff5500'
+        );
+        AudioSys.playSolarSpike();
+      } else if (isJump) {
+        // ⚡ TOPSPIN JUMP-SERVE LASER (K / B): Flat high-speed trajectory that dives hard over the net!
+        this.ball.topspin = isSweetSpot ? 1.52 : 1.25;
+        tFlight = isSweetSpot ? 0.62 : 0.72;
+        const depth = Math.max(175, Math.min(340, (isSweetSpot ? 295 : 250) + forwardStick * 55));
+        targetX = isLeft ? COURT.netX + depth : COURT.netX - depth;
+        const effG = COURT.gravity * (1.0 + this.ball.topspin * 0.34);
+        this.ball.vz = 0.5 * effG * tFlight + (10 - this.ball.z) / tFlight;
+        this.ball.vx = (targetX - this.ball.x) / tFlight;
+        this.ball.vy = (targetY - this.ball.y) / tFlight;
+        if (isSweetSpot) {
+          this.hitStopTimer = 0.04;
+          this.solar[p.team] = Math.min(100, this.solar[p.team] + 14);
+        }
+        ringColor = isSweetSpot ? '#34d399' : '#ffb84d';
+        this.addCallout(
+          isSweetSpot ? '⚡ SWEET SPOT! LASER SERVE!' : 'TOPSPIN JUMP SERVE!',
+          p.x,
+          p.y - 105,
+          ringColor
+        );
+      } else if (isDrop) {
+        // 🎯 SHORT CUT / RAZOR DROP SERVE (J + Stick Back): Barely clears net and dies in shallow sand!
+        this.ball.topspin = 1.22;
+        tFlight = isSweetSpot ? 0.72 : 0.80;
+        const shallowDepth = isSweetSpot ? 105 : 135;
+        targetX = isLeft ? COURT.netX + shallowDepth : COURT.netX - shallowDepth;
+        const effG = COURT.gravity * (1.0 + this.ball.topspin * 0.34);
+        this.ball.vz = 0.5 * effG * tFlight + (10 - this.ball.z) / tFlight;
+        this.ball.vx = (targetX - this.ball.x) / tFlight;
+        this.ball.vy = (targetY - this.ball.y) / tFlight;
+        ringColor = '#2ce6ff';
+        this.addCallout(
+          isSweetSpot ? '🎯 SWEET SPOT! RAZOR DROP!' : 'SHORT DROP SERVE!',
+          p.x,
+          p.y - 100,
+          '#2ce6ff'
+        );
+      } else {
+        // 🌀 KNUCKLE FLOAT SERVE (J + Neutral/Forward): Zero spin, dances sideways in mid-air!
+        this.ball.knuckle = isSweetSpot ? 1.45 : 0.95;
+        this.ball.knucklePhase = Math.random() * Math.PI * 2;
+        tFlight = isSweetSpot ? 0.78 : 0.88;
+        const depth = Math.max(180, Math.min(325, 245 + forwardStick * 55));
+        targetX = isLeft ? COURT.netX + depth : COURT.netX - depth;
+        this.ball.vz = 0.5 * COURT.gravity * tFlight + (10 - this.ball.z) / tFlight;
+        this.ball.vx = (targetX - this.ball.x) / tFlight;
+        this.ball.vy = (targetY - this.ball.y) / tFlight;
+        ringColor = isSweetSpot ? '#34d399' : '#2ce6ff';
+        this.addCallout(
+          isSweetSpot ? '🌀 SWEET SPOT! KNUCKLE FLOAT!' : 'FLOAT SERVE!',
+          p.x,
+          p.y - 100,
+          ringColor
+        );
+      }
+
+      this.renderer.addImpactRing(hs.screenX, hs.screenY, ringColor, isSweetSpot ? 48 : 36);
+      AudioSys.playHit(isJump ? 0.92 : 0.68, isSweetSpot ? 1.15 : 0.98);
       this.predictBallLanding();
 
       const recvTeam = 1 - p.team;
       this.assignClosestDefender(recvTeam);
+    }
+
+    /**
+     * Defensive Counter-Play Rule: Any active defensive counter-play (Timed Counter Dig,
+     * Sand Dive Save, or Net Roof Block) ALWAYS extinguishes the opponent's 🔥 ON FIRE state!
+     */
+    extinguishFireByCounterPlay(defender, reasonText) {
+      const oppTeam = 1 - defender.team;
+      const wasOppOnFire = this.teamOnFire[oppTeam] || this.ball.onFireBall || this.ball.solarSpike;
+      if (!wasOppOnFire) return false;
+
+      this.teamOnFire[oppTeam] = false;
+      this.streak[oppTeam] = 0;
+      this.players.forEach((pl) => {
+        if (pl.team === oppTeam) pl.onFire = false;
+      });
+      this.ball.onFireBall = false;
+      this.ball.solarSpike = false;
+
+      this.solar[defender.team] = Math.min(100, this.solar[defender.team] + 35);
+      this.hitStopTimer = 0.06;
+      const hs = this.renderer.getHandSocketWorld(defender, this.renderer.selectPoseKey(defender, false));
+      this.renderer.addImpactRing(hs.screenX, hs.screenY, '#2ce6ff', 58);
+      this.addCallout(`🧯 FIRE EXTINGUISHED! ${reasonText}`, defender.x, defender.y - 115, '#2ce6ff');
+      this.updateScoreHud();
+      return true;
     }
 
     assignClosestDefender(team) {
@@ -774,10 +1038,16 @@
         this.touchCount = 0;
       }
 
-      // Check for Net Block (jumping at the net as ball crosses)
+      // Clear any serve spin/curve properties on contact
+      this.ball.topspin = 0;
+      this.ball.curveY = 0;
+      this.ball.knuckle = 0;
+
+      // Check for Net Block (jumping at the net as ball crosses — ALWAYS counts as a Counter-Play!)
       const nearNet = Math.abs(p.x - COURT.netX) < 66;
       if (this.touchCount === 0 && p.z > 16 && nearNet && this.ball.z > COURT.netHeight - 10) {
         const hs = this.renderer.getHandSocketWorld(p, 'pose_set');
+        const extinguished = this.extinguishFireByCounterPlay(p, 'ROOF BLOCK!');
         this.touchCount = 0;
         this.touchTeam = team;
         this.lastTouchPlayer = p.slot;
@@ -796,8 +1066,10 @@
         p.rig.applyActionImpulse('spike', 1.35);
         this.hitStopTimer = 0.055; // NBA Jam block freeze!
         this.solar[team] = Math.min(100, this.solar[team] + 22);
-        this.addCallout('REJECTED! ROOF BLOCK!', p.x, p.y - 115, '#2ce6ff');
-        this.renderer.addImpactRing(hs.screenX, hs.screenY, '#2ce6ff', 48);
+        if (!extinguished) {
+          this.addCallout('REJECTED! ROOF BLOCK!', p.x, p.y - 115, '#2ce6ff');
+          this.renderer.addImpactRing(hs.screenX, hs.screenY, '#2ce6ff', 48);
+        }
         AudioSys.playHit(1.0, 0.78);
         this.predictBallLanding();
         this.assignClosestDefender(1 - team);
@@ -819,33 +1091,57 @@
         this.ball.y = hs.y;
         this.ball.z = Math.max(22, hs.z);
 
-        const setterTargetX = isLeft ? COURT.netX - 82 : COURT.netX + 82;
-        const setterTargetY = Math.max(COURT.topY + 55, Math.min(COURT.botY - 55, partner.y * 0.65 + 475 * 0.35));
+        const wasSolarOrFire =
+          this.ball.solarSpike || this.ball.onFireBall || this.teamOnFire[1 - team];
+        const isCounterPlay =
+          p.diveLockTimer > 0 ||
+          p.activeDigTimer > 0 ||
+          (p.controllerType === 'ai' && Math.random() < 0.44);
 
-        const tFlight = 0.98; // Snappier NBA Jam pass tempo
+        let setterTargetX = isLeft ? COURT.netX - 82 : COURT.netX + 82;
+        let setterTargetY = Math.max(
+          COURT.topY + 55,
+          Math.min(COURT.botY - 55, partner.y * 0.65 + 475 * 0.35)
+        );
+        let tFlight = 0.98;
+
+        if (wasSolarOrFire && isCounterPlay) {
+          // Active Defensive Counter-Play ALWAYS extinguishes opponent's ON FIRE state!
+          this.extinguishFireByCounterPlay(p, p.diveLockTimer > 0 ? 'DIVING SAVE!' : 'COUNTER DIG!');
+          p.vx = -dir * 95;
+          this.renderer.addSandTrail(p.x, p.y, 24);
+        } else if (wasSolarOrFire && !isCounterPlay) {
+          // Passive auto-bump on an ON FIRE / Solar ball: blasts defender back & scrambles pass!
+          this.ball.solarSpike = false;
+          this.ball.onFireBall = false;
+          p.vx = -dir * 215;
+          this.renderer.addSandTrail(p.x, p.y, 32);
+          this.hitStopTimer = 0.055;
+          tFlight = 1.24;
+          setterTargetX += (Math.random() - 0.5) * 135;
+          setterTargetY = Math.max(
+            COURT.topY + 40,
+            Math.min(COURT.botY - 40, setterTargetY + (Math.random() - 0.5) * 130)
+          );
+          this.addCallout('🔥 SCRAMBLED RECEPTION!', p.x, p.y - 102, '#ff7b29');
+          this.renderer.addImpactRing(hs.screenX, hs.screenY, '#ff7b29', 42);
+        } else {
+          this.ball.solarSpike = false;
+          this.ball.onFireBall = false;
+          this.solar[team] = Math.min(100, this.solar[team] + (isCounterPlay ? 18 : 12));
+          this.addCallout(isCounterPlay ? 'LOCKED-IN DIG!' : 'CLEAN DIG!', p.x, p.y - 95, '#2ce6ff');
+          this.renderer.addImpactRing(hs.screenX, hs.screenY, '#2ce6ff', 34);
+        }
+
         this.ball.vz = 0.5 * COURT.gravity * tFlight + (58 - this.ball.z) / tFlight;
         this.ball.vx = (setterTargetX - this.ball.x) / tFlight;
         this.ball.vy = (setterTargetY - this.ball.y) / tFlight;
-
-        const wasSolar = this.ball.solarSpike || this.ball.onFireBall;
-        this.ball.solarSpike = false;
-        this.ball.onFireBall = false;
         this.ball.impactSquash = 0.85;
-
-        // NFL Blitz / NBA Jam knockback crater when digging a fireball / solar spike!
-        if (wasSolar) {
-          p.vx = -dir * 165;
-          this.renderer.addSandTrail(p.x, p.y, 28);
-          this.hitStopTimer = 0.045;
-        }
 
         p.actionState = p.diveLockTimer > 0 ? 'dive' : 'dig';
         p.actionTimer = 0.32;
-        p.rig.applyActionImpulse('dig', wasSolar ? 1.55 : 1.05);
-
-        this.solar[team] = Math.min(100, this.solar[team] + (wasSolar ? 24 : 12));
-        this.addCallout(wasSolar ? 'MONSTER SAVE!' : 'CLEAN DIG!', p.x, p.y - 95, '#2ce6ff');
-        this.renderer.addImpactRing(hs.screenX, hs.screenY, '#2ce6ff', 34);
+        p.activeDigTimer = 0;
+        p.rig.applyActionImpulse('dig', wasSolarOrFire ? 1.55 : 1.05);
         AudioSys.playHit(0.7, 1.05);
 
         this.enforceAutoHandoffOnTeam(team, p.slot);
@@ -1210,15 +1506,51 @@
         if (this.rallyState === 'serve' && this.serverSlot === p.slot) {
           p.vy = input.my * 185;
           p.y = Math.max(COURT.topY + 25, Math.min(COURT.botY - 25, p.y + p.vy * dt));
-          const hs = this.renderer.getHandSocketWorld(p, 'pose_ready');
-          this.ball.x = hs.x;
-          this.ball.y = hs.y;
-          this.ball.z = hs.z;
 
-          if (input.btnA || input.btnB) {
-            this.executeServeHit(p, input.btnB, input);
+          if (this.servePhase === 'hold') {
+            const hs = this.renderer.getHandSocketWorld(p, 'pose_ready');
+            this.ball.x = hs.x;
+            this.ball.y = hs.y;
+            this.ball.z = hs.z;
+
+            if (input.btnA || input.btnB) {
+              this.startServeToss(p, input.btnB);
+            }
+          } else if (this.servePhase === 'toss') {
+            const dir = p.team === 0 ? 1 : -1;
+            this.serveAimDrop = this.serveType === 'float' && input.mx * dir < -0.22;
+            this.serveCharge = Math.min(1.0, this.serveCharge + dt * 1.75);
+
+            // Step tossed ball rising in front of server
+            this.ball.x += this.ball.vx * dt;
+            this.ball.vz -= COURT.gravity * 0.72 * dt;
+            this.ball.z = Math.max(28, this.ball.z + this.ball.vz * dt);
+            this.ball.spinAngle = (this.ball.spinAngle || 0) + 9.5 * dt;
+
+            const holdingAny = input.holdA || input.holdB;
+            if (!holdingAny && this.serveCharge < 0.18) {
+              // Quick tap-and-release: switches to Double-Tap / Single-Tap auto-sweet-spot mode!
+              this.serveHoldMode = false;
+            }
+
+            if (this.serveHoldMode) {
+              if (!holdingAny || this.serveCharge >= 1.0) {
+                this.executeServeHit(p, this.serveType === 'jump', input, this.serveCharge);
+              }
+            } else {
+              if (input.btnA || input.btnB) {
+                this.executeServeHit(p, this.serveType === 'jump' || input.btnB, input, this.serveCharge);
+              } else if (this.serveCharge >= 0.82) {
+                // Non-gamer single-tap helper: auto-strikes cleanly inside the Sweet Spot at apex!
+                this.executeServeHit(p, this.serveType === 'jump', input, 0.80);
+              }
+            }
           }
         } else if (this.rallyState === 'play') {
+          if (p.activeDigTimer > 0) {
+            p.activeDigTimer = Math.max(0, p.activeDigTimer - dt);
+          }
+
           if (p.diveLockTimer > 0) {
             p.diveLockTimer -= dt;
             p.vx *= 0.92;
@@ -1232,13 +1564,24 @@
             if ((input.btnA || input.btnB) && p.z === 0 && p.jumpCoilTimer <= 0) {
               const hsDig = this.renderer.getHandSocketWorld(p, 'pose_dive');
               const distToBall = Math.hypot(this.ball.x - hsDig.x, this.ball.y - hsDig.y);
+              const onDefense = this.touchTeam !== p.team;
+              const nearNet = Math.abs(p.x - COURT.netX) <= 78;
+
+              if (onDefense) {
+                // Register active defensive Counter-Play timing window (extinguishes ON FIRE!)
+                p.activeDigTimer = 0.36;
+              }
+
               const wantDive =
                 input.btnB &&
-                this.touchTeam !== p.team &&
-                this.ball.z < 58 &&
-                distToBall > 28 &&
-                distToBall < 125 &&
+                onDefense &&
+                this.ball.z < 64 &&
+                distToBall > 24 &&
+                distToBall < 135 &&
                 (Math.abs(input.mx) > 0.1 || Math.abs(input.my) > 0.1);
+
+              const wantCounterDig =
+                input.btnA && onDefense && !nearNet && this.ball.z < 78;
 
               if (wantDive) {
                 const dx = this.ball.x - hsDig.x;
@@ -1253,6 +1596,11 @@
                 p.rig.applyActionImpulse('dive', 1.35);
                 this.renderer.addSandTrail(p.x, p.y, 26);
                 AudioSys.playSandDive();
+              } else if (wantCounterDig) {
+                // Active Counter-Dig stance in backcourt (locks forearm platform without jumping over the ball!)
+                p.actionState = 'dig';
+                p.actionTimer = 0.34;
+                p.rig.applyActionImpulse('dig', 1.15);
               } else {
                 const jumpVel = 248 + p.profile.jump * 62;
                 this.triggerKeyedJump(p, jumpVel);
@@ -1282,7 +1630,7 @@
           const hs = this.renderer.getHandSocketWorld(p, activePose);
           const distHandXY = Math.hypot(this.ball.x - hs.x, this.ball.y - hs.y);
           const distHandZ = Math.abs(this.ball.z - hs.z);
-          const hitRadiusXY = p.actionState === 'dive' ? 52 : 42;
+          const hitRadiusXY = p.actionState === 'dive' ? 54 : p.activeDigTimer > 0 ? 48 : 42;
           const hitRadiusZ = p.z > 14 ? 44 : 38;
 
           if (
@@ -1344,11 +1692,24 @@
       if (this.rallyState === 'play') {
         const b = this.ball;
         const prevX = b.x;
+
+        // Apply Topspin downward dive, Meteor lateral curve, and Knuckle-Float aerodynamic wobble!
+        const gravMult = 1.0 + (b.topspin || 0) * 0.34;
+        if (b.curveY) {
+          b.vy += b.curveY * dt;
+        }
+        if (b.knuckle > 0) {
+          b.knucklePhase = (b.knucklePhase || 0) + 14.5 * dt;
+          b.vy += Math.cos(b.knucklePhase) * 265 * b.knuckle * dt;
+          this.predictBallLanding();
+        }
+
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        b.vz -= COURT.gravity * dt;
+        b.vz -= COURT.gravity * gravMult * dt;
         b.z += b.vz * dt;
-        b.spinAngle += (b.vx * 0.035 + 7.5) * dt;
+        const spinSpd = b.knuckle > 0 ? 1.4 : b.vx * 0.035 + (b.topspin ? 13.5 : 7.5);
+        b.spinAngle += spinSpd * dt;
 
         b.trail.push({ x: b.x, y: b.y, z: b.z });
         if (b.trail.length > 12) b.trail.shift();
@@ -1356,17 +1717,21 @@
         // Check Net Crossing & Net Cord Collision
         if ((prevX < COURT.netX && b.x >= COURT.netX) || (prevX > COURT.netX && b.x <= COURT.netX)) {
           if (b.z < COURT.netHeight) {
-            if (b.z > COURT.netHeight - 12) {
+            if (b.z > COURT.netHeight - 12 || this.serveRules === 'arcade') {
               b.vx *= 0.45;
               b.vz = Math.max(65, Math.abs(b.vz) * 0.4);
               b.z = COURT.netHeight + 2;
+              b.topspin = 0;
+              b.curveY = 0;
+              b.knuckle = 0;
               b.impactSquash = 0.7;
-              this.addCallout('NET CORD!', COURT.netX, b.y - 75, '#ffb84d');
+              this.addCallout('NET CORD TRICKLE!', COURT.netX, b.y - 75, '#ffb84d');
               AudioSys.playHit(0.4, 0.7);
               this.predictBallLanding();
             } else {
               b.vx *= -0.28;
               b.vz = -40;
+              b.topspin = 0;
               b.impactSquash = 0.9;
               AudioSys.playHit(0.5, 0.6);
             }
@@ -1434,6 +1799,9 @@
       g.toggleLobbyModal(false);
       g.poseCamActive = true;
       g.rallyState = 'serve';
+      g.servePhase = 'toss';
+      g.serveType = 'jump';
+      g.serveCharge = 0.84; // Showcase the new Serve Power & Sweet-Spot Bar right in the ★ SWEET ★ zone!
       g.demoFreeze = true;
       const aParam = params.get('athlete');
       if (aParam !== null) {
@@ -1442,16 +1810,20 @@
         g.players[0].rig = new SoftBodyRig(g.players[0].profile);
       }
       g.poseCamPlayerIdx = 0;
+      g.players[0].z = 36;
+      g.players[0].actionState = 'spike';
+      g.players[0].actionTimer = 4.0;
+      g.players[0].ghostTrail = [{ x: 248, y: 502, z: 8, poseKey: 'pose_jump_coil' }];
       g.players[0].rig.applyActionImpulse('celebrate', 1.45);
       // Showcase keyed Jump Coil on Partner Elena and Dig on Nyx!
       g.players[1].actionState = 'jump_coil';
       g.players[1].actionTimer = 4.0;
       g.players[2].actionState = 'dig';
       g.players[2].actionTimer = 4.0;
-      const hs0 = g.renderer.getHandSocketWorld(g.players[0], 'pose_ready');
-      g.ball.x = hs0.x;
+      const hs0 = g.renderer.getHandSocketWorld(g.players[0], 'pose_spike');
+      g.ball.x = hs0.x + 8;
       g.ball.y = hs0.y;
-      g.ball.z = hs0.z;
+      g.ball.z = hs0.z + 6;
     } else if (shot === 'neon') {
       g.toggleLobbyModal(false);
       g.lightingTheme = 'neon';
@@ -1485,7 +1857,8 @@
         { x: 538, y: 448, z: 46, poseKey: 'pose_spike' }
       ];
       g.players[0].rig.applyActionImpulse('spike', 1.7);
-      g.addCallout('🔥 KASUMI IS ON FIRE! BOOMSHAKALAKA! 🔥', 560, 285, '#ff5500');
+      g.addCallout('🔥 KASUMI IS ON FIRE! BOOMSHAKALAKA! 🔥', 525, 278, '#ff5500');
+      g.addCallout('🧯 FIRE EXTINGUISHED! DIVING SAVE!', 805, 342, '#2ce6ff');
 
       const hsSpike = g.renderer.getHandSocketWorld(g.players[0], 'pose_spike_follow');
       g.ball.x = hsSpike.x + 28;
@@ -1515,6 +1888,9 @@
       g.players[2].actionState = 'dive';
       g.players[2].actionTimer = 4.0;
       g.players[2].diveLockTimer = 4.0;
+      const hsDive = g.renderer.getHandSocketWorld(g.players[2], 'pose_dive');
+      g.renderer.addImpactRing(hsDive.screenX, hsDive.screenY, '#2ce6ff', 54);
+      g.renderer.impactRings[g.renderer.impactRings.length - 1].age = 0.25;
 
       g.players[3].x = 910;
       g.players[3].y = 545;

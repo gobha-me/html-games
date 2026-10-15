@@ -17,7 +17,7 @@
           <span class="title-main">SUNBREAK</span>
           <span class="title-sub">// V'BALL HD-2D</span>
         </div>
-        <span class="tech-pill" id="renderer-pill">WebGL2 2.5D Soft-Body + Specular Normal Shader</span>
+        <span class="tech-pill" id="renderer-pill">WebGL2 2.5D Shader</span>
       </div>
 
       <div class="scoreboard-cluster">
@@ -46,6 +46,13 @@
             <option value="doax" selected>DOAX Arcade (Bouncy)</option>
             <option value="realistic">Realistic Athletic</option>
             <option value="overdrive">Paradise Turbo (Max)</option>
+          </select>
+        </label>
+        <label class="tuner-select" title="Serve Fault & Risk Rules">
+          <span>SERVE</span>
+          <select id="select-serve-rules">
+            <option value="arcade" selected>Arcade (No Faults)</option>
+            <option value="pro">Pro Risk (Net/Out)</option>
           </select>
         </label>
         <label class="tuner-select" title="Lighting & Specular Environment">
@@ -86,10 +93,10 @@
         </div>
 
         <div class="controls-callout" id="controls-callout">
-          <span><b>MOVE:</b> WASD / Stick</span>
-          <span><b>BUMP / HIGH SET / LOB:</b> J / Space / (A)</span>
-          <span><b>QUICK SET / POWER SPIKE / DIVE:</b> K / (X/B)</span>
-          <span><b>SWITCH / SETTER DUMP:</b> L / Shift / (LB)</span>
+          <span><b>MOVE/AIM:</b> WASD / Stick</span>
+          <span><b>FLOAT/DROP SERVE • COUNTER DIG:</b> Hold/Tap J / Space</span>
+          <span><b>JUMP SERVE • SPIKE • DIVE:</b> Hold/Tap K / (X/B)</span>
+          <span><b>TURBO / SWITCH:</b> Shift / L / (RT)</span>
         </div>
 
         <div class="solar-panel right">
