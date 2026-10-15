@@ -243,10 +243,16 @@
   uniform sampler2D u_texAlbedo;
   uniform sampler2D u_texNormal;
   uniform sampler2D u_texAlbedoPrev;
-  uniform float u_poseBlend; // 0.0 = pure current pose, >0 = morphing from previous keyframe pose
-  uniform vec2 u_morphVec;   // anatomical correspondent UV shift from Pose A -> Pose B
+  uniform float u_poseBlend; // 0.0 -> 1.0 transition progress (0..0.5 Force Pose A to midpoint, 0.5..1.0 Relax Pose B)
 
-  // 5 Anatomical UV Pin Zones: [u, v, radius] in unflipped texture UV space
+  // 6-Joint Bidirectional Cage: [0]=head, [1]=chest, [2]=hands, [3]=hips, [4]=knees, [5]=feet
+  uniform vec2 u_jointMid[6];   // Midpoint UV coordinates M_k(t) = mix(J_A[k], J_B[k], t)
+  uniform vec2 u_jointDelta[6]; // Clamped joint displacement (J_B[k] - J_A[k])
+  uniform float u_crouchA;      // Foot-anchored vertical squat compression for Pose A
+  uniform float u_crouchB;      // Foot-anchored vertical squat compression for Pose B
+  uniform vec2 u_strideVec;     // Live running-stride leg/arm joint oscillation in Stand pose
+
+  // 5 Anatomical Soft-Body UV Pin Zones: [u, v, radius] in unflipped texture UV space
   uniform vec3 u_zoneBustL;
   uniform vec3 u_zoneBustR;
   uniform vec3 u_zoneHipL;
@@ -303,37 +309,87 @@
     }
   }
 
+  // Computes the Partition-of-Unity 6-Joint Cage deformation vector at uv
+  vec2 evalJointCageDelta(vec2 uv) {
+    const float jRad[6] = float[6](0.17, 0.21, 0.22, 0.23, 0.21, 0.19);
+    float wSum = 0.075;
+    vec2 acc = vec2(0.0);
+    for (int k = 0; k < 6; k++) {
+      vec2 d = (uv - u_jointMid[k]) * vec2(1.0, 1.15);
+      float w = exp(-dot(d, d) / (jRad[k] * jRad[k]));
+      acc += w * u_jointDelta[k];
+      wSum += w;
+    }
+    return acc / wSum;
+  }
+
+  // Applies foot-anchored vertical squat compression (planted at ankle line v = 0.885)
+  vec2 applyFootAnchoredCrouch(vec2 uv, float crouchAmt) {
+    const float ankleV = 0.885;
+    if (uv.y < ankleV && abs(crouchAmt) > 0.001) {
+      float aboveAnkle = ankleV - uv.y;
+      // Smooth knee/hip bend curve so head & torso drop cleanly toward planted feet
+      float bendProfile = smoothstep(0.0, 0.45, aboveAnkle);
+      uv.y = ankleV - aboveAnkle / max(0.72, 1.0 - crouchAmt * (0.65 + 0.35 * bendProfile));
+      // Slight knee-forward / hip-back counter-balance during deep squat
+      float kneeWave = exp(-pow((uv.y - 0.70) / 0.14, 2.0)) * 0.028 * crouchAmt;
+      float hipWave = -exp(-pow((uv.y - 0.51) / 0.14, 2.0)) * 0.024 * crouchAmt;
+      uv.x -= (kneeWave + hipWave);
+    }
+    return uv;
+  }
+
   void main() {
-    vec2 warpedUv = v_uv;
+    float t = clamp(u_poseBlend, 0.0, 1.0);
+    float currCrouch = mix(u_crouchA, u_crouchB, t);
+
+    // 1. Foot-anchored vertical squat/launch deformation
+    vec2 baseUv = applyFootAnchoredCrouch(v_uv, currCrouch);
+
+    // 2. Live sand-running stride joint articulation on knees/feet & counter-pumping forearms
+    if (length(u_strideVec) > 0.0005) {
+      float legMask = smoothstep(0.54, 0.82, baseUv.y) * smoothstep(0.95, 0.84, baseUv.y);
+      float armMask = exp(-pow((baseUv.y - 0.46) / 0.14, 2.0)) * smoothstep(0.42, 0.78, baseUv.x);
+      baseUv.x -= u_strideVec.x * legMask - u_strideVec.x * 0.65 * armMask;
+      baseUv.y -= u_strideVec.y * legMask;
+    }
+
+    vec2 warpedUv = baseUv;
     vec2 normalTilt = vec2(0.0);
     float wBL = 0.0, wBR = 0.0, wHL = 0.0, wHR = 0.0, wHair = 0.0;
 
     float bBoost = u_propScale.x;
     float hBoost = u_propScale.y;
 
-    applySoftZone(v_uv, u_zoneBustL, u_dispBustL, bBoost, warpedUv, normalTilt, wBL);
-    applySoftZone(v_uv, u_zoneBustR, u_dispBustR, bBoost, warpedUv, normalTilt, wBR);
-    applySoftZone(v_uv, u_zoneHipL,  u_dispHipL,  hBoost, warpedUv, normalTilt, wHL);
-    applySoftZone(v_uv, u_zoneHipR,  u_dispHipR,  hBoost, warpedUv, normalTilt, wHR);
-    applySoftZone(v_uv, u_zoneHair,  u_dispHair,  1.0,    warpedUv, normalTilt, wHair);
+    applySoftZone(baseUv, u_zoneBustL, u_dispBustL, bBoost, warpedUv, normalTilt, wBL);
+    applySoftZone(baseUv, u_zoneBustR, u_dispBustR, bBoost, warpedUv, normalTilt, wBR);
+    applySoftZone(baseUv, u_zoneHipL,  u_dispHipL,  hBoost, warpedUv, normalTilt, wHL);
+    applySoftZone(baseUv, u_zoneHipR,  u_dispHipR,  hBoost, warpedUv, normalTilt, wHR);
+    applySoftZone(baseUv, u_zoneHair,  u_dispHair,  1.0,    warpedUv, normalTilt, wHair);
 
-    // Keyed Pose A -> Pose B Correspondent UV Morphing:
-    // Upper torso/arms warp smoothly along u_morphVec during keyframe transitions
-    float upperMask = smoothstep(0.75, 0.20, v_uv.y);
-    vec2 uvB = warpedUv + u_morphVec * (1.0 - u_poseBlend) * upperMask;
-    vec2 uvA = warpedUv - u_morphVec * u_poseBlend * upperMask;
+    // 3. Bidirectional 6-Joint Force -> Midpoint Handoff -> Relaxation:
+    //    - Pose A is forced forward along +t * cageDelta toward the midpoint.
+    //    - Pose B starts pre-displaced by -(1 - t) * cageDelta at the midpoint and relaxes to 0 as t -> 1.
+    vec2 cageDelta = (t < 0.995) ? evalJointCageDelta(warpedUv) : vec2(0.0);
+    float relaxFactor = (1.0 - t) * (1.0 - 0.16 * sin(t * 3.14159265));
+    vec2 uvA = warpedUv - t * cageDelta;
+    vec2 uvB = warpedUv + relaxFactor * cageDelta;
 
     vec4 colB = (uvB.x >= 0.0 && uvB.x <= 1.0 && uvB.y >= 0.0 && uvB.y <= 1.0)
       ? texture(u_texAlbedo, uvB)
       : vec4(0.0);
     vec4 texCol = colB;
 
-    if (u_poseBlend < 0.99 && uvA.x >= 0.0 && uvA.x <= 1.0 && uvA.y >= 0.0 && uvA.y <= 1.0) {
+    if (t < 0.995 && uvA.x >= 0.0 && uvA.x <= 1.0 && uvA.y >= 0.0 && uvA.y <= 1.0) {
       vec4 colA = texture(u_texAlbedoPrev, uvA);
-      // Premultiplied-alpha keyframe morph blend
-      float aMix = mix(colA.a, colB.a, u_poseBlend);
+      // Tight midpoint handoff window (0.28..0.72):
+      // 0.00..0.28 = Pose A forces joints to midpoint;
+      // 0.28..0.72 = Aligned midpoint handoff;
+      // 0.72..1.00 = Pose B relaxes joints to rest!
+      float handoff = smoothstep(0.28, 0.72, t);
+      float aMix = mix(colA.a, colB.a, handoff);
       if (aMix > 0.05) {
-        vec3 rgbMix = (colA.rgb * colA.a * (1.0 - u_poseBlend) + colB.rgb * colB.a * u_poseBlend) / max(0.001, aMix);
+        vec3 rgbMix = (colA.rgb * colA.a * (1.0 - handoff) + colB.rgb * colB.a * handoff) / max(0.001, aMix);
         texCol = vec4(rgbMix, aMix);
       }
     }
@@ -483,11 +539,12 @@
     outColor = vec4(clamp(col, 0.0, 1.0), texCol.a * u_alpha);
   }`;
 
-  // Hand-calibrated & visually verified anatomical UV landmarks + handSocket + head pins across all 8 poses
+  // Hand-calibrated & visually verified anatomical 6-Joint Cage + Soft-Body UV landmarks across all 8 poses
   const CALIBRATED_LANDMARKS = {
     pose_ready: {
       width: 256,
       height: 320,
+      crouch: 0.0,
       zones: {
         bustL: [0.535, 0.348, 0.062],
         bustR: [0.582, 0.354, 0.062],
@@ -495,51 +552,71 @@
         hipR: [0.435, 0.520, 0.078],
         hair: [0.335, 0.235, 0.125],
         head: [0.575, 0.205],
-        handSocket: [0.705, 0.495]
+        chest: [0.558, 0.351],
+        handSocket: [0.705, 0.495],
+        hips: [0.390, 0.518],
+        knees: [0.502, 0.713],
+        feet: [0.459, 0.881]
       }
     },
     pose_dig: {
       width: 256,
       height: 320,
+      crouch: 0.065,
       zones: {
         bustL: [0.545, 0.345, 0.062],
         bustR: [0.592, 0.350, 0.062],
         hipL: [0.348, 0.515, 0.082],
         hipR: [0.438, 0.520, 0.078],
         hair: [0.340, 0.235, 0.125],
-        head: [0.585, 0.205],
-        handSocket: [0.728, 0.525]
+        head: [0.585, 0.228],
+        chest: [0.568, 0.372],
+        handSocket: [0.728, 0.525],
+        hips: [0.393, 0.542],
+        knees: [0.510, 0.725],
+        feet: [0.467, 0.881]
       }
     },
     pose_set: {
       width: 256,
       height: 320,
+      crouch: -0.032,
       zones: {
         bustL: [0.540, 0.355, 0.065],
         bustR: [0.590, 0.360, 0.065],
         hipL: [0.358, 0.520, 0.082],
         hipR: [0.445, 0.525, 0.078],
         hair: [0.335, 0.240, 0.125],
-        head: [0.575, 0.210],
-        handSocket: [0.675, 0.135]
+        head: [0.575, 0.195],
+        chest: [0.565, 0.342],
+        handSocket: [0.675, 0.135],
+        hips: [0.402, 0.505],
+        knees: [0.522, 0.702],
+        feet: [0.480, 0.881]
       }
     },
     pose_jump_coil: {
       width: 256,
       height: 320,
+      crouch: 0.115,
       zones: {
         bustL: [0.535, 0.362, 0.064],
         bustR: [0.588, 0.368, 0.064],
         hipL: [0.338, 0.505, 0.084],
         hipR: [0.428, 0.515, 0.080],
         hair: [0.345, 0.195, 0.135],
-        head: [0.618, 0.205],
-        handSocket: [0.215, 0.425]
+        head: [0.618, 0.258],
+        chest: [0.562, 0.405],
+        handSocket: [0.215, 0.455],
+        hips: [0.383, 0.558],
+        knees: [0.557, 0.735],
+        feet: [0.512, 0.881]
       }
     },
     pose_spike: {
       width: 256,
       height: 320,
+      crouch: -0.020,
       zones: {
         bustL: [0.565, 0.345, 0.065],
         bustR: [0.622, 0.348, 0.065],
@@ -547,12 +624,17 @@
         hipR: [0.585, 0.538, 0.078],
         hair: [0.275, 0.285, 0.115],
         head: [0.565, 0.235],
-        handSocket: [0.695, 0.155]
+        chest: [0.594, 0.346],
+        handSocket: [0.695, 0.155],
+        hips: [0.540, 0.536],
+        knees: [0.429, 0.708],
+        feet: [0.199, 0.862]
       }
     },
     pose_spike_follow: {
       width: 256,
       height: 320,
+      crouch: 0.025,
       zones: {
         bustL: [0.485, 0.388, 0.065],
         bustR: [0.535, 0.402, 0.065],
@@ -560,12 +642,17 @@
         hipR: [0.355, 0.478, 0.080],
         hair: [0.485, 0.165, 0.135],
         head: [0.665, 0.315],
-        handSocket: [0.785, 0.585]
+        chest: [0.510, 0.395],
+        handSocket: [0.785, 0.585],
+        hips: [0.315, 0.472],
+        knees: [0.433, 0.713],
+        feet: [0.275, 0.877]
       }
     },
     pose_dive: {
       width: 320,
       height: 224,
+      crouch: 0.0,
       zones: {
         bustL: [0.635, 0.525, 0.068],
         bustR: [0.665, 0.548, 0.068],
@@ -573,12 +660,17 @@
         hipR: [0.478, 0.575, 0.080],
         hair: [0.425, 0.285, 0.125],
         head: [0.665, 0.355],
-        handSocket: [0.855, 0.505]
+        chest: [0.650, 0.536],
+        handSocket: [0.855, 0.505],
+        hips: [0.462, 0.550],
+        knees: [0.169, 0.705],
+        feet: [0.115, 0.745]
       }
     },
     plate_closeup: {
       width: 384,
       height: 480,
+      crouch: 0.0,
       zones: {
         bustL: [0.575, 0.458, 0.095],
         bustR: [0.668, 0.468, 0.098],
@@ -586,7 +678,11 @@
         hipR: [0.565, 0.785, 0.110],
         hair: [0.335, 0.245, 0.130],
         head: [0.625, 0.245],
-        handSocket: [0.785, 0.725]
+        chest: [0.622, 0.463],
+        handSocket: [0.785, 0.725],
+        hips: [0.490, 0.780],
+        knees: [0.600, 0.714],
+        feet: [0.553, 0.889]
       }
     }
   };
@@ -708,7 +804,11 @@
         texNormal: gl.getUniformLocation(cp, 'u_texNormal'),
         texAlbedoPrev: gl.getUniformLocation(cp, 'u_texAlbedoPrev'),
         poseBlend: gl.getUniformLocation(cp, 'u_poseBlend'),
-        morphVec: gl.getUniformLocation(cp, 'u_morphVec'),
+        jointMid: gl.getUniformLocation(cp, 'u_jointMid[0]'),
+        jointDelta: gl.getUniformLocation(cp, 'u_jointDelta[0]'),
+        crouchA: gl.getUniformLocation(cp, 'u_crouchA'),
+        crouchB: gl.getUniformLocation(cp, 'u_crouchB'),
+        strideVec: gl.getUniformLocation(cp, 'u_strideVec'),
         zoneBustL: gl.getUniformLocation(cp, 'u_zoneBustL'),
         zoneBustR: gl.getUniformLocation(cp, 'u_zoneBustR'),
         zoneHipL: gl.getUniformLocation(cp, 'u_zoneHipL'),
@@ -851,17 +951,20 @@
       if (isCloseup) {
         if (p.posePreviewTimer > 0) {
           if (p.actionState === 'spike_follow') return 'pose_spike_follow';
+          if (p.actionState === 'jump_launch') return 'pose_set';
           if (p.actionState === 'spike' || p.z > 16) return 'pose_spike';
           if (p.actionState === 'jump_coil') return 'pose_jump_coil';
           if (p.actionState === 'dive') return 'pose_dive';
           if (p.actionState === 'set') return 'pose_set';
           if (p.actionState === 'dig') return 'pose_dig';
+          return 'pose_ready';
         }
         return 'plate_closeup';
       }
       if (p.actionState === 'dive' || p.diveLockTimer > 0) return 'pose_dive';
       if (p.actionState === 'spike_follow') return 'pose_spike_follow';
       if (p.actionState === 'jump_coil') return 'pose_jump_coil';
+      if (p.actionState === 'jump_launch') return 'pose_set';
       if (p.z > 14 || p.actionState === 'spike') return 'pose_spike';
       if (p.actionState === 'set') return 'pose_set';
       if (p.actionState === 'dig') return 'pose_dig';
@@ -888,8 +991,8 @@
     }
 
     /**
-     * Renders a painted HD pixel-art athlete pose through the WebGL2 Keyed Pose-Morph
-     * Soft-Body UV-Warp & 2.5D Normal-Mapped Specular Shader.
+     * Renders a painted HD pixel-art athlete pose through the WebGL2 Bidirectional 6-Joint
+     * Force-to-Midpoint & Relaxation Shader + 2.5D Normal-Mapped Soft-Body Specular Shader.
      */
     drawAthleteGL(p, centerX, centerY, baseHeightPx, isCloseup = false, alphaOverride = 1.0, poseKeyOverride = null) {
       const gl = this.gl;
@@ -899,7 +1002,7 @@
       const entry = this.poseTextures[poseKey];
       if (!entry || !entry.texAlbedo || !entry.texNormal) return;
 
-      // Track keyframe transitions automatically on the player object for smooth Pose A -> Pose B morphing
+      // Track keyframe transitions automatically on the player object for smooth Pose A -> Midpoint -> Pose B relaxation
       if (!isCloseup && alphaOverride >= 0.99) {
         if (!p._renderPoseKey) {
           p._renderPoseKey = poseKey;
@@ -912,10 +1015,13 @@
         }
       }
 
-      const prevKey = (!isCloseup && p._prevPoseKey) ? p._prevPoseKey : poseKey;
+      const allowMorphInCloseup = isCloseup && p.posePreviewTimer > 0 && p._prevPoseKey && p._prevPoseKey !== 'plate_closeup';
+      const prevKey = ((!isCloseup || allowMorphInCloseup) && p._prevPoseKey) ? p._prevPoseKey : poseKey;
       const prevEntry = this.poseTextures[prevKey] || entry;
-      const blendT = isCloseup ? 1.0 : Math.min(1.0, p._poseBlend !== undefined ? p._poseBlend : 1.0);
-      // Cubic smoothstep easing for keyed transition
+      const blendT = (isCloseup && !allowMorphInCloseup)
+        ? 1.0
+        : Math.min(1.0, p._poseBlend !== undefined ? p._poseBlend : 1.0);
+      // Cubic smoothstep easing for bidirectional joint-force -> midpoint -> relaxation
       const easedBlend = blendT * blendT * (3.0 - 2.0 * blendT);
 
       const prof = p.profile;
@@ -930,31 +1036,41 @@
       let squashX = 1.0;
       let stretchY = 1.0;
       let shearX = 0.0;
+      let strideX = 0.0;
+      let strideY = 0.0;
 
-      if (!isCloseup) {
+      if (!isCloseup || allowMorphInCloseup) {
         const transPulse = Math.sin(blendT * Math.PI); // 0 -> 1 -> 0 across keyframe transition
         if (poseKey === 'pose_jump_coil') {
-          squashX = 1.0 + 0.14 * (1.0 - easedBlend * 0.4);
-          stretchY = 1.0 - 0.14 * (1.0 - easedBlend * 0.4);
-          shearX = facing * 0.08 * transPulse;
-        } else if (poseKey === 'pose_spike') {
-          squashX = 1.0 - 0.08 * transPulse;
-          stretchY = 1.0 + 0.12 * transPulse;
-          rot = facing * Math.max(-0.14, Math.min(0.16, -p.vz * 0.0004));
-          shearX = -facing * 0.09 * transPulse;
-        } else if (poseKey === 'pose_spike_follow') {
-          squashX = 1.0 + 0.08 * transPulse;
-          stretchY = 1.0 - 0.08 * transPulse;
-          shearX = facing * 0.15 * transPulse;
-          rot = facing * 0.10;
-        } else if (poseKey === 'pose_dig' || poseKey === 'pose_set') {
-          squashX = 1.0 + 0.08 * transPulse;
-          stretchY = 1.0 - 0.07 * transPulse;
+          squashX = 1.0 + 0.10 * (1.0 - easedBlend * 0.35);
+          stretchY = 1.0 - 0.10 * (1.0 - easedBlend * 0.35);
           shearX = facing * 0.06 * transPulse;
-        } else if (poseKey === 'pose_ready' && p.z <= 1 && speedXY > 15) {
-          bobY = -Math.abs(Math.sin(rig.stridePhase)) * 7.5;
-          rot = facing * Math.sin(rig.stridePhase) * 0.075;
-          shearX = (p.vx || 0) * 0.00028;
+        } else if (poseKey === 'pose_set' && p.actionState === 'jump_launch') {
+          // Stage 2 of Jump: Stand Arms-Up Push-Off extension!
+          squashX = 1.0 - 0.06 * transPulse;
+          stretchY = 1.0 + 0.09 * (0.4 + 0.6 * easedBlend);
+          shearX = facing * 0.05 * transPulse;
+        } else if (poseKey === 'pose_spike') {
+          squashX = 1.0 - 0.06 * transPulse;
+          stretchY = 1.0 + 0.09 * transPulse;
+          rot = isCloseup ? 0.0 : facing * Math.max(-0.12, Math.min(0.14, -p.vz * 0.00035));
+          shearX = -facing * 0.07 * transPulse;
+        } else if (poseKey === 'pose_spike_follow') {
+          squashX = 1.0 + 0.07 * transPulse;
+          stretchY = 1.0 - 0.07 * transPulse;
+          shearX = facing * 0.12 * transPulse;
+          rot = isCloseup ? 0.0 : facing * 0.08;
+        } else if (poseKey === 'pose_dig' || poseKey === 'pose_set') {
+          squashX = 1.0 + 0.06 * transPulse;
+          stretchY = 1.0 - 0.05 * transPulse;
+          shearX = facing * 0.05 * transPulse;
+        } else if (!isCloseup && poseKey === 'pose_ready' && p.z <= 1 && speedXY > 15) {
+          const strideFactor = Math.min(1.0, speedXY / 235.0);
+          bobY = -Math.abs(Math.sin(rig.stridePhase)) * 6.5 * strideFactor;
+          rot = facing * Math.sin(rig.stridePhase) * 0.055 * strideFactor;
+          shearX = (p.vx || 0) * 0.00024;
+          strideX = Math.sin(rig.stridePhase) * 0.036 * strideFactor;
+          strideY = Math.max(0.0, Math.cos(rig.stridePhase)) * 0.022 * strideFactor;
         }
       }
 
@@ -986,14 +1102,38 @@
       gl.bindTexture(gl.TEXTURE_2D, prevEntry.texAlbedo || entry.texAlbedo);
       gl.uniform1i(this.cu.texAlbedoPrev, 2);
 
-      // Compute correspondent anatomical UV shift between Pose A and Pose B
+      // Compute 6-Joint Bidirectional Midpoint & Clamped Force/Relaxation Vectors (head, chest, hands, hips, knees, feet)
       const z = entry.meta.zones;
       const zPrev = prevEntry.meta.zones;
-      const morphU = ((z.head[0] - zPrev.head[0]) * 0.55 + (z.handSocket[0] - zPrev.handSocket[0]) * 0.25) * 0.35;
-      const morphV = ((z.head[1] - zPrev.head[1]) * 0.55 + (z.handSocket[1] - zPrev.handSocket[1]) * 0.25) * 0.35;
+      const jointNames = ['head', 'chest', 'handSocket', 'hips', 'knees', 'feet'];
+      const maxDelta = [0.13, 0.13, 0.18, 0.15, 0.15, 0.17];
+      const midArr = new Float32Array(12);
+      const deltaArr = new Float32Array(12);
+
+      for (let k = 0; k < 6; k++) {
+        const jName = jointNames[k];
+        const jA = zPrev[jName] || [0.5, 0.5];
+        const jB = z[jName] || [0.5, 0.5];
+        let du = (jB[0] - jA[0]) * 0.72;
+        let dv = (jB[1] - jA[1]) * 0.72;
+        const mag = Math.hypot(du, dv);
+        if (mag > maxDelta[k]) {
+          const sc = maxDelta[k] / mag;
+          du *= sc;
+          dv *= sc;
+        }
+        midArr[k * 2 + 0] = jA[0] + (jB[0] - jA[0]) * easedBlend;
+        midArr[k * 2 + 1] = jA[1] + (jB[1] - jA[1]) * easedBlend;
+        deltaArr[k * 2 + 0] = du;
+        deltaArr[k * 2 + 1] = dv;
+      }
 
       gl.uniform1f(this.cu.poseBlend, easedBlend);
-      gl.uniform2f(this.cu.morphVec, morphU, morphV);
+      gl.uniform2fv(this.cu.jointMid, midArr);
+      gl.uniform2fv(this.cu.jointDelta, deltaArr);
+      gl.uniform1f(this.cu.crouchA, prevEntry.meta.crouch || 0.0);
+      gl.uniform1f(this.cu.crouchB, entry.meta.crouch || 0.0);
+      gl.uniform2f(this.cu.strideVec, strideX, strideY);
 
       gl.uniform3fv(this.cu.zoneBustL, z.bustL);
       gl.uniform3fv(this.cu.zoneBustR, z.bustR);
@@ -1128,10 +1268,10 @@
           }
         }
       }
-      // Step per-athlete keyframe morph blend timer (120ms Pose A -> Pose B tween)
+      // Step per-athlete 6-joint force-to-midpoint -> relaxation blend timer (~145ms per stage)
       players.forEach((p) => {
         if (p._poseBlend !== undefined && p._poseBlend < 1.0) {
-          p._poseBlend = Math.min(1.0, p._poseBlend + dt * 8.5);
+          p._poseBlend = Math.min(1.0, p._poseBlend + dt * 6.8);
         }
       });
     }
@@ -1664,7 +1804,7 @@
       ctx.fillText(title, cardX + 14, cardY + 20);
 
       const tx = telemetryX;
-      let ty = cardY + 50;
+      let ty = cardY + 48;
       ctx.font = '700 11px Inter, sans-serif';
       ctx.fillStyle = '#d6e4f5';
       const poseLabel = this.selectPoseKey(focusPlayer, true)
@@ -1672,13 +1812,22 @@
         .replace('plate_', '')
         .toUpperCase();
       ctx.fillText(`Pose: ${poseLabel}`, tx, ty);
-      ty += 17;
-      ctx.fillText(`Rig: ${state.physicsPreset.toUpperCase()}`, tx, ty);
-      ty += 17;
-      ctx.fillText(`Wetness Sheen: ${Math.round(rig.wetness * 100)}%`, tx, ty);
-      ty += 17;
+      ty += 16;
+      const bVal = focusPlayer._poseBlend !== undefined ? focusPlayer._poseBlend : 1.0;
+      const jPhase =
+        bVal < 0.45
+          ? `FORCE -> MID (${Math.round(bVal * 100)}%)`
+          : bVal < 0.99
+          ? `RELAX -> POSE (${Math.round(bVal * 100)}%)`
+          : 'RELAXED (100%)';
+      ctx.fillStyle = bVal < 0.99 ? '#34d399' : '#d6e4f5';
+      ctx.fillText(`Joints: ${jPhase}`, tx, ty);
+      ty += 16;
+      ctx.fillStyle = '#d6e4f5';
+      ctx.fillText(`Rig: ${state.physicsPreset.toUpperCase()} • Wet ${Math.round(rig.wetness * 100)}%`, tx, ty);
+      ty += 16;
       ctx.fillText(`Sand Cling: ${Math.round(rig.sandCoat * 100)}%`, tx, ty);
-      ty += 18;
+      ty += 16;
 
       const boxW = state.poseCamActive ? 152 : 124;
       const boxH = state.poseCamActive ? 86 : 74;
@@ -1687,8 +1836,8 @@
       ctx.strokeStyle = 'rgba(255,255,255,0.22)';
       ctx.strokeRect(tx, ty, boxW, boxH);
       ctx.fillStyle = '#9ab0c9';
-      ctx.font = '700 10px Inter, sans-serif';
-      ctx.fillText('UV PIN SPRING PHASE', tx + 6, ty + 13);
+      ctx.font = '700 9.5px Inter, sans-serif';
+      ctx.fillText('6-JOINT CAGE & SPRINGS', tx + 6, ty + 13);
 
       const midX = tx + boxW * 0.5;
       const midY = ty + boxH * 0.60;
@@ -1716,7 +1865,7 @@
         ctx.fillStyle = '#ffb84d';
         ctx.font = '800 10px Inter, sans-serif';
         ctx.fillText('[1-6] Switch Athlete', tx, ty);
-        ctx.fillText('[SPACE] Jump Coil->Arch', tx, ty + 15);
+        ctx.fillText('[SPACE] Stand->Squat->Air', tx, ty + 15);
         ctx.fillText('[K] Spike Bow->Whip', tx, ty + 30);
         ctx.fillText('[L] Sand Dive Pose', tx, ty + 45);
       }

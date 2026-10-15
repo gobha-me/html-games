@@ -128,9 +128,11 @@
           vy: 0,
           vz: 0,
           facing: team === 0 ? 1 : -1,
-          actionState: 'idle', // idle | jump_coil | dig | set | spike | spike_follow | dive
+          actionState: 'idle', // idle (Stand) | jump_coil (Squat) | jump_launch (Stand Arms-Up) | dig | set | spike (In-Air) | spike_follow | dive
           actionTimer: 0,
           jumpCoilTimer: 0,
+          jumpLaunchTimer: 0,
+          jumpCooldown: 0,
           pendingJumpImpulse: 0,
           diveLockTimer: 0,
           activeDigTimer: 0,
@@ -272,6 +274,14 @@
 
     bindUI() {
       window.addEventListener('keydown', (e) => {
+        const tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (
+          tag !== 'SELECT' &&
+          (e.code === 'Space' || e.code.startsWith('Arrow'))
+        ) {
+          e.preventDefault();
+          if (tag === 'BUTTON') document.activeElement.blur();
+        }
         this.keys[e.code] = true;
         if (e.code === 'KeyC') {
           this.togglePoseCam();
@@ -287,8 +297,8 @@
             this.players[this.poseCamPlayerIdx].rig = new SoftBodyRig(ROSTER[rIdx]);
           } else if (e.code === 'Space') {
             const fp = this.players[this.poseCamPlayerIdx];
+            fp.posePreviewTimer = 1.25;
             this.triggerKeyedJump(fp, 245);
-            fp.posePreviewTimer = 0.85;
             AudioSys.playHit(0.7, 1.1);
           } else if (e.code === 'KeyK') {
             const fp = this.players[this.poseCamPlayerIdx];
@@ -315,6 +325,10 @@
 
       window.addEventListener('keyup', (e) => {
         this.keys[e.code] = false;
+      });
+
+      window.addEventListener('blur', () => {
+        this.keys = {};
       });
 
       document.getElementById('select-physics').addEventListener('change', (e) => {
@@ -383,18 +397,32 @@
     }
 
     /**
-     * Initiates a keyed 2-stage jump sequence:
-     * Stage 1 (`pose_jump_coil`, 95ms): Deep crouch coil with downward soft-body compression.
-     * Stage 2 (`pose_spike`, airborne): Upward launch into mid-air bow-and-arrow arch with hangtime!
+     * Initiates the 4-stage joint-relaxed jump sequence:
+     * 1. `Stand (pose_ready)` -> `Squat (pose_jump_coil, 115ms)`
+     * 2. `Squat` -> `Stand Arms-Up Push-Off (pose_set / jump_launch, 110ms)`
+     * 3. `Stand Arms-Up` -> `In-Air Bow-Arch (pose_spike)`
+     * 4. `Touchdown Landing Squat (pose_jump_coil, 135ms)` -> `Stand (pose_ready)`
      */
     triggerKeyedJump(p, launchVz) {
-      if (p.z > 0 || p.jumpCoilTimer > 0) return;
+      if (
+        p.z > 0.5 ||
+        Math.abs(p.vz) > 1.0 ||
+        p.jumpCoilTimer > 0 ||
+        p.jumpLaunchTimer > 0 ||
+        p.diveLockTimer > 0 ||
+        (p.jumpCooldown && p.jumpCooldown > 0)
+      ) {
+        return false;
+      }
       p.actionState = 'jump_coil';
-      p.jumpCoilTimer = 0.095;
-      p.actionTimer = 0.55;
-      p.pendingJumpImpulse = launchVz * (p.onFire ? 1.14 : 1.0);
+      p.jumpCoilTimer = 0.115;
+      p.jumpLaunchTimer = 0;
+      p.actionTimer = 0.65;
+      const rawVz = launchVz * (p.onFire ? 1.12 : 1.0);
+      p.pendingJumpImpulse = Math.min(305, Math.max(165, rawVz));
       p.rig.applyActionImpulse('jump', 1.25);
       this.renderer.addSandTrail(p.x, p.y, 18);
+      return true;
     }
 
     togglePoseCam() {
@@ -529,6 +557,10 @@
         p.actionState = 'idle';
         p.actionTimer = 0;
         p.jumpCoilTimer = 0;
+        p.jumpLaunchTimer = 0;
+        p.jumpCooldown = 0;
+        p.pendingJumpImpulse = 0;
+        p.diveLockTimer = 0;
         p.activeDigTimer = 0;
         p.facing = p.team === 0 ? 1 : -1;
         p.onFire = this.teamOnFire[p.team];
@@ -821,7 +853,9 @@
             this.ball.z < 138 &&
             this.touchCount === 2 &&
             p.z === 0 &&
-            p.jumpCoilTimer <= 0
+            p.jumpCoilTimer <= 0 &&
+            (!p.jumpLaunchTimer || p.jumpLaunchTimer <= 0) &&
+            (!p.jumpCooldown || p.jumpCooldown <= 0)
           ) {
             out.btnB = true;
           }
@@ -845,20 +879,24 @@
               op.team !== team &&
               (op.z > 16 || op.jumpCoilTimer > 0) &&
               Math.abs(op.x - COURT.netX) < 135 &&
-              Math.hypot(this.ball.x - op.x, this.ball.y - op.y) < 78
+              Math.hypot(this.ball.x - op.x, this.ball.y - op.y) < 78 &&
+              (this.touchCount >= 2 || Math.abs(this.ball.vx) > 95)
           );
           const ballApproachingNetHigh =
-            Math.abs(this.ball.x - COURT.netX) < 95 &&
-            this.ball.z > COURT.netHeight - 8 &&
-            ((isLeft && this.ball.vx < -40) || (!isLeft && this.ball.vx > 40));
+            Math.abs(this.ball.x - COURT.netX) < 92 &&
+            this.ball.z > COURT.netHeight - 4 &&
+            ((isLeft && this.ball.vx < -65) || (!isLeft && this.ball.vx > 65));
 
           if (
             (oppJumpingAtNet || ballApproachingNetHigh) &&
             p.z === 0 &&
             p.jumpCoilTimer <= 0 &&
+            (!p.jumpLaunchTimer || p.jumpLaunchTimer <= 0) &&
+            (!p.jumpCooldown || p.jumpCooldown <= 0) &&
             Math.abs(p.x - COURT.netX) < 62 &&
-            Math.random() < 0.42
+            Math.random() < 0.28
           ) {
+            p.jumpCooldown = 0.72;
             out.btnA = true;
           }
         } else if (tactic === 'peel') {
@@ -1660,6 +1698,9 @@
           if (p.activeDigTimer > 0) {
             p.activeDigTimer = Math.max(0, p.activeDigTimer - dt);
           }
+          if (p.jumpCooldown > 0) {
+            p.jumpCooldown = Math.max(0, p.jumpCooldown - dt);
+          }
 
           if (p.diveLockTimer > 0) {
             p.diveLockTimer -= dt;
@@ -1671,10 +1712,16 @@
             p.vx = input.mx * maxSpd;
             p.vy = input.my * maxSpd * 0.88;
 
-            if ((input.btnA || input.btnB) && p.z === 0 && p.jumpCoilTimer <= 0) {
+            if (
+              (input.btnA || input.btnB) &&
+              p.z === 0 &&
+              p.jumpCoilTimer <= 0 &&
+              (!p.jumpLaunchTimer || p.jumpLaunchTimer <= 0)
+            ) {
               const hsDig = this.renderer.getHandSocketWorld(p, 'pose_dive');
               const distToBall = Math.hypot(this.ball.x - hsDig.x, this.ball.y - hsDig.y);
-              const onDefense = this.touchTeam !== p.team;
+              // A player is on defense / reception whenever the other team touched the ball OR the ball just crossed the net (touchCount === 0)!
+              const onDefense = this.touchTeam !== p.team || this.touchCount === 0;
               const nearNet = Math.abs(p.x - COURT.netX) <= 78;
 
               if (onDefense) {
@@ -1685,13 +1732,13 @@
               const wantDive =
                 input.btnB &&
                 onDefense &&
-                this.ball.z < 64 &&
-                distToBall > 24 &&
-                distToBall < 135 &&
-                (Math.abs(input.mx) > 0.1 || Math.abs(input.my) > 0.1);
+                this.ball.z < 76 &&
+                distToBall > 20 &&
+                distToBall < 145 &&
+                (Math.abs(input.mx) > 0.1 || Math.abs(input.my) > 0.1 || !nearNet);
 
               const wantCounterDig =
-                input.btnA && onDefense && !nearNet && this.ball.z < 78;
+                (input.btnA || input.btnB) && onDefense && !nearNet;
 
               if (wantDive) {
                 const dx = this.ball.x - hsDig.x;
@@ -1711,7 +1758,7 @@
                 p.actionState = 'dig';
                 p.actionTimer = 0.34;
                 p.rig.applyActionImpulse('dig', 1.15);
-              } else {
+              } else if (!p.jumpCooldown || p.jumpCooldown <= 0) {
                 const jumpVel = 248 + p.profile.jump * 62;
                 this.triggerKeyedJump(p, jumpVel);
               }
@@ -1752,15 +1799,25 @@
           }
         }
 
-        // Step Keyed Jump Coil -> Airborne Bow-Arch Launch!
+        // 4-Stage Keyed Jump Chain:
+        // Stage 1 (Stand `pose_ready`) -> Stage 2 (Squat `pose_jump_coil`, 115ms) ->
+        // Stage 3 (Stand Arms-Up Push-Off `pose_set` / `jump_launch`, 110ms) ->
+        // Stage 4 (In-Air Bow-Arch `pose_spike`)!
         if (p.jumpCoilTimer > 0) {
           p.jumpCoilTimer -= dt;
           if (p.jumpCoilTimer <= 0) {
             p.vz = p.pendingJumpImpulse || 260;
             p.pendingJumpImpulse = 0;
-            p.actionState = 'spike';
-            p.actionTimer = 0.55;
+            p.jumpLaunchTimer = 0.11;
+            p.actionState = 'jump_launch';
+            p.actionTimer = 0.62;
             p.rig.applyActionImpulse('jump', 1.35);
+          }
+        }
+        if (p.jumpLaunchTimer > 0) {
+          p.jumpLaunchTimer -= dt;
+          if (p.jumpLaunchTimer <= 0 && p.z > 0 && p.actionState === 'jump_launch') {
+            p.actionState = 'spike';
           }
         }
 
@@ -1770,12 +1827,18 @@
           const effGrav = nearApex ? COURT.gravity * 0.48 : COURT.gravity;
           p.vz -= effGrav * dt;
           p.z += p.vz * dt;
+          // Pre-landing leg extension (`pose_set` -> `pose_jump_coil` touchdown)
+          if (p.z > 0 && p.z < 22 && p.vz < -155 && p.actionState === 'spike') {
+            p.actionState = 'jump_launch';
+          }
           if (p.z <= 0) {
             p.z = 0;
             p.vz = 0;
-            // Brief landing compression crouch (`pose_jump_coil`) on touchdown!
+            p.jumpLaunchTimer = 0;
+            p.jumpCooldown = p.controllerType === 'ai' ? 0.55 : 0.18;
+            // Landing Squat compression crouch (`pose_jump_coil`) on touchdown before relaxing to Stand (`pose_ready`)!
             p.actionState = 'jump_coil';
-            p.actionTimer = 0.11;
+            p.actionTimer = 0.135;
             p.rig.applyActionImpulse('land', 1.25);
             this.renderer.addSandTrail(p.x, p.y, 20);
           }
@@ -1783,7 +1846,12 @@
 
         if (p.actionTimer > 0) {
           p.actionTimer -= dt;
-          if (p.actionTimer <= 0 && p.z === 0 && p.jumpCoilTimer <= 0) {
+          if (
+            p.actionTimer <= 0 &&
+            p.z === 0 &&
+            p.jumpCoilTimer <= 0 &&
+            (!p.jumpLaunchTimer || p.jumpLaunchTimer <= 0)
+          ) {
             p.actionState = 'idle';
           }
         }
@@ -1929,10 +1997,17 @@
         g.players[0].rig = new SoftBodyRig(g.players[0].profile);
       }
       g.poseCamPlayerIdx = 0;
-      g.players[0].z = 36;
+      g.players[0].z = 38;
       g.players[0].actionState = 'spike';
       g.players[0].actionTimer = 4.0;
-      g.players[0].ghostTrail = [{ x: 248, y: 502, z: 8, poseKey: 'pose_jump_coil' }];
+      g.players[0]._prevPoseKey = 'pose_set';
+      g.players[0]._renderPoseKey = 'pose_spike';
+      g.players[0]._poseBlend = 0.78; // Showcase RELAX -> POSE (78%) in Pose Studio telemetry!
+      // Full 4-Stage Jump Chain Ghost Trail: Stand (`pose_ready`) -> Squat (`pose_jump_coil`) -> Stand Arms-Up (`pose_set`) -> In-Air (`pose_spike`)!
+      g.players[0].ghostTrail = [
+        { x: 244, y: 504, z: 4, poseKey: 'pose_jump_coil' },
+        { x: 254, y: 501, z: 22, poseKey: 'pose_set' }
+      ];
       g.players[0].rig.applyActionImpulse('celebrate', 1.45);
       // Showcase keyed Jump Coil on Partner Elena at net (`🧱 BLOCK NET`) and Dig on Nyx (`🛡️ PEEL DEEP`)!
       g.players[1].x = 598;
@@ -1968,7 +2043,7 @@
       g.cutInTimer = 4.0;
       g.cutInLabel = '🔥 ON FIRE SLAM!';
 
-      // P1 Kasumi in mid-air post-spike whip follow-through (`pose_spike_follow`) with afterimage ghost trail from `pose_spike`!
+      // P1 Kasumi in mid-air post-spike whip follow-through (`pose_spike_follow`) with afterimage ghost trail from `pose_set` -> `pose_spike`!
       g.players[0].x = 560;
       g.players[0].y = 445;
       g.players[0].z = 52;
@@ -1980,7 +2055,7 @@
       g.players[0]._renderPoseKey = 'pose_spike_follow';
       g.players[0]._poseBlend = 0.85;
       g.players[0].ghostTrail = [
-        { x: 516, y: 452, z: 18, poseKey: 'pose_jump_coil' },
+        { x: 516, y: 452, z: 18, poseKey: 'pose_set' },
         { x: 538, y: 448, z: 46, poseKey: 'pose_spike' }
       ];
       g.players[0].rig.applyActionImpulse('spike', 1.7);
