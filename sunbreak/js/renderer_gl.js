@@ -1212,6 +1212,54 @@
       sctx.fillRect(netX - 4, netTopY - 4, 8, 6);
       sctx.fillRect(netX - 4, netBotY - 6, 8, 8);
 
+      // Subtle animated Beach Trade-Wind streaks across the court
+      if (state.windKnots && state.windKnots > 0) {
+        const dir = state.windX >= 0 ? 1 : -1;
+        const spd = 35 + state.windKnots * 4.5;
+        sctx.save();
+        sctx.strokeStyle =
+          this.theme === 'neon' ? 'rgba(44, 230, 255, 0.26)' : 'rgba(255, 248, 225, 0.28)';
+        sctx.lineWidth = 1.2;
+        for (let i = 0; i < 6; i++) {
+          const baseX = ((i * 113 + time * spd * dir) % 520 + 520) % 520 + 60;
+          const baseY = 152 + ((i * 37) % 165);
+          const len = 16 + (state.windKnots || 8) * 0.9;
+          sctx.beginPath();
+          sctx.moveTo(baseX, baseY);
+          sctx.lineTo(baseX + dir * len, baseY - 1.5);
+          sctx.stroke();
+        }
+        sctx.restore();
+      }
+
+      // Partner Defensive Tactic Tether & Zone Ring on sand when flashed or defending
+      [0, 1].forEach((team) => {
+        const s0 = team === 0 ? 0 : 2;
+        const s1 = team === 0 ? 1 : 3;
+        const p0 = state.players[s0];
+        const p1 = state.players[s1];
+        if (!p0 || !p1) return;
+        const partner = p0.isPartnerTarget ? p0 : p1.isPartnerTarget ? p1 : team === 0 ? p1 : p0;
+        const human = partner === p0 ? p1 : p0;
+        const flash = (state.tacticFlashTimer && state.tacticFlashTimer[team]) || 0;
+        const onDefense = state.touchTeam !== team;
+        if (flash > 0.01 || (onDefense && team === 0)) {
+          const tactic = (state.defenseTactic && state.defenseTactic[team]) || 'block';
+          const col = tactic === 'block' ? '#ffb84d' : '#2ce6ff';
+          const alpha = flash > 0 ? Math.min(0.85, flash * 0.65) : 0.34;
+          sctx.save();
+          sctx.globalAlpha = alpha;
+          sctx.strokeStyle = col;
+          sctx.lineWidth = 1.4;
+          sctx.setLineDash([4, 3]);
+          sctx.beginPath();
+          sctx.moveTo(human.x * 0.5, human.y * 0.5);
+          sctx.lineTo(partner.x * 0.5, partner.y * 0.5);
+          sctx.stroke();
+          sctx.restore();
+        }
+      });
+
       // Ball landing target reticle + predicted hand-intercept ring on sand
       if (state.ballLanding) {
         const lx = state.ballLanding.x * 0.5;
@@ -1313,10 +1361,12 @@
           sctx.ellipse(px, py, 14, 7.0, 0, 0, Math.PI * 2);
           sctx.stroke();
         } else if (p.isPartnerTarget) {
-          sctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          const tactic = (state.defenseTactic && state.defenseTactic[p.team]) || 'block';
+          sctx.strokeStyle = tactic === 'block' ? 'rgba(255, 184, 77, 0.72)' : 'rgba(44, 230, 255, 0.72)';
+          sctx.lineWidth = 1.6;
           sctx.setLineDash([3, 3]);
           sctx.beginPath();
-          sctx.ellipse(px, py, 12, 6.0, 0, 0, Math.PI * 2);
+          sctx.ellipse(px, py, 13, 6.5, 0, 0, Math.PI * 2);
           sctx.stroke();
         }
         sctx.restore();
@@ -1341,14 +1391,14 @@
         ctx.restore();
       });
 
-      // Draw Player Tags, Turbo Meter & ON FIRE Badges on crisp 1280x720 overlay
+      // Draw Player Tags, Turbo Meter, Partner Tactic Pill & ON FIRE Badges on crisp 1280x720 overlay
       const cardActive = state.poseCamActive || state.cutInTimer > 0;
       const cX = state.poseCamActive ? 845 : 935;
       const cY = 64;
       const cW = state.poseCamActive ? 410 : 320;
       const cH = state.poseCamActive ? 360 : 250;
 
-      state.players.forEach((p) => {
+      state.players.forEach((p, idx) => {
         const sx = p.x;
         const sy = p.y - p.z * 0.88 - 136;
         if (cardActive && sx > cX - 20 && sx < cX + cW + 20 && sy > cY - 10 && sy < cY + cH + 15) {
@@ -1370,7 +1420,34 @@
         ctx.fillRect(sx - 22, sy + 6, 44, 3);
         ctx.fillStyle = p.onFire ? '#ff4500' : p.turboActive ? '#2ce6ff' : '#ffb84d';
         ctx.fillRect(sx - 22, sy + 6, 44 * turboPct, 3);
+
+        // Partner Defensive Tactic Callout Pill (`🧱 BLOCK NET [L]` vs `🛡️ PEEL DEEP [L]`)
+        const showTacticBadge =
+          p.isPartnerTarget ||
+          (p.controllerType === 'ai' && (idx === 1 || idx === 2));
+        if (showTacticBadge && state.defenseTactic) {
+          const tactic = state.defenseTactic[p.team] || 'block';
+          const isBlock = tactic === 'block';
+          const tText = isBlock
+            ? p.team === 0
+              ? '🧱 BLOCK NET [L]'
+              : '🧱 BLOCK NET'
+            : p.team === 0
+            ? '🛡️ PEEL DEEP [L]'
+            : '🛡️ PEEL DEEP';
+          ctx.font = '800 9.5px Inter, sans-serif';
+          const tw = ctx.measureText(tText).width + 10;
+          ctx.fillStyle = isBlock ? 'rgba(42, 26, 6, 0.86)' : 'rgba(6, 28, 42, 0.86)';
+          ctx.fillRect(sx - tw * 0.5, sy + 11, tw, 13);
+          ctx.strokeStyle = isBlock ? '#ffb84d' : '#2ce6ff';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(sx - tw * 0.5, sy + 11, tw, 13);
+          ctx.fillStyle = isBlock ? '#ffb84d' : '#2ce6ff';
+          ctx.fillText(tText, sx, sy + 20.5);
+        }
       });
+
+      this.renderWindAndMatchStateHud(ctx, state, time);
 
       if (state.rallyState === 'serve') {
         this.renderServeMeterOverlay(ctx, state, time);
@@ -1390,6 +1467,63 @@
       if (cardActive) {
         this.renderPoseCamOverlay(ctx, state, time);
       }
+    }
+
+    renderWindAndMatchStateHud(ctx, state, time) {
+      ctx.save();
+      const isDeuce = state.isDeuce && state.isDeuce();
+      const mpTeam = state.getMatchPointTeam ? state.getMatchPointTeam() : -1;
+
+      // Broadcast Court Border Pulse on Deuce or Match Point!
+      if (isDeuce || mpTeam !== -1) {
+        const pulse = 0.35 + 0.25 * Math.sin(time * 6.5);
+        ctx.strokeStyle =
+          mpTeam !== -1
+            ? `rgba(255, 56, 100, ${pulse})`
+            : `rgba(255, 184, 77, ${pulse})`;
+        ctx.lineWidth = 6;
+        ctx.strokeRect(3, 52, 1274, 665);
+      }
+
+      // Top-center Beach Trade-Wind + Tactical & Match-State Broadcast Pill
+      const windTxt = `🌬️ WIND: ${state.windLabel || 'CALM 0 KT'}`;
+      const p1Tactic =
+        state.defenseTactic && state.defenseTactic[0] === 'peel'
+          ? '🛡️ PARTNER: PEEL DEEP [L]'
+          : '🧱 PARTNER: BLOCK NET [L]';
+      const stateBadge =
+        mpTeam !== -1
+          ? ` • 🔥 MATCH POINT (${mpTeam === 0 ? 'SUNSET' : 'RIPTIDE'})`
+          : isDeuce
+          ? ' • ⚡ DEUCE (WIN BY 2)'
+          : '';
+      const fullTxt = `${windTxt}  |  ${p1Tactic}${stateBadge}`;
+
+      ctx.font = '800 11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      const pillW = ctx.measureText(fullTxt).width + 24;
+      const pillX = 640 - pillW * 0.5;
+      const pillY = 58;
+
+      ctx.fillStyle = 'rgba(6, 11, 22, 0.84)';
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, 22, 11);
+      ctx.fill();
+
+      ctx.strokeStyle =
+        mpTeam !== -1
+          ? '#ff3864'
+          : isDeuce
+          ? '#ffb84d'
+          : 'rgba(44, 230, 255, 0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.roundRect(pillX, pillY, pillW, 22, 11);
+      ctx.stroke();
+
+      ctx.fillStyle = mpTeam !== -1 ? '#ff7b9c' : isDeuce ? '#ffb84d' : '#d6e4f5';
+      ctx.fillText(fullTxt, 640, pillY + 14.5);
+      ctx.restore();
     }
 
     renderServeMeterOverlay(ctx, state, time) {
