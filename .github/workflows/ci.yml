@@ -42,8 +42,8 @@ jobs:
             console.log("Verified", gamesJson.games.length, "games in manifest.");
           '
 
-      - name: Syntax-check BREACH // 2099 scripts
+      - name: Syntax-check BREACH // 2099 and SUNBREAK // V'BALL scripts
         run: |
-          for f in breach/js/*.js; do
+          for f in breach/js/*.js sunbreak/js/*.js; do
             node --check "$f"
           done

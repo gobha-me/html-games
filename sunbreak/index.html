@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SUNBREAK // V'BALL — 2.5D Arcade Beach Volleyball</title>
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app-shell">
+    <!-- Top Arcade Header & Controls Bar -->
+    <header id="topbar">
+      <div class="brand-cluster">
+        <a href="../" class="back-link" title="Back to Arcade">← ARCADE</a>
+        <div class="title-badge">
+          <span class="title-main">SUNBREAK</span>
+          <span class="title-sub">// V'BALL HD-2D</span>
+        </div>
+        <span class="tech-pill" id="renderer-pill">WebGL2 2.5D Soft-Body + Specular Normal Shader</span>
+      </div>
+
+      <div class="scoreboard-cluster">
+        <div class="team-score team-left">
+          <span class="team-name" id="hud-left-name">SUNSET ANGELS</span>
+          <span class="score-digits" id="score-left">0</span>
+        </div>
+        <div class="rally-center">
+          <div class="touch-pips" id="touch-indicator">
+            <span class="pip" data-touch="1">DIG</span>
+            <span class="pip" data-touch="2">SET</span>
+            <span class="pip" data-touch="3">SPIKE</span>
+          </div>
+          <div class="match-meta" id="match-meta">15 PT MATCH • SERVE</div>
+        </div>
+        <div class="team-score team-right">
+          <span class="score-digits" id="score-right">0</span>
+          <span class="team-name" id="hud-right-name">RIPTIDE VALKYRIES</span>
+        </div>
+      </div>
+
+      <div class="tuner-cluster">
+        <label class="tuner-select" title="Soft-Body Spring-Damper Physics Profile">
+          <span>PHYSICS</span>
+          <select id="select-physics">
+            <option value="doax" selected>DOAX Arcade (Bouncy)</option>
+            <option value="realistic">Realistic Athletic</option>
+            <option value="overdrive">Paradise Turbo (Max)</option>
+          </select>
+        </label>
+        <label class="tuner-select" title="Lighting & Specular Environment">
+          <span>LIGHTING</span>
+          <select id="select-lighting">
+            <option value="sunset" selected>Golden Hour Sunset</option>
+            <option value="noon">Tropical High Noon</option>
+            <option value="neon">Neon Night Court</option>
+          </select>
+        </label>
+        <button id="btn-pose-cam" class="hud-btn" title="Toggle Interactive Close-Up Physics & Pose Showcase (Key: C)">
+          POSE CAM (C)
+        </button>
+        <button id="btn-lobby" class="hud-btn accent" title="Open 1-4P Controller & Mode Setup (Key: Esc)">
+          MODES / 1-4P
+        </button>
+        <button id="btn-audio" class="hud-btn" title="Toggle Synth & Beach Audio (Key: M)">
+          SFX: ON
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Viewport Stage -->
+    <main id="stage-wrap">
+      <canvas id="gl-canvas" width="1280" height="720"></canvas>
+      <canvas id="hud-canvas" width="1280" height="720"></canvas>
+
+      <!-- Solar Overdrive Meters & Partner Status Overlay -->
+      <div id="court-hud-bottom">
+        <div class="solar-panel left">
+          <div class="solar-header">
+            <span id="p1-p2-tags">P1 (YOU) + AI PARTNER</span>
+            <span class="solar-pct" id="solar-left-pct">SOLAR 0%</span>
+          </div>
+          <div class="solar-bar-bg">
+            <div class="solar-bar-fill left" id="solar-left-fill" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="controls-callout" id="controls-callout">
+          <span><b>MOVE:</b> WASD / Stick</span>
+          <span><b>BUMP / HIGH SET / LOB:</b> J / Space / (A)</span>
+          <span><b>QUICK SET / POWER SPIKE / DIVE:</b> K / (X/B)</span>
+          <span><b>SWITCH / SETTER DUMP:</b> L / Shift / (LB)</span>
+        </div>
+
+        <div class="solar-panel right">
+          <div class="solar-header">
+            <span class="solar-pct" id="solar-right-pct">SOLAR 0%</span>
+            <span id="p3-p4-tags">CPU BOSS DUO</span>
+          </div>
+          <div class="solar-bar-bg">
+            <div class="solar-bar-fill right" id="solar-right-fill" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lobby / Mode / 1-4P Controller Assignment Modal -->
+      <div id="lobby-modal" class="modal-backdrop">
+        <div class="modal-card">
+          <div class="modal-header">
+            <div>
+              <h2>SUNBREAK // V'BALL — COURT & CONTROLLER LOBBY</h2>
+              <p class="modal-subtitle">
+                2.5D Normal-Mapped Pixel Art • Coupled Soft-Body Spring-Damper Physics • 1–4 Player Couch Co-Op & Versus
+              </p>
+            </div>
+            <button id="btn-close-lobby" class="close-btn" title="Resume Match">✕</button>
+          </div>
+
+          <div class="mode-presets">
+            <button class="mode-btn active" data-mode="solo">
+              <strong>1P SOLO TOURNAMENT</strong>
+              <span>Auto-Handoff Partner • You + AI vs Bosses</span>
+            </button>
+            <button class="mode-btn" data-mode="coop">
+              <strong>2P CO-OP TANDEM</strong>
+              <span>2 Humans on Left Court vs AI Boss Duo</span>
+            </button>
+            <button class="mode-btn" data-mode="versus2p">
+              <strong>2P HEAD-TO-HEAD</strong>
+              <span>P1 + AI vs P2 + AI (Auto-Handoff)</span>
+            </button>
+            <button class="mode-btn" data-mode="party4p">
+              <strong>4P COUCH PARTY</strong>
+              <span>2v2 All-Human (Up to 4 Gamepads / Keys)</span>
+            </button>
+          </div>
+
+          <div class="slots-grid" id="slots-grid">
+            <!-- Dynamically populated by game.js with 4 court slots (Athletes + Controller Assignment) -->
+          </div>
+
+          <div class="gamepad-status-bar" id="gamepad-status-bar">
+            <span class="gp-dot"></span>
+            <span id="gamepad-status-text">
+              HTML5 Gamepad API Ready — Press any button on up to 4 Xbox / PlayStation / USB controllers, or use WASD (P1) & Arrows (P2).
+            </span>
+          </div>
+
+          <div class="modal-actions">
+            <button id="btn-start-match" class="cta-btn">SERVE IT UP! (ENTER / START)</button>
+            <button id="btn-open-pose-showcase" class="secondary-btn">OPEN POSE & PHYSICS STUDIO</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/audio.js"></script>
+  <script src="js/roster.js"></script>
+  <script src="js/physics_rig.js"></script>
+  <script src="js/renderer_gl.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
