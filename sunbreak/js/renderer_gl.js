@@ -367,34 +367,30 @@
     applySoftZone(baseUv, u_zoneHipR,  u_dispHipR,  hBoost, warpedUv, normalTilt, wHR);
     applySoftZone(baseUv, u_zoneHair,  u_dispHair,  1.0,    warpedUv, normalTilt, wHair);
 
-    // 3. Bidirectional 6-Joint Force -> Midpoint Handoff -> Relaxation:
-    //    - Pose A is forced forward along +t * cageDelta toward the midpoint.
-    //    - Pose B starts pre-displaced by -(1 - t) * cageDelta at the midpoint and relaxes to 0 as t -> 1.
+    // 3. Zero-Ghost Bidirectional 6-Joint Force -> 100%-Opaque Midpoint Cut -> Relaxation:
+    //    - t in [0.00, 0.50): Pose A is 100% opaque while its 6 joints force toward the midpoint.
+    //    - t == 0.50: Crisp 0ms hard-cut at the aligned midpoint (zero alpha crossfade / zero double-exposure!).
+    //    - t in [0.50, 1.00]: Pose B is 100% opaque and relaxes its joint strain from the midpoint to 0.
     vec2 cageDelta = (t < 0.995) ? evalJointCageDelta(warpedUv) : vec2(0.0);
-    float relaxFactor = (1.0 - t) * (1.0 - 0.16 * sin(t * 3.14159265));
-    vec2 uvA = warpedUv - t * cageDelta;
-    vec2 uvB = warpedUv + relaxFactor * cageDelta;
+    vec2 sampleUv = warpedUv;
+    vec4 texCol = vec4(0.0);
 
-    vec4 colB = (uvB.x >= 0.0 && uvB.x <= 1.0 && uvB.y >= 0.0 && uvB.y <= 1.0)
-      ? texture(u_texAlbedo, uvB)
-      : vec4(0.0);
-    vec4 texCol = colB;
-
-    if (t < 0.995 && uvA.x >= 0.0 && uvA.x <= 1.0 && uvA.y >= 0.0 && uvA.y <= 1.0) {
-      vec4 colA = texture(u_texAlbedoPrev, uvA);
-      // Tight midpoint handoff window (0.28..0.72):
-      // 0.00..0.28 = Pose A forces joints to midpoint;
-      // 0.28..0.72 = Aligned midpoint handoff;
-      // 0.72..1.00 = Pose B relaxes joints to rest!
-      float handoff = smoothstep(0.28, 0.72, t);
-      float aMix = mix(colA.a, colB.a, handoff);
-      if (aMix > 0.05) {
-        vec3 rgbMix = (colA.rgb * colA.a * (1.0 - handoff) + colB.rgb * colB.a * handoff) / max(0.001, aMix);
-        texCol = vec4(rgbMix, aMix);
+    if (t < 0.50) {
+      float forceAmt = (t * 2.0) * 0.52;
+      sampleUv = warpedUv - forceAmt * cageDelta;
+      if (sampleUv.x >= 0.0 && sampleUv.x <= 1.0 && sampleUv.y >= 0.0 && sampleUv.y <= 1.0) {
+        texCol = texture(u_texAlbedoPrev, sampleUv);
+      }
+    } else {
+      float u = (t - 0.50) * 2.0; // 0.0 at midpoint -> 1.0 at rest
+      float relaxAmt = (1.0 - u) * 0.52 * (1.0 - 0.16 * sin(u * 3.14159265));
+      sampleUv = warpedUv + relaxAmt * cageDelta;
+      if (sampleUv.x >= 0.0 && sampleUv.x <= 1.0 && sampleUv.y >= 0.0 && sampleUv.y <= 1.0) {
+        texCol = texture(u_texAlbedo, sampleUv);
       }
     }
 
-    if (texCol.a < 0.12) {
+    if (texCol.a < 0.18) {
       discard;
     }
 
@@ -428,7 +424,7 @@
     }
 
     // Sample 2.5D Normal Map & perturb with live soft-body spring tilt
-    vec3 nSample = texture(u_texNormal, clamp(uvB, 0.0, 1.0)).xyz * 2.0 - 1.0;
+    vec3 nSample = texture(u_texNormal, clamp(sampleUv, 0.0, 1.0)).xyz * 2.0 - 1.0;
     nSample.x *= u_flip;
     vec3 N = normalize(vec3(
       nSample.x + normalTilt.x * u_flip,
@@ -1449,11 +1445,11 @@
           const depthScale = 0.90 + ((p.y - 300) / 360) * 0.22;
           const baseH = 152.0 * depthScale;
 
-          // NBA Jam Turbo Sprint / ON FIRE afterimage ghost trail
-          if (p.ghostTrail && p.ghostTrail.length > 0) {
+          // NBA Jam ON FIRE afterimage trail (restricted strictly to ON FIRE state to avoid ghosting during normal play)
+          if (p.onFire && p.ghostTrail && p.ghostTrail.length > 0) {
             p.ghostTrail.forEach((g, idx) => {
               const gScreenY = g.y - g.z * 0.88;
-              const gAlpha = ((idx + 1) / (p.ghostTrail.length + 1)) * 0.34;
+              const gAlpha = ((idx + 1) / (p.ghostTrail.length + 1)) * 0.24;
               this.drawAthleteGL(p, g.x, gScreenY + 8, baseH, false, gAlpha, g.poseKey);
             });
           }

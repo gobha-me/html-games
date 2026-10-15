@@ -1619,20 +1619,25 @@
           p.turbo = Math.min(100, p.turbo + dt * (p.onFire ? 45 : 22));
         }
 
-        // Record afterimage ghost trail when Turbo sprinting or airborne ON FIRE
+        // Record afterimage trail strictly when ON FIRE and moving/jumping (zero ghosting during normal play!)
         p.ghostTimer -= dt;
-        if ((p.turboActive || p.onFire || p.diveLockTimer > 0 || p.z > 22) && p.ghostTimer <= 0) {
-          p.ghostTimer = 0.045;
+        const speedXY = Math.hypot(p.vx || 0, p.vy || 0);
+        if (p.onFire && (speedXY > 130 || p.z > 24) && p.ghostTimer <= 0) {
+          p.ghostTimer = 0.055;
           p.ghostTrail.push({
             x: p.x,
             y: p.y,
             z: p.z,
             poseKey: this.renderer.selectPoseKey(p, false)
           });
-          if (p.ghostTrail.length > 3) p.ghostTrail.shift();
-        } else if (!p.turboActive && !p.onFire && p.z === 0 && p.ghostTrail.length > 0 && p.ghostTimer <= 0) {
-          p.ghostTimer = 0.04;
-          p.ghostTrail.shift();
+          if (p.ghostTrail.length > 2) p.ghostTrail.shift();
+        } else if ((!p.onFire || (speedXY <= 60 && p.z === 0)) && p.ghostTrail.length > 0 && p.ghostTimer <= 0) {
+          p.ghostTimer = 0.035;
+          if (!p.onFire) {
+            p.ghostTrail.length = 0;
+          } else {
+            p.ghostTrail.shift();
+          }
         }
 
         if (p.controllerType !== 'ai') {
@@ -2002,12 +2007,8 @@
       g.players[0].actionTimer = 4.0;
       g.players[0]._prevPoseKey = 'pose_set';
       g.players[0]._renderPoseKey = 'pose_spike';
-      g.players[0]._poseBlend = 0.78; // Showcase RELAX -> POSE (78%) in Pose Studio telemetry!
-      // Full 4-Stage Jump Chain Ghost Trail: Stand (`pose_ready`) -> Squat (`pose_jump_coil`) -> Stand Arms-Up (`pose_set`) -> In-Air (`pose_spike`)!
-      g.players[0].ghostTrail = [
-        { x: 244, y: 504, z: 4, poseKey: 'pose_jump_coil' },
-        { x: 254, y: 501, z: 22, poseKey: 'pose_set' }
-      ];
+      g.players[0]._poseBlend = 0.78; // Showcase zero-ghost RELAX -> POSE (78%) in Pose Studio telemetry!
+      g.players[0].ghostTrail = [];
       g.players[0].rig.applyActionImpulse('celebrate', 1.45);
       // Showcase keyed Jump Coil on Partner Elena at net (`🧱 BLOCK NET`) and Dig on Nyx (`🛡️ PEEL DEEP`)!
       g.players[1].x = 598;
@@ -2043,7 +2044,7 @@
       g.cutInTimer = 4.0;
       g.cutInLabel = '🔥 ON FIRE SLAM!';
 
-      // P1 Kasumi in mid-air post-spike whip follow-through (`pose_spike_follow`) with afterimage ghost trail from `pose_set` -> `pose_spike`!
+      // P1 Kasumi in mid-air post-spike whip follow-through (`pose_spike_follow`) with ON FIRE trail!
       g.players[0].x = 560;
       g.players[0].y = 445;
       g.players[0].z = 52;
@@ -2055,7 +2056,6 @@
       g.players[0]._renderPoseKey = 'pose_spike_follow';
       g.players[0]._poseBlend = 0.85;
       g.players[0].ghostTrail = [
-        { x: 516, y: 452, z: 18, poseKey: 'pose_set' },
         { x: 538, y: 448, z: 46, poseKey: 'pose_spike' }
       ];
       g.players[0].rig.applyActionImpulse('spike', 1.7);
