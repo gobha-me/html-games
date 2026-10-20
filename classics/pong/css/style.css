@@ -9,6 +9,17 @@
     --pong-dim: #666;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--pong-bg);
+    color: var(--pong-text);
+}
+
 #pong #game-container {
     display: flex;
     flex-direction: column;
