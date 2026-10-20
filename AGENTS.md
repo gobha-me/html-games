@@ -139,8 +139,8 @@ brave-browser --headless=new --no-sandbox --disable-gpu \
 
 ## Repo layout (cliff notes)
 
-- One game per top-level directory: `cogfall/`, `forge-defense/`,
-  `kimi/`, `reclamation-wars/`, `snake/`, `space-invaders/`.
+- One game per top-level directory (e.g., `cogfall/`, `kimi/`,
+  `snake/`, `space-invaders/`, `breach/`, `sunbreak/`).
 - The launcher is `index.html` at repo root — it links to each game
   with a relative path. If you add a new game, add a card. The card
   data lives in **two** places that must be kept in sync: `games.json`
@@ -149,8 +149,6 @@ brave-browser --headless=new --no-sandbox --disable-gpu \
   `index.html` (what the launcher actually reads — inlined to avoid a
   `fetch()` that breaks under `file://` and under the deployed
   `/games`-without-trailing-slash URL).
-- `demos/` holds historical artifacts and is **not** linked from the
-  launcher. Don't reference it from active games.
 - `LICENSE`, `README.md`, `SPEC.md`, `AGENTS.md`, `Dockerfile`,
   `deployment.yaml` are repo-level — change them with care, they
   affect everyone.

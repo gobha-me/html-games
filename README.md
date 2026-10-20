@@ -10,12 +10,10 @@ no accounts.
 
 | Game | Description | Tech |
 |------|-------------|------|
-| [Forge Defense](forge-defense/) | Factory-building tower defense — mine, smelt, defend | vanilla JS |
 | [Frontline](frontline/) | Dieselpunk trench-warfare card battler across three sectors | vanilla JS |
 | [Kimi: Core Protector](kimi/defence.html) | Tower defense with zoom + strategic placement | vanilla JS |
 | [Snake](snake/) | Classic snake with difficulty levels and high scores | vanilla JS |
 | [Space Invaders](space-invaders/) | Retro arcade shooter with destructible shields and UFO bonuses | vanilla JS |
-| [Reclamation Wars](reclamation-wars/) | Post-apocalyptic 4X — 5 factions, hex map, 3 victory paths | vanilla JS |
 | [Cogfall](cogfall/dist/) | Steampunk 4X — explore, expand, exploit, exterminate | Vite + TypeScript + PixiJS |
 | [2048](2048/) | Slide-and-merge tile puzzle with power-tile combos | vanilla JS |
 | [Breakout](breakout/) | Brick-breaking arcade classic with power-ups and boss battles | vanilla JS |

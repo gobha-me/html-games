@@ -37,5 +37,4 @@ Phase 3 in progress. Sessions S1–S8 + S9a shipped: animation event bus, per-fa
 - `index.html` — entry point, game shell (top bar, bottom bar, canvas, SVG overlay, modals)
 - `src/` — game source (core state, data tables, systems, AI, render, UI, input)
 - `tests/` — Vitest suite
-- `legacy/` — original prototype (kept as a byte-feel reference for refactors)
 - `PHASE_3_ROADMAP.md` — Phase 3 session breakdown
