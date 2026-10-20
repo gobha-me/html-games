@@ -1,93 +1,29 @@
-# 🎵 BACKBEAT
+# BACKBEAT // OVERDRIVE — 4-Lane Synth & Rhythm Deck
 
-A lane-based rhythm game. Notes scroll down four lanes — hit the key in time
-with the music. All audio and art are **generated** (Venice media tools); the
-chart is produced by onset-detection, so it is beat-*calculated* rather than
-hand-timed.
+A 3D perspective 4-lane synth & rhythm deck featuring a 4-track roster, procedural multi-track `OfflineAudioContext` synthesis + MP3 playback, Hold/Sustain ribbons, Simultaneous Chords, `2× Overdrive Fever`, and a live 64-band `AnalyserNode` FFT spectrum Cyber-DJ stage.
 
-## 🎮 How to Play
+## How to Play
 
-### Objective
-Hit each falling note exactly when it crosses the glowing line. Build combo,
-chase accuracy, beat your high score.
+- **Strike Notes (`[D] [F] [J] [K]` or `← ↓ ↑ →`):** Press the matching lane key as notes cross the cyan receptor bar at the bottom of the 3D perspective highway.
+- **Hold Ribbons:** Keep the lane key held along glowing neon sustain ribbons to earn continuous tick points and completion bonuses.
+- **Simultaneous Chords:** Notes linked by a horizontal gold tie-bar must be struck together across both lanes.
+- **Overdrive Fever (`[Space]`):** Consecutive hits charge the Overdrive Capacitor; press `[Space]` at `≥50%` charge to activate `2× Fever Score` and hyper-neon stage lasers.
+- **Auto-DJ Demo (`[A]`):** Toggle the automated Cyber-DJ to watch a 100% `PERFECT` stage showcase.
 
-### Controls
-- **D F J K** — hit the note in lanes 1–4
-- **P** — pause / resume
-- **Tap a lane** (touch) — hit on mobile
+## Track Roster
 
-### Judgement windows
-| Rating | Timing | Points |
-|--------|--------|--------|
-| Perfect | within ~40–90 ms | 300 × combo bonus |
-| Good | within ~90–160 ms | 100 × combo bonus |
-| Miss | outside window | combo reset |
+1. **BACKBEAT ANTHEM** (`120 BPM` · Electro Anthem) — Original studio MP3 track + enhanced chart with Hold ribbons & Chords.
+2. **NEON HORIZON** (`118 BPM` · Outrun Synthwave) — Multi-track procedural WebAudio synth (sawtooth sub-bass, gated snare, triangle arpeggio lead).
+3. **CHIPTUNE OVERDRIVE** (`140 BPM` · 16-Bit Boss Rush) — High-tempo square-wave chiptune arpeggios and 16th-note streams.
+4. **CYBERPUNK GRIND** (`132 BPM` · Dark Industrial) — Phrygian acid 303 bassline, heavy kick, and syncopated chord bursts.
 
-Windows tighten on higher difficulties (Easy / Normal / Hard).
+## File Layout
 
-## 🎯 Features
-
-- Web Audio API clock for sample-accurate note timing
-- 4-lane canvas renderer with hit-line flashes
-- Score / combo / accuracy HUD, results screen
-- High score persistence (localStorage)
-- **Audio-offset calibration** — if hits feel early/late, nudge the offset in
-  the menu until taps land on the pulse (agent can't tune by ear, so the knob
-  is exposed to the player)
-- Generated ship track, hit SFX, and background art
-
-## 🛠️ Technical Details
-
-### Architecture (vanilla JS, ES modules)
-- **`config.js`** — difficulty windows, scoring, lane/key map
-- **`chart.js`** — chart loading (`charts/*.json`)
-- **`audio.js`** — Web Audio engine: track clock, hit SFX (loaded, blip fallback)
-- **`game.js`** — pure hit-detection + scoring state (no DOM)
-- **`renderer.js`** — canvas drawing (lanes, notes, receptors, flashes)
-- **`main.js`** — wiring: menu → game → results, input, calibration, persistence
-
-### Chart format
-Charts are data, not code — `charts/<name>.json`:
-```json
-{ "title": "…", "audio": "assets/track.mp3", "bpm": 120, "offset": 0,
-  "notes": [ {"time": 1.997, "lane": 3}, … ] }
-```
-`time` is seconds (float), `lane` 0–3. `charts/manifest.json` lists tracks for
-the menu.
-
-### Chart generation (`tools/chartgen.py`)
-Because the authoring agent **cannot hear the track**, note placement is driven
-by onset detection:
-1. `analyze` — decode to mono PCM via ffmpeg, compute a spectral-flux onset
-   envelope, peak-pick onsets, estimate BPM from inter-onset intervals.
-2. `generate` — emit notes on detected onsets, distributed across lanes, then
-   thin to a minimum inter-note gap for playability.
-
-This makes the chart *beat-calculated*. Whether it *grooves* is a human call —
-see the PR note.
-
-### Assets
-- `assets/backbeat-track.mp3` — ship track (Venice music, instrumental)
-- `assets/hit.mp3` — note-hit SFX (Venice sfx)
-- `assets/bg.jpg` — background art (Venice image)
-
-### No dependencies
-Pure vanilla JS/HTML/CSS. ffmpeg is only used by the offline chart tool, not
-at runtime.
-
-## 🎨 Design
-Matches the arcade theme: dark indigo backdrop, cyan/magenta gradient accents,
-per-lane neon colors (cyan / magenta / yellow / green).
-
-## 📱 Responsive
-Scales to narrow screens; touch-tap lanes for mobile play.
-
-## 📝 License
-Part of the HTML-Games collection.
-
----
-
-## Status
-Playable. **Playtest note:** the chart is onset-calculated, not hand-timed —
-if the groove feels off or the offset needs a global nudge, that's calibration
-feedback, not a code bug. Tell the maintainer what offset felt right.
+- `index.html` — 3-column Studio & Stage UI (`Left Track Crate & Calibration` | `Center 3D Highway & Cyber-DJ Stage` | `Right Grade Matrix & Overdrive Core`)
+- `css/style.css` — Responsive `1440×900` and `1280×800` styling
+- `js/config.js` — Track roster, 4 difficulties (`Easy`, `Normal`, `Hard`, `Encore`), and judgement windows
+- `js/chart.js` — JSON chart adapter + deterministic procedural beatmap generator
+- `js/audio.js` — `OfflineAudioContext` multi-track synthesizer + MP3 loader + `AnalyserNode` FFT spectrum engine
+- `js/game.js` — Rhythm simulation, Hold ribbon ticks, Chords, Overdrive Fever, and `±ms` timing offset telemetry
+- `js/renderer.js` — 3D perspective trapezoid highway, pixel-art Cyber-DJ stage, dual-wing FFT visualizer, and hit shockwaves
+- `js/main.js` — Studio controller, keyboard/mouse input, and HUD synchronization
