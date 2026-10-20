@@ -161,6 +161,15 @@
       "icon": "🏐",
       "href": "sunbreak/",
       "theme": "sunbreak"
+    },
+    {
+      "slug": "ironwake",
+      "title": "IRONWAKE // CONVOY",
+      "description": "2.5D tactical armored-train & wasteland convoy defense — route reactor steam across 5 modular railcars, sever harpoon tethers, and cripple enemy war-rig subsystems across scorched salt flats.",
+      "tag": "Tactical Convoy RTS",
+      "icon": "🚂",
+      "href": "ironwake/",
+      "theme": "ironwake"
     }
   ]
 }
