@@ -11,7 +11,7 @@ no accounts.
 | Game | Description | Tech |
 |------|-------------|------|
 | [Frontline // Hexwire](frontline/) | Dual-style 3-lane tactical card battler (1918 Dieselpunk vs. 2099 Cyberpunk Street Magic & Rift Crossover) | vanilla JS |
-| [Kimi: Core Protector](kimi/defence.html) | Tower defense with zoom + strategic placement | vanilla JS |
+| [IRONWORKS // CORE](ironworks/) | Industrial logistics, conveyor automation & siege tower defense around a molten Reactor Core | Canvas2D + vanilla JS |
 | [Snake](snake/) | Classic snake with difficulty levels and high scores | vanilla JS |
 | [Space Invaders](space-invaders/) | Retro arcade shooter with destructible shields and UFO bonuses | vanilla JS |
 | [Cogfall](cogfall/dist/) | Steampunk 4X — explore, expand, exploit, exterminate | Vite + TypeScript + PixiJS |

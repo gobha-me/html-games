@@ -139,7 +139,7 @@ brave-browser --headless=new --no-sandbox --disable-gpu \
 
 ## Repo layout (cliff notes)
 
-- One game per top-level directory (e.g., `cogfall/`, `kimi/`,
+- One game per top-level directory (e.g., `cogfall/`, `ironworks/`,
   `snake/`, `space-invaders/`, `breach/`, `sunbreak/`).
 - The launcher is `index.html` at repo root — it links to each game
   with a relative path. If you add a new game, add a card. The card
@@ -196,7 +196,7 @@ the session's memory across conversations.
   layout. Template lives in [`SPEC.md`](SPEC.md). Skim
   `snake/README.md` or `space-invaders/README.md` for current models.
 - **`CHANGELOG.md`** — chronological log of shipped changes. Format
-  is the session's call: `kimi/CHANGELOG.md` uses Keep-a-Changelog,
+  is the session's call: `ironworks/CHANGELOG.md` uses Keep-a-Changelog,
   Cogfall captures equivalent detail in commit messages plus
   `cogfall/PHASE_3_ROADMAP.md` annotations. Both are valid. The bar
   is "a new session can read this and know what's already been

@@ -10,13 +10,13 @@
       "theme": "frontline"
     },
     {
-      "slug": "kimi",
-      "title": "Kimi",
-      "description": "Protect the factory core with zoom controls and precision strategy.",
-      "tag": "Core Protector",
+      "slug": "ironworks",
+      "title": "IRONWORKS // CORE",
+      "description": "Industrial logistics & siege defense — route conveyor belts from ore drills into arc smelters and ammo fabricators, fortify choke points, and defend the Reactor Core.",
+      "tag": "Factory & Siege Defense",
       "icon": "🏭",
-      "href": "kimi/defence.html",
-      "theme": "kimi"
+      "href": "ironworks/",
+      "theme": "ironworks"
     },
     {
       "slug": "snake",
