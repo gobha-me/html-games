@@ -46,9 +46,14 @@ function initPalette() {
   const container = document.getElementById('build-palette');
   container.innerHTML = '';
   for (const b of BUILDINGS) {
-    const costStr = Object.entries(b.cost)
-      .map(([k, v]) => `${v} ${RESOURCES[k]?.name.split(' ')[0] || k}`)
-      .join(' · ');
+    const costHtml = Object.entries(b.cost)
+      .map(([k, v]) => {
+        const res = RESOURCES[k];
+        const label = res?.short || k;
+        const col = res?.glow || '#cbd5e1';
+        return `<span class="cost-item" style="color:${col}"><b>${v}</b> ${label}</span>`;
+      })
+      .join('<span class="cost-sep">·</span>');
     const card = document.createElement('button');
     card.className = 'build-card';
     card.dataset.id = b.id;
@@ -58,7 +63,7 @@ function initPalette() {
         <span class="bc-name">${b.name}</span>
         <span class="bc-key">[${b.key}]</span>
       </div>
-      <div class="bc-cost">${costStr}</div>
+      <div class="bc-cost">${costHtml}</div>
     `;
     card.addEventListener('click', () => {
       uiState.selectedBuilding = uiState.selectedBuilding === b.id ? null : b.id;
@@ -79,9 +84,10 @@ function syncPaletteSelection() {
   const info = document.getElementById('selected-tool-desc');
   if (info) {
     if (def) {
-      info.innerHTML = `<b>${def.name}</b> ${def.rotatable ? `(Facing: <b>${DIRS[uiState.buildDir].name} ${DIRS[uiState.buildDir].arrow}</b> — press <b>R</b> to rotate)` : ''}<br><span>${def.desc}</span>`;
+      const displayTitle = def.fullName || def.name;
+      info.innerHTML = `<b>${displayTitle}</b> ${def.rotatable ? `(Facing: <b style="color:#fbbf24">${DIRS[uiState.buildDir].name} ${DIRS[uiState.buildDir].arrow}</b> · <b>[R]</b> Rotate)` : ''}<br><span>${def.desc}</span>`;
     } else {
-      info.innerHTML = `<b>Inspect / Hand-Mine Mode</b> — Click any resource vein to mine by hand, or click a placed Smelter/Fabricator to change its recipe.`;
+      info.innerHTML = `<b>Inspect / Hand-Mine Mode</b><br><span>Click any exposed mineral vein to mine by hand, or click a placed Smelter/Fabricator to switch its recipe.</span>`;
     }
   }
 }
@@ -102,7 +108,8 @@ function updateInspector() {
   }
   const def = BUILDING_BY_ID[b.id];
   box.style.display = 'block';
-  let html = `<div class="insp-head"><span>${def.name} (${x},${y})</span><button id="insp-close">×</button></div>`;
+  const fullName = def.fullName || def.name;
+  let html = `<div class="insp-head"><span>${fullName} (${x},${y})</span><button id="insp-close">×</button></div>`;
   html += `<div class="insp-stat">Integrity: ${Math.ceil(b.hp)} / ${b.maxHp} HP</div>`;
 
   if (def.recipes) {
@@ -337,8 +344,9 @@ document.getElementById('btn-send-wave')?.addEventListener('click', () => {
     showToast('⚔ NEXT SIEGE WAVE CALLED EARLY!', '#fb923c');
   }
 });
-document.getElementById('btn-pause')?.addEventListener('click', () => {
+document.getElementById('btn-pause')?.addEventListener('click', e => {
   sim.paused = !sim.paused;
+  e.currentTarget.textContent = sim.paused ? '▶ Resume' : '⏸ Pause';
 });
 document.getElementById('btn-center')?.addEventListener('click', () => {
   renderer.camX = (CORE_X + 1) * TILE_SIZE;
@@ -346,7 +354,7 @@ document.getElementById('btn-center')?.addEventListener('click', () => {
 });
 document.getElementById('btn-mute')?.addEventListener('click', e => {
   const m = audio.toggleMute();
-  e.currentTarget.textContent = m ? '🔇 Audio Off' : '🔊 Audio On';
+  e.currentTarget.textContent = m ? '🔇 Mute' : '🔊 SFX';
 });
 
 function saveGame() {
@@ -406,14 +414,14 @@ function syncHud() {
 
   // Top telemetry bar
   const corePct = Math.max(0, Math.round((sim.coreHp / sim.coreMaxHp) * 100));
-  document.getElementById('hud-core-hp').textContent = `${Math.ceil(sim.coreHp)} / ${sim.coreMaxHp} (${corePct}%)`;
+  document.getElementById('hud-core-hp').textContent = `${Math.ceil(sim.coreHp)}/${sim.coreMaxHp}`;
   document.getElementById('hud-core-bar').style.width = `${corePct}%`;
 
   const wDef = WAVES[Math.min(WAVES.length - 1, sim.waveIndex)];
   const waveEl = document.getElementById('hud-wave-status');
   if (sim.waveActive) {
     const rem = sim.enemies.length + sim.spawnQueue.length;
-    waveEl.textContent = `WAVE ${sim.waveIndex + 1}/${WAVES.length}: ${wDef.title} — ${rem} HOSTILES`;
+    waveEl.textContent = `WAVE ${sim.waveIndex + 1}/${WAVES.length} · ${wDef.title} (${rem} HOSTILES)`;
     waveEl.style.color = '#fb7185';
   } else {
     waveEl.textContent = `WAVE ${sim.waveIndex + 1}/${WAVES.length} IN ${Math.ceil(sim.waveTimer)}s · ${wDef.title}`;
@@ -423,10 +431,10 @@ function syncHud() {
   const odBtn = document.getElementById('btn-overdrive');
   if (odBtn) {
     if (sim.overdriveCooldown > 0) {
-      odBtn.textContent = `⚡ Overdrive (${Math.ceil(sim.overdriveCooldown)}s)`;
+      odBtn.textContent = `⚡ ${Math.ceil(sim.overdriveCooldown)}s`;
       odBtn.disabled = true;
     } else {
-      odBtn.textContent = `⚡ Core Overdrive [Space]`;
+      odBtn.textContent = `⚡ Overdrive`;
       odBtn.disabled = false;
     }
   }
@@ -488,4 +496,35 @@ function frame(now) {
 }
 
 syncHud();
+window.__ironworks = { sim, renderer, uiState, updateInspector };
+
+// Optional ?preview=showcase query hook for visual regression & combat inspection
+if (new URLSearchParams(window.location.search).get('preview') === 'showcase') {
+  sim.stock.steel = 200;
+  sim.stock.circuit = 200;
+  sim.stock.cell = 100;
+  sim.stock.iron = 500;
+  sim.stock.copper = 500;
+  sim.placeBuilding('fabricator', CORE_X - 2, CORE_Y + 2, 1);
+  sim.placeBuilding('splitter', CORE_X - 1, CORE_Y + 2, 1);
+  sim.placeBuilding('tesla', CORE_X - 4, CORE_Y - 2, 0);
+  sim.placeBuilding('mortar', CORE_X + 4, CORE_Y - 2, 0);
+  sim.placeBuilding('railgun', CORE_X - 3, CORE_Y + 4, 2);
+  sim.placeBuilding('spire', CORE_X + 2, CORE_Y - 3, 0);
+  sim.stats.spireProgress = 60;
+  uiState.inspectTile = { x: CORE_X - 2, y: CORE_Y + 2 };
+  updateInspector();
+  // Spawn a sample combat wave near the perimeter and advance simulation 2.5s
+  sim.launchWave();
+  for (const type of ['skitter', 'carapace', 'spitter', 'breacher', 'leviathan']) {
+    sim.spawnEnemyOnEdge(type);
+    const e = sim.enemies[sim.enemies.length - 1];
+    e.x = CORE_X - 6 + (sim.rng() * 13);
+    e.y = CORE_Y - 5 + (sim.rng() * 11);
+    if (Math.hypot(e.x - (CORE_X + 1), e.y - (CORE_Y + 1)) < 3.5) e.x -= 4;
+  }
+  for (let i = 0; i < 40; i++) sim.step(0.05);
+  syncHud();
+}
+
 requestAnimationFrame(frame);

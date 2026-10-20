@@ -27,17 +27,17 @@ export const TERRAIN = {
 };
 
 export const RESOURCES = {
-  iron_ore:   { id: 'iron_ore',   name: 'Iron Ore',     color: '#7aa2c4', glow: '#a3c9e8', tier: 0 },
-  copper_ore: { id: 'copper_ore', name: 'Copper Ore',   color: '#e07a42', glow: '#ff9e66', tier: 0 },
-  coal:       { id: 'coal',       name: 'Coal',         color: '#3a3f47', glow: '#ff6a2b', tier: 0 },
-  aether:     { id: 'aether',     name: 'Aether Shard', color: '#38f2d7', glow: '#7affea', tier: 0 },
-  iron:       { id: 'iron',       name: 'Iron Ingot',   color: '#cbd5e1', glow: '#f1f5f9', tier: 1 },
-  copper:     { id: 'copper',     name: 'Copper Wire',  color: '#f59e0b', glow: '#fbbf24', tier: 1 },
-  steel:      { id: 'steel',      name: 'Steel Plate',  color: '#64748b', glow: '#94a3b8', tier: 2 },
-  circuit:    { id: 'circuit',    name: 'Logic Circuit',color: '#10b981', glow: '#34d399', tier: 2 },
-  ammo:       { id: 'ammo',       name: 'Slug Magazine',color: '#eab308', glow: '#fde047', tier: 2 },
-  shell:      { id: 'shell',      name: 'Artillery Shell',color:'#f43f5e', glow: '#fb7185', tier: 2 },
-  cell:       { id: 'cell',       name: 'Plasma Cell',  color: '#06b6d4', glow: '#22d3ee', tier: 3 },
+  iron_ore:   { id: 'iron_ore',   name: 'Iron Ore',       short: 'Fe Ore', color: '#7aa2c4', glow: '#a3c9e8', tier: 0 },
+  copper_ore: { id: 'copper_ore', name: 'Copper Ore',     short: 'Cu Ore', color: '#e07a42', glow: '#ff9e66', tier: 0 },
+  coal:       { id: 'coal',       name: 'Coal',           short: 'Coal',   color: '#475569', glow: '#94a3b8', tier: 0 },
+  aether:     { id: 'aether',     name: 'Aether Shard',   short: 'Aeth',   color: '#38f2d7', glow: '#7affea', tier: 0 },
+  iron:       { id: 'iron',       name: 'Iron Ingot',     short: 'Fe',     color: '#cbd5e1', glow: '#f1f5f9', tier: 1 },
+  copper:     { id: 'copper',     name: 'Copper Wire',    short: 'Cu',     color: '#f59e0b', glow: '#fbbf24', tier: 1 },
+  steel:      { id: 'steel',      name: 'Steel Plate',    short: 'Stl',    color: '#94a3b8', glow: '#cbd5e1', tier: 2 },
+  circuit:    { id: 'circuit',    name: 'Logic Circuit',  short: 'Circ',   color: '#10b981', glow: '#34d399', tier: 2 },
+  ammo:       { id: 'ammo',       name: 'Slug Magazine',  short: 'Slug',   color: '#eab308', glow: '#fde047', tier: 2 },
+  shell:      { id: 'shell',      name: 'Artillery Shell',short: 'Shell',  color: '#f43f5e', glow: '#fb7185', tier: 2 },
+  cell:       { id: 'cell',       name: 'Plasma Cell',    short: 'Cell',   color: '#06b6d4', glow: '#22d3ee', tier: 3 },
 };
 
 export const INITIAL_STOCK = {
@@ -169,7 +169,8 @@ export const BUILDINGS = [
   {
     key: '5',
     id: 'fabricator',
-    name: 'Munitions Fabricator',
+    name: 'Munitions Fab',
+    fullName: 'Munitions Fabricator',
     category: 'Production',
     cost: { iron: 22, copper: 14, steel: 4 },
     hp: 260,
@@ -184,7 +185,8 @@ export const BUILDINGS = [
   {
     key: '6',
     id: 'wall',
-    name: 'Ferrocrete Bulkhead',
+    name: 'Bulkhead Wall',
+    fullName: 'Ferrocrete Bulkhead',
     category: 'Defense',
     cost: { iron: 4 },
     hp: 650,
@@ -268,7 +270,8 @@ export const BUILDINGS = [
   {
     key: '0',
     id: 'railgun',
-    name: 'Hyper-Velocity Railgun',
+    name: 'Hyper Railgun',
+    fullName: 'Hyper-Velocity Railgun',
     category: 'Defense',
     cost: { steel: 24, circuit: 12, copper: 20 },
     hp: 380,

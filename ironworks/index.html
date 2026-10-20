@@ -20,20 +20,20 @@
 
       <div class="telemetry-center">
         <div class="core-meter">
-          <span class="core-label">REACTOR CORE</span>
+          <span class="core-label">CORE</span>
           <div class="core-bar-wrap"><div id="hud-core-bar"></div></div>
-          <span id="hud-core-hp">1200 / 1200 (100%)</span>
+          <span id="hud-core-hp">1200/1200</span>
         </div>
         <div id="hud-wave-status">WAVE 1/8 IN 35s · PERIMETER SCRAPERS</div>
       </div>
 
       <div class="top-actions">
-        <button class="top-btn overdrive" id="btn-overdrive" title="Unleash Core Shockwave &amp; 2x Factory Overdrive">⚡ Core Overdrive [Space]</button>
+        <button class="top-btn overdrive" id="btn-overdrive" title="Unleash Core Shockwave &amp; 2x Factory Overdrive [Space]">⚡ Overdrive</button>
         <button class="top-btn" id="btn-send-wave" title="Call next hostile wave immediately">⚔ Call Wave</button>
         <button class="top-btn" id="btn-rotate" title="Rotate conveyor/machine output direction [R]">↻ Rotate [R]</button>
         <button class="top-btn" id="btn-center" title="Center camera on Reactor Core">⌖ Core</button>
         <button class="top-btn" id="btn-pause" title="Pause simulation [P]">⏸ Pause</button>
-        <button class="top-btn" id="btn-mute">🔊 Audio On</button>
+        <button class="top-btn" id="btn-mute" title="Toggle synthesized audio">🔊 SFX</button>
       </div>
     </header>
 
@@ -132,9 +132,16 @@
     <!-- Spatial Canvas Viewport -->
     <main id="canvas-stage">
       <canvas id="viewport"></canvas>
+      <div id="canvas-hud-guide">
+        <div class="guide-title">LOGISTICS TELEMETRY · QUICK GUIDE</div>
+        <div class="guide-body">
+          Place <b>Drills [3]</b> on <span style="color:#60a5fa">Iron</span>/<span style="color:#f97316">Copper</span>/<span style="color:#94a3b8">Coal</span> veins, drag <b>Conveyor Belts [1]</b> into <b>Smelters [4]</b> or the <b>2×2 Core</b>, and fortify with <b>Turrets [7–0]</b>.
+        </div>
+      </div>
       <div id="toast-banner"></div>
       <div id="inspector-panel"></div>
       <div id="minimap-wrap">
+        <div class="minimap-head"><span>SECTOR RADAR</span><span>48×48</span></div>
         <canvas id="minimap" width="168" height="168"></canvas>
       </div>
     </main>
