@@ -2,6 +2,14 @@
 
 All notable changes to `pinball/` are documented in this file.
 
+## [1.0.1] — 2026-10-20
+
+### Fixed
+- **Trough & Corner Clearance (`js/config.js`, `js/physics.js`, `js/renderer.js`):**
+  - Widened the Left (`T`) and Right (`E`) inlane trough corners beneath the twin slingshots from `13.9px` to `44.0px` clear perpendicular width (`2.3×` ball diameter) so spheres travel freely around both corners without pinching.
+  - Aligned the Left, Right, and Upper-Left inlane guide rail endpoints flush with the top tangent surface of the flipper bases (`y=786` / `y=452`) to eliminate the V-notch step at the flipper pivot hub.
+  - Sealed the outer bevel of the right-side Alchemical Spinner channel (`x=442..466`) and removed the redundant inner shooter-lane arch above the one-way gate (`(499,205)->(458,224)`), verified across a 201-point full-table grid sweep and 50 plunger strengths with `0` stuck balls.
+
 ## [1.0.0] — 2026-10-20
 
 ### Added

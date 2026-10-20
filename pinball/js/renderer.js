@@ -149,10 +149,10 @@ export class AetheriumRenderer {
     ctx.fillStyle = 'rgba(192, 132, 252, 0.35)';
     ctx.font = '700 8.5px "IBM Plex Mono", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('▲ LOCK', 102, 366);
+    ctx.fillText('▲ LOCK', 100, 366);
 
     ctx.fillStyle = 'rgba(56, 189, 248, 0.38)';
-    ctx.fillText('▲ SPIN', 396, 444);
+    ctx.fillText('▲ SPIN', 408, 444);
     ctx.restore();
 
     // Magnetkinesis Field Ring (Lower-Mid Sanctum at (241, 585))
@@ -376,9 +376,9 @@ export class AetheriumRenderer {
   }
 
   drawSlingshotsAndTargets(ctx, sim) {
-    // Twin Slingshot Triangles
-    const leftTri = [[88, 662], [88, 736], [138, 765]];
-    const rightTri = [[394, 662], [394, 736], [344, 765]];
+    // Twin Slingshot Triangles (matching wide-corner config.js coordinates)
+    const leftTri = [[96, 636], [96, 708], [144, 738]];
+    const rightTri = [[388, 636], [388, 708], [340, 738]];
     const pairs = [
       { pts: leftTri, sling: sim.slingshots[0] },
       { pts: rightTri, sling: sim.slingshots[1] },
