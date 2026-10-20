@@ -157,25 +157,30 @@ const Game = {
         if (GameState.ballY - CONFIG.BALL_SIZE / 2 <= 0) {
             GameState.ballY = CONFIG.BALL_SIZE / 2;
             GameState.ballVY = Math.abs(GameState.ballVY);
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.beep(260, 0.04, 'square', 0.06);
         } else if (GameState.ballY + CONFIG.BALL_SIZE / 2 >= CONFIG.CANVAS_HEIGHT) {
             GameState.ballY = CONFIG.CANVAS_HEIGHT - CONFIG.BALL_SIZE / 2;
             GameState.ballVY = -Math.abs(GameState.ballVY);
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.beep(260, 0.04, 'square', 0.06);
         }
         
         // Paddle collision - Player 1 (left)
         if (this.checkPaddleCollision(0, GameState.p1Y)) {
             this.handlePaddleBounce(GameState.p1Y, true);
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.beep(480, 0.05, 'square', 0.08);
         }
         
         // Paddle collision - Player 2 (right) or CPU
         if (this.checkPaddleCollision(CONFIG.CANVAS_WIDTH - CONFIG.PADDLE_WIDTH, GameState.p2Y)) {
             this.handlePaddleBounce(GameState.p2Y, false);
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.beep(540, 0.05, 'square', 0.08);
         }
         
         // Score detection - ball goes past paddles
         if (GameState.ballX - CONFIG.BALL_SIZE / 2 <= 0) {
             // Player 2 scores
             GameState.p2Score++;
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.beep(220, 0.14, 'sawtooth', 0.09);
             this.checkWin();
             if (!GameState.winner) {
                 resetBall();
@@ -183,6 +188,7 @@ const Game = {
         } else if (GameState.ballX + CONFIG.BALL_SIZE / 2 >= CONFIG.CANVAS_WIDTH) {
             // Player 1 scores
             GameState.p1Score++;
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.beep(660, 0.14, 'triangle', 0.09);
             this.checkWin();
             if (!GameState.winner) {
                 resetBall();

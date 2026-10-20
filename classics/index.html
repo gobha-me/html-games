@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <title>Retro Cabinet — Early LLM Classics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../shared/back-to-arcade.css">
+    <script src="../assets/arcade-sfx.js"></script>
+    <style>
+        :root {
+            --bg: #070810;
+            --cabinet: #111324;
+            --bezel: #181b32;
+            --border: rgba(255, 255, 255, 0.1);
+            --text: #e6e8f4;
+            --muted: #8a90b0;
+            --accent: #00f0ff;
+            --amber: #f59e0b;
+            --emerald: #10b981;
+            --violet: #a78bfa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: radial-gradient(circle at 50% 0%, #171a36 0%, var(--bg) 70%);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Top Cartridge Deck ── */
+        .cabinet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 10px 20px;
+            background: rgba(12, 14, 28, 0.92);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            z-index: 20;
+            flex-shrink: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-logo {
+            font-size: 24px;
+            filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.4));
+        }
+
+        .brand-title {
+            font-family: 'Orbitron', monospace;
+            font-weight: 800;
+            font-size: 15px;
+            letter-spacing: 0.08em;
+            background: linear-gradient(90deg, #00f0ff, #a78bfa, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .brand-sub {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+        }
+
+        /* ── Cartridge Selector ── */
+        .cartridge-rack {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 2px 4px;
+        }
+
+        .cartridge-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--cabinet);
+            color: var(--muted);
+            border: 1px solid var(--border);
+            border-bottom: 3px solid rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
+            padding: 7px 13px;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            white-space: nowrap;
+        }
+
+        .cartridge-btn:hover {
+            color: var(--text);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .cartridge-btn.active {
+            color: #fff;
+            background: linear-gradient(180deg, rgba(0, 240, 255, 0.16), rgba(167, 139, 250, 0.12));
+            border-color: var(--cart-color, var(--accent));
+            border-bottom-color: var(--cart-color, var(--accent));
+            box-shadow: 0 0 18px rgba(0, 240, 255, 0.2);
+            transform: translateY(1px);
+        }
+
+        .cart-key {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+        }
+
+        .cartridge-btn.active .cart-key {
+            background: var(--cart-color, var(--accent));
+            color: #05060c;
+            font-weight: 700;
+        }
+
+        /* ── Right Action Controls ── */
+        .cabinet-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .meta-pill {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 5px 10px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-pill strong {
+            color: var(--text);
+        }
+
+        .action-link {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            padding: 5px 10px;
+            border-radius: 8px;
+            transition: background 0.15s ease;
+        }
+
+        .action-link:hover {
+            background: rgba(0, 240, 255, 0.12);
+        }
+
+        /* ── CRT Viewport Frame ── */
+        .cabinet-stage {
+            flex: 1;
+            position: relative;
+            margin: 10px 16px 42px;
+            background: #05060a;
+            border: 2px solid var(--bezel);
+            border-radius: 16px;
+            box-shadow:
+                inset 0 0 32px rgba(0, 0, 0, 0.9),
+                0 12px 40px rgba(0, 0, 0, 0.65);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Subtle scanline overlay (pointer-events: none) */
+        .cabinet-stage.scanlines::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0) 0px,
+                rgba(255, 255, 255, 0) 2px,
+                rgba(0, 0, 0, 0.16) 3px,
+                rgba(0, 0, 0, 0.16) 4px
+            );
+            z-index: 10;
+        }
+
+        #cabinet-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #0a0a14;
+            flex: 1;
+        }
+
+        @media (max-width: 900px) {
+            .cabinet-header {
+                flex-wrap: wrap;
+                padding: 8px 12px;
+            }
+            .brand-sub, .meta-pill {
+                display: none;
+            }
+            .cabinet-stage {
+                margin: 6px 8px 38px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="cabinet-header">
+        <div class="brand">
+            <span class="brand-logo">🕹️</span>
+            <div>
+                <div class="brand-title">RETRO CABINET</div>
+                <div class="brand-sub">Early LLM Benchmark Anthology (5-in-1)</div>
+            </div>
+        </div>
+
+        <nav class="cartridge-rack" id="cartridge-rack" aria-label="Select Classic Game"></nav>
+
+        <div class="cabinet-actions">
+            <div class="meta-pill" id="cart-meta">
+                <span>TAG:</span> <strong id="cart-tag">Puzzle</strong>
+            </div>
+            <button class="action-link" id="crt-toggle" type="button" title="Toggle CRT Scanlines" style="background:transparent;cursor:pointer;">CRT: ON</button>
+            <a class="action-link" id="standalone-link" href="2048/" title="Open current cartridge full-window">↗ Full Tab</a>
+        </div>
+    </header>
+
+    <main class="cabinet-stage scanlines" id="cabinet-stage">
+        <iframe id="cabinet-frame" src="2048/" title="Retro Cabinet Game Viewport" allow="autoplay"></iframe>
+    </main>
+
+    <a href="../" class="back-to-arcade">← Back to Arcade</a>
+
+    <script>
+        const CARTRIDGES = [
+            {
+                slug: '2048',
+                title: '2048',
+                icon: '🔢',
+                tag: 'Power-Tile Puzzle',
+                color: '#a78bfa',
+                href: '2048/'
+            },
+            {
+                slug: 'minesweeper',
+                title: 'Minesweeper',
+                icon: '💣',
+                tag: 'Tactical Sweeper',
+                color: '#10b981',
+                href: 'minesweeper/'
+            },
+            {
+                slug: 'pong',
+                title: 'Pong',
+                icon: '🏓',
+                tag: '1P / 2P Paddle Duel',
+                color: '#00d4ff',
+                href: 'pong/'
+            },
+            {
+                slug: 'sokoban',
+                title: 'Sokoban',
+                icon: '📦',
+                tag: '20-Level Box Puzzle',
+                color: '#f59e0b',
+                href: 'sokoban/'
+            },
+            {
+                slug: 'typing',
+                title: 'Typing',
+                icon: '⌨️',
+                tag: 'WPM Word Defense',
+                color: '#2ed573',
+                href: 'typing/'
+            }
+        ];
+
+        const rackEl = document.getElementById('cartridge-rack');
+        const frameEl = document.getElementById('cabinet-frame');
+        const tagEl = document.getElementById('cart-tag');
+        const standaloneEl = document.getElementById('standalone-link');
+        const stageEl = document.getElementById('cabinet-stage');
+        const crtToggleBtn = document.getElementById('crt-toggle');
+
+        let activeSlug = '2048';
+
+        function selectCartridge(slug, playSound = true) {
+            const cart = CARTRIDGES.find(c => c.slug === slug) || CARTRIDGES[0];
+            activeSlug = cart.slug;
+
+            if (playSound && typeof ArcadeSFX !== 'undefined') {
+                ArcadeSFX.playPattern([330, 520], 0.05, 0.02, 'square', 0.06);
+            }
+
+            frameEl.src = cart.href;
+            tagEl.textContent = cart.tag;
+            standaloneEl.href = cart.href;
+            history.replaceState(null, '', '#' + cart.slug);
+
+            document.querySelectorAll('.cartridge-btn').forEach(btn => {
+                const isSelected = btn.dataset.slug === cart.slug;
+                btn.classList.toggle('active', isSelected);
+                btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+            });
+
+            frameEl.addEventListener('load', () => {
+                try { frameEl.contentWindow.focus(); } catch (_) {}
+            }, { once: true });
+        }
+
+        CARTRIDGES.forEach((cart, idx) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'cartridge-btn';
+            btn.dataset.slug = cart.slug;
+            btn.style.setProperty('--cart-color', cart.color);
+            btn.innerHTML =
+                '<span class="cart-key">F' + (idx + 1) + '</span>' +
+                '<span>' + cart.icon + ' ' + cart.title + '</span>';
+            btn.addEventListener('click', () => selectCartridge(cart.slug, true));
+            rackEl.appendChild(btn);
+        });
+
+        crtToggleBtn.addEventListener('click', () => {
+            const on = stageEl.classList.toggle('scanlines');
+            crtToggleBtn.textContent = 'CRT: ' + (on ? 'ON' : 'OFF');
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.blip(0.04, 0.05);
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key >= 'F1' && e.key <= 'F5') {
+                const idx = parseInt(e.key.slice(1), 10) - 1;
+                if (CARTRIDGES[idx]) {
+                    e.preventDefault();
+                    selectCartridge(CARTRIDGES[idx].slug, true);
+                }
+            }
+        });
+
+        const initialHash = (location.hash || '').replace(/^#/, '');
+        selectCartridge(initialHash || '2048', false);
+    </script>
+</body>
+</html>

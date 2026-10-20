@@ -15,12 +15,8 @@ no accounts.
 | [Snake](snake/) | Classic snake with difficulty levels and high scores | vanilla JS |
 | [Space Invaders](space-invaders/) | Retro arcade shooter with destructible shields and UFO bonuses | vanilla JS |
 | [Cogfall](cogfall/dist/) | Steampunk 4X — explore, expand, exploit, exterminate | Vite + TypeScript + PixiJS |
-| [2048](2048/) | Slide-and-merge tile puzzle with power-tile combos | vanilla JS |
 | [Breakout](breakout/) | Brick-breaking arcade classic with power-ups and boss battles | vanilla JS |
-| [Pong](pong/) | The original arcade duel — vs CPU or local two-player | vanilla JS |
-| [Minesweeper](minesweeper/) | Flag mines, reveal safe cells, beat your best time | vanilla JS |
-| [Typing Game](typing/) | Type falling words before they land — multiple modes, live WPM | vanilla JS |
-| [Sokoban](sokoban/) | Classic box-pushing puzzle — push, never pull | vanilla JS |
+| [Retro Cabinet](classics/) | 5-in-1 early LLM anthology: 2048, Minesweeper, Pong, Sokoban, Typing | vanilla JS |
 | [Solitaire](solitaire/) | Klondike with daily deals, Vegas scoring, auto-complete | vanilla JS |
 | [Tetris](tetris/) | Neon-arcade falling-block classic | vanilla JS |
 | [Inkwell](inkwell/) | Literary roguelike — a scribe descends a corrupted grimoire | vanilla JS |

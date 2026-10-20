@@ -180,6 +180,16 @@
             return false;
         }
 
+        if (typeof ArcadeSFX !== 'undefined') {
+            if (powerExplosions.length > 0) {
+                ArcadeSFX.explosion(0.18, 0.14);
+            } else if (totalScore > 0) {
+                ArcadeSFX.beep(520 + Math.min(totalScore, 512), 0.07, 'triangle', 0.08);
+            } else {
+                ArcadeSFX.blip(0.03, 0.05);
+            }
+        }
+
         score += totalScore;
         moveCount++;
 
@@ -283,6 +293,7 @@
     function showOverlay(type) {
         overlay.className = `overlay active ${type}`;
         if (type === 'win') {
+            if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.playPattern([523, 659, 784, 1046], 0.1, 0.04, 'triangle', 0.1);
             overlayTitle.textContent = '🎉 You reached 2048!';
             overlayBtn.textContent = 'Keep Playing';
             overlayBtn.onclick = () => {

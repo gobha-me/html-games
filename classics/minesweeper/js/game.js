@@ -135,10 +135,15 @@ function reveal(r, c) {
     refreshCell(r, c);
 
     if (cell.mine) {
-        el = getCellEl(r, c);
+        const el = getCellEl(r, c);
         el.classList.add('mine-hit');
+        if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.explosion(0.25, 0.16);
         endGame(false);
         return;
+    }
+
+    if (typeof ArcadeSFX !== 'undefined' && cell.count > 0) {
+        ArcadeSFX.beep(480 + cell.count * 60, 0.04, 'sine', 0.06);
     }
 
     // flood-fill for empty cells
@@ -193,6 +198,7 @@ function toggleFlag(r, c) {
     if (cell.revealed || gameOver) return;
     cell.flagged = !cell.flagged;
     flagged += cell.flagged ? 1 : -1;
+    if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.beep(cell.flagged ? 660 : 380, 0.05, 'triangle', 0.07);
     mineCountEl.textContent = totalMines - flagged;
     refreshCell(r, c);
 }
@@ -253,6 +259,7 @@ function endGame(won) {
     stopTimer();
 
     if (won) {
+        if (typeof ArcadeSFX !== 'undefined') ArcadeSFX.playPattern([523, 659, 784, 1046], 0.1, 0.04, 'triangle', 0.1);
         newGameBtn.textContent = '😎 You Win!';
         // auto-flag remaining mines
         for (let r = 0; r < rows; r++) {

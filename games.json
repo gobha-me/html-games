@@ -46,15 +46,6 @@
       "theme": "cogfall"
     },
     {
-      "slug": "2048",
-      "title": "2048",
-      "description": "Slide, merge, and explode! Reach 2048 with strategic power-tile combos.",
-      "tag": "Puzzle",
-      "icon": "🔢",
-      "href": "2048/",
-      "theme": "tiles"
-    },
-    {
       "slug": "breakout",
       "title": "Breakout",
       "description": "Smash bricks, collect power-ups, and battle bosses in this brick-breaking arcade classic.",
@@ -64,40 +55,13 @@
       "theme": "breakout"
     },
     {
-      "slug": "pong",
-      "title": "Pong",
-      "description": "The classic arcade battle — challenge the CPU or play locally with a friend!",
-      "tag": "Arcade Classic",
-      "icon": "🏓",
-      "href": "pong/",
-      "theme": "pong"
-    },
-    {
-      "slug": "minesweeper",
-      "title": "Minesweeper",
-      "description": "Clear the minefield without detonating! Flag mines, reveal safe cells, and beat your best time.",
-      "tag": "Puzzle Classic",
-      "icon": "💣",
-      "href": "minesweeper/",
-      "theme": "mines"
-    },
-    {
-      "slug": "typing",
-      "title": "Typing Game",
-      "description": "Type falling words before they hit the ground! Multiple word lists, modes, and live WPM tracking.",
-      "tag": "Skill Builder",
-      "icon": "⌨️",
-      "href": "typing/",
-      "theme": "typing"
-    },
-    {
-      "slug": "sokoban",
-      "title": "Sokoban",
-      "description": "Push crates onto targets in this classic box-pushing puzzle. Think ahead — you can only push, never pull!",
-      "tag": "Puzzle Classic",
-      "icon": "📦",
-      "href": "sokoban/",
-      "theme": "sokoban"
+      "slug": "classics",
+      "title": "Retro Cabinet",
+      "description": "5-in-1 early LLM benchmark anthology: 2048 Power-Tiles, Minesweeper, Pong, 20-level Sokoban, and Typing Defense.",
+      "tag": "Classic Anthology",
+      "icon": "🕹️",
+      "href": "classics/",
+      "theme": "classics"
     },
     {
       "slug": "solitaire",
