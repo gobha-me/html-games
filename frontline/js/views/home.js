@@ -1,9 +1,8 @@
 import { h } from '../dom.js';
 import { state, session, setState } from '../state.js';
-import { tierOf, HW_AI_DECKS, HW_LADDER, trunc } from '../theme.js';
+import { tierOf, HW_AI_DECKS, HW_LADDER } from '../theme.js';
 import { deckCountOf } from '../deck.js';
 import { startMatch, startTutorial } from '../match.js';
-import { clearWallet } from '../store.js';
 import { styleBar } from './stylebar.js';
 
 function ladderPos() {
@@ -12,10 +11,6 @@ function ladderPos() {
 }
 
 function enterLobby(mode) {
-  if (!state.wallet) {
-    setState({ showConnect: true });
-    return;
-  }
   const active = state.decks.find(d => d.id === state.activeId);
   const cards = (active && deckCountOf(active) === 24) ? active.cards : session.starterMap;
   const pick = HW_LADDER[(Math.random() * HW_LADDER.length) | 0];
@@ -24,13 +19,12 @@ function enterLobby(mode) {
     if (!state.queue) return;
     setState({ queue: null });
     startMatch(cards, { oppName: pick.h, ranked: mode === 'ranked', crewKey: 'RANDOM' });
-  }, 1100);
+  }, 900);
 }
 
 function hexwireHomeView() {
   const active = state.decks.find(d => d.id === state.activeId);
   const activeValid = active && deckCountOf(active) === 24;
-  const w = state.wallet;
 
   const crewChips = Object.keys(HW_AI_DECKS).map(k => {
     const on = state.crewKey === k;
@@ -42,19 +36,9 @@ function hexwireHomeView() {
 
   return h('div', { 'data-screen-label': 'Home' },
     styleBar(),
-    h('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap' },
-      h('div', { style: 'display:flex;align-items:center;gap:10px' },
-        h('div', { style: 'font:700 11px/1 \'IBM Plex Mono\';letter-spacing:.16em;background:#c77dff;color:#0b0d11;padding:5px 9px;border-radius:4px' }, 'STYLE · HEXWIRE 2099'),
-        h('div', { style: 'font:500 11px/1 \'IBM Plex Mono\';color:#7c8596' }, 'Chrome · Street · Hex · Subvert & Possession active'),
-      ),
-      w ? h('div', { style: 'display:flex;align-items:center;gap:8px;background:#141821;border:1px solid #262d3d;border-radius:8px;padding:5px 10px' },
-        h('span', { style: 'width:8px;height:8px;border-radius:50%;background:#3ddc97;display:inline-block' }),
-        h('span', { style: 'font:600 11px \'IBM Plex Mono\';color:#ece8df' }, w.provider + ' · ' + trunc(w.addr)),
-        h('button', { onclick: () => { clearWallet(); setState({ wallet: null }); }, style: 'background:none;border:none;color:#7c8596;font:600 11px \'IBM Plex Mono\';cursor:pointer' }, '×'),
-      ) : h('button', {
-        onclick: () => setState({ showConnect: true }),
-        style: 'background:#141821;color:#53c7ff;border:1px solid #2b3548;border-radius:8px;padding:6px 12px;font:700 11px \'IBM Plex Mono\';letter-spacing:.08em;cursor:pointer',
-      }, '◈ Connect Algorand Wallet'),
+    h('div', { style: 'display:flex;align-items:center;gap:10px;flex-wrap:wrap' },
+      h('div', { style: 'font:700 11px/1 \'IBM Plex Mono\';letter-spacing:.16em;background:#c77dff;color:#0b0d11;padding:5px 9px;border-radius:4px' }, 'STYLE · HEXWIRE 2099'),
+      h('div', { style: 'font:500 11px/1 \'IBM Plex Mono\';color:#7c8596' }, 'Chrome · Street · Hex · Subvert & Possession active'),
     ),
     h('h1', { style: 'font:400 clamp(44px,8vw,74px)/0.95 \'Saira Stencil One\';letter-spacing:.03em;margin:16px 0 2px;color:#ece8df;text-transform:uppercase' }, 'Hexwire'),
     h('div', { style: 'display:flex;align-items:center;gap:10px;margin:2px 0 14px' },

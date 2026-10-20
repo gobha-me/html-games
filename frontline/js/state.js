@@ -18,9 +18,6 @@ export const state = {
   tutPass: false,
   oppName: '',
   crewKey: 'MID',
-  wallet: null,        // { addr, provider } (Hexwire simulated wallet)
-  showConnect: false,
-  connecting: null,
   queue: null,
   ladderTab: 'std',
   zoom: null,

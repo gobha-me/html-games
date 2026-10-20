@@ -10,7 +10,6 @@ function keys(style = state.style) {
       active: 'hw_active_v1',
       rating: 'hw_rating_v1',
       record: 'hw_record_v1',
-      wallet: 'hw_wallet_v1',
     };
   }
   if (style === 'rift') {
@@ -19,7 +18,6 @@ function keys(style = state.style) {
       active: 'rf_active_v1',
       rating: 'rf_rating_v1',
       record: 'rf_record_v1',
-      wallet: 'hw_wallet_v1',
     };
   }
   return {
@@ -27,7 +25,6 @@ function keys(style = state.style) {
     active: 'fl_active_v1',
     rating: 'fl_rating_v1',
     record: 'fl_record_v1',
-    wallet: 'hw_wallet_v1',
   };
 }
 
@@ -95,18 +92,6 @@ export function saveStanding(rating, record, style = state.style) {
     localStorage.setItem(K.rating, String(rating));
     localStorage.setItem(K.record, JSON.stringify(record));
   } catch (e) {}
-}
-
-export function loadWallet() {
-  try { return JSON.parse(localStorage.getItem('hw_wallet_v1') || 'null'); } catch (e) { return null; }
-}
-
-export function saveWallet(w) {
-  try { localStorage.setItem('hw_wallet_v1', JSON.stringify(w)); } catch (e) {}
-}
-
-export function clearWallet() {
-  try { localStorage.removeItem('hw_wallet_v1'); } catch (e) {}
 }
 
 export function buildSimLadder(style = state.style) {

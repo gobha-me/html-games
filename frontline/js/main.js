@@ -1,10 +1,10 @@
 // Bootstrap for the unified Frontline / Hexwire / Rift client.
 // Loads the dual-style rules engine (globalThis.FL), restores saved style, rosters,
-// standing, wallet, and prefs, then mounts the reactive view loop.
+// standing, and prefs, then mounts the reactive view loop.
 import '../engine.js';
 import { state, session, setState, setRenderer } from './state.js';
 import { clear } from './dom.js';
-import { loadDecks, loadActive, loadRating, loadRecord, buildSimLadder, loadPrefs, loadSavedStyle, loadWallet } from './store.js';
+import { loadDecks, loadActive, loadRating, loadRecord, buildSimLadder, loadPrefs, loadSavedStyle } from './store.js';
 import { syncBodyTheme } from './match.js';
 import { homeView } from './views/home.js';
 import { ladderView } from './views/ladder.js';
@@ -35,7 +35,6 @@ session.rating = loadRating(initialStyle);
 session.record = loadRecord(initialStyle);
 session.simLadder = buildSimLadder(initialStyle);
 session.prefs = loadPrefs();
-const wallet = loadWallet();
 
 syncBodyTheme(initialStyle);
 
@@ -49,4 +48,4 @@ function render() {
 }
 
 setRenderer(render);
-setState({ ready: true, style: initialStyle, decks, activeId, editId: activeId, wallet });
+setState({ ready: true, style: initialStyle, decks, activeId, editId: activeId });

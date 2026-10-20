@@ -122,7 +122,3 @@ export function shuf(a) {
   }
   return a;
 }
-
-const A32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-export function fakeAddr() { let s = ''; for (let i = 0; i < 58; i++) s += A32[(Math.random() * 32) | 0]; return s; }
-export const trunc = a => a ? a.slice(0, 4) + '…' + a.slice(-4) : '';
