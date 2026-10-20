@@ -1,41 +1,17 @@
-# Changelog
+# Changelog — DEAD DISTRICT // SECTOR 7
 
-All notable changes to DEAD DISTRICT are recorded here.
+All notable changes to `dead-district/` are documented in this file.
 
-## v1.1.0 — 2026-07-21 — Mobile touch controls
-
-### Added
-- **Dual virtual-stick touch controls** (`js/game.js`): the left half of the
-  screen is a floating movement stick (ring + knob appear where you touch,
-  analog speed inside a 60px throw); holding the right half aims the
-  flashlight/shotgun at your finger and auto-fires. Implemented with Pointer
-  Events (`pointerType === 'touch'`), so desktop mouse/keyboard paths are
-  untouched; `pointercancel` and lifted fingers free their stick immediately
-  (no stuck movement or fire).
-- **Touch pause button** (`❚❚` in the HUD next to mute) — appears after the
-  first touch, hidden again if a real mouse moves (hybrid devices). Tapping
-  the pause overlay still resumes.
-- Touch line in the menu controls hint; `touch-action: none` on the canvas and
-  `overscroll-behavior: none` so the page never scrolls, zooms, or
-  rubber-bands mid-fight.
-
-### Changed
-- Movement normalization now only clamps vectors longer than 1 so the touch
-  stick gets analog speed; keyboard movement (cardinal and diagonal) is
-  numerically identical to before.
-- README: controls section documents touch; fixed the tech-stack note claiming
-  WebP assets (all images are PNG).
-
-### Verified
-- `menu_bg.png` / `gameover_bg.png` were already wired as CSS backgrounds on
-  the menu and game-over overlays (`css/style.css`) — no change needed.
-
-## v1.0.0 — 2026-07-21 — Initial arcade import
+## [2.0.0] — 2026-10-20 — Full Sector 7 Tactical Survival-Horror Rewrite (#13)
 
 ### Added
-- Top-down survival-horror wave shooter behind an 18+ age gate: fixed-timestep
-  loop, camera shake, flashlight-cone darkness mask, three enemy archetypes
-  (walker / runner / brute), shotgun pellet combat, blood/gore/casing
-  particles, health pickups, wave scaling, `localStorage` high score.
-- Venice-generated PNG sprites + MP3 SFX/music under `assets/`.
-- Launcher card with blood-crimson (`#c81e1e`) theme.
+- **Urban Quarantine Crossroads & Safe-Room Barricades (`js/config.js`, `js/sim.js`):**
+  - Built a `1600×1200` multi-block intersection featuring 4 enterable corner buildings (*St. Jude Pharmacy*, *Precinct 7 Armory*, *Redline Auto Garage*, *Blackout Diner*), abandoned emergency vehicles, concrete jersey barriers, and **8 destructible/repairable doorway barricades (`[F]`)**.
+- **2D Raycast Flashlight Shadow Engine & Bio-Radar (`js/renderer.js`):**
+  - Implemented 64-ray 2D shadow-casting directional flashlight cone (`[L]` Spot/Flood toggle), muzzle-flash illumination, flickering streetlamps, acoustic bio-sonar rings on unseen threats, and a live `1600×1200` **Sector 7 Bio-Radar** minimap (`#minimap-canvas`).
+- **5-Weapon Arsenal, Deployables & Requisition Armory (`js/config.js`, `js/sim.js`, `index.html`):**
+  - Added `M9 Tactical`, `Remington 870`, `MP5-K PDW`, `FN-FAL 7.62 AP` (piercing), and `M79 Thermite` launcher with magazine reloads (`[R]`), plus **Thermite Molotovs (`[G]`)**, **Aegis 360° Auto-Turrets (`[T]`)**, **Med-Stims (`[H]`)**, **Combat Dash (`[Space]`)**, and an in-game Scrap (`$`) Requisition Armory.
+- **5 Infected Archetypes:**
+  - *Shambler*, *Feral Sprinter*, *Bile Spitter* (ranged acid pools), *Riot Juggernaut* (front ballistic shield), and *Necro Screamer* (frenzy sonic shockwave).
+- **Procedural WebAudio Synthesizer (`js/audio.js`):**
+  - Replaced `7 MB` of static binary PNG/MP3 assets with zero-dependency synthesized gunfire, reloads, explosions, and horror audio.

@@ -1,85 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>DEAD DISTRICT — 18+ Survival Horror</title>
-<link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <title>DEAD DISTRICT // SECTOR 7 — Tactical Survival Horror</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/back-to-arcade.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-  <!-- ======= 18+ AGE GATE ======= -->
-  <div id="ageGate" class="overlay">
-    <div class="gate-box">
-      <div class="warn-tri">⚠</div>
-      <h2>RESTRICTED — ADULTS ONLY</h2>
-      <p class="gate-sub">This game contains <strong>graphic violence, blood &amp; gore</strong>,<br>
-      and intense horror themes. Intended for mature audiences only.</p>
-      <p class="gate-q">Are you 18 years of age or older?</p>
-      <div class="gate-btns">
-        <button id="ageYes" class="btn btn-red">I AM 18+ — ENTER</button>
-        <button id="ageNo" class="btn btn-dim">LEAVE</button>
+  <div id="sector-shell">
+    <!-- Top Tactical Telemetry Bar -->
+    <header id="top-bar">
+      <div class="brand-block">
+        <div class="brand-title">DEAD DISTRICT <span>//</span> SECTOR 7</div>
+        <div class="brand-sub">Quarantine Ops</div>
       </div>
-    </div>
-  </div>
 
-  <!-- ======= GAME CANVAS ======= -->
-  <canvas id="game"></canvas>
-
-  <!-- ======= HUD ======= -->
-  <div id="hud" class="hidden">
-    <div id="healthWrap"><div id="healthBar"></div><span id="healthText">100</span></div>
-    <div id="stats">
-      <span id="ammo">∞</span>
-      <span id="score">0</span>
-      <span id="wave">WAVE 1</span>
-    </div>
-    <div id="pauseBtn" class="hidden">❚❚</div>
-    <div id="mute">🔊</div>
-  </div>
-
-  <div id="vignette"></div>
-  <div id="dmgFlash"></div>
-
-  <!-- ======= MAIN MENU ======= -->
-  <div id="menu" class="overlay hidden">
-    <div class="title-block">
-      <h1 class="game-title">DEAD<span>DISTRICT</span></h1>
-      <p class="tagline">They own the streets now. Take them back.</p>
-      <button id="startBtn" class="btn btn-red big">▶ SURVIVE</button>
-      <div class="controls-hint">
-        <div><b>WASD</b> / <b>Arrows</b> — move</div>
-        <div><b>Mouse</b> — aim &nbsp;•&nbsp; <b>Click / Hold</b> — fire</div>
-        <div><b>M</b> — mute &nbsp;•&nbsp; <b>P</b> — pause</div>
-        <div><b>Touch</b> — left half: move &nbsp;•&nbsp; right half: aim &amp; fire</div>
+      <div class="header-telemetry">
+        <div class="stat-pill"><span class="sp-label">WAVE</span><strong id="hud-wave" style="color:#f43f5e">1</strong></div>
+        <div class="stat-pill"><span class="sp-label">HOSTILES</span><strong id="hud-hostiles" style="color:#fb923c">13</strong></div>
+        <div class="stat-pill"><span class="sp-label">SCRAP</span><strong id="hud-scrap" style="color:#38bdf8">$140</strong></div>
+        <div class="stat-pill"><span class="sp-label">SCORE</span><strong id="hud-score">0 / 2,400</strong></div>
       </div>
-      <p id="hiscore" class="hiscore"></p>
-    </div>
-  </div>
 
-  <!-- ======= PAUSE ======= -->
-  <div id="pause" class="overlay hidden">
-    <h1 class="pause-title">PAUSED</h1>
-    <p class="dim">Press P or click to resume</p>
-  </div>
-
-  <!-- ======= GAME OVER ======= -->
-  <div id="gameover" class="overlay hidden">
-    <div class="go-block">
-      <h1 class="go-title">YOU DIED</h1>
-      <p class="go-cause" id="goCause">The horde dragged you down.</p>
-      <div class="go-stats">
-        <div class="go-stat"><span class="go-num" id="goScore">0</span><span class="go-lbl">SCORE</span></div>
-        <div class="go-stat"><span class="go-num" id="goKills">0</span><span class="go-lbl">KILLS</span></div>
-        <div class="go-stat"><span class="go-num" id="goWave">1</span><span class="go-lbl">WAVE</span></div>
-        <div class="go-stat"><span class="go-num" id="goTime">0:00</span><span class="go-lbl">SURVIVED</span></div>
+      <div class="top-actions">
+        <button class="top-btn primary" id="btn-flashlight" title="Toggle Tactical Flashlight Beam Mode [L]">🔦 Beam: Spot [L]</button>
+        <button class="top-btn" id="btn-repair-all" title="Repair Nearby Barricade [F] or All ($35)">🔨 Fortify [F]</button>
+        <button class="top-btn" id="btn-pause" title="Pause Operations [P]">⏸ Pause</button>
+        <button class="top-btn" id="btn-mute" title="Toggle Gunfire &amp; Horror Audio [M]">🔊 SFX</button>
+        <button class="top-btn" id="btn-reset" title="Restart Sector 7 Deployment">↻ Restart</button>
       </div>
-      <button id="retryBtn" class="btn btn-red big">↻ TRY AGAIN</button>
+    </header>
+
+    <!-- Left Bio-Monitor, Minimap & Barricade Wing -->
+    <aside id="wing-left" class="sector-wing">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>OPERATOR BIO-TELEMETRY</span>
+          <span id="hud-status-tag" style="color:#34d399">ACTIVE</span>
+        </div>
+
+        <div class="vital-row">
+          <div class="vital-head">
+            <span>VITAL INTEGRITY (HP)</span>
+            <strong id="hud-hp-text" style="color:#34d399">100 / 100</strong>
+          </div>
+          <div class="bar-wrap"><div id="hud-hp-bar" style="width:100%;background:linear-gradient(90deg,#dc2626,#22c55e)"></div></div>
+        </div>
+
+        <div class="vital-row" style="margin-top:7px">
+          <div class="vital-head">
+            <span>KEVLAR TRAUMA PLATE</span>
+            <strong id="hud-armor-text" style="color:#38bdf8">50 / 100</strong>
+          </div>
+          <div class="bar-wrap"><div id="hud-armor-bar" style="width:50%;background:linear-gradient(90deg,#0284c7,#38bdf8)"></div></div>
+        </div>
+
+        <div class="quick-belt">
+          <button class="belt-btn" id="btn-use-med" title="Inject Emergency Med-Stim (+55 HP) [H]">
+            <span>💉 MED-STIM [H]</span>
+            <strong id="hud-med-count">2</strong>
+          </button>
+          <button class="belt-btn" id="btn-use-molotov" title="Throw Incendiary Molotov [G]">
+            <span>🔥 MOLOTOV [G]</span>
+            <strong id="hud-molotov-count">2</strong>
+          </button>
+          <button class="belt-btn" id="btn-use-turret" title="Deploy 360° Aegis Sentry Turret [T]">
+            <span>🤖 TURRET [T]</span>
+            <strong id="hud-turret-count">1</strong>
+          </button>
+          <button class="belt-btn" id="btn-use-dash" title="Evasive Combat Roll [Space]">
+            <span>⚡ DASH [SPC]</span>
+            <strong id="hud-dash-state">READY</strong>
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>SECTOR 7 BIO-RADAR</span>
+          <span style="color:#38bdf8">1600×1200M</span>
+        </div>
+        <canvas id="minimap-canvas" width="268" height="200"></canvas>
+        <div class="radar-legend">
+          <span><i style="background:#38bdf8"></i>OPERATOR</span>
+          <span><i style="background:#10b981"></i>BARRICADE</span>
+          <span><i style="background:#ef4444"></i>INFECTED</span>
+          <span><i style="background:#38f2d7"></i>SENTRY</span>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>SAFE-ROOM BARRICADES (8)</span>
+          <span id="hud-barricade-summary" style="color:#10b981">8 / 8 INTACT</span>
+        </div>
+        <div class="barricade-grid" id="hud-barricade-grid">
+          <div class="bar-cell"><span class="bc-name">PHARM-S</span><div class="bc-track"><div id="bc-nw_s"></div></div></div>
+          <div class="bar-cell"><span class="bc-name">PHARM-E</span><div class="bc-track"><div id="bc-nw_e"></div></div></div>
+          <div class="bar-cell"><span class="bc-name">PREC-S</span><div class="bc-track"><div id="bc-ne_s"></div></div></div>
+          <div class="bar-cell"><span class="bc-name">PREC-W</span><div class="bc-track"><div id="bc-ne_w"></div></div></div>
+          <div class="bar-cell"><span class="bc-name">GARAGE-N</span><div class="bc-track"><div id="bc-sw_n"></div></div></div>
+          <div class="bar-cell"><span class="bc-name">GARAGE-E</span><div class="bc-track"><div id="bc-sw_e"></div></div></div>
+          <div class="bar-cell"><span class="bc-name">DINER-N</span><div class="bc-track"><div id="bc-se_n"></div></div></div>
+          <div class="bar-cell"><span class="bc-name">DINER-W</span><div class="bc-track"><div id="bc-se_w"></div></div></div>
+        </div>
+      </div>
+
+      <div class="panel-box" style="margin-top:auto">
+        <div class="panel-title">
+          <span>INFECTED THREAT DOSSIER</span>
+          <span>CLASS I–V</span>
+        </div>
+        <div class="threat-grid">
+          <div><b style="color:#84cc16">● Shambler:</b> Claws barricades</div>
+          <div><b style="color:#ef4444">● Sprinter:</b> Fast alley flanker</div>
+          <div><b style="color:#10b981">● Spitter:</b> Ranged acid pools</div>
+          <div><b style="color:#f97316">● Juggernaut:</b> Front armor shield</div>
+          <div style="grid-column:1/-1"><b style="color:#e879f9">● Necro Screamer:</b> Sonic frenzy pulse — priority target!</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Urban Combat Viewport -->
+    <main id="viewport-stage">
+      <canvas id="game-canvas"></canvas>
+      <div id="sector-banner">
+        <div class="sb-title" id="banner-title">SECTOR 7 // QUARANTINE BREACH</div>
+        <div class="sb-sub" id="banner-sub">HOLD THE CROSSROADS OR FORTIFY SAFE-ROOMS</div>
+      </div>
+    </main>
+
+    <!-- Right Arsenal Loadout & Requisition Armory Wing -->
+    <aside id="wing-right" class="sector-wing">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>FIREARM TELEMETRY</span>
+          <span id="hud-caliber" style="color:#fb923c">12-GA BUCK</span>
+        </div>
+        <div class="active-weapon-card">
+          <div class="aw-header">
+            <div class="aw-name" id="hud-weapon-name">REMINGTON 870</div>
+            <button class="reload-btn" id="btn-reload" title="Reload Magazine [R]">↻ RELOAD [R]</button>
+          </div>
+          <div class="aw-ammo-row">
+            <span class="aw-mag" id="hud-ammo-mag">8 / 8</span>
+            <span class="aw-res" id="hud-ammo-res">RESERVE: 48</span>
+          </div>
+          <div class="bar-wrap"><div id="hud-ammo-bar" style="width:100%;background:#fb923c"></div></div>
+        </div>
+
+        <div class="weapon-rack" id="hud-weapon-rack">
+          <!-- Populated dynamically by main.js -->
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>REQUISITION ARMORY</span>
+          <span style="color:#38bdf8">SCRAP ($)</span>
+        </div>
+        <div class="shop-grid">
+          <button class="shop-btn" data-req="ammo_all">
+            <span class="sh-name">📦 FULL AMMO CRATE</span>
+            <span class="sh-sub">Refill all mags &amp; reserves</span>
+            <strong class="sh-cost">$45</strong>
+          </button>
+          <button class="shop-btn" data-req="armor_plate">
+            <span class="sh-name">🛡 KEVLAR PLATE (+60)</span>
+            <span class="sh-sub">Ballistic trauma absorption</span>
+            <strong class="sh-cost">$40</strong>
+          </button>
+          <button class="shop-btn" data-req="molotov_pack">
+            <span class="sh-name">🔥 2× THERMITE MOLOTOVS</span>
+            <span class="sh-sub">6.5s choke-point fire pool</span>
+            <strong class="sh-cost">$45</strong>
+          </button>
+          <button class="shop-btn" data-req="turret_kit">
+            <span class="sh-name">🤖 AEGIS SENTRY TURRET</span>
+            <span class="sh-sub">Auto-deploys 140-rd sentry</span>
+            <strong class="sh-cost">$95</strong>
+          </button>
+          <button class="shop-btn" data-req="perk_dmg">
+            <span class="sh-name" id="req-dmg-title">⚡ HOLLOW-POINT (+20% DMG)</span>
+            <span class="sh-sub">Permanent ballistic upgrade</span>
+            <strong class="sh-cost" id="req-dmg-cost">$90</strong>
+          </button>
+          <button class="shop-btn" data-req="perk_reload">
+            <span class="sh-name" id="req-rel-title">⏩ SPEED-LOADER (+25% REL)</span>
+            <span class="sh-sub">Permanent reload speed rig</span>
+            <strong class="sh-cost" id="req-rel-cost">$80</strong>
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-box" style="margin-top:auto">
+        <div class="panel-title">
+          <span>TACTICAL FIELD MANUAL</span>
+          <span>CONTROLS</span>
+        </div>
+        <div class="manual-list">
+          <div><b>WASD / Arrows:</b> Move · <b>Space:</b> Combat Roll Dash</div>
+          <div><b>Mouse Aim + Left Click:</b> Aim Flashlight &amp; Fire</div>
+          <div><b>[1]–[5] / Click Slot:</b> Switch / Unlock Firearm</div>
+          <div><b>[R]:</b> Reload · <b>[G]:</b> Molotov · <b>[T]:</b> Auto-Turret</div>
+          <div><b>[F]:</b> Repair Door Barricades · <b>[H]:</b> Med-Stim</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="modal-gameover">
+    <div class="modal-card">
+      <div class="modal-eyebrow">SECTOR 7 BIO-CONTAINMENT LOG</div>
+      <h2>OPERATOR KIA</h2>
+      <p id="modal-summary"></p>
+      <button class="top-btn primary" id="btn-modal-restart" style="padding:10px 24px;font-size:15px">↻ Redeploy Into Sector 7</button>
     </div>
   </div>
 
   <a href="../" class="back-to-arcade">← Back to Arcade</a>
-
-<script src="js/game.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
