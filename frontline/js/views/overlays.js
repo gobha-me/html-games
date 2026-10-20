@@ -1,11 +1,11 @@
 // Fixed overlays layered above the current screen: card zoom preview, initiative coin/weathervane,
-// game-over card, simulated Algorand wallet connect & matchmaking modals (Hexwire), and playtest settings.
+// game-over card, Syndicate matchmaking modal (Hexwire), and playtest settings.
 import { h } from '../dom.js';
 import { state, session, setState, ping } from '../state.js';
-import { savePrefs, saveWallet } from '../store.js';
+import { savePrefs } from '../store.js';
 import { startMatch } from '../match.js';
 import { focalY, cardImgSrc } from '../art.js';
-import { SPELL_LINE, KW_NAMES_FL, KW_NAMES_HW, KW_REMINDER, fakeAddr, trunc } from '../theme.js';
+import { SPELL_LINE, KW_NAMES_FL, KW_NAMES_HW, KW_REMINDER } from '../theme.js';
 
 let _zTimer = null, _zEl = null, _zId = null, _zEsc = null, _zAway = null;
 
@@ -170,40 +170,12 @@ function gameOverOverlay() {
   );
 }
 
-function walletConnectOverlay() {
-  const providers = ['Pera Wallet', 'Defly Wallet', 'Lute'];
-  return h('div', {
-    onclick: () => setState({ showConnect: false }),
-    style: 'position:fixed;inset:0;background:rgba(8,10,15,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:65',
-  },
-    h('div', {
-      onclick: e => e.stopPropagation(),
-      style: 'background:#131720;color:#ece8df;padding:24px 26px;max-width:380px;width:100%;border-radius:14px;border:1px solid #2b3548;box-shadow:0 30px 60px -20px rgba(0,0,0,.85)',
-    },
-      h('div', { style: 'font:700 11px \'IBM Plex Mono\';letter-spacing:.18em;color:#53c7ff;margin-bottom:6px' }, 'ALGORAND IDENTITY (SIMULATED)'),
-      h('h3', { style: 'font:700 22px \'Barlow Condensed\';letter-spacing:.04em;text-transform:uppercase;margin:0 0 10px' }, 'Connect Wallet for Syndicate Lobbies'),
-      h('p', { style: 'font-size:14px;line-height:1.5;color:#9aa3b2;margin:0 0 16px' }, 'Generates a local simulated Algorand address to unlock Casual Block and Ranked Syndicate Floor matchmaking.'),
-      h('div', { style: 'display:flex;flex-direction:column;gap:8px' },
-        providers.map(p => h('button', {
-          onclick: () => {
-            const w = { provider: p.split(' ')[0], addr: fakeAddr() };
-            saveWallet(w);
-            setState({ wallet: w, showConnect: false });
-          },
-          style: 'background:#1a202e;color:#ece8df;border:1px solid #2b3548;border-radius:9px;padding:12px 14px;font:700 14px \'Barlow Condensed\';letter-spacing:.06em;text-transform:uppercase;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center',
-        }, h('span', {}, p), h('span', { style: 'font:600 11px \'IBM Plex Mono\';color:#c77dff' }, 'Connect →'))),
-      ),
-    ),
-  );
-}
-
 function queueOverlay() {
   const q = state.queue;
   return h('div', { style: 'position:fixed;inset:0;background:rgba(8,10,15,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:65' },
     h('div', { style: 'background:#131720;color:#ece8df;padding:26px 32px;text-align:center;border-radius:14px;border:1px solid #c77dff' },
       h('div', { style: 'font:700 11px \'IBM Plex Mono\';letter-spacing:.18em;color:#c77dff;margin-bottom:8px' }, q.mode === 'ranked' ? 'SYNDICATE FLOOR · RANKED' : 'THE BLOCK · CASUAL'),
       h('div', { style: 'font:700 20px \'Barlow Condensed\';letter-spacing:.05em;text-transform:uppercase' }, 'Matching vs ' + q.opp.h + ' (' + q.opp.r + ')…'),
-      h('div', { style: 'font:500 11px \'IBM Plex Mono\';color:#7c8596;margin-top:6px' }, 'verifying deck hash · ' + trunc(state.wallet?.addr || '')),
     ),
   );
 }
@@ -261,7 +233,6 @@ function settingsPanel() {
 export function overlays() {
   const out = [settingsButton()];
   if (state.settingsOpen) out.push(...settingsPanel());
-  if (state.showConnect) out.push(walletConnectOverlay());
   if (state.queue) out.push(queueOverlay());
   if (state.coin) out.push(coinOverlay());
   else if (state.screen === 'match' && session.g && session.g.over && !state.tut) out.push(gameOverOverlay());

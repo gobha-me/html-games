@@ -9,7 +9,7 @@ A unified **3-lane × 2-row tactical card battler** featuring a **dynamic style-
 2. **🎴 HEXWIRE · 2099 STREET MAGIC (Cyberpunk)**
    - **Overwatch + Subvert/Possession Ruleset:** Three city blocks wide across **Chrome**, **Street**, and **Hex** crews. Front-row operatives brawl on the **Street**; back-row operatives fire from **Overwatch** using `Strike`.
    - **26-card Pool** unlocking **Puppeteer** (`Subvert ≤2` — seizes an enemy unit in its lane and hides beneath it until destroyed) and **Possession** (`5⚡` — permanently steals an enemy unit of cost ≤2).
-   - **8-step Street Curriculum** culminating in **THE SOLVE** exact-lethal puzzle, plus simulated Algorand wallet connect and **The Block / Syndicate Floor** lobbies.
+   - **8-step Street Curriculum** culminating in **THE SOLVE** exact-lethal puzzle, plus **The Block / Syndicate Floor** lobbies.
 3. **⚡ RIFT WAR · CROSSOVER (1918 × 2099)**
    - **Hybrid Ruleset:** Combines Frontline's positional `M/R` artillery math with Hexwire's `Rift Puppeteer` (`Subvert ≤2`) and `Rift Possession` cards in a 26-card crossover pool.
 
@@ -72,5 +72,5 @@ frontline/
         ├── match.js           # 3×2 tactical board, hand scroller, tutorial panels
         ├── rosters.js         # Roster / Crew deckbuilder with hover/tap card zoom
         ├── ladder.js          # War Ladder / Syndicate Standings
-        └── overlays.js        # Card zoom, Weathervane / Credstick coin flip, Wallet modal, Settings
+        └── overlays.js        # Card zoom, Weathervane / Credstick coin flip, Settings
 ```
