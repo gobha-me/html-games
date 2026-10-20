@@ -1,0 +1,752 @@
+// ============================================================================
+// LATE EDITION // 1947 — Noir Newspaper, Field Operatives & Press Cycle Sim
+// ============================================================================
+
+import {
+  WORLD_W,
+  WORLD_H,
+  EDITION_DURATION_SEC,
+  DISTRICTS,
+  OPERATIVE_ROSTER,
+  FRONT_PAGE_SLOTS,
+  STORY_CATALOG,
+} from './config.js';
+
+const STORAGE_KEY_BEST = 'lateEdition.bestCirculation.v2';
+
+export class LateEditionSim {
+  constructor(audio) {
+    this.audio = audio;
+    this.highCirculation =
+      (typeof localStorage !== 'undefined' &&
+        Number(localStorage.getItem(STORAGE_KEY_BEST))) ||
+      24500;
+    this.reset();
+  }
+
+  reset() {
+    this.time = 0;
+    this.edition = 1;
+    this.maxEditions = 5;
+    this.clockSec = 0; // 0..90s -> 6:00 PM .. 12:00 AM Midnight
+    this.speed = 1;
+    this.paused = false;
+    this.gameOver = false;
+    this.victory = false;
+    this.gameOverReason = '';
+    this.editionSummary = null;
+    this.wireLog = [];
+
+    this.cash = 340;
+    this.circulation = 18400;
+    this.credibility = 74; // 0..100
+    this.syndicateHeat = 22; // 0..100
+    this.pressHp = 100; // 0..100
+    this.editionsPrinted = 0;
+    this.scoopsTotal = 0;
+
+    this.districts = DISTRICTS.map((d) => ({ ...d }));
+    this.hq = this.districts.find((d) => d.isHQ);
+
+    // Operatives spaced cleanly along Press Row plaza
+    this.operatives = OPERATIVE_ROSTER.map((op, idx) => ({
+      ...op,
+      x: this.hq.x + this.hq.w * 0.5 + (idx - 1.5) * 96,
+      y: this.hq.y + this.hq.h + 36,
+      targetX: this.hq.x + this.hq.w * 0.5 + (idx - 1.5) * 96,
+      targetY: this.hq.y + this.hq.h + 36,
+      angle: 0,
+      state: 'IDLE AT HQ',
+      targetLeadId: null,
+      targetRivalId: null,
+      flashCooldown: 0,
+      stepPhase: idx * 1.4,
+    }));
+    this.selectedOpId = this.operatives[0].id;
+
+    // Active Leads on City Map
+    this.nextLeadUid = 1;
+    this.leads = [];
+    this.catalogIdx = 0;
+
+    // Scooped Stories & 4 Front-Page Broadsheet Slots
+    this.scoopedStories = [];
+    this.frontPage = {
+      banner: null,
+      above_fold: null,
+      photo_expose: null,
+      editorial: null,
+    };
+
+    // Rival Agents (Herald Scoopers & Observer Syndicate Goons)
+    this.rivals = [];
+    this.rivalSpawnTimer = 9.0;
+
+    // Visual Flashbulbs, Floating Callouts & Traffic Cabs
+    this.flashes = []; // { x, y, r, alpha, color }
+    this.callouts = []; // { x, y, text, color, life }
+    this.cabs = [
+      { x: 200, y: 365, vx: 78, vy: 0 },
+      { x: 1180, y: 615, vx: -82, vy: 0 },
+      { x: 485, y: 180, vx: 0, vy: 74 },
+      { x: 915, y: 820, vx: 0, vy: -76 },
+    ];
+
+    this.banner = {
+      title: 'EDITION #1 // EVENING WIRE OPEN',
+      sub: 'DISPATCH REPORTERS & PHOTOGRAPHERS BEFORE THE 12:00 AM DEADLINE',
+      timer: 5.5,
+    };
+
+    this.rivalStandings = [
+      { id: 'herald', name: 'The Daily Herald', circulation: 21500, color: '#eab308' },
+      { id: 'observer', name: 'The Observer Syndicate', circulation: 19800, color: '#f43f5e' },
+      { id: 'gazette', name: 'Midtown Gazette', circulation: 15200, color: '#c084fc' },
+    ];
+
+    this.logWire('NIGHT DESK OPEN — Rotary presses warmed for the 12:00 AM deadline.', 'ops');
+
+    // Seed 3 initial leads across the city
+    this.spawnLead('cityhall');
+    this.spawnLead('docks');
+    this.spawnLead('redlight');
+    this.selectedLeadId = this.leads[0] ? this.leads[0].uid : null;
+  }
+
+  logWire(text, tone = 'info') {
+    this.wireLog.unshift({
+      time: this.getClockString(),
+      text,
+      tone,
+    });
+    if (this.wireLog.length > 24) this.wireLog.length = 24;
+  }
+
+  calculateEditionProjection() {
+    let cashDelta = 110;
+    let circDelta = 0;
+    let credDelta = 0;
+    let heatDelta = 0;
+    let platedCount = 0;
+
+    for (const slot of FRONT_PAGE_SLOTS) {
+      const st = this.frontPage[slot.id];
+      if (!st) continue;
+      platedCount++;
+      const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
+      const storyCash = Math.round(st.baseValue * slot.mul * photoMul);
+      cashDelta += storyCash;
+      circDelta += Math.round(storyCash * 14);
+      credDelta += st.credibility + slot.credBonus;
+      heatDelta += st.heat + slot.heatDelta;
+    }
+
+    if (platedCount === 0) {
+      credDelta -= 12;
+      circDelta -= 1800;
+    }
+
+    return { cashDelta, circDelta, credDelta, heatDelta, platedCount };
+  }
+
+  setBanner(title, sub, timer = 3.5) {
+    this.banner = { title, sub, timer };
+  }
+
+  addCallout(x, y, text, color = '#ffd47a') {
+    this.callouts.push({ x, y, text, color, life: 1.4 });
+  }
+
+  getClockString() {
+    // 0s = 06:00 PM, 90s = 12:00 AM
+    const pct = Math.min(1, Math.max(0, this.clockSec / EDITION_DURATION_SEC));
+    const totalMins = Math.floor(pct * 360); // 6 hours = 360 mins
+    const hour24 = 18 + Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hour24 >= 24) return '12:00 AM';
+    const h12 = hour24 > 12 ? hour24 - 12 : hour24;
+    return `${String(h12).padStart(2, '0')}:${String(mins).padStart(2, '0')} PM`;
+  }
+
+  spawnLead(preferredDistrictId = null) {
+    if (this.leads.length >= 4) return null;
+    const template = STORY_CATALOG[this.catalogIdx % STORY_CATALOG.length];
+    this.catalogIdx++;
+
+    const distId = preferredDistrictId || template.district;
+    const dist =
+      this.districts.find((d) => d.id === distId) ||
+      this.districts.find((d) => !d.isHQ && !d.isRival);
+
+    // Offset slightly inside/around district building front entrance
+    const jitterX = ((this.nextLeadUid * 53) % 120) - 60;
+    const x = Math.max(90, Math.min(WORLD_W - 90, dist.x + dist.w * 0.5 + jitterX));
+    const y =
+      dist.y < 400
+        ? dist.y + dist.h + 26
+        : dist.y - 26;
+
+    const lead = {
+      uid: `lead_${this.nextLeadUid++}`,
+      beat: template.beat,
+      color: template.color,
+      districtId: dist.id,
+      districtName: dist.name,
+      headline: template.headline,
+      subdeck: template.subdeck,
+      baseValue: template.baseValue + (this.edition - 1) * 20,
+      credibility: template.credibility,
+      heat: template.heat,
+      x,
+      y,
+      progress: 0, // 0..100
+      photoVerified: false,
+      rivalProgress: 0, // Herald rival scoop progress 0..100
+      timeLeft: 48,
+    };
+
+    this.leads.push(lead);
+    this.logWire(`WIRE FLASH [${lead.beat}]: ${lead.headline}`, 'info');
+    return lead;
+  }
+
+  dispatchOperativeToLead(opId, leadUid) {
+    const op = this.operatives.find((o) => o.id === opId) || this.operatives[0];
+    const lead = this.leads.find((l) => l.uid === leadUid);
+    if (!op || !lead) return false;
+
+    op.targetLeadId = lead.uid;
+    op.targetRivalId = null;
+    op.targetX = lead.x + (op.role === 'photographer' ? 22 : -18);
+    op.targetY = lead.y + 8;
+    op.state = `EN ROUTE → ${lead.districtName}`;
+
+    if (this.audio) this.audio.dispatch();
+    this.addCallout(lead.x, lead.y - 16, `${op.callsign} DISPATCHED`, op.color);
+    this.logWire(`DISPATCH: ${op.name} (${op.callsign}) en route to ${lead.districtName}.`, 'ops');
+    return true;
+  }
+
+  dispatchOperativeToPoint(opId, wx, wy) {
+    const op = this.operatives.find((o) => o.id === opId) || this.operatives[0];
+    if (!op) return;
+
+    // 1. Check if clicked near an active Lead
+    for (const lead of this.leads) {
+      if (Math.hypot(wx - lead.x, wy - lead.y) <= 46) {
+        this.dispatchOperativeToLead(op.id, lead.uid);
+        return;
+      }
+    }
+
+    // 2. Check if clicked near an active Rival Agent
+    for (const rv of this.rivals) {
+      if (Math.hypot(wx - rv.x, wy - rv.y) <= 42) {
+        op.targetRivalId = rv.id;
+        op.targetLeadId = null;
+        op.targetX = rv.x;
+        op.targetY = rv.y;
+        op.state = `INTERCEPTING ${rv.label}`;
+        if (this.audio) this.audio.dispatch();
+        this.addCallout(rv.x, rv.y - 14, `INTERCEPT ORDERED`, '#10b981');
+        return;
+      }
+    }
+
+    // 3. Otherwise move operative to city street coordinate
+    op.targetLeadId = null;
+    op.targetRivalId = null;
+    op.targetX = Math.max(50, Math.min(WORLD_W - 50, wx));
+    op.targetY = Math.max(50, Math.min(WORLD_H - 50, wy));
+    op.state = 'PATROLLING BEAT';
+    if (this.audio) this.audio.dispatch();
+  }
+
+  autoDispatchBestForLead(leadUid) {
+    const lead = this.leads.find((l) => l.uid === leadUid);
+    if (!lead) return;
+
+    // Prefer selected operative if suitable, else idle reporter/photographer
+    const sel = this.operatives.find((o) => o.id === this.selectedOpId);
+    if (sel && sel.role !== 'fixer') {
+      this.dispatchOperativeToLead(sel.id, lead.uid);
+      return;
+    }
+    const rep =
+      this.operatives.find((o) => o.role === 'reporter' && !o.targetLeadId) ||
+      this.operatives[0];
+    this.dispatchOperativeToLead(rep.id, lead.uid);
+  }
+
+  plateStoryToFrontPage(storyUid, preferredSlotId = null) {
+    const idx = this.scoopedStories.findIndex((s) => s.uid === storyUid);
+    const story = idx >= 0 ? this.scoopedStories[idx] : null;
+    if (!story) return false;
+
+    let slotId = preferredSlotId;
+    if (!slotId) {
+      if (story.photoVerified && !this.frontPage.photo_expose) {
+        slotId = 'photo_expose';
+      } else {
+        const order = ['banner', 'above_fold', 'photo_expose', 'editorial'];
+        slotId = order.find((k) => !this.frontPage[k]) || 'banner';
+      }
+    }
+
+    // If slot already had a story, return it to queue
+    if (this.frontPage[slotId]) {
+      this.scoopedStories.push(this.frontPage[slotId]);
+    }
+
+    this.scoopedStories.splice(idx, 1);
+    this.frontPage[slotId] = story;
+    if (this.audio) this.audio.typewriter();
+    return true;
+  }
+
+  spawnRivalAgent() {
+    if (this.rivals.length >= 3) return;
+    const isGoon =
+      this.syndicateHeat >= 35 || Math.random() < 0.45;
+
+    if (isGoon) {
+      const obs = this.districts.find((d) => d.id === 'observer_hq');
+      this.rivals.push({
+        id: `rv_${Date.now()}_${Math.random()}`,
+        type: 'goon',
+        label: 'OBSERVER MOB ENFORCER',
+        x: obs.x + 20,
+        y: obs.y + obs.h * 0.5,
+        angle: Math.PI,
+        speed: 78,
+        hp: 100,
+        stunTimer: 0,
+        targetLeadId: null,
+      });
+    } else if (this.leads.length > 0) {
+      const her = this.districts.find((d) => d.id === 'herald_hq');
+      const targetLead = this.leads[0];
+      this.rivals.push({
+        id: `rv_${Date.now()}_${Math.random()}`,
+        type: 'herald',
+        label: 'HERALD RIVAL REPORTER',
+        x: her.x + her.w - 10,
+        y: her.y + her.h * 0.5,
+        angle: 0,
+        speed: 88,
+        hp: 80,
+        stunTimer: 0,
+        targetLeadId: targetLead.uid,
+      });
+    }
+  }
+
+  // Newsroom Special Operations
+  triggerWiretap() {
+    if (this.cash < 65) return false;
+    this.cash -= 65;
+    this.spawnLead();
+    this.spawnLead();
+    if (this.audio) this.audio.wireBell();
+    this.setBanner(
+      'SWITCHBOARD WIRETAP ACTIVE',
+      '2 EXCLUSIVE CITY LEADS INTERCEPTED ON POLICE BAND',
+      3.2
+    );
+    return true;
+  }
+
+  acceptSyndicateBribe() {
+    this.cash += 160;
+    this.credibility = Math.max(0, this.credibility - 10);
+    this.syndicateHeat = Math.max(0, this.syndicateHeat - 16);
+    if (this.audio) this.audio.bribe();
+    this.setBanner(
+      'SYNDICATE HUSH-MONEY ACCEPTED (+$160)',
+      'CREDIBILITY -10% · SYNDICATE HEAT REDUCED',
+      3.2
+    );
+    return true;
+  }
+
+  fortifyPressRoom() {
+    if (this.cash < 75) return false;
+    this.cash -= 75;
+    this.pressHp = 100;
+    // Clear any goons near HQ
+    this.rivals = this.rivals.filter((r) => r.type !== 'goon');
+    if (this.audio) this.audio.typewriter();
+    this.setBanner(
+      'ROTARY PRESS ROOM REINFORCED',
+      'PRESS INTEGRITY 100% · OBSERVER SABOTEURS REPELLED',
+      3.0
+    );
+    return true;
+  }
+
+  publishEdition() {
+    let editionCash = 110; // Base newsstand sales
+    let circDelta = 0;
+    let credDelta = 0;
+    let heatDelta = 0;
+    let platedCount = 0;
+
+    for (const slot of FRONT_PAGE_SLOTS) {
+      const st = this.frontPage[slot.id];
+      if (!st) continue;
+      platedCount++;
+      const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
+      const storyCash = Math.round(st.baseValue * slot.mul * photoMul);
+      editionCash += storyCash;
+      circDelta += Math.round(storyCash * 14);
+      credDelta += st.credibility + slot.credBonus;
+      heatDelta += st.heat + slot.heatDelta;
+    }
+
+    if (platedCount === 0) {
+      // Blank front page penalty
+      credDelta -= 12;
+      circDelta -= 1800;
+    }
+
+    this.cash += editionCash;
+    this.circulation = Math.max(2000, this.circulation + circDelta);
+    this.credibility = Math.max(0, Math.min(100, this.credibility + credDelta));
+    this.syndicateHeat = Math.max(0, Math.min(100, this.syndicateHeat + heatDelta));
+    this.editionsPrinted++;
+
+    if (this.circulation > this.highCirculation) {
+      this.highCirculation = this.circulation;
+      try {
+        localStorage.setItem(STORAGE_KEY_BEST, String(this.highCirculation));
+      } catch (_) {}
+    }
+
+    const printedEditionNum = this.edition;
+    this.editionSummary = {
+      edition: printedEditionNum,
+      reason: 'PRESS RUN COMPLETE',
+      slottedCount: platedCount,
+      circDelta,
+      cashDelta: editionCash,
+      credDelta,
+      heatDelta,
+      totalCirculation: this.circulation,
+      totalFunds: this.cash,
+      credibility: this.credibility,
+      heat: this.syndicateHeat,
+    };
+
+    for (const rv of this.rivalStandings) {
+      rv.circulation = Math.max(8000, rv.circulation + Math.round((Math.random() - 0.35) * 2400));
+    }
+
+    this.logWire(
+      `EDITION #${printedEditionNum} PRINTED: ${circDelta >= 0 ? '+' : ''}${circDelta.toLocaleString()} readers, +$${editionCash} revenue.`,
+      'scoop'
+    );
+
+    // Clear plated front page for next night's edition
+    this.frontPage = {
+      banner: null,
+      above_fold: null,
+      photo_expose: null,
+      editorial: null,
+    };
+    this.clockSec = 0;
+    this.edition++;
+
+    if (this.audio) this.audio.pressRun();
+    this.flashes.push({
+      x: this.hq.x + this.hq.w * 0.5,
+      y: this.hq.y + this.hq.h * 0.5,
+      r: 18,
+      alpha: 0.95,
+      color: '#ffd47a',
+    });
+
+    this.setBanner(
+      `EDITION #${this.edition - 1} HIT THE STREETS! (+$${editionCash})`,
+      `CIRCULATION: ${this.circulation.toLocaleString()} (${circDelta >= 0 ? '+' : ''}${circDelta.toLocaleString()}) · CREDIBILITY ${this.credibility}%`,
+      4.5
+    );
+
+    // Ensure fresh leads on map for the new edition
+    while (this.leads.length < 3) {
+      this.spawnLead();
+    }
+  }
+
+  step(dt) {
+    if (this.paused || this.gameOver) return;
+    this.time += dt;
+    this.clockSec += dt;
+
+    if (this.banner.timer > 0) {
+      this.banner.timer = Math.max(0, this.banner.timer - dt);
+    }
+
+    // Midnight print deadline reached!
+    if (this.clockSec >= EDITION_DURATION_SEC) {
+      this.publishEdition();
+    }
+
+    // Maintain at least 3 active leads on the city map
+    if (this.leads.length < 3 && Math.random() < dt * 0.65) {
+      this.spawnLead();
+    }
+
+    // Spawn Rival Agents periodically
+    this.rivalSpawnTimer -= dt;
+    if (this.rivalSpawnTimer <= 0) {
+      this.rivalSpawnTimer = Math.max(6.5, 13.5 - this.edition * 0.9);
+      this.spawnRivalAgent();
+    }
+
+    // Update Traffic Cabs
+    for (const cab of this.cabs) {
+      cab.x += cab.vx * dt;
+      cab.y += cab.vy * dt;
+      if (cab.x > WORLD_W + 40) cab.x = -40;
+      if (cab.x < -40) cab.x = WORLD_W + 40;
+      if (cab.y > WORLD_H + 40) cab.y = -40;
+      if (cab.y < -40) cab.y = WORLD_H + 40;
+    }
+
+    // Update Operatives
+    const fixer = this.operatives.find((o) => o.role === 'fixer');
+    if (fixer && !fixer.targetRivalId && this.rivals.length > 0) {
+      // Fixer automatically moves to intercept nearest rival agent!
+      const rv = this.rivals[0];
+      fixer.targetRivalId = rv.id;
+    }
+
+    for (const op of this.operatives) {
+      if (op.flashCooldown > 0) op.flashCooldown = Math.max(0, op.flashCooldown - dt);
+
+      // Track target Rival if intercepting
+      if (op.targetRivalId) {
+        const rv = this.rivals.find((r) => r.id === op.targetRivalId);
+        if (rv) {
+          op.targetX = rv.x;
+          op.targetY = rv.y;
+        } else {
+          op.targetRivalId = null;
+          op.state = 'IDLE ON BEAT';
+        }
+      }
+
+      // Move toward target
+      const dx = op.targetX - op.x;
+      const dy = op.targetY - op.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 6) {
+        op.angle = Math.atan2(dy, dx);
+        const step = Math.min(dist, op.speed * dt);
+        op.x += (dx / dist) * step;
+        op.y += (dy / dist) * step;
+        op.stepPhase += dt * 9;
+      } else {
+        // Arrived at target Lead?
+        if (op.targetLeadId) {
+          const lead = this.leads.find((l) => l.uid === op.targetLeadId);
+          if (!lead) {
+            op.targetLeadId = null;
+            op.state = 'AWAITING ORDERS';
+          } else if (op.role === 'photographer') {
+            if (!lead.photoVerified) {
+              lead.photoVerified = true;
+              lead.progress = Math.min(100, lead.progress + 28);
+              if (this.audio) this.audio.shutter();
+              this.flashes.push({
+                x: lead.x,
+                y: lead.y,
+                r: 12,
+                alpha: 1.0,
+                color: '#ffffff',
+              });
+              this.addCallout(
+                lead.x,
+                lead.y - 20,
+                '📸 PHOTO PROOF CAPTURED (1.8×)',
+                '#38bdf8'
+              );
+              op.state = 'DARKROOM PROOF READY';
+              op.targetLeadId = null;
+            } else {
+              lead.progress = Math.min(100, lead.progress + dt * 16);
+              op.state = `ASSISTING AT ${lead.districtName}`;
+            }
+          } else {
+            // Reporter investigating lead
+            op.state = `INVESTIGATING (${Math.floor(lead.progress)}%)`;
+            lead.progress += dt * 24 * op.workRate;
+            if (lead.progress >= 100) {
+              this.completeLeadScoop(lead);
+              op.targetLeadId = null;
+              op.state = 'SCOOP FILED!';
+            }
+          }
+        }
+      }
+
+      // Fixer / Photographer interaction with Rivals
+      for (let i = this.rivals.length - 1; i >= 0; i--) {
+        const rv = this.rivals[i];
+        const rDist = Math.hypot(op.x - rv.x, op.y - rv.y);
+        if (op.role === 'fixer' && rDist <= 34) {
+          this.addCallout(
+            rv.x,
+            rv.y - 16,
+            `💥 ${rv.type === 'goon' ? 'GOON' : 'HERALD'} ROUTED (+$35)`,
+            '#10b981'
+          );
+          this.cash += 35;
+          this.rivals.splice(i, 1);
+          op.targetRivalId = null;
+          op.state = 'THREAT NEUTRALIZED';
+        } else if (
+          op.role === 'photographer' &&
+          rDist <= 65 &&
+          op.flashCooldown <= 0 &&
+          rv.stunTimer <= 0
+        ) {
+          rv.stunTimer = 4.5;
+          op.flashCooldown = 7.0;
+          this.flashes.push({
+            x: op.x,
+            y: op.y,
+            r: 10,
+            alpha: 0.95,
+            color: '#38bdf8',
+          });
+          this.addCallout(rv.x, rv.y - 14, '📸 FLASHBULB STUN!', '#38bdf8');
+        }
+      }
+    }
+
+    // Update Rival Agents
+    for (let i = this.rivals.length - 1; i >= 0; i--) {
+      const rv = this.rivals[i];
+      if (rv.stunTimer > 0) {
+        rv.stunTimer -= dt;
+        continue;
+      }
+
+      if (rv.type === 'herald') {
+        const lead =
+          this.leads.find((l) => l.uid === rv.targetLeadId) || this.leads[0];
+        if (!lead) {
+          this.rivals.splice(i, 1);
+          continue;
+        }
+        rv.targetLeadId = lead.uid;
+        const dx = lead.x - rv.x;
+        const dy = lead.y - rv.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 14) {
+          rv.angle = Math.atan2(dy, dx);
+          rv.x += (dx / dist) * rv.speed * dt;
+          rv.y += (dy / dist) * rv.speed * dt;
+        } else {
+          lead.rivalProgress += dt * 15;
+          if (lead.rivalProgress >= 100) {
+            this.addCallout(
+              lead.x,
+              lead.y - 16,
+              '⚠️ SCOOPED BY THE HERALD!',
+              '#eab308'
+            );
+            this.credibility = Math.max(0, this.credibility - 5);
+            this.leads = this.leads.filter((l) => l.uid !== lead.uid);
+            this.rivals.splice(i, 1);
+          }
+        }
+      } else {
+        // Observer Syndicate Goon marches toward Evening Star HQ to sabotage the Rotary Press
+        const tx = this.hq.x + this.hq.w * 0.5;
+        const ty = this.hq.y + this.hq.h * 0.5;
+        const dx = tx - rv.x;
+        const dy = ty - rv.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 32) {
+          rv.angle = Math.atan2(dy, dx);
+          rv.x += (dx / dist) * rv.speed * dt;
+          rv.y += (dy / dist) * rv.speed * dt;
+        } else {
+          this.pressHp = Math.max(0, this.pressHp - dt * 6.5);
+          if (this.pressHp <= 0) {
+            this.gameOver = true;
+            this.gameOverReason =
+              'ROTARY PRESS DESTROYED BY OBSERVER SYNDICATE SABOTEURS';
+          }
+        }
+      }
+    }
+
+    // Expire old uninvestigated leads
+    for (let i = this.leads.length - 1; i >= 0; i--) {
+      const l = this.leads[i];
+      l.timeLeft -= dt;
+      if (l.timeLeft <= 0) {
+        this.addCallout(l.x, l.y, 'LEAD WENT COLD', '#94a3b8');
+        this.leads.splice(i, 1);
+      }
+    }
+
+    // Update Flashbulbs & Callouts
+    for (let i = this.flashes.length - 1; i >= 0; i--) {
+      this.flashes[i].r += dt * 190;
+      this.flashes[i].alpha -= dt * 1.9;
+      if (this.flashes[i].alpha <= 0) this.flashes.splice(i, 1);
+    }
+    for (let i = this.callouts.length - 1; i >= 0; i--) {
+      this.callouts[i].y -= dt * 18;
+      this.callouts[i].life -= dt;
+      if (this.callouts[i].life <= 0) this.callouts.splice(i, 1);
+    }
+
+    if (this.credibility <= 0) {
+      this.gameOver = true;
+      this.gameOverReason =
+        'PUBLIC TRUST COLLAPSED — READERS ABANDONED THE EVENING STAR';
+    }
+  }
+
+  completeLeadScoop(lead) {
+    this.leads = this.leads.filter((l) => l.uid !== lead.uid);
+    this.scoopsTotal++;
+
+    const story = {
+      uid: lead.uid,
+      beat: lead.beat,
+      color: lead.color,
+      headline: lead.headline,
+      subdeck: lead.subdeck,
+      baseValue: lead.baseValue,
+      credibility: lead.credibility,
+      heat: lead.heat,
+      photoVerified: lead.photoVerified,
+    };
+
+    this.scoopedStories.push(story);
+    // Auto-plate into the first open front-page slot so players immediately see their broadsheet fill up!
+    const openOrder = story.photoVerified
+      ? ['photo_expose', 'banner', 'above_fold', 'editorial']
+      : ['banner', 'above_fold', 'editorial', 'photo_expose'];
+    const openSlot = openOrder.find((k) => !this.frontPage[k]);
+    if (openSlot) {
+      this.plateStoryToFrontPage(story.uid, openSlot);
+    } else if (this.audio) {
+      this.audio.wireBell();
+    }
+
+    this.addCallout(
+      lead.x,
+      lead.y - 22,
+      `📰 SCOOPED: +$${lead.baseValue}`,
+      '#ffd47a'
+    );
+    this.spawnLead();
+  }
+}

@@ -1,1033 +1,229 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Late Edition</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,700;0,6..96,900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
-
-<style>
-  :root {
-    --ink: #0a0a0c;
-    --mid: #6b6864;
-    --rule: #c8c4bc;
-    --paper: #ece8df;
-    --paper-2: #f4f1ea;
-    --paper-shadow: #b6afa1;
-    --red: #c0212a;
-    --serif: 'Bodoni Moda', 'Bodoni 72', 'Didot', serif;
-    --mono:  'JetBrains Mono', ui-monospace, monospace;
-    --bar-bg: rgba(10,10,12,0.92);
-    --stat-label: rgba(244,241,234,0.55);
-    --stat-value: #f4f1ea;
-    --stat-divider: rgba(255,255,255,0.12);
-    --amber: #ffd47a;
-    --heat-red: #ff8a78;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--ink); color: var(--ink); }
-  body {
-    height: 100vh;
-    overflow: hidden;
-    display: grid;
-    grid-template-rows: 42px 1fr 120px;
-  }
-
-  /* ---- top bar (42px dark bar — brand + stats + chips) ---- */
-  .top-bar {
-    background: var(--bar-bg);
-    color: var(--stat-value);
-    display: grid;
-    grid-template-columns: auto 1fr auto auto;
-    align-items: center;
-    padding: 0 16px;
-    gap: 18px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    z-index: 5;
-  }
-  .top-bar .brand {
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 20px;
-    letter-spacing: -0.01em;
-  }
-  .top-bar .brand i {
-    font-weight: 400;
-    font-style: italic;
-    opacity: 0.85;
-    margin-left: 4px;
-  }
-  .top-bar .stats {
-    display: flex;
-    gap: 0;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-  }
-  .top-bar .stat {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 0 14px;
-    border-left: 1px solid var(--stat-divider);
-  }
-  .top-bar .stat:first-child { border-left: none; padding-left: 0; }
-  .top-bar .stat .k { color: var(--stat-label); }
-  .top-bar .stat .v {
-    font-weight: 700;
-    color: var(--stat-value);
-    font-size: 13px;
-    font-feature-settings: "tnum";
-  }
-  .top-bar .stat.is-warning .v { color: var(--amber); }
-  .top-bar .stat.is-critical .v {
-    color: var(--amber);
-    animation: deadline-pulse 0.5s ease-in-out infinite alternate;
-  }
-  @keyframes deadline-pulse {
-    from { opacity: 0.5; }
-    to   { opacity: 1; }
-  }
-  .top-bar .stat.is-hot .v { color: var(--heat-red); }
-  .top-bar .chips {
-    display: flex;
-    gap: 6px;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    align-items: center;
-  }
-  .top-bar .chip {
-    border: 1px solid rgba(255,255,255,0.25);
-    padding: 4px 8px;
-    border-radius: 2px;
-    color: rgba(244,241,234,0.85);
-    cursor: pointer;
-    text-decoration: none;
-    background: transparent;
-    font-family: inherit;
-    font-size: inherit;
-    letter-spacing: inherit;
-    text-transform: inherit;
-  }
-  .top-bar .chip:hover {
-    border-color: rgba(255,255,255,0.5);
-    color: var(--stat-value);
-  }
-  .top-bar .chip.help {
-    background: var(--paper-2);
-    color: var(--ink);
-    border-color: var(--paper-2);
-    font-weight: 700;
-  }
-  .top-bar .chip.help:hover { background: var(--paper); }
-
-  /* ---- world viewport ---- */
-  #world {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-  }
-  #world canvas { display: block; }
-
-  /* ---- tutorial bubble ---- */
-  .hud-bubble {
-    position: absolute;
-    left: 50%;
-    top: 18px;
-    transform: translateX(-50%);
-    background: var(--paper-2);
-    color: var(--ink);
-    border: 1px solid var(--ink);
-    box-shadow: 3px 4px 0 -1px rgba(0,0,0,0.25);
-    padding: 10px 14px 11px;
-    max-width: 560px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 14px;
-    z-index: 6;
-    pointer-events: none;
-  }
-  .hud-bubble[hidden] { display: none; }
-  .hud-bubble::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: -8px;
-    transform: translateX(-50%) rotate(45deg);
-    width: 14px;
-    height: 14px;
-    background: var(--paper-2);
-    border-right: 1px solid var(--ink);
-    border-bottom: 1px solid var(--ink);
-  }
-  .hud-bubble .badge {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--red);
-    padding: 3px 6px;
-    border: 1px solid var(--red);
-    line-height: 1;
-    white-space: nowrap;
-  }
-  .hud-bubble .body {
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 16px;
-    line-height: 1.3;
-  }
-  .hud-bubble .body b { font-style: normal; font-weight: 700; }
-  .hud-bubble .step {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--mid);
-    white-space: nowrap;
-  }
-
-  /* ---- tutorial target ring ---- */
-  .hud-target-ring {
-    position: absolute;
-    width: 64px;
-    height: 64px;
-    transform: translate(-50%, -50%);
-    border: 2px dashed var(--red);
-    border-radius: 50%;
-    box-shadow: 0 0 0 6px rgba(192,33,42,0.12);
-    z-index: 4;
-    pointer-events: none;
-    animation: target-pulse 1.6s ease-in-out infinite;
-  }
-  .hud-target-ring[hidden] { display: none; }
-  .hud-target-ring .pin {
-    position: absolute;
-    left: 50%;
-    top: -32px;
-    transform: translateX(-50%);
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    background: var(--red);
-    color: var(--paper-2);
-    padding: 3px 7px;
-    white-space: nowrap;
-  }
-  @keyframes target-pulse {
-    0%, 100% { transform: translate(-50%, -50%) scale(1); }
-    50% { transform: translate(-50%, -50%) scale(1.08); }
-  }
-
-  /* ---- status pills (slow-mo + zoom) ---- */
-  .hud-pill {
-    position: absolute;
-    top: 8px;
-    z-index: 5;
-    pointer-events: none;
-    background: var(--ink);
-    color: var(--paper);
-    padding: 4px 10px;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    box-shadow: 2px 2px 0 var(--paper-shadow);
-    font-feature-settings: "tnum";
-  }
-  .hud-pill[hidden] { display: none; }
-  #hud-slowmo-pill { right: 12px; }
-  #hud-zoom-pill { left: 50%; transform: translateX(-50%); }
-
-  /* ---- help & settings popover ---- */
-  #hud-help-popover {
-    position: fixed;
-    top: 42px;
-    right: 12px;
-    z-index: 10;
-    width: 300px;
-    background: var(--paper-2);
-    border: 1px solid var(--ink);
-    box-shadow: 4px 4px 0 var(--paper-shadow);
-    padding: 14px 16px 16px;
-    color: var(--ink);
-  }
-  #hud-help-popover[hidden] { display: none; }
-  #hud-help-popover .help-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
-    border-bottom: 1px solid var(--rule);
-    padding-bottom: 6px;
-    margin-bottom: 12px;
-  }
-  #hud-help-popover .help-title {
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 16px;
-    color: var(--ink);
-  }
-  #hud-help-popover .help-close {
-    appearance: none;
-    background: transparent;
-    border: none;
-    font-family: var(--mono);
-    font-size: 18px;
-    line-height: 1;
-    color: var(--mid);
-    cursor: pointer;
-    padding: 0 4px;
-  }
-  #hud-help-popover .help-close:hover { color: var(--ink); }
-  #hud-help-popover .help-section { margin-bottom: 12px; }
-  #hud-help-popover .help-section:last-child { margin-bottom: 0; }
-  #hud-help-popover .help-section-label {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--mid);
-    margin: 0 0 8px;
-  }
-  #hud-help-popover .help-key-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 3px 0;
-    font-size: 13px;
-  }
-  #hud-help-popover .help-key-row .key {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--ink);
-    letter-spacing: 0.05em;
-  }
-  #hud-help-popover .help-key-row .desc {
-    font-family: var(--serif);
-    font-size: 13px;
-    color: var(--mid);
-  }
-  #hud-help-popover .settings-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 0;
-  }
-  #hud-help-popover .settings-control-label {
-    flex: 1;
-    font-family: var(--serif);
-    font-size: 13px;
-    color: var(--ink);
-  }
-  #hud-help-popover .settings-control-value {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--ink);
-    min-width: 38px;
-    text-align: right;
-    font-feature-settings: "tnum";
-  }
-  #hud-help-popover .settings-row-slider input[type="range"] {
-    flex: 2;
-    accent-color: var(--ink);
-    cursor: pointer;
-  }
-  #hud-help-popover .settings-toggle {
-    appearance: none;
-    background: var(--ink);
-    color: var(--paper);
-    border: 1px solid var(--ink);
-    padding: 3px 9px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    cursor: pointer;
-    min-width: 70px;
-    text-align: center;
-  }
-  #hud-help-popover .settings-toggle .toggle-state-off { display: none; }
-  #hud-help-popover .settings-toggle.is-muted {
-    background: var(--paper);
-    color: var(--mid);
-    border-color: var(--mid);
-  }
-  #hud-help-popover .settings-toggle.is-muted .toggle-state-on { display: none; }
-  #hud-help-popover .settings-toggle.is-muted .toggle-state-off { display: inline; }
-  #hud-help-popover .settings-toggle:hover { filter: brightness(1.1); }
-  #hud-help-popover .help-version {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    color: var(--mid);
-  }
-
-  /* ---- minimap + label ---- */
-  #hud-minimap {
-    position: absolute;
-    bottom: 6px;
-    right: 6px;
-    z-index: 5;
-    width: 140px;
-    height: 140px;
-    background: var(--paper);
-    border: 1px solid var(--ink);
-    box-shadow: 2px 2px 0 var(--paper-shadow);
-    pointer-events: none;
-    image-rendering: crisp-edges;
-  }
-  #hud-minimap-label {
-    position: absolute;
-    bottom: 152px;
-    right: 6px;
-    z-index: 5;
-    pointer-events: none;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--stat-value);
-    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-    white-space: nowrap;
-  }
-
-  /* ---- bottom dock (120px dark bar — selection + stories + streets) ---- */
-  #hud-dock {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr;
-    gap: 1px;
-    background-color: rgba(255,255,255,0.08);
-    border-top: 1px solid rgba(255,255,255,0.08);
-  }
-  #hud-dock .panel {
-    background: var(--bar-bg);
-    padding: 12px 16px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    min-height: 0;
-    overflow: hidden;
-  }
-  #hud-dock .panel .lbl {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--stat-label);
-  }
-  #hud-dock .panel .body {
-    font-family: var(--serif);
-    font-weight: 700;
-    font-size: 18px;
-    line-height: 1.1;
-    color: var(--stat-value);
-  }
-  #hud-dock .panel .body .note {
-    display: block;
-    margin-top: 4px;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(244,241,234,0.6);
-  }
-  #hud-dock .panel.empty .body {
-    color: rgba(244,241,234,0.5);
-    font-style: italic;
-    font-weight: 400;
-  }
-  #hud-dock .panel .body .stats {
-    display: block;
-    margin-top: 6px;
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    color: var(--stat-value);
-  }
-  #hud-dock .panel .body .unit-role {
-    display: block;
-    margin-top: 6px;
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: 13px;
-    line-height: 1.3;
-    color: rgba(244,241,234,0.6);
-  }
-  #hud-dock .panel .story-row {
-    display: block;
-    margin-top: 6px;
-    padding: 4px 8px 6px;
-    border-left: 2px solid rgba(255,255,255,0.2);
-    cursor: pointer;
-    background: transparent;
-  }
-  #hud-dock .panel .story-row:hover {
-    background: rgba(255,255,255,0.06);
-  }
-  #hud-dock .panel .story-row.is-archived {
-    border-left-color: var(--stat-value);
-    background: rgba(255,255,255,0.04);
-  }
-  #hud-dock .panel .story-row .hl {
-    display: block;
-    font-family: var(--serif);
-    font-size: 13px;
-    line-height: 1.25;
-    color: var(--stat-value);
-  }
-  #hud-dock .panel .story-row .meta {
-    display: block;
-    margin-top: 2px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(244,241,234,0.5);
-  }
-  #hud-dock .panel .story-row .chip {
-    display: inline-block;
-    margin-right: 6px;
-    padding: 1px 5px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    background: var(--stat-value);
-    color: var(--ink);
-    vertical-align: 1px;
-  }
-  #hud-dock .panel .partner-offer {
-    display: block;
-    margin-top: 8px;
-    padding: 6px 8px 8px;
-    border-left: 2px solid var(--stat-value);
-    background: rgba(255,255,255,0.04);
-  }
-  #hud-dock .panel .partner-offer .po-headline {
-    display: block;
-    font-family: var(--serif);
-    font-size: 13px;
-    line-height: 1.25;
-    color: var(--stat-value);
-  }
-  #hud-dock .panel .partner-offer .po-terms {
-    display: block;
-    margin-top: 2px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(244,241,234,0.5);
-  }
-  #hud-dock .panel .partner-offer .po-actions {
-    display: block;
-    margin-top: 6px;
-  }
-  #hud-dock .panel .partner-offer .po-btn {
-    appearance: none;
-    background: var(--stat-value);
-    color: var(--ink);
-    border: none;
-    margin-right: 6px;
-    padding: 3px 9px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
-  #hud-dock .panel .partner-offer .po-btn.po-decline {
-    background: transparent;
-    color: var(--stat-value);
-    border: 1px solid rgba(255,255,255,0.35);
-  }
-  #hud-dock .panel .partner-offer .po-btn:hover {
-    filter: brightness(1.1);
-  }
-  #hud-dock .panel .partner-deal-line {
-    display: block;
-    margin-top: 6px;
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--stat-value);
-  }
-  #hud-dock .heat-bar {
-    height: 6px;
-    background: rgba(255,255,255,0.1);
-    position: relative;
-    margin-top: 6px;
-  }
-  #hud-dock .heat-bar i {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 0%;
-    background: linear-gradient(90deg, var(--amber), var(--heat-red));
-    transition: width 0.3s ease;
-  }
-  #hud-dock .panel .arc-line {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(244,241,234,0.5);
-    margin-bottom: 2px;
-  }
-  #hud-dock .panel .arc-chip {
-    appearance: none;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.25);
-    color: var(--stat-value);
-    padding: 1px 5px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    cursor: pointer;
-    margin-left: 4px;
-  }
-  #hud-dock .panel .arc-chip:hover {
-    background: rgba(255,255,255,0.1);
-  }
-  /* 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): buyout-offer chip — same
-     shape as partner-offer (Accept | Decline) but a separate root so the
-     two chips can coexist when both rivals make plays. */
-  #hud-dossier .panel .buyout-offer {
-    display: block;
-    margin-top: 8px;
-    padding: 6px 8px 8px;
-    border-left: 2px solid var(--ink);
-    background: var(--paper);
-  }
-  #hud-dossier .panel .buyout-offer .bo-headline {
-    display: block;
-    font-family: var(--serif);
-    font-size: 13px;
-    line-height: 1.25;
-    color: var(--ink);
-  }
-  #hud-dossier .panel .buyout-offer .bo-terms {
-    display: block;
-    margin-top: 2px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--mid);
-  }
-  #hud-dossier .panel .buyout-offer .bo-actions {
-    display: block;
-    margin-top: 6px;
-  }
-  #hud-dossier .panel .buyout-offer .bo-btn {
-    appearance: none;
-    background: var(--ink);
-    color: var(--paper);
-    border: none;
-    margin-right: 6px;
-    padding: 3px 9px;
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
-  #hud-dossier .panel .buyout-offer .bo-btn.bo-decline {
-    background: var(--paper-2);
-    color: var(--ink);
-    border: 1px solid var(--ink);
-  }
-  #hud-dossier .panel .buyout-offer .bo-btn:hover {
-    filter: brightness(1.1);
-  }
-  /* 1.5.0 (ICD-02 v0.3.4 §Herald §PUNISH body): scooped story row + SCOOPED
-     chip. The row reads as "lost"; chip mimics the HOLD chip but in mid-gray
-     so it doesn't shout. Headline strikethrough gives the visual loss. */
-  #hud-dossier .panel .story-row.is-scooped .hl {
-    text-decoration: line-through;
-    color: var(--mid);
-  }
-  #hud-dossier .panel .chip.is-scooped {
-    background: var(--mid);
-    color: var(--paper);
-  }
-
-  /* ---- debrief panel (unchanged) ---- */
-  #debrief-panel {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(10, 10, 12, 0.62);
-    cursor: pointer;
-  }
-  #debrief-panel[hidden] { display: none; }
-  #debrief-panel .debrief-card {
-    background: var(--paper-2);
-    border: 1px solid var(--ink);
-    padding: 24px 28px 18px;
-    min-width: 420px;
-    max-width: 760px;
-    width: min(760px, 86vw);
-    box-shadow: 0 18px 48px rgba(10, 10, 12, 0.65), 0 2px 0 var(--paper-shadow);
-    position: relative;
-  }
-  #debrief-panel .debrief-card.is-fresh {
-    animation: np-slap-down 320ms cubic-bezier(0.16, 0.84, 0.44, 1.0);
-  }
-  @keyframes np-slap-down {
-    0%   { transform: translateY(-36px) rotate(-1.4deg); opacity: 0; }
-    60%  { transform: translateY(4px)   rotate( 0.4deg); opacity: 1; }
-    100% { transform: translateY(0)     rotate(0deg);    opacity: 1; }
-  }
-  #debrief-panel .np-masthead {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 18px;
-    border-bottom: 2px solid var(--ink);
-    padding-bottom: 6px;
-    margin-bottom: 14px;
-  }
-  #debrief-panel .np-kicker {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--mid);
-  }
-  #debrief-panel .np-nameplate {
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 30px;
-    letter-spacing: -0.01em;
-    color: var(--ink);
-    font-style: italic;
-  }
-  #debrief-panel .np-edition {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
-    color: var(--mid);
-  }
-  #debrief-panel .np-pages {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px 22px;
-    padding: 0;
-    margin: 0 0 14px 0;
-  }
-  @media (max-width: 540px) {
-    #debrief-panel .np-pages { grid-template-columns: 1fr; }
-  }
-  #debrief-panel .np-page {
-    padding: 6px 0 10px;
-    border-top: 1px solid var(--rule);
-  }
-  #debrief-panel .np-headline {
-    margin: 0 0 4px;
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 18px;
-    line-height: 1.15;
-    letter-spacing: -0.005em;
-    color: var(--ink);
-  }
-  #debrief-panel .np-headline::first-letter {
-    font-size: 1.45em;
-    font-weight: 900;
-    line-height: 0.9;
-  }
-  #debrief-panel .np-byline {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--mid);
-  }
-  #debrief-panel .np-empty {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--mid);
-    padding: 8px 0;
-    grid-column: 1 / -1;
-  }
-  #debrief-panel .np-dismiss {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--red);
-    text-align: right;
-    border-top: 1px solid var(--rule);
-    padding-top: 8px;
-  }
-  #debrief-panel .np-dismiss.is-gated {
-    color: var(--mid);
-  }
-
-  /* ---- game-over overlay (unchanged) ---- */
-  #gameover-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(10, 10, 12, 0.82);
-  }
-  #gameover-overlay[hidden] { display: none; }
-  #gameover-overlay .gameover-card {
-    background: var(--paper-2);
-    border: 2px solid var(--red);
-    padding: 32px 44px;
-    min-width: 380px;
-    max-width: 560px;
-    box-shadow: 0 16px 48px rgba(10, 10, 12, 0.75);
-    text-align: center;
-  }
-  #gameover-overlay .kicker {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    color: var(--mid);
-    margin-bottom: 10px;
-  }
-  #gameover-overlay .banner {
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 36px;
-    letter-spacing: -0.01em;
-    color: var(--red);
-    border-bottom: 2px solid var(--red);
-    padding-bottom: 12px;
-    margin-bottom: 14px;
-  }
-  #gameover-overlay .reason {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
-  #gameover-overlay .new-run {
-    margin-top: 20px;
-    background: var(--paper);
-    border: 1px solid var(--red);
-    color: var(--red);
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    padding: 10px 22px;
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
-  }
-  #gameover-overlay .new-run:hover {
-    background: var(--red);
-    color: var(--paper);
-  }
-  #gameover-overlay .new-run:focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
-  }
-  #gameover-overlay .run-summary {
-    text-align: left;
-    margin: 18px 0 6px;
-    border-top: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-    padding: 14px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  #gameover-overlay .summary-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-  }
-  #gameover-overlay .summary-row .lbl {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--mid);
-  }
-  #gameover-overlay .summary-row .val {
-    font-family: var(--serif);
-    font-weight: 700;
-    font-size: 18px;
-    color: var(--ink);
-    font-feature-settings: "tnum";
-  }
-  #gameover-overlay .summary-row.top-story {
-    flex-wrap: wrap;
-    border-top: 1px dashed var(--rule);
-    border-bottom: 1px dashed var(--rule);
-    padding: 8px 0;
-  }
-  #gameover-overlay .summary-row.top-story .headline {
-    flex: 1 1 100%;
-    font-family: var(--serif);
-    font-weight: 900;
-    font-size: 17px;
-    color: var(--ink);
-    letter-spacing: -0.005em;
-  }
-  #gameover-overlay .summary-row.top-story .cash {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--mid);
-  }
-  #gameover-overlay .scoreboard {
-    list-style: none;
-    margin: 4px 0 0;
-    padding: 0;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--mid);
-  }
-  #gameover-overlay .scoreboard li {
-    display: flex;
-    justify-content: space-between;
-    padding: 3px 0;
-    border-bottom: 1px solid var(--paper);
-    letter-spacing: 0.05em;
-  }
-  #gameover-overlay .scoreboard li.is-you {
-    color: var(--red);
-    font-weight: 700;
-  }
-  #gameover-overlay .scoreboard li .rank { min-width: 32px; }
-  #gameover-overlay .scoreboard li .editions { flex: 1; text-align: center; }
-  #gameover-overlay .scoreboard li .revenue { min-width: 80px; text-align: right; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LATE EDITION // 1947 — Noir Newsroom &amp; City Dispatch</title>
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <div class="newsroom-shell">
+    <!-- TOP MASTHEAD BAR -->
+    <header class="masthead-bar">
+      <div class="masthead-brand">
+        <span class="masthead-kicker">THE METROPOLITAN CHRONICLE // NIGHT DESK</span>
+        <h1>LATE EDITION <span class="accent-gold">// 1947</span></h1>
+      </div>
 
-<header class="top-bar" id="hud-top-bar">
-  <div class="brand">Late <i>Edition</i></div>
-  <div class="stats" id="hud-stats">
-    <div class="stat" data-stat="deadline"><span class="k">Deadline</span><span class="v">12:00</span></div>
-    <div class="stat" data-stat="edition"><span class="k">Edition</span><span class="v">№ 001</span></div>
-    <div class="stat" data-stat="leads"><span class="k">Leads</span><span class="v">1</span></div>
-    <div class="stat" data-stat="stories"><span class="k">Stories</span><span class="v">0</span></div>
-    <div class="stat" data-stat="ink"><span class="k">Ink</span><span class="v">20</span></div>
-    <div class="stat" data-stat="cash"><span class="k">Cash</span><span class="v">$0</span></div>
-    <div class="stat" data-stat="heat"><span class="k">Heat</span><span class="v">0</span></div>
-  </div>
-  <div class="chips">
-    <a class="chip" href="design/phase-0-roadmap.html">Roadmap</a>
-    <a class="chip" href="../">Arcade</a>
-  </div>
-  <div class="chips">
-    <button class="chip help" id="hud-help-btn" type="button" aria-haspopup="dialog" aria-expanded="false">?</button>
-  </div>
-</header>
+      <div class="masthead-telemetry">
+        <div class="stat-pill">
+          <span class="stat-label">EDITION</span>
+          <strong id="hud-edition">1 / 5</strong>
+        </div>
+        <div class="stat-pill clock-pill">
+          <span class="stat-label">PRESS DEADLINE</span>
+          <strong id="hud-clock">11:00 PM</strong>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">CIRCULATION</span>
+          <strong id="hud-circulation" class="accent-gold">48,200</strong>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">TREASURY</span>
+          <strong id="hud-funds" class="accent-emerald">$420</strong>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">CREDIBILITY</span>
+          <strong id="hud-credibility" class="accent-cyan">86%</strong>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">MOB HEAT</span>
+          <strong id="hud-heat" class="accent-crimson">18%</strong>
+        </div>
+      </div>
 
-<div id="world">
-  <div id="hud-slowmo-pill" class="hud-pill" hidden></div>
-  <div id="hud-zoom-pill" class="hud-pill" hidden></div>
-
-  <div id="hud-tutorial-bubble" class="hud-bubble" hidden>
-    <span class="badge">Old Man</span>
-    <span class="body">—</span>
-    <span class="step">1 / 4</span>
-  </div>
-
-  <div id="hud-target-ring" class="hud-target-ring" hidden>
-    <span class="pin"></span>
-  </div>
-
-  <div id="hud-help-popover" role="dialog" aria-label="Help & Settings" hidden>
-    <header class="help-header">
-      <span class="help-title">Help & Settings</span>
-      <button type="button" class="help-close" data-action="close-help" aria-label="Close">×</button>
+      <div class="masthead-controls">
+        <div class="speed-group" role="group" aria-label="Simulation speed">
+          <button id="btn-pause" class="btn-chip" title="Pause simulation (P)">PAUSE</button>
+          <button id="btn-speed-1" class="btn-chip active" title="Normal speed">1×</button>
+          <button id="btn-speed-2" class="btn-chip" title="Fast speed">2×</button>
+        </div>
+        <button id="btn-audio" class="btn-chip" title="Toggle Noir Jazz &amp; SFX (M)">SOUND: ON</button>
+        <button id="btn-roll-press" class="btn-press-cta" title="Lock front page and roll the rotary presses (Space)">
+          ROLL THE PRESSES
+        </button>
+      </div>
     </header>
-    <section class="help-section">
-      <h3 class="help-section-label">Controls</h3>
-      <div class="help-key-row"><span class="key">WASD</span><span class="desc">Pan camera</span></div>
-      <div class="help-key-row"><span class="key">[ / ]</span><span class="desc">Zoom (4 steps)</span></div>
-      <div class="help-key-row"><span class="key">Space</span><span class="desc">Slow-mo</span></div>
-      <div class="help-key-row"><span class="key">L-click</span><span class="desc">Select unit or building</span></div>
-      <div class="help-key-row"><span class="key">R-click</span><span class="desc">Dispatch</span></div>
-    </section>
-    <section class="help-section">
-      <h3 class="help-section-label">Camera</h3>
-      <label class="settings-row settings-row-slider" for="hud-settings-pan-speed">
-        <span class="settings-control-label">Pan speed</span>
-        <input id="hud-settings-pan-speed" type="range" min="0.5" max="3" step="0.1" value="1.0" />
-        <span class="settings-control-value" data-target="pan-speed-value">1.0×</span>
-      </label>
-    </section>
-    <section class="help-section">
-      <h3 class="help-section-label">Audio</h3>
-      <div class="settings-row">
-        <span class="settings-control-label">All audio</span>
-        <button type="button" class="settings-toggle" data-channel="master" aria-pressed="false">
-          <span class="toggle-state-on">On</span><span class="toggle-state-off">Muted</span>
-        </button>
+
+    <!-- 3-COLUMN TACTICAL NEWSROOM WORKSPACE -->
+    <main class="workspace-grid">
+      <!-- LEFT WING: MANAGING EDITOR, OPERATIVE ROSTER & WIRE LEADS -->
+      <aside class="wing-panel left-wing">
+        <!-- Managing Editor & Desk Actions -->
+        <section class="panel-card editor-card">
+          <div class="editor-header">
+            <img
+              src="assets/sprites/portrait_editor.png"
+              alt="Managing Editor Lou Vance"
+              class="editor-portrait"
+            />
+            <div class="editor-meta">
+              <div class="card-kicker">MANAGING EDITOR // LOU VANCE</div>
+              <p id="editor-directive" class="editor-quote">
+                "Rain's washing the blood off Pier 9, kid. Get Malone and Vega on the street before the Sentinel steals our banner."
+              </p>
+            </div>
+          </div>
+          <div class="desk-actions">
+            <button id="act-wiretap" class="btn-action">
+              <span class="act-title">[Q] Wiretap Police Band</span>
+              <span class="act-cost">$90</span>
+            </button>
+            <button id="act-bribe" class="btn-action">
+              <span class="act-title">[W] Pay Off Precinct</span>
+              <span class="act-cost">$120</span>
+            </button>
+            <button id="act-fortify" class="btn-action">
+              <span class="act-title">[E] Fortify Press Room</span>
+              <span class="act-cost">$110</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Operative Dispatch Roster -->
+        <section class="panel-card roster-card">
+          <div class="section-header">
+            <span>PRESS CORPS OPERATIVES</span>
+            <span class="hint-tag">KEYS [1–4]</span>
+          </div>
+          <div id="operative-list" class="operative-list"></div>
+        </section>
+
+        <!-- Active City Wire Leads -->
+        <section class="panel-card leads-card">
+          <div class="section-header">
+            <span>BREAKING CITY LEADS</span>
+            <span id="leads-count" class="hint-tag">0 ACTIVE</span>
+          </div>
+          <div id="lead-list" class="lead-list"></div>
+        </section>
+      </aside>
+
+      <!-- CENTER STAGE: 2.5D RAIN-SLICKED NOIR METROPOLIS MAP + SCOOP TRAY -->
+      <section class="center-stage">
+        <div class="map-frame">
+          <div class="map-hud-bar">
+            <div class="map-instruction">
+              <span class="dot-live"></span>
+              <span id="map-selection-status">
+                UNIT [1] JACK MALONE SELECTED — CLICK ANY BREAKING LEAD NODE TO DISPATCH
+              </span>
+            </div>
+            <div class="map-legend">
+              <span class="legend-item"><i class="swatch crime"></i>Crime</span>
+              <span class="legend-item"><i class="swatch politics"></i>Politics</span>
+              <span class="legend-item"><i class="swatch society"></i>Society</span>
+              <span class="legend-item"><i class="swatch labor"></i>Labor</span>
+            </div>
+          </div>
+
+          <canvas id="city-canvas" width="960" height="640"></canvas>
+        </div>
+
+        <!-- Bottom Scoop Tray & Teletype Ticker -->
+        <div class="bottom-desk-strip">
+          <div class="scoop-tray-panel">
+            <div class="section-header">
+              <span>VERIFIED SCOOP TRAY (CLICK TO SLOT INTO FRONT PAGE)</span>
+              <button id="btn-auto-layout" class="btn-mini-gold" title="Auto-fill front page with highest value scoops (A)">
+                [A] AUTO-LAYOUT BEST SCOOPS
+              </button>
+            </div>
+            <div id="scoop-tray" class="scoop-tray"></div>
+          </div>
+
+          <div class="wire-ticker-panel">
+            <div class="section-header">
+              <span>TELETYPE WIRE LOG</span>
+              <span class="hint-tag">LIVE 1947 AP WIRE</span>
+            </div>
+            <div id="wire-log" class="wire-log"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT WING: FRONT-PAGE BROADSHEET COMPOSER & ROTARY PRESS -->
+      <aside class="wing-panel right-wing">
+        <section class="panel-card broadsheet-card">
+          <div class="broadsheet-paper">
+            <div class="broadsheet-masthead">
+              <div class="paper-ears">
+                <span>WEATHER: HEAVY RAIN</span>
+                <span>PRICE: FIVE CENTS</span>
+              </div>
+              <h2>THE METROPOLITAN CHRONICLE</h2>
+              <div class="paper-subbar">
+                <span id="paper-edition-label">LATE NIGHT EDITION #1</span>
+                <span id="paper-projected- readers">EST. +0 READERS</span>
+              </div>
+            </div>
+
+            <div id="layout-slots" class="broadsheet-slots"></div>
+          </div>
+        </section>
+
+        <section class="panel-card pressroom-card">
+          <div class="pressroom-row">
+            <img
+              src="assets/sprites/masthead_press.png"
+              alt="1947 Rotary Printing Press"
+              class="press-illustration"
+            />
+            <div class="press-stats">
+              <div class="card-kicker">ROTARY PRESS PROJECTION</div>
+              <div class="proj-line">
+                <span>Projected Circulation:</span>
+                <strong id="proj-circ" class="accent-gold">+0</strong>
+              </div>
+              <div class="proj-line">
+                <span>Ad &amp; Street Revenue:</span>
+                <strong id="proj-cash" class="accent-emerald">+$140</strong>
+              </div>
+              <div class="proj-line">
+                <span>Credibility Shift:</span>
+                <strong id="proj-cred" class="accent-cyan">+0%</strong>
+              </div>
+              <div class="proj-line">
+                <span>Mob Heat Delta:</span>
+                <strong id="proj-heat" class="accent-crimson">+0%</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-header rival-header">
+            <span>SYNDICATE RIVAL CIRCULATIONS</span>
+            <span class="hint-tag">MARKET SHARE</span>
+          </div>
+          <div id="rival-standings" class="rival-standings"></div>
+        </section>
+      </aside>
+    </main>
+
+    <!-- EDITION SUMMARY / CAMPAIGN END MODAL -->
+    <div id="edition-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+      <div class="modal-dialog">
+        <div class="modal-kicker" id="modal-kicker">ROTARY PRESS REPORT</div>
+        <h2 id="modal-title">EXTRA! EXTRA! EDITION #1 HITS THE STREETS</h2>
+        <p id="modal-subtitle" class="modal-subtitle"></p>
+        <div id="modal-metrics" class="modal-metrics"></div>
+        <div class="modal-actions">
+          <button id="btn-modal-continue" class="btn-press-cta">START NEXT NIGHT SHIFT</button>
+        </div>
       </div>
-      <div class="settings-row">
-        <span class="settings-control-label">Effects</span>
-        <button type="button" class="settings-toggle" data-channel="sfx" aria-pressed="false">
-          <span class="toggle-state-on">On</span><span class="toggle-state-off">Muted</span>
-        </button>
-      </div>
-      <div class="settings-row">
-        <span class="settings-control-label">Ambience</span>
-        <button type="button" class="settings-toggle" data-channel="amb" aria-pressed="false">
-          <span class="toggle-state-on">On</span><span class="toggle-state-off">Muted</span>
-        </button>
-      </div>
-      <div class="settings-row">
-        <span class="settings-control-label">Music</span>
-        <button type="button" class="settings-toggle" data-channel="mus" aria-pressed="false">
-          <span class="toggle-state-on">On</span><span class="toggle-state-off">Muted</span>
-        </button>
-      </div>
-      <div class="settings-row">
-        <span class="settings-control-label">Voice</span>
-        <button type="button" class="settings-toggle" data-channel="vo" aria-pressed="false">
-          <span class="toggle-state-on">On</span><span class="toggle-state-off">Muted</span>
-        </button>
-      </div>
-    </section>
-    <section class="help-section">
-      <h3 class="help-section-label">About</h3>
-      <span class="help-version" id="hud-version"></span>
-    </section>
+    </div>
   </div>
 
-  <span id="hud-minimap-label"></span>
-  <canvas id="hud-minimap" width="140" height="140"></canvas>
-</div>
-
-<section id="hud-dock">
-  <div class="panel empty" data-panel="selected"><div class="lbl">Selection</div><div class="body">No selection</div></div>
-  <div class="panel" data-panel="queue"><div class="lbl">Head on the Board</div><div class="body">—</div></div>
-  <div class="panel" data-panel="threats"><div class="lbl">Streets</div><div class="body">—</div></div>
-</section>
-
-<div id="debrief-panel" hidden></div>
-<div id="gameover-overlay" hidden></div>
-
-<script type="module" src="js/main.js"></script>
-
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
