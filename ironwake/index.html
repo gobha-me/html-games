@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IRONWAKE // CONVOY — 2.5D Tactical Armored-Train &amp; Wasteland Convoy Defense</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="convoy-shell">
+    <!-- TOP BRIDGE TELEMETRY BAR -->
+    <header class="bridge-bar">
+      <div class="bridge-brand">
+        <span class="bridge-kicker">TRANS-WASTELAND DREADNOUGHT // SECTOR COMMAND</span>
+        <h1>IRONWAKE <span class="accent-amber">// CONVOY</span></h1>
+      </div>
+
+      <div class="bridge-telemetry">
+        <div class="telemetry-pill">
+          <span class="t-label">SECTOR</span>
+          <strong id="hud-sector">1 / 4</strong>
+        </div>
+        <div class="telemetry-pill speed-pill">
+          <span class="t-label">SPEED</span>
+          <strong id="hud-speed" class="accent-amber">78 MPH</strong>
+        </div>
+        <div class="telemetry-pill">
+          <span class="t-label">DISTANCE</span>
+          <strong id="hud-distance">0.0 / 18 KM</strong>
+        </div>
+        <div class="telemetry-pill">
+          <span class="t-label">TRAIN HULL</span>
+          <strong id="hud-hull" class="accent-emerald">100%</strong>
+        </div>
+        <div class="telemetry-pill">
+          <span class="t-label">AEGIS SHIELD</span>
+          <strong id="hud-shield" class="accent-cyan">180</strong>
+        </div>
+        <div class="telemetry-pill">
+          <span class="t-label">BOILER HEAT</span>
+          <strong id="hud-heat" class="accent-crimson">22%</strong>
+        </div>
+        <div class="telemetry-pill">
+          <span class="t-label">SCRAP</span>
+          <strong id="hud-scrap" class="accent-amber">185 ⚙</strong>
+        </div>
+        <div class="telemetry-pill">
+          <span class="t-label">SCORE</span>
+          <strong id="hud-score">0</strong>
+        </div>
+      </div>
+
+      <div class="bridge-controls">
+        <div class="speed-group" role="group" aria-label="Simulation speed">
+          <button id="btn-pause" class="btn-chip" title="Pause simulation (P)">PAUSE</button>
+          <button id="btn-speed-1" class="btn-chip active" title="1x Tactical Speed">1×</button>
+          <button id="btn-speed-2" class="btn-chip" title="2x Convoy Speed">2×</button>
+        </div>
+        <button id="btn-audio" class="btn-chip" title="Toggle Sound (M)">SOUND: ON</button>
+        <button id="btn-overdrive-cta" class="btn-amber-cta" title="Trigger Overdrive Turret Barrage (Space)">
+          OVERDRIVE BARRAGE
+        </button>
+      </div>
+    </header>
+
+    <!-- 3-COLUMN DREADNOUGHT COMMAND WORKSPACE -->
+    <main class="workspace-grid">
+      <!-- LEFT WING: COMMANDER BRIDGE, TACTICAL ORDERS & STEAM REACTOR MANIFOLD -->
+      <aside class="wing-panel left-wing">
+        <section class="panel-card commander-card">
+          <div class="commander-header">
+            <img
+              src="assets/sprites/portrait_commander.png"
+              alt="Commander Vane Kael"
+              class="commander-portrait"
+            />
+            <div class="commander-meta">
+              <div class="card-kicker">COMMANDER // VANE KAEL</div>
+              <p id="commander-quote" class="commander-quote">
+                "Harpoon rigs on the starboard salt flat! Keep steam in the Skyburst Flak Wagon and sever those cables!"
+              </p>
+            </div>
+          </div>
+
+          <div class="tactical-orders">
+            <button id="ord-flak" class="btn-order">
+              <span>[Q] Sever Harpoons &amp; Flak Burst</span>
+              <span class="ord-cost">35 ⚙</span>
+            </button>
+            <button id="ord-purge" class="btn-order">
+              <span>[W] Thermal Steam Vent Purge</span>
+              <span class="ord-cost accent-cyan">FREE</span>
+            </button>
+            <button id="ord-overdrive" class="btn-order">
+              <span>[E] Overdrive Turret Barrage (7s)</span>
+              <span class="ord-cost">55 ⚙</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- STEAM REACTOR POWER MANIFOLD -->
+        <section class="panel-card reactor-card">
+          <div class="section-header">
+            <span>STEAM REACTOR MANIFOLD</span>
+            <span id="steam-budget-label" class="hint-tag">10 / 10 BARS</span>
+          </div>
+
+          <div class="preset-row">
+            <button class="btn-preset" data-preset="balanced">BALANCED</button>
+            <button class="btn-preset" data-preset="barrage">BARRAGE</button>
+            <button class="btn-preset" data-preset="fortress">FORTRESS</button>
+            <button class="btn-preset" data-preset="throttle">THROTTLE</button>
+          </div>
+
+          <div id="steam-manifold" class="steam-manifold"></div>
+        </section>
+
+        <!-- TARGET SUBSYSTEM SCANNER -->
+        <section class="panel-card scanner-card">
+          <div class="section-header">
+            <span>TARGET SUBSYSTEM SCANNER</span>
+            <span class="hint-tag">KEYS [Z / X / C]</span>
+          </div>
+          <div id="subsystem-scanner" class="subsystem-scanner"></div>
+        </section>
+      </aside>
+
+      <!-- CENTER STAGE: 2.5D SALT-FLAT BATTLEFIELD CANVAS + SECTOR ROUTE & LOG -->
+      <section class="center-stage">
+        <div class="battlefield-frame">
+          <div class="battlefield-hud-bar">
+            <div class="battlefield-status">
+              <span class="dot-live"></span>
+              <span id="battlefield-instruction">
+                CLICK ANY RAIDER WAR-RIG TO FOCUS TURRETS • CLICK RAILCAR [1–5] TO UPGRADE
+              </span>
+            </div>
+            <div class="harpoon-alert-badge" id="harpoon-badge">
+              TETHERS: 0 ACTIVE
+            </div>
+          </div>
+
+          <canvas id="convoy-canvas" width="960" height="620"></canvas>
+        </div>
+
+        <div class="bottom-convoy-strip">
+          <div class="route-map-panel">
+            <div class="section-header">
+              <span>TRANS-WASTELAND CONVOY ROUTE</span>
+              <button id="btn-next-sector" class="btn-mini-amber" title="Advance to next sector node (N)">
+                [N] JUMP TO NEXT SECTOR
+              </button>
+            </div>
+            <div id="sector-route-strip" class="sector-route-strip"></div>
+          </div>
+
+          <div class="combat-log-panel">
+            <div class="section-header">
+              <span>CONVOY COMBAT TELETYPE</span>
+              <span class="hint-tag">LIVE FIRE CONTROL</span>
+            </div>
+            <div id="combat-log" class="combat-log"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT WING: MODULAR 5-CAR DREADNOUGHT CONSIST & UPGRADE BAY -->
+      <aside class="wing-panel right-wing">
+        <section class="panel-card consist-card">
+          <div class="section-header">
+            <span>MODULAR DREADNOUGHT CONSIST</span>
+            <span class="hint-tag">CAR [1–5]</span>
+          </div>
+          <div id="railcar-list" class="railcar-list"></div>
+        </section>
+
+        <section class="panel-card upgrade-card">
+          <div class="emblem-row">
+            <img
+              src="assets/sprites/locomotive_emblem.png"
+              alt="Ironwake Dreadnought Locomotive"
+              class="loco-emblem"
+            />
+            <div class="upgrade-meta">
+              <div class="card-kicker" id="inspected-car-code">CAR-02 // AUTOCANNON</div>
+              <div class="upgrade-car-title" id="inspected-car-name">VULCAN-8 ROTARY CAR</div>
+              <div class="upgrade-car-desc" id="inspected-car-desc">
+                High-velocity AP sabots with automatic target lead calculation.
+              </div>
+            </div>
+          </div>
+          <button id="btn-upgrade-car" class="btn-upgrade-full">
+            [U] UPGRADE SELECTED RAILCAR (60 ⚙) — +22% DMG &amp; +40 HULL
+          </button>
+        </section>
+      </aside>
+    </main>
+
+    <!-- SECTOR CLEAR / CAMPAIGN END MODAL -->
+    <div id="sector-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+      <div class="modal-dialog">
+        <div class="modal-kicker" id="modal-kicker">CONVOY SECTOR REPORT</div>
+        <h2 id="modal-title">SECTOR CLEARED // DEPOT REACHED</h2>
+        <p id="modal-subtitle" class="modal-subtitle"></p>
+        <div id="modal-metrics" class="modal-metrics"></div>
+        <div class="modal-actions">
+          <button id="btn-modal-continue" class="btn-amber-cta">PROCEED TO NEXT SECTOR</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
