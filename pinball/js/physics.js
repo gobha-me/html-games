@@ -422,7 +422,8 @@ export class AetheriumPinballSim {
       ball.x += ball.vx * dt;
       ball.y += ball.vy * dt;
 
-      if (ball.x < 462) ball.inShooter = false;
+      if (ball.x < 456) ball.inShooter = false;
+      if (ball.x > 468 && ball.y > 720) ball.inShooter = true;
 
       // 1. Collide with Static Capsule Walls
       for (const w of this.walls) {
@@ -432,8 +433,8 @@ export class AetheriumPinballSim {
       // 2. Collide with One-Way Gates
       for (const g of this.gates) {
         const dot = ball.vx * g.passNx + ball.vy * g.passNy;
-        // If moving against the pass direction (trying to re-enter shooter lane), block it!
-        if (dot < 0) {
+        // Once the ball has entered the playfield (!ball.inShooter), block it from re-entering the shooter lane!
+        if (!ball.inShooter && dot < 0) {
           this.collideBallSegment(ball, g.x1, g.y1, g.x2, g.y2, 4, 0.72);
         }
       }
@@ -826,18 +827,29 @@ export class AetheriumPinballSim {
         }
       }
 
-      // Anti-stuck watchdog
-      if (!ball.inShooter && !ball.captured) {
+      // Anti-stuck watchdog (ignores intentional flipper cradling when a flipper is held up)
+      const cradlingOnFlipper =
+        ball.y > 720 &&
+        ((this.leftFlipperDown && ball.x < 241) || (this.rightFlipperDown && ball.x >= 241));
+      if (!ball.inShooter && !ball.captured && !cradlingOnFlipper) {
         if (Math.hypot(ball.vx, ball.vy) < 18) {
           ball.stuckTime += dt;
-          if (ball.stuckTime > 2.2) {
-            ball.vy = -340;
-            ball.vx = (ball.x < 241 ? 180 : -180);
+          if (ball.stuckTime > 2.5) {
+            if (ball.y > 600 && (ball.x < 110 || ball.x > 374)) {
+              // In lower side troughs: nudge downward and inward toward flipper
+              ball.vy = 240;
+              ball.vx = ball.x < 241 ? 140 : -140;
+            } else {
+              ball.vy = -280;
+              ball.vx = ball.x < 241 ? 160 : -160;
+            }
             ball.stuckTime = 0;
           }
         } else {
           ball.stuckTime = 0;
         }
+      } else {
+        ball.stuckTime = 0;
       }
 
       // Check Drain below bottom of table

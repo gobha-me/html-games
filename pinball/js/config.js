@@ -5,7 +5,7 @@
 
 export const TABLE_W = 520;
 export const TABLE_H = 900;
-export const BALL_RADIUS = 10.5;
+export const BALL_RADIUS = 9.5;
 export const GRAVITY = 610; // Downward table slope acceleration (px/s^2)
 export const SUBSTEPS = 8;  // 60Hz * 8 = 480Hz sub-stepped collision solver
 
@@ -80,95 +80,98 @@ function arcSegments(cx, cy, r, startAngle, endAngle, steps, restitution = 0.72)
 export function buildTableGeometry() {
   const walls = [
     // Outer Left Wall (below upper arch)
-    { x1: 14, y1: 250, x2: 14, y2: 790, r: 5, e: 0.7 },
+    { x1: 18, y1: 250, x2: 18, y2: 798, r: 4, e: 0.7 },
     // Outer Right Shooter-Lane Wall
-    { x1: 506, y1: 250, x2: 506, y2: 868, r: 5, e: 0.7 },
+    { x1: 502, y1: 250, x2: 502, y2: 868, r: 4, e: 0.7 },
     // Shooter Lane Bottom Floor
-    { x1: 468, y1: 868, x2: 506, y2: 868, r: 5, e: 0.4 },
-    // Shooter Lane Inner Divider Wall
-    { x1: 468, y1: 225, x2: 468, y2: 868, r: 4.5, e: 0.72 },
+    { x1: 466, y1: 868, x2: 502, y2: 868, r: 4, e: 0.4 },
+    // Shooter Lane Inner Divider Wall (Right Playfield Wall, terminates cleanly at y=236 so upper arch is wide open)
+    { x1: 458, y1: 224, x2: 466, y2: 246, r: 4, e: 0.72 },
+    { x1: 466, y1: 246, x2: 466, y2: 798, r: 4, e: 0.72 },
+    // Lower Shooter Lane Divider (below right drain corner)
+    { x1: 466, y1: 798, x2: 466, y2: 868, r: 4, e: 0.72 },
 
     // Left Outlane -> Drain Apron
-    { x1: 14, y1: 790, x2: 138, y2: 874, r: 5, e: 0.6 },
+    { x1: 18, y1: 798, x2: 144, y2: 868, r: 4, e: 0.6 },
     // Right Outlane -> Drain Apron
-    { x1: 468, y1: 790, x2: 344, y2: 874, r: 5, e: 0.6 },
+    { x1: 466, y1: 798, x2: 340, y2: 868, r: 4, e: 0.6 },
 
-    // Left Inlane / Outlane Divider Post & Guide Rail (feeds Left Main Flipper)
-    { x1: 54, y1: 668, x2: 54, y2: 744, r: 4, e: 0.72 },
-    { x1: 54, y1: 744, x2: 146, y2: 795, r: 4.5, e: 0.65 },
+    // Left Inlane / Outlane Divider Post & Wide-Corner Guide Rail (feeds flush onto Left Main Flipper top surface)
+    { x1: 56, y1: 656, x2: 56, y2: 742, r: 3.5, e: 0.72 },
+    { x1: 56, y1: 742, x2: 144, y2: 786, r: 4.0, e: 0.55 },
 
-    // Right Inlane / Outlane Divider Post & Guide Rail (feeds Right Main Flipper)
-    { x1: 428, y1: 668, x2: 428, y2: 744, r: 4, e: 0.72 },
-    { x1: 428, y1: 744, x2: 336, y2: 795, r: 4.5, e: 0.65 },
+    // Right Inlane / Outlane Divider Post & Wide-Corner Guide Rail (feeds flush onto Right Main Flipper top surface)
+    { x1: 428, y1: 656, x2: 428, y2: 742, r: 3.5, e: 0.72 },
+    { x1: 428, y1: 742, x2: 340, y2: 786, r: 4.0, e: 0.55 },
 
-    // Left Slingshot Side & Bottom Walls
-    { x1: 88, y1: 662, x2: 88, y2: 736, r: 4, e: 0.75 },
-    { x1: 88, y1: 736, x2: 138, y2: 765, r: 4, e: 0.75 },
+    // Left Slingshot Side & Bottom Walls (44px corner clearance above Left Inlane rail)
+    { x1: 96, y1: 636, x2: 96, y2: 708, r: 3.5, e: 0.75 },
+    { x1: 96, y1: 708, x2: 144, y2: 738, r: 3.5, e: 0.75 },
 
-    // Right Slingshot Side & Bottom Walls
-    { x1: 394, y1: 662, x2: 394, y2: 736, r: 4, e: 0.75 },
-    { x1: 394, y1: 736, x2: 344, y2: 765, r: 4, e: 0.75 },
+    // Right Slingshot Side & Bottom Walls (44px corner clearance above Right Inlane rail)
+    { x1: 388, y1: 636, x2: 388, y2: 708, r: 3.5, e: 0.75 },
+    { x1: 388, y1: 708, x2: 340, y2: 738, r: 3.5, e: 0.75 },
 
-    // Upper-Left Flipper Guide Rail
-    { x1: 14, y1: 418, x2: 60, y2: 458, r: 4.5, e: 0.7 },
+    // Upper-Left Flipper Guide Rail (feeds flush onto Upper-Left Flipper top surface)
+    { x1: 18, y1: 416, x2: 62, y2: 452, r: 4, e: 0.6 },
 
     // Philosopher's Crucible Saucer Backstop Arch (Upper-Left Alcove)
-    { x1: 68, y1: 298, x2: 112, y2: 288, r: 4, e: 0.65 },
-    { x1: 112, y1: 288, x2: 132, y2: 318, r: 4, e: 0.65 },
+    { x1: 72, y1: 296, x2: 114, y2: 286, r: 3.5, e: 0.65 },
+    { x1: 114, y1: 286, x2: 134, y2: 316, r: 3.5, e: 0.65 },
 
-    // Right Mid Spinner Channel Guide Post
-    { x1: 368, y1: 356, x2: 368, y2: 446, r: 4, e: 0.75 },
-    { x1: 424, y1: 340, x2: 448, y2: 458, r: 4, e: 0.75 },
+    // Right Mid Spinner Channel Inner Guide Post & Sealed Outer Bevel (no dead-end gap!)
+    { x1: 374, y1: 356, x2: 374, y2: 444, r: 3.5, e: 0.75 },
+    { x1: 466, y1: 326, x2: 442, y2: 358, r: 3.5, e: 0.75 },
+    { x1: 442, y1: 358, x2: 442, y2: 438, r: 3.5, e: 0.75 },
+    { x1: 442, y1: 438, x2: 466, y2: 468, r: 3.5, e: 0.75 },
 
-    // Top Rollover Lane Divider Fins (S - U - N)
+    // Top Rollover Lane Divider Fins (SOL - LUNA - AZOTH)
     { x1: 145, y1: 88, x2: 145, y2: 146, r: 3.5, e: 0.75 },
     { x1: 209, y1: 82, x2: 209, y2: 142, r: 3.5, e: 0.75 },
     { x1: 273, y1: 82, x2: 273, y2: 142, r: 3.5, e: 0.75 },
     { x1: 337, y1: 88, x2: 337, y2: 146, r: 3.5, e: 0.75 },
   ];
 
-  // Top Crown Arch connecting shooter lane (x=506, y=250) over the dome to left wall (x=14, y=250)
-  walls.push(...arcSegments(260, 250, 246, -Math.PI, 0, 32, 0.74));
-
-  // Inner Upper Right Guide Arch (separates shooter lane top from playfield right orbit)
-  walls.push(...arcSegments(388, 225, 80, -Math.PI * 0.48, 0, 12, 0.72));
+  // Top Crown Arch connecting shooter lane (x=502, y=250) over the dome to left wall (x=18, y=250)
+  walls.push(...arcSegments(260, 250, 242, -Math.PI, 0, 32, 0.74));
 
   // Active Slingshot Kicker Faces
   const slingshots = [
     {
       id: 'left_sling',
-      x1: 88,
-      y1: 662,
-      x2: 138,
-      y2: 765,
-      nx: 0.899,
-      ny: -0.438,
+      x1: 96,
+      y1: 636,
+      x2: 144,
+      y2: 738,
+      nx: 0.903,
+      ny: -0.429,
       kickSpeed: 590,
       flash: 0,
     },
     {
       id: 'right_sling',
-      x1: 394,
-      y1: 662,
-      x2: 344,
-      y2: 765,
-      nx: -0.899,
-      ny: -0.438,
+      x1: 388,
+      y1: 636,
+      x2: 340,
+      y2: 738,
+      nx: -0.903,
+      ny: -0.429,
       kickSpeed: 590,
       flash: 0,
     },
   ];
 
-  // One-Way Gate at top of Shooter Lane so launched balls enter the playfield and never fall back into shooter lane
+  // One-Way Gate at top of Shooter Lane: slopes DOWN-LEFT from outer arch (499,205) to divider tip (458,224)
+  // so any ball above the gate naturally rolls down-left into the open playfield and can never stall!
   const gates = [
     {
-      x1: 468,
-      y1: 225,
-      x2: 506,
-      y2: 192,
+      x1: 458,
+      y1: 224,
+      x2: 499,
+      y2: 205,
       // Normal pointing UP-LEFT into playfield: balls moving up/left pass; balls moving right/down toward shooter lane bounce off
-      passNx: -0.75,
-      passNy: -0.66,
+      passNx: -0.42,
+      passNy: -0.91,
     },
   ];
 
@@ -177,11 +180,11 @@ export function buildTableGeometry() {
     {
       id: 'left',
       side: 'left',
-      px: 146,
-      py: 795,
-      length: 77,
-      rBase: 10,
-      rTip: 6.5,
+      px: 144,
+      py: 794,
+      length: 76,
+      rBase: 9.5,
+      rTip: 6.0,
       restAngle: 0.44,    // +25.2 deg
       activeAngle: -0.50, // -28.6 deg
       angle: 0.44,
@@ -190,11 +193,11 @@ export function buildTableGeometry() {
     {
       id: 'right',
       side: 'right',
-      px: 336,
-      py: 795,
-      length: 77,
-      rBase: 10,
-      rTip: 6.5,
+      px: 340,
+      py: 794,
+      length: 76,
+      rBase: 9.5,
+      rTip: 6.0,
       restAngle: Math.PI - 0.44,
       activeAngle: Math.PI + 0.50,
       angle: Math.PI - 0.44,
@@ -203,7 +206,7 @@ export function buildTableGeometry() {
     {
       id: 'upper_left',
       side: 'left',
-      px: 60,
+      px: 62,
       py: 458,
       length: 56,
       rBase: 8.5,
@@ -227,13 +230,13 @@ export function buildTableGeometry() {
   // 2 Banks of 3 Drop Targets (Left = SALT Bank, Right = SULFUR Bank)
   const dropTargets = [
     // Left Bank (Salt)
-    { id: 'L0', bank: 'left',  x1: 28, y1: 520, x2: 28, y2: 548, r: 5, down: false, color: '#10b981', letterIdx: 0 },
-    { id: 'L1', bank: 'left',  x1: 28, y1: 556, x2: 28, y2: 584, r: 5, down: false, color: '#10b981', letterIdx: 1 },
-    { id: 'L2', bank: 'left',  x1: 28, y1: 592, x2: 28, y2: 620, r: 5, down: false, color: '#10b981', letterIdx: 2 },
+    { id: 'L0', bank: 'left',  x1: 30, y1: 520, x2: 30, y2: 548, r: 4.5, down: false, color: '#10b981', letterIdx: 0 },
+    { id: 'L1', bank: 'left',  x1: 30, y1: 556, x2: 30, y2: 584, r: 4.5, down: false, color: '#10b981', letterIdx: 1 },
+    { id: 'L2', bank: 'left',  x1: 30, y1: 592, x2: 30, y2: 620, r: 4.5, down: false, color: '#10b981', letterIdx: 2 },
     // Right Bank (Sulfur)
-    { id: 'R0', bank: 'right', x1: 454, y1: 520, x2: 454, y2: 548, r: 5, down: false, color: '#f43f5e', letterIdx: 3 },
-    { id: 'R1', bank: 'right', x1: 454, y1: 556, x2: 454, y2: 584, r: 5, down: false, color: '#f43f5e', letterIdx: 4 },
-    { id: 'R2', bank: 'right', x1: 454, y1: 592, x2: 454, y2: 620, r: 5, down: false, color: '#f43f5e', letterIdx: 5 },
+    { id: 'R0', bank: 'right', x1: 454, y1: 520, x2: 454, y2: 548, r: 4.5, down: false, color: '#f43f5e', letterIdx: 3 },
+    { id: 'R1', bank: 'right', x1: 454, y1: 556, x2: 454, y2: 584, r: 4.5, down: false, color: '#f43f5e', letterIdx: 4 },
+    { id: 'R2', bank: 'right', x1: 454, y1: 592, x2: 454, y2: 620, r: 4.5, down: false, color: '#f43f5e', letterIdx: 5 },
   ];
 
   // Top 3 Crown Rollovers (SOL - LUNA - AZOTH) + 4 Lower Inlane/Outlane Rollovers
@@ -241,16 +244,16 @@ export function buildTableGeometry() {
     { id: 'top_sol',   group: 'crown', label: 'SOL',   x: 177, y: 114, r: 13, lit: false, color: '#f59e0b' },
     { id: 'top_luna',  group: 'crown', label: 'LUNA',  x: 241, y: 110, r: 13, lit: false, color: '#38bdf8' },
     { id: 'top_azoth', group: 'crown', label: 'AZOTH', x: 305, y: 114, r: 13, lit: false, color: '#a855f7' },
-    { id: 'in_left',   group: 'lane',  label: 'T',     x: 71,  y: 702, r: 11, lit: false, color: '#10b981', letterIdx: 6 },
-    { id: 'in_right',  group: 'lane',  label: 'E',     x: 411, y: 702, r: 11, lit: false, color: '#10b981', letterIdx: 8 },
-    { id: 'out_left',  group: 'lane',  label: 'U',     x: 34,  y: 702, r: 11, lit: false, color: '#f59e0b', letterIdx: 7 },
-    { id: 'out_right', group: 'lane',  label: 'M',     x: 448, y: 702, r: 11, lit: false, color: '#f59e0b', letterIdx: 5 },
+    { id: 'in_left',   group: 'lane',  label: 'T',     x: 76,  y: 688, r: 10, lit: false, color: '#10b981', letterIdx: 6 },
+    { id: 'in_right',  group: 'lane',  label: 'E',     x: 408, y: 688, r: 10, lit: false, color: '#10b981', letterIdx: 8 },
+    { id: 'out_left',  group: 'lane',  label: 'U',     x: 37,  y: 688, r: 10, lit: false, color: '#f59e0b', letterIdx: 7 },
+    { id: 'out_right', group: 'lane',  label: 'M',     x: 447, y: 688, r: 10, lit: false, color: '#f59e0b', letterIdx: 5 },
   ];
 
   // Philosopher's Crucible Capture Saucer (Upper-Left Sanctum)
   const saucer = {
-    x: 96,
-    y: 322,
+    x: 100,
+    y: 320,
     r: 17,
     holdTimer: 0,
     heldBall: null,
@@ -258,8 +261,8 @@ export function buildTableGeometry() {
 
   // Right Corridor Alchemical Spinner
   const spinner = {
-    x: 396,
-    y: 402,
+    x: 408,
+    y: 400,
     r: 20,
     angle: 0,
     angVel: 0,
