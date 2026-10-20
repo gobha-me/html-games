@@ -136,18 +136,40 @@ export class IronworksSim {
     this.terrain[CORE_Y + 1][CORE_X + 5] = TERRAIN.COPPER_VEIN;
   }
 
-  // Pre-build one working Iron Drill -> Smelter -> Belt -> Core line on the West side
+  // Pre-build a working West Iron Smelting line + East Copper Extraction line + defensive bastions
   // so the player immediately sees physical items riding belts into the Reactor Core!
   starterFactory() {
     const y = CORE_Y;
+    // West line: Drill -> Arc Smelter -> Belt -> Belt -> Core
     this.buildings[y][CORE_X - 4] = this.makeBuilding('drill', CORE_X - 4, y, 1);
+    this.buildings[y][CORE_X - 4].progress = 0.55;
     this.buildings[y][CORE_X - 3] = this.makeBuilding('smelter', CORE_X - 3, y, 1);
     this.buildings[y][CORE_X - 3].recipe = 'smelt_iron';
+    this.buildings[y][CORE_X - 3].inBuf.iron_ore = 1;
+    this.buildings[y][CORE_X - 3].progress = 0.62;
     this.buildings[y][CORE_X - 2] = this.makeBuilding('belt', CORE_X - 2, y, 1);
+    this.buildings[y][CORE_X - 2].item = { type: 'iron', progress: 0.35 };
     this.buildings[y][CORE_X - 1] = this.makeBuilding('belt', CORE_X - 1, y, 1);
-    // And two starter Vulcan Gatlings guarding North-West and South-East
+    this.buildings[y][CORE_X - 1].item = { type: 'iron', progress: 0.78 };
+
+    // East line: Copper Drill -> Belts -> Core
+    this.buildings[y + 1][CORE_X + 5] = this.makeBuilding('drill', CORE_X + 5, y + 1, 3);
+    this.buildings[y + 1][CORE_X + 5].progress = 0.4;
+    this.buildings[y + 1][CORE_X + 4] = this.makeBuilding('belt', CORE_X + 4, y + 1, 3);
+    this.buildings[y + 1][CORE_X + 4].item = { type: 'copper_ore', progress: 0.25 };
+    this.buildings[y + 1][CORE_X + 3] = this.makeBuilding('belt', CORE_X + 3, y + 1, 3);
+    this.buildings[y + 1][CORE_X + 3].item = { type: 'copper_ore', progress: 0.65 };
+    this.buildings[y + 1][CORE_X + 2] = this.makeBuilding('belt', CORE_X + 2, y + 1, 3);
+    this.buildings[y + 1][CORE_X + 2].item = { type: 'copper_ore', progress: 0.9 };
+
+    // Two starter Vulcan Gatlings + corner Ferrocrete Bulkhead bastions
     this.buildings[CORE_Y - 2][CORE_X - 2] = this.makeBuilding('gatling', CORE_X - 2, CORE_Y - 2, 0);
+    this.buildings[CORE_Y - 3][CORE_X - 2] = this.makeBuilding('wall', CORE_X - 2, CORE_Y - 3, 0);
+    this.buildings[CORE_Y - 3][CORE_X - 1] = this.makeBuilding('wall', CORE_X - 1, CORE_Y - 3, 0);
+
     this.buildings[CORE_Y + 3][CORE_X + 3] = this.makeBuilding('gatling', CORE_X + 3, CORE_Y + 3, 2);
+    this.buildings[CORE_Y + 4][CORE_X + 3] = this.makeBuilding('wall', CORE_X + 3, CORE_Y + 4, 0);
+    this.buildings[CORE_Y + 4][CORE_X + 2] = this.makeBuilding('wall', CORE_X + 2, CORE_Y + 4, 0);
     this.recountBuildings();
   }
 
