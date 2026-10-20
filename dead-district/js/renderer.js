@@ -19,6 +19,26 @@ export class DeadDistrictRenderer {
     this.viewH = 800;
     this.camX = 350;
     this.camY = 200;
+
+    // Top-down 32-bit pixel art sprites (generated via Venice gpt-image-2-5-flare, hide_watermark: true)
+    this.sprites = {};
+    const spriteManifest = {
+      operator: 'assets/sprites/operator.png',
+      walker: 'assets/sprites/shambler.png',
+      sprinter: 'assets/sprites/runner.png',
+      spitter: 'assets/sprites/spitter.png',
+      brute: 'assets/sprites/brute.png',
+      screamer: 'assets/sprites/screamer.png',
+      turret: 'assets/sprites/turret.png',
+    };
+    for (const [key, src] of Object.entries(spriteManifest)) {
+      const img = new Image();
+      img.onload = () => {
+        if (this._lastSim) this.render(this._lastSim);
+      };
+      img.src = src;
+      this.sprites[key] = img;
+    }
   }
 
   resize() {
@@ -51,6 +71,7 @@ export class DeadDistrictRenderer {
   }
 
   render(sim) {
+    this._lastSim = sim;
     const ctx = this.ctx;
     const p = sim.player;
 
@@ -332,31 +353,34 @@ export class DeadDistrictRenderer {
     }
 
     // Deployed Aegis Auto-Turrets
+    const turretSprite = this.sprites.turret;
     for (const t of sim.turrets) {
       ctx.save();
       ctx.translate(t.x, t.y);
 
       // Laser sight beam
-      ctx.strokeStyle = 'rgba(56, 242, 215, 0.25)';
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(56, 242, 215, 0.28)';
+      ctx.lineWidth = 1.3;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(Math.cos(t.angle) * 160, Math.sin(t.angle) * 160);
+      ctx.lineTo(Math.cos(t.angle) * 165, Math.sin(t.angle) * 165);
       ctx.stroke();
 
-      // Tripod base
-      ctx.fillStyle = '#0f172a';
-      ctx.strokeStyle = '#38f2d7';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, 11, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Rotating barrel
       ctx.rotate(t.angle);
-      ctx.fillStyle = '#38f2d7';
-      ctx.fillRect(0, -2.5, 16, 5);
+      if (turretSprite && turretSprite.complete && turretSprite.naturalWidth > 0) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(turretSprite, -23, -23, 46, 46);
+      } else {
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#38f2d7';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#38f2d7';
+        ctx.fillRect(0, -2.5, 16, 5);
+      }
       ctx.restore();
     }
   }
@@ -368,10 +392,10 @@ export class DeadDistrictRenderer {
 
       // Screamer acoustic aura
       if (e.def.screamer) {
-        ctx.strokeStyle = 'rgba(232, 121, 249, 0.35)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(232, 121, 249, 0.38)';
+        ctx.lineWidth = 1.6;
         ctx.beginPath();
-        ctx.arc(0, 0, e.r + 6 + Math.sin(sim.time * 8) * 3, 0, Math.PI * 2);
+        ctx.arc(0, 0, e.r + 8 + Math.sin(sim.time * 8) * 3, 0, Math.PI * 2);
         ctx.stroke();
       }
 
@@ -379,52 +403,46 @@ export class DeadDistrictRenderer {
       if (e.burnTimer > 0) {
         ctx.fillStyle = 'rgba(249, 115, 22, 0.45)';
         ctx.beginPath();
-        ctx.arc(0, 0, e.r + 4, 0, Math.PI * 2);
+        ctx.arc(0, 0, e.r + 6, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      ctx.rotate(e.angle);
+      const swayAngle = Math.sin(e.stepPhase) * (e.def.id === 'sprinter' ? 0.13 : 0.08);
+      ctx.rotate(e.angle + swayAngle);
 
-      // Shoulders / Arms reaching forward
-      const sway = Math.sin(e.stepPhase) * 2.5;
-      ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : e.def.color;
-      ctx.strokeStyle = '#090b10';
-      ctx.lineWidth = 1.8;
+      const sprite = this.sprites[e.def.id];
+      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+        const size = e.def.id === 'brute' ? 68 : e.def.id === 'screamer' ? 52 : e.def.id === 'spitter' ? 50 : 46;
+        ctx.imageSmoothingEnabled = false;
+        if (e.hitFlash > 0) {
+          ctx.filter = 'brightness(1.85) contrast(1.2)';
+        }
+        ctx.drawImage(sprite, -size * 0.46, -size * 0.5, size, size);
+        ctx.filter = 'none';
+      } else {
+        const sway = Math.sin(e.stepPhase) * 2.5;
+        ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : e.def.color;
+        ctx.strokeStyle = '#090b10';
+        ctx.lineWidth = 1.8;
 
-      ctx.fillRect(2, -e.r * 0.85 + sway, e.r * 0.85, 5);
-      ctx.fillRect(2, e.r * 0.85 - 5 - sway, e.r * 0.85, 5);
+        ctx.fillRect(2, -e.r * 0.85 + sway, e.r * 0.85, 5);
+        ctx.fillRect(2, e.r * 0.85 - 5 - sway, e.r * 0.85, 5);
 
-      // Body circle
-      ctx.beginPath();
-      ctx.arc(0, 0, e.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Riot Juggernaut front ballistic shield plate
-      if (e.def.armored) {
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(0, 0, e.r + 1, -Math.PI * 0.42, Math.PI * 0.42);
+        ctx.arc(0, 0, e.r, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
       }
-
-      // Glowing infected eyes
-      ctx.fillStyle = e.def.eyeColor;
-      ctx.beginPath();
-      ctx.arc(e.r * 0.48, -4, 2.3, 0, Math.PI * 2);
-      ctx.arc(e.r * 0.48, 4, 2.3, 0, Math.PI * 2);
-      ctx.fill();
 
       ctx.restore();
 
       // Mini HP bar for damaged Brutes / Screamers
       if (e.hp < e.maxHp && (e.def.armored || e.def.screamer || e.maxHp > 90)) {
-        const bw = 28;
+        const bw = 30;
         ctx.fillStyle = 'rgba(9, 11, 16, 0.85)';
-        ctx.fillRect(e.x - bw * 0.5, e.y - e.r - 10, bw, 4);
+        ctx.fillRect(e.x - bw * 0.5, e.y - e.r - 12, bw, 4);
         ctx.fillStyle = '#ef4444';
-        ctx.fillRect(e.x - bw * 0.5, e.y - e.r - 10, bw * Math.max(0, e.hp / e.maxHp), 4);
+        ctx.fillRect(e.x - bw * 0.5, e.y - e.r - 12, bw * Math.max(0, e.hp / e.maxHp), 4);
       }
     }
   }
@@ -450,35 +468,52 @@ export class DeadDistrictRenderer {
 
     // Operator Player
     const p = sim.player;
+    const w = sim.currentWeapon;
     ctx.save();
     ctx.translate(p.x, p.y);
+
+    // Subtle tactical weapon-tier ring under operator
+    ctx.strokeStyle = w.color;
+    ctx.globalAlpha = 0.42;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(0, 0, p.r + 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
     ctx.rotate(p.angle);
 
     // Muzzle flash star
     if (p.muzzleFlash > 0) {
       ctx.fillStyle = '#fef08a';
       ctx.beginPath();
-      ctx.arc(24, 3, 9, 0, Math.PI * 2);
+      ctx.arc(27, 2, 9.5, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Weapon barrel & receiver
-    const w = sim.currentWeapon;
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fillRect(8, 1, 16, 4.5);
+    const opSprite = this.sprites.operator;
+    if (opSprite && opSprite.complete && opSprite.naturalWidth > 0) {
+      ctx.imageSmoothingEnabled = false;
+      if (p.hitFlash > 0) {
+        ctx.filter = 'brightness(1.6) sepia(1) hue-rotate(-50deg) saturate(3)';
+      }
+      ctx.drawImage(opSprite, -24, -27, 54, 54);
+      ctx.filter = 'none';
+    } else {
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(8, 1, 16, 4.5);
 
-    // Operator Kevlar Torso & Helmet
-    ctx.fillStyle = p.hitFlash > 0 ? '#ef4444' : '#1e293b';
-    ctx.strokeStyle = w.color;
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.arc(0, 0, p.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+      ctx.fillStyle = p.hitFlash > 0 ? '#ef4444' : '#1e293b';
+      ctx.strokeStyle = w.color;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
 
-    // Visor
-    ctx.fillStyle = '#38bdf8';
-    ctx.fillRect(4, -5, 6, 10);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillRect(4, -5, 6, 10);
+    }
 
     ctx.restore();
 

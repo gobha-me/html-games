@@ -275,6 +275,7 @@ if (new URLSearchParams(window.location.search).get('preview') === 'showcase') {
   sim.spawnEnemy('walker', 950, 610);
   sim.barricades[0].hp = 120;
   sim.barricades[2].hp = 60;
+  sim.step(0.05, { moveX: 0, moveY: 0, aimWorldX, aimWorldY, firing: false });
   sim.fireWeapon();
   sim.setBanner('WAVE 3 // REDLINE CROSSROADS SIEGE', 'FN-FAL 7.62 AP + AEGIS SENTRY OVERWATCH ACTIVE', 10.0);
 }
