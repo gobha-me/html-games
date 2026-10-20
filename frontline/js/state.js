@@ -1,8 +1,7 @@
-// App state + a minimal reactive setState. Mirrors the DC component's this.state
-// (screen/sel/mode/… ) and its non-reactive fields (g, rating, record) held in
-// `session`. setState/ping trigger a full re-render of the mounted screen.
+// App state + reactive setState for the unified Frontline / Hexwire / Rift client.
 
 export const state = {
+  style: 'frontline',  // 'frontline' | 'hexwire' | 'rift'
   screen: 'home',      // 'home' | 'deck' | 'ladder' | 'match'
   ready: false,
   decks: [],
@@ -11,18 +10,24 @@ export const state = {
   busy: false,
   sel: null,           // selected hand card uid
   mode: 'play',        // 'play' | 'bank'
-  pendFrom: null,      // redeploy source {lane,row}
+  pendFrom: null,      // redeploy/possess source {lane,row}
   coin: null,          // { first: 'p'|'o' }
-  tut: false,
-  tutStep: 0,          // current Field Training drill index
+  tut: false,          // boolean (Frontline drill) or { les, step, phase } (Hexwire lesson)
+  tutStep: 0,
   tutStage: 'act',     // 'act' | 'review'
-  tutPass: false,      // did the current drill's pass() succeed
+  tutPass: false,
   oppName: '',
+  crewKey: 'MID',
+  wallet: null,        // { addr, provider } (Hexwire simulated wallet)
+  showConnect: false,
+  connecting: null,
+  queue: null,
+  ladderTab: 'std',
+  zoom: null,
   settingsOpen: false,
-  logOpen: false,      // dispatches ticker expanded
+  logOpen: false,
 };
 
-// Non-reactive session data (engine game object, standing, prefs, lookups).
 export const session = {
   FL: null,
   g: null,
@@ -30,7 +35,7 @@ export const session = {
   record: { w: 0, l: 0 },
   simLadder: [],
   starterMap: {},
-  prefs: { startLife: 20, fastAi: false },
+  prefs: { startLife: 20, fastAi: false, muted: false },
 };
 
 let _render = () => {};
@@ -42,4 +47,8 @@ export function ping() { _render(); }
 export function myTurn() {
   const g = session.g;
   return !!(g && !g.over && g.active === 'p' && !state.busy);
+}
+
+export function isHexStyle() {
+  return state.style === 'hexwire';
 }

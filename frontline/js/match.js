@@ -1,39 +1,112 @@
-// Match flow + player actions, ported 1:1 from the Claude Design component so the
-// game plays byte-for-byte like the prototype. All rules/AI live in engine.js (FL).
+// Match flow + player actions for the unified Frontline / Hexwire / Rift engine.
+// Supports both Frontline's 5-drill Field Training and Hexwire's 8-step interactive tutorial
+// (ending with THE SOLVE exact-lethal puzzle), plus Subvert/Possession targeting and WebAudio SFX.
 import { state, session, setState, ping, myTurn } from './state.js';
-import { AI_DECKS, COMMANDERS, shuf } from './theme.js';
-import { saveStanding } from './store.js';
+import { AI_DECKS, HW_AI_DECKS, COMMANDERS, HW_LESSONS, shuf } from './theme.js';
+import { saveStanding, loadDecks, loadActive, loadRating, loadRecord, buildSimLadder, saveStyle } from './store.js';
+import { sfx } from './sfx.js';
 
 function flat(map) { const o = []; for (const k in map) for (let i = 0; i < map[k]; i++) o.push(k); return o; }
 export function deckCountOf(d) { let n = 0; for (const k in d.cards) n += d.cards[k]; return n; }
 
-export function startMatch(cardsMap) {
+export function syncBodyTheme(style = state.style) {
+  if (typeof document === 'undefined') return;
+  document.body.dataset.style = style;
+  if (style === 'hexwire') {
+    document.body.style.background = '#0b0d11';
+    document.body.style.color = '#ece8df';
+    document.title = 'HEXWIRE · 2099 Street Magic (Dual-Style Engine)';
+  } else if (style === 'rift') {
+    document.body.style.background = '#18141f';
+    document.body.style.color = '#ece4d4';
+    document.title = 'FRONTLINE // HEXWIRE · Rift Crossover';
+  } else {
+    document.body.style.background = '#26221a';
+    document.body.style.color = '#e8dfc6';
+    document.title = 'Frontline // Hexwire — Dual-Style Tactical Card Battler';
+  }
+}
+
+export function switchStyle(newStyle) {
+  const FL = session.FL;
+  if (!FL || !FL.POOLS[newStyle]) return;
+  FL.setStyle(newStyle);
+  saveStyle(newStyle);
+  const validIds = new Set(FL.POOL.map(c => c.id));
+  const decks = loadDecks(validIds, session.starterMap, newStyle);
+  const activeId = loadActive(decks, newStyle);
+  session.rating = loadRating(newStyle);
+  session.record = loadRecord(newStyle);
+  session.simLadder = buildSimLadder(newStyle);
+  syncBodyTheme(newStyle);
+  sfx.styleSwitch();
+  setState({
+    style: newStyle,
+    screen: 'home',
+    tut: false,
+    decks,
+    activeId,
+    editId: activeId,
+    sel: null,
+    mode: 'play',
+    pendFrom: null,
+    coin: null,
+  });
+}
+
+export function startMatch(cardsMap, opts = {}) {
   const FL = session.FL; if (!FL) return;
+  FL.setStyle(state.style);
   FL.CFG.life = session.prefs.startLife ?? 20;
-  FL.CFG.p2Extra = 0; FL.CFG.p1SkipDraw = true;
+  if (state.style === 'hexwire') {
+    FL.CFG.p2Extra = 1;
+    FL.CFG.p1SkipDraw = false;
+  } else {
+    FL.CFG.p2Extra = 0;
+    FL.CFG.p1SkipDraw = true;
+  }
   let mine = cardsMap;
-  if (!mine) { const a = state.decks.find(d => d.id === state.activeId); mine = (a && deckCountOf(a) === 24) ? a.cards : session.starterMap; }
-  const keys = [...Object.keys(AI_DECKS), 'RANDOM'];
-  const key = keys[(Math.random() * keys.length) | 0];
-  let aiIds;
-  if (key === 'RANDOM') aiIds = shuf(FL.POOL.map(c => c.id)).slice(0, 12).flatMap(x => [x, x]);
-  else if (AI_DECKS[key]) aiIds = AI_DECKS[key].flatMap(x => [x, x]);
-  else aiIds = FL.STARTER.slice();
+  if (!mine) {
+    const a = state.decks.find(d => d.id === state.activeId);
+    mine = (a && deckCountOf(a) === 24) ? a.cards : session.starterMap;
+  }
+  let aiIds, oppName;
+  if (state.style === 'hexwire') {
+    const ck = opts.crewKey || state.crewKey || 'MID';
+    const spec = HW_AI_DECKS[ck] || HW_AI_DECKS.MID;
+    if (ck === 'RANDOM') aiIds = shuf(FL.POOL.map(c => c.id)).slice(0, 12).flatMap(x => [x, x]);
+    else if (spec.ids) aiIds = spec.ids.flatMap(x => [x, x]);
+    else aiIds = FL.STARTER.slice();
+    oppName = opts.oppName || ('AI · ' + spec.name);
+  } else {
+    const keys = [...Object.keys(AI_DECKS), 'RANDOM'];
+    const key = keys[(Math.random() * keys.length) | 0];
+    if (key === 'RANDOM') aiIds = shuf(FL.POOL.map(c => c.id)).slice(0, 12).flatMap(x => [x, x]);
+    else if (AI_DECKS[key]) aiIds = AI_DECKS[key].flatMap(x => [x, x]);
+    else aiIds = FL.STARTER.slice();
+    oppName = opts.oppName || COMMANDERS[(Math.random() * COMMANDERS.length) | 0];
+  }
   const first = Math.random() < 0.5 ? 'p' : 'o';
-  session.g = FL.newGame(flat(mine), aiIds, first);
-  const oppName = COMMANDERS[(Math.random() * COMMANDERS.length) | 0];
+  session.g = FL.newGame(flat(mine), aiIds, first, state.style);
+  session.g._ranked = !!opts.ranked;
+  const coinDelay = state.style === 'hexwire' ? 1400 : 2200;
   setState({ screen: 'match', tut: false, oppName, coin: { first }, busy: true, sel: null, mode: 'play', pendFrom: null, settingsOpen: false });
   setTimeout(() => {
     setState({ coin: null, busy: first === 'o' });
     if (first === 'o') aiLoop();
-  }, 2500);
+  }, coinDelay);
 }
 
-// ---------- Field Training: 5-drill scripted curriculum ----------
+// ---------- Field Training (Frontline & Rift): 5-drill scripted curriculum ----------
 let _tuid = 50000;
 function tutSpawn(g, FL, side, lane, row, id, o) {
-  const d = FL.byId(id); o = o || {};
-  g.board[side][lane][row] = { uid: _tuid++, id: d.id, name: d.name, pow: d.pow, rng: d.rng, hp: o.hp != null ? o.hp : d.hp, maxhp: d.hp, flanks: d.flanks.slice(), kw: { ...d.kw }, shieldUp: !!d.kw.shield, sick: false };
+  const d = FL.byId(id, g); o = o || {};
+  g.board[side][lane][row] = {
+    uid: _tuid++, id: d.id, name: d.name, cost: d.cost, f: d.f,
+    pow: d.pow, rng: d.rng || (d.kw && d.kw.strike) || 0,
+    hp: o.hp != null ? o.hp : d.hp, maxhp: d.hp,
+    flanks: d.flanks.slice(), kw: { ...d.kw }, shieldUp: !!d.kw.shield, sick: false
+  };
 }
 
 export const TUT_LESSONS = [
@@ -80,13 +153,85 @@ export const TUT_LESSONS = [
     failMsg: 'HQ still stands. Stack the breakthrough: Overrun the weakest blocker, and put the Howitzer BEHIND the tank so it fires through the hole. Reset and try again.' },
 ];
 
-export function startTutorial() { if (!session.FL) return; loadLesson(0); }
+// ---------- Hexwire 8-Step Interactive Curriculum ----------
+function mkHwTutUnit(FL, g, id, hpOverride) {
+  const c = FL.byId(id, g);
+  return {
+    uid: _tuid++, id: c.id, name: c.name, cost: c.cost, f: c.f,
+    pow: c.pow, rng: (c.kw && c.kw.strike) || 0,
+    hp: hpOverride || c.hp, maxhp: c.hp,
+    flanks: c.flanks.slice(), kw: { ...c.kw }, shieldUp: !!c.kw.shield, sick: false
+  };
+}
+
+export function loadHwLesson(idx) {
+  const FL = session.FL;
+  FL.setStyle('hexwire');
+  const L = HW_LESSONS[idx];
+  const emptyB = () => [[null, null], [null, null], [null, null]];
+  const g = {
+    style: 'hexwire',
+    players: {
+      p: { life: 20, deck: [], hand: L.hand.map(id => ({ uid: _tuid++, id })), income: L.energy, energy: L.energy, banked: false, fatigue: 0 },
+      o: { life: L.oppLife || 20, deck: [], hand: [], income: 0, energy: 0, banked: false, fatigue: 0 },
+    },
+    board: { p: emptyB(), o: emptyB() },
+    tc: { p: 1, o: 0 }, active: 'p', first: 'p',
+    log: ['— Lesson ' + (idx + 1) + ': ' + L.title + ' —'], events: [], over: false, winner: null,
+  };
+  (L.p || []).forEach(([l, r, id, hp]) => { g.board.p[l][r] = mkHwTutUnit(FL, g, id, hp); });
+  (L.o || []).forEach(([l, r, id, hp]) => { g.board.o[l][r] = mkHwTutUnit(FL, g, id, hp); });
+  session.g = g;
+  const firstStep = L.steps[0];
+  const autoCard = firstStep.card ? g.players.p.hand.find(c => c.id === firstStep.card) : null;
+  setState({
+    screen: 'match',
+    tut: { les: idx, step: 0, phase: 'act' },
+    tutStep: idx,
+    oppName: 'Training Dummy',
+    coin: null,
+    busy: false,
+    sel: firstStep.do === 'deploy' && autoCard ? autoCard.uid : null,
+    mode: 'play',
+    pendFrom: null,
+    settingsOpen: false,
+  });
+}
+
+export function tutGoal() {
+  const t = state.tut;
+  if (!t || typeof t !== 'object') return null;
+  const L = HW_LESSONS[t.les];
+  return t.phase === 'act' ? L.steps[t.step] : { do: t.phase, text: t.phase === 'recap' ? L.recap : L.fail };
+}
+
+function advanceHwTut() {
+  const t = state.tut, L = HW_LESSONS[t.les];
+  if (t.step + 1 < L.steps.length) {
+    const next = L.steps[t.step + 1];
+    const g = session.g;
+    const autoCard = next.card ? g.players.p.hand.find(c => c.id === next.card) : null;
+    setState({
+      tut: { ...t, step: t.step + 1 },
+      sel: next.do === 'deploy' && autoCard ? autoCard.uid : null,
+      mode: 'play',
+    });
+  }
+}
+
+export function startTutorial() {
+  if (!session.FL) return;
+  if (state.style === 'hexwire') loadHwLesson(0);
+  else loadLesson(0);
+}
 
 export function loadLesson(i) {
+  if (state.style === 'hexwire') return loadHwLesson(i);
   const FL = session.FL, L = TUT_LESSONS[i];
+  FL.setStyle(state.style);
   const mk = life => ({ life, deck: [], hand: [], income: 0, energy: 0, banked: true, fatigue: 0 });
   const eb = () => [[null, null], [null, null], [null, null]];
-  const g = { players: { p: mk(20), o: mk(20) }, board: { p: eb(), o: eb() }, tc: { p: 1, o: 0 }, active: 'p', first: 'p', log: [], events: [], over: false, winner: null };
+  const g = { style: state.style, players: { p: mk(20), o: mk(20) }, board: { p: eb(), o: eb() }, tc: { p: 1, o: 0 }, active: 'p', first: 'p', log: [], events: [], over: false, winner: null };
   g.players.p.hand = L.hand.map(id => ({ uid: _tuid++, id }));
   g.players.p.energy = g.players.p.income = L.energy;
   L.setup(g, FL);
@@ -96,12 +241,33 @@ export function loadLesson(i) {
 }
 
 function tutEndTurn() {
-  const g = session.g, FL = session.FL, L = TUT_LESSONS[state.tutStep];
+  const g = session.g, FL = session.FL;
+  if (state.style === 'hexwire' && typeof state.tut === 'object') {
+    const goal = tutGoal();
+    if (!goal || goal.do !== 'end') return;
+    setState({ busy: true, sel: null, mode: 'play' });
+    sfx.combat();
+    FL.combat(g, 'p');
+    const L = HW_LESSONS[state.tut.les];
+    if (L.puzzle) {
+      setTimeout(() => setState({ busy: false, tut: { ...state.tut, phase: g.over && g.winner === 'p' ? 'done' : 'fail' } }), 450);
+      return;
+    }
+    setTimeout(() => {
+      FL.combat(g, 'o');
+      ping();
+      setTimeout(() => setState({ busy: false, tut: { ...state.tut, phase: 'recap' } }), 450);
+    }, 520);
+    ping();
+    return;
+  }
+  const L = TUT_LESSONS[state.tutStep];
   if (state.tutStage !== 'act' || !L.placed(g)) { ping(); return; }
   setState({ busy: true, sel: null });
+  sfx.combat();
   FL.combat(g, 'p');
   const finish = () => setState({ busy: false, tutStage: 'review', tutPass: L.pass(g) });
-  if (L.enemyPhase && !g.over) { ping(); setTimeout(() => { FL.combat(g, 'o'); ping(); setTimeout(finish, 500); }, 800); }
+  if (L.enemyPhase && !g.over) { ping(); setTimeout(() => { sfx.combat(); FL.combat(g, 'o'); ping(); setTimeout(finish, 500); }, 800); }
   else setTimeout(finish, 600);
   ping();
 }
@@ -111,19 +277,29 @@ function applyResult() {
   if (!g || !g.over || g._scored) return;
   g._scored = true;
   if (state.tut) { g._delta = 0; return; }
-  if (g.winner === 'p') { g._delta = 18; session.rating += 18; session.record.w++; }
-  else if (g.winner === 'o') { g._delta = -12; session.rating = Math.max(800, session.rating - 12); session.record.l++; }
-  else g._delta = 0;
-  saveStanding(session.rating, session.record);
+  if (g.winner === 'p') {
+    sfx.win();
+    g._delta = 18;
+    session.rating += 18;
+    session.record.w++;
+  } else if (g.winner === 'o') {
+    sfx.lose();
+    const minR = state.style === 'hexwire' ? 1000 : 800;
+    g._delta = -12;
+    session.rating = Math.max(minR, session.rating - 12);
+    session.record.l++;
+  } else g._delta = 0;
+  saveStanding(session.rating, session.record, state.style);
 }
 
-function aiDelay() { return session.prefs.fastAi ? 140 : 620; }
+function aiDelay() { return session.prefs.fastAi ? 140 : 600; }
 
 export function endTurn() {
   if (state.tut) return tutEndTurn();
   const g = session.g, FL = session.FL;
   if (!g || g.over || state.busy || g.active !== 'p') return;
   setState({ busy: true, sel: null, mode: 'play', pendFrom: null });
+  sfx.combat();
   FL.combat(g, 'p');
   applyResult(); ping();
   if (g.over) return;
@@ -137,8 +313,9 @@ export function endTurn() {
 function aiLoop() {
   const g = session.g, FL = session.FL;
   if (!g || g.over) { applyResult(); ping(); return; }
-  if (FL.aiAct(g, 'o')) { ping(); setTimeout(() => aiLoop(), aiDelay()); return; }
+  if (FL.aiAct(g, 'o')) { sfx.deploy(); ping(); setTimeout(() => aiLoop(), aiDelay()); return; }
   setTimeout(() => {
+    sfx.combat();
     FL.combat(g, 'o'); applyResult(); ping();
     if (g.over) return;
     setTimeout(() => {
@@ -157,14 +334,26 @@ export function concede() {
 export function tapCard(uid) {
   const g = session.g, FL = session.FL;
   if (!myTurn()) return;
-  if (state.mode === 'bank') { if (FL.bank(g, 'p', uid)) setState({ mode: 'play', sel: null }); else ping(); return; }
   const card = g.players.p.hand.find(c => c.uid === uid); if (!card) return;
-  const def = FL.byId(card.id);
-  const sel = state.sel;
-  if (sel === uid && def.type === 'spell' && (def.spell.kind === 'volley' || def.spell.kind === 'insight')) {
-    if (FL.castSpell(g, 'p', uid, null)) setState({ sel: null }); else ping();
+  if (state.style === 'hexwire' && typeof state.tut === 'object') {
+    const goal = tutGoal();
+    if (!goal || (goal.do !== 'bank' && goal.do !== 'deploy') || (goal.card && goal.card !== card.id)) return;
+  }
+  if (state.mode === 'bank') {
+    if (FL.bank(g, 'p', uid)) {
+      sfx.bank();
+      if (state.style === 'hexwire' && typeof state.tut === 'object') advanceHwTut();
+      else setState({ mode: 'play', sel: null });
+    } else ping();
     return;
   }
+  const def = FL.byId(card.id, g);
+  const sel = state.sel;
+  if (sel === uid && def.type === 'spell' && (def.spell.kind === 'volley' || def.spell.kind === 'insight')) {
+    if (FL.castSpell(g, 'p', uid, null)) { sfx.spell(); setState({ sel: null }); } else ping();
+    return;
+  }
+  sfx.select();
   setState({ sel: sel === uid ? null : uid, pendFrom: null });
 }
 
@@ -174,34 +363,69 @@ export function tapCell(side, lane, row) {
   const uid = state.sel;
   if (uid == null) return;
   const card = g.players.p.hand.find(c => c.uid === uid); if (!card) return;
-  const def = FL.byId(card.id);
+  const def = FL.byId(card.id, g);
+
   if (state.tut) {
+    if (state.style === 'hexwire' && typeof state.tut === 'object') {
+      const goal = tutGoal();
+      if (!goal || goal.do !== 'deploy' || side !== 'p') return;
+      if (goal.lane != null && goal.lane !== lane) return;
+      if (goal.row != null && goal.row !== row) return;
+      if (!g.board.p[lane][row] && FL.deploy(g, 'p', uid, lane, row)) {
+        sfx.deploy();
+        advanceHwTut();
+      } else ping();
+      return;
+    }
     const L = TUT_LESSONS[state.tutStep];
     if (state.tutStage !== 'act' || side !== 'p' || def.type !== 'unit' || !L.allow(def.id, lane, row)) { ping(); return; }
     if (!g.board.p[lane][row] && FL.deploy(g, 'p', uid, lane, row)) {
       const u = g.board.p[lane][row]; if (u) u.sick = !!L.entrench;
+      sfx.deploy();
       setState({ sel: null });
     } else ping();
     return;
   }
+
   if (def.type === 'unit') {
-    if (side === 'p' && !g.board.p[lane][row] && FL.deploy(g, 'p', uid, lane, row)) setState({ sel: null });
-    else ping();
+    if (side === 'p' && !g.board.p[lane][row] && FL.deploy(g, 'p', uid, lane, row)) {
+      if (def.kw && def.kw.subvert) sfx.subvert(); else sfx.deploy();
+      setState({ sel: null });
+    } else ping();
     return;
   }
   const k = def.spell.kind;
   if (k === 'bolt' && side === 'o' && g.board.o[lane][row]) {
-    if (FL.castSpell(g, 'p', uid, { side: 'o', lane, row })) setState({ sel: null }); else ping();
+    if (FL.castSpell(g, 'p', uid, { side: 'o', lane, row })) { sfx.spell(); setState({ sel: null }); } else ping();
   } else if (k === 'reinforce' && side === 'p' && g.board.p[lane][row]) {
-    if (FL.castSpell(g, 'p', uid, { side: 'p', lane, row })) setState({ sel: null }); else ping();
+    if (FL.castSpell(g, 'p', uid, { side: 'p', lane, row })) { sfx.spell(); setState({ sel: null }); } else ping();
   } else if (k === 'redeploy' && side === 'p') {
     const pf = state.pendFrom;
-    if (!pf) { if (g.board.p[lane][row]) setState({ pendFrom: { lane, row } }); return; }
+    if (!pf) { if (g.board.p[lane][row]) { sfx.select(); setState({ pendFrom: { lane, row } }); } return; }
     if (!g.board.p[lane][row]) {
-      if (FL.castSpell(g, 'p', uid, { lane: pf.lane, row: pf.row, toLane: lane, toRow: row })) setState({ sel: null, pendFrom: null });
+      if (FL.castSpell(g, 'p', uid, { lane: pf.lane, row: pf.row, toLane: lane, toRow: row })) { sfx.spell(); setState({ sel: null, pendFrom: null }); }
       else setState({ pendFrom: null });
     } else setState({ pendFrom: { lane, row } });
+  } else if (k === 'possess') {
+    const pf = state.pendFrom;
+    const u = g.board[side][lane][row];
+    if (side === 'o') {
+      if (u && (u.cost || 1) <= def.spell.cap && !u.beneath) { sfx.select(); setState({ pendFrom: { lane, row } }); }
+      return;
+    }
+    if (pf && side === 'p' && !u) {
+      if (FL.castSpell(g, 'p', uid, { lane: pf.lane, row: pf.row, toLane: lane, toRow: row })) { sfx.subvert(); setState({ sel: null, pendFrom: null }); }
+      else setState({ pendFrom: null });
+    }
   }
 }
 
-export function toggleBank() { if (!myTurn()) return; setState({ mode: state.mode === 'bank' ? 'play' : 'bank', sel: null, pendFrom: null }); }
+export function toggleBank() {
+  if (!myTurn()) return;
+  if (state.style === 'hexwire' && typeof state.tut === 'object') {
+    const goal = tutGoal();
+    if (!goal || goal.do !== 'bank') return;
+  }
+  sfx.select();
+  setState({ mode: state.mode === 'bank' ? 'play' : 'bank', sel: null, pendFrom: null });
+}
