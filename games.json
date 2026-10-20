@@ -19,6 +19,15 @@
       "theme": "ironworks"
     },
     {
+      "slug": "pinball",
+      "title": "AETHERIUM // PINBALL",
+      "description": "2.5D occult alchemical pinball & boss-ritual table — 480Hz sub-stepped physics, Amber Dot-Matrix Display, 3 Boss Rituals, Crucible Saucer locks, and 3-Ball Azoth Multiball.",
+      "tag": "Alchemical Pinball",
+      "icon": "🔮",
+      "href": "pinball/",
+      "theme": "pinball"
+    },
+    {
       "slug": "snake",
       "title": "Snake",
       "description": "The timeless classic — eat, grow, and don't bite your own tail.",

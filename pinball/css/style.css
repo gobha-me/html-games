@@ -1,0 +1,603 @@
+/* ============================================================================
+   AETHERIUM // PINBALL — Hermetic Brass, Obsidian & Amber DMD Stylesheet
+   ============================================================================ */
+
+:root {
+  --obsidian-void: #07060b;
+  --athanor-slate: #100d18;
+  --panel-card: #161222;
+  --burnished-brass: #d4a853;
+  --brass-border: #42331b;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --cinnabar: #f43f5e;
+  --vitriol: #10b981;
+  --aether: #38bdf8;
+  --amber-dmd: #ff9f1c;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--obsidian-void);
+  color: var(--text-main);
+  font-family: 'Barlow Condensed', system-ui, -apple-system, sans-serif;
+}
+
+#cabinet-shell {
+  display: grid;
+  grid-template-columns: 312px 1fr 312px;
+  grid-template-rows: 46px 1fr;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ── Top Backglass Header ── */
+#top-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 14px;
+  background: linear-gradient(180deg, #161124 0%, #0b0912 100%);
+  border-bottom: 1px solid var(--brass-border);
+  z-index: 20;
+  min-width: 0;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.brand-title {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #fef3c7;
+  white-space: nowrap;
+}
+
+.brand-title span {
+  color: var(--burnished-brass);
+}
+
+.brand-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-left: 9px;
+  border-left: 1px solid var(--brass-border);
+  white-space: nowrap;
+}
+
+.header-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stat-pill {
+  background: #141020;
+  border: 1px solid var(--brass-border);
+  border-radius: 5px;
+  padding: 4px 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+}
+
+.sp-label {
+  color: var(--text-muted);
+  font-size: 9.5px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.top-btn {
+  background: var(--panel-card);
+  color: var(--text-main);
+  border: 1px solid var(--brass-border);
+  border-radius: 5px;
+  padding: 0 10px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.top-btn:hover {
+  border-color: var(--burnished-brass);
+  color: #fef3c7;
+  background: #221b33;
+}
+
+.top-btn.launch {
+  background: linear-gradient(135deg, #b45309, #92400e);
+  border-color: #fbbf24;
+  color: #fef3c7;
+}
+
+/* ── Left & Right Cabinet Wings ── */
+.cabinet-wing {
+  background: var(--athanor-slate);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 15;
+}
+
+#wing-left {
+  border-right: 1px solid var(--brass-border);
+}
+
+#wing-right {
+  border-left: 1px solid var(--brass-border);
+}
+
+.panel-box {
+  background: var(--panel-card);
+  border: 1px solid var(--brass-border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  color: var(--burnished-brass);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Dot-Matrix Display & Score Grid */
+#dmd-canvas {
+  width: 100%;
+  height: 58px;
+  display: block;
+  border: 1.5px solid #5c3a10;
+  border-radius: 5px;
+  background: #140b04;
+  margin-bottom: 7px;
+}
+
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.score-cell {
+  background: #0d0a14;
+  border: 1px solid #2b223c;
+  border-radius: 5px;
+  padding: 5px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sc-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.sc-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fef3c7;
+  margin-top: 2px;
+}
+
+.sc-val.hi {
+  color: var(--amber-dmd);
+}
+
+/* Boss Ritual Box */
+.boss-title {
+  font-family: 'Cinzel', serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fef08a;
+  letter-spacing: 0.04em;
+}
+
+.boss-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.bar-wrap {
+  width: 100%;
+  height: 9px;
+  background: #09070f;
+  border: 1px solid #332946;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#hud-boss-hp-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #f43f5e, #f59e0b);
+  transition: width 0.15s;
+}
+
+.bar-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
+.boss-desc {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #cbd5e1;
+}
+
+/* Alchemical Reagents */
+.reagent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reagent-row {
+  display: grid;
+  grid-template-columns: 92px 1fr 34px;
+  align-items: center;
+  gap: 6px;
+}
+
+.rg-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.rg-name i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.rg-track {
+  height: 7px;
+  background: #0a0812;
+  border: 1px solid #2b223c;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rg-track > div {
+  height: 100%;
+  transition: width 0.15s;
+}
+
+.rg-pct {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.safeguard-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.seal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.seal-pill {
+  background: #0d0a14;
+  border: 1px solid #2b223c;
+  border-radius: 4px;
+  padding: 4px 3px;
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.seal-pill.active {
+  background: rgba(251, 191, 36, 0.14);
+  border-color: #fbbf24;
+  color: #fde047;
+}
+
+.seal-pill.done {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: #34d399;
+  color: #6ee7b7;
+}
+
+.ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.ledger-item {
+  background: #0d0a14;
+  border: 1px solid #2b223c;
+  border-radius: 4px;
+  padding: 4px 7px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+}
+
+.ledger-item span {
+  color: var(--text-muted);
+}
+
+.ledger-item strong {
+  color: #fef3c7;
+}
+
+.sg-badge {
+  background: #0d0a14;
+  border: 1px solid #2b223c;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  text-align: center;
+  color: #34d399;
+  white-space: nowrap;
+}
+
+/* ── Center Playfield Stage ── */
+#table-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 45%, #1c152e 0%, #07050c 75%);
+  overflow: hidden;
+}
+
+.table-bezel {
+  padding: 5px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #6e521f, #271c0b);
+  border: 2px solid var(--burnished-brass);
+  box-shadow:
+    0 20px 55px rgba(0, 0, 0, 0.85),
+    0 0 28px rgba(212, 168, 83, 0.16);
+}
+
+#table-canvas {
+  display: block;
+  border-radius: 9px;
+  background: #0c0914;
+}
+
+/* ── Right Wing: Transmute Matrix & Controls ── */
+.transmute-grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.sigil-cell {
+  background: #0c0a14;
+  border: 1px solid #352a4a;
+  border-radius: 4px;
+  padding: 5px 0;
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.sigil-cell.lit {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #34d399;
+  color: #ecfdf5;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+}
+
+.panel-note {
+  font-size: 12px;
+  line-height: 1.32;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+.control-pad {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.nudge-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.cabinet-btn {
+  background: #1d172e;
+  color: var(--text-main);
+  border: 1px solid #3e3159;
+  border-radius: 5px;
+  padding: 7px 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.12s;
+}
+
+.cabinet-btn:hover {
+  border-color: var(--burnished-brass);
+  background: #271f3d;
+}
+
+.cabinet-btn:active, .cabinet-btn.pressed {
+  transform: translateY(1px);
+  border-color: #fde047;
+  background: #3b2d54;
+}
+
+.cabinet-btn.flipper {
+  border-color: #b45309;
+  background: #27171a;
+}
+
+.cabinet-btn.plunger {
+  background: linear-gradient(135deg, #78350f, #451a03);
+  border-color: #f59e0b;
+  color: #fef3c7;
+}
+
+.cabinet-btn.magnet {
+  background: linear-gradient(135deg, #0c4a6e, #082f49);
+  border-color: #38bdf8;
+  color: #e0f2fe;
+}
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.32;
+  color: #cbd5e1;
+}
+
+/* Back to Arcade Pill */
+.back-to-arcade {
+  left: 326px !important;
+  bottom: 12px !important;
+  transform: none !important;
+  background: rgba(12, 9, 20, 0.88);
+  border: 1px solid var(--brass-border);
+  border-radius: 6px;
+  padding: 4px 10px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10.5px !important;
+  color: var(--text-muted) !important;
+  z-index: 25;
+}
+
+/* Game Over Modal */
+#modal-gameover {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 5, 12, 0.84);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.modal-card {
+  background: var(--panel-card);
+  border: 2px solid var(--burnished-brass);
+  border-radius: 12px;
+  padding: 28px 34px;
+  max-width: 440px;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+}
+
+.modal-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--burnished-brass);
+  margin-bottom: 6px;
+}
+
+.modal-card h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  color: #fef3c7;
+  margin-bottom: 10px;
+}
+
+.modal-card p {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+@media (max-width: 1580px) {
+  .brand-sub {
+    display: none;
+  }
+}
