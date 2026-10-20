@@ -1,80 +1,51 @@
-# 🧟 DEAD DISTRICT
+# DEAD DISTRICT // SECTOR 7
 
-A mature, top-down survival-horror wave shooter. They own the streets now —
-take them back. Hold out against escalating waves of the horde for as long as
-you can.
+**Redline Quarantine Crossroads · Bio-Containment Ops** — A top-down 2.5D survival-horror tactical shooter featuring a 4-building urban crossroads (`1600×1200`), real-time 2D raycast shadow-casting flashlight beam, 8 destructible/repairable safe-room doorway barricades, a 5-weapon firearm arsenal with reload mechanics, deployable 360° Aegis Auto-Turrets, thermite Molotovs, and 5 distinct infected archetypes.
 
-> ⚠️ **18+ / mature content.** Graphic violence, blood, and gore. The game
-> opens with a built-in age gate; entry requires confirming you are 18 or older.
+## How to Play
 
-## 🎮 How to Play
+1. **Move & Dash (`WASD` / `Arrows` + `Space`):** Navigate the central Evacuation Plaza or retreat inside the 4 corner safe-room buildings (*St. Jude Pharmacy*, *Precinct 7 Armory*, *Redline Auto Garage*, *Blackout Diner*). Press `Space` for an evasive combat roll dash.
+2. **Aim Flashlight & Fire (`Mouse` + `Left Click`, `[L]` Beam Toggle):** Your tactical flashlight casts real 2D raycast shadows behind building walls and wrecked vehicles. Toggle between **Spot Beam** (long range) and **Flood Beam** (wide angle) with `[L]`. Unseen infected in the dark emit subtle bio-sonar acoustic rings.
+3. **Firearm Arsenal & Reloads (`[1]–[5]` or Mouse Wheel, `[R]` Reload):**
+   - `[1] M9 TACTICAL` — `9mm` sidearm with unlimited reserve ammunition.
+   - `[2] REMINGTON 870` — `12-Gauge` 7-pellet pump buckshot with heavy stopping power.
+   - `[3] MP5-K PDW` — High-RPM `9mm Subsonic` personal defense weapon (`$120`).
+   - `[4] FN-FAL 7.62 AP` — Armor-piercing battle rifle that punches through 3 targets and ignores Riot Juggernaut shields (`$220`).
+   - `[5] M79 THERMITE` — `40mm` incendiary launcher that ignites persistent thermite fire pools (`$300`).
+4. **Barricades & Deployables (`[F]` Fortify, `[G]` Molotov, `[T]` Sentry Turret, `[H]` Med-Stim):**
+   - Infected claw through the 8 safe-room doorway barricades to breach buildings; press `[F]` near a doorway (or spend `$35` remotely) to reinforce them.
+   - Press `[G]` to hurl a **Thermite Molotov** (`6.5s` fire pool) or `[T]` to deploy an **Aegis 360° Auto-Turret** (`140` rounds).
 
-### Objective
-Survive. Each wave sends more of the horde at you than the last. There's no
-finish line — push your score and survival time as far as you can before you go
-down.
+## Infected Threat Dossier
 
-### Controls
-- **WASD** or **Arrow keys** — move
-- **Mouse** — aim
-- **Click / hold** — fire (ammo is unlimited)
-- **P** — pause / resume
-- **M** — mute / unmute
-- **Touch** — left half of screen: virtual stick to move; right half: hold to
-  aim & fire; **❚❚** button (next to mute) pauses
+| Class | Archetype | Behavior |
+|---|---|---|
+| **I** | **Shambler** | Relentless street horde; claws down safe-room barricades. |
+| **II** | **Feral Sprinter** | High-speed flanker that rushes through alleyways. |
+| **III** | **Bile Spitter** | Lobs ranged toxic globules that leave corrosive acid pools. |
+| **IV** | **Riot Juggernaut** | Front ballistic shield resists standard rounds; weak to `7.62 AP` & fire. |
+| **V** | **Necro Screamer** | Emits sonic shockwaves that drive nearby infected into a speed frenzy. |
 
-### Rules
-1. Zombies spawn from the edges of the map and close on your position.
-2. Shoot them before they reach you — contact drains your health.
-3. Clearing a wave triggers a short breather, then the next, larger wave.
-4. Downed enemies sometimes drop **pickups** (health) — grab them to stay alive.
-5. Game over when your health hits zero.
+## Tech Stack
 
-## 👹 Enemies
+- **Vanilla ES Modules + HTML5 Canvas2D** (Zero external dependencies or static binary bloat)
+- **Simulation (`js/sim.js`):** Circle-vs-AABB sliding collision solver, barricade breach/repair mechanics, armor-piercing & incendiary ballistics, sentry turret AI, and wave requisition economy.
+- **Renderer (`js/renderer.js`):** 64-ray 2D shadow-casting flashlight engine, flickering streetlamp & fire illumination, bio-sonar rings, and live `1600×1200` Sector Bio-Radar minimap (`#minimap-canvas`).
+- **Audio (`js/audio.js`):** Procedural WebAudio synthesizer for distinct firearm reports, reload clicks, thermite explosions, and screamer shockwaves.
 
-| Type   | Behavior                              | Score |
-|--------|---------------------------------------|-------|
-| Walker | Standard shambler                     | 10    |
-| Runner | Fast, low-HP; appears more often late | 15    |
-| Brute  | Huge, tanky, high-damage; every 3rd wave and rising odds thereafter | 40 |
+## File Layout
 
-Enemy HP, speed, and spawn counts scale with the wave number, so the pressure
-never lets up.
-
-## 🏆 Scoring
-Score accrues per kill (see table above). Your best score is saved to
-`localStorage` (`dd_hiscore`) and shown on the menu as **BEST SCORE**.
-
-## 🎯 Features
-- Wave-based survival with per-wave difficulty scaling
-- Three enemy archetypes with distinct HP / speed / threat profiles
-- Brute mini-boss cadence (every third wave, with rising random odds)
-- Blood, gore particles, and spent-casing effects
-- Health pickups dropped on kill (brutes drop them far more often)
-- Web Audio SFX (shotgun, hits, groans, deaths) + background music, mutable
-- Dual virtual-stick touch controls for phones/tablets
-- Built-in 18+ age gate, pause, and a stats-rich game-over screen
-- High-score persistence via `localStorage`
-
-## 🛠️ Tech Stack
-Vanilla HTML / CSS / JS. Single `<canvas>` render loop, no build step, no
-dependencies. Art and audio are baked PNG + MP3 assets under `assets/`.
-
-## 📁 File Layout
-```
+```text
 dead-district/
-├── index.html          # markup: age gate, canvas, HUD, menu, pause, game-over
-├── css/style.css       # horror-red theme, overlays, back-to-arcade link
-├── js/game.js          # game loop, spawning, waves, combat, scoring
-└── assets/
-    ├── img/            # player, zombie, brute, blood, pickup, ground, backgrounds
-    └── audio/          # shotgun, hit, groan, death SFX + music
+├── index.html        # 3-column tactical command HUD (Bio-Telemetry/Radar, Urban Viewport, Arsenal/Armory)
+├── css/
+│   └── style.css     # Responsive 1440x900 / 1280x800 dark bio-containment styling
+├── js/
+│   ├── config.js     # 1600x1200 crossroads map, 4 buildings, 8 barricades, 5 weapons, 5 infected types
+│   ├── audio.js      # Procedural WebAudio firearm & horror synthesizer
+│   ├── sim.js        # Tactical survival-horror simulation & wave requisition engine
+│   ├── renderer.js   # 2.5D urban renderer, 2D raycast shadow layer & radar minimap
+│   └── main.js       # Input controller, HUD telemetry sync & localStorage high score
+├── README.md
+└── CHANGELOG.md
 ```
-
-## 📌 Status
-Playable, v1.1.0. Imported into the arcade from a standalone prototype; registered
-on the launcher with a blood-crimson (`#c81e1e`) theme. Mobile/touch supported via
-dual virtual sticks (see Controls).
-
----
-← [Back to Arcade](../)
