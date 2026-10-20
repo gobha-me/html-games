@@ -1,223 +1,608 @@
-// Late Edition — entry point.
-// Wires sim, renderer, input. Drives a fixed-step sim loop with
-// renderer interpolation between ticks (ICD-01 v0.3 §Animation playhead).
+// ============================================================================
+// LATE EDITION // 1947 — Main Application Controller
+// ============================================================================
 
-import { Renderer } from './render/renderer.js';
-import { World } from './sim/world-state.js';
-import { attachInput } from './input.js';
-import { HudCorkboard } from './hud.js';
-import { DebriefPanel } from './debrief-panel.js';
-import { GameOverOverlay } from './game-over-overlay.js';
-import { loadSave, saveNow } from './sim/save.js';
-import { hasWebGL, mountWebGLUnavailable } from './webgl-unavailable.js';
-import { newSlowMoState, triggerSlowMo, speedFactor } from './slow-mo.js';
-import { AudioBus, AUDIO_CHANNELS } from './audio/audio-bus.js';
-import { HTMLAudioPlayer } from './audio/html-audio-player.js';
-import {
-  getPanSpeedMultiplier,
-  setPanSpeedMultiplier,
-  getChannelMuted,
-  setChannelMuted,
-} from './preferences.js';
-import { VERSION, VERSION_TAGLINE } from './version.js';
+import { FRONT_PAGE_SLOTS } from './config.js';
+import { LateEditionSim } from './sim.js';
+import { NoirCityRenderer } from './renderer.js';
+import { NoirAudio } from './audio.js';
 
-// 1.3.1: write the version string into the document title + HUD masthead
-// span at boot. Both surfaces stayed hardcoded before; this collapses them
-// to one source of truth in js/version.js. Boot-write (vs. setting at
-// element creation) keeps the HTML free of the version literal so an
-// editor can't drift it again.
-document.title = `Late Edition — v${VERSION} · ${VERSION_TAGLINE}`;
-{
-  const vEl = document.getElementById('hud-version');
-  if (vEl) vEl.textContent = `v${VERSION} · ${VERSION_TAGLINE}`;
-}
+const EDITOR_QUOTES = [
+  '"Rain\'s washing the blood off Pier 14, kid. Get Vance and Reyes on the street before the Herald steals our banner."',
+  '"City Hall\'s shredding zoning ledgers at midnight. Send Sullivan and back her up with Malone\'s Tommy gun."',
+  '"A front page without a Speed Graphic photo is just a sermon. Get Reyes\' flashbulb on that exclusive!"',
+  '"Observer syndicate goons are prowling Press Row. Keep Malone near HQ or reinforce the rotary press room."',
+  '"Deadline\'s breathing down our neck! Plate your highest-value scoops above the fold before midnight."',
+];
 
-const TICK_HZ = 30;
-const TICK_DT = 1 / TICK_HZ;
+class LateEditionApp {
+  constructor() {
+    this.audio = new NoirAudio();
+    this.sim = new LateEditionSim(this.audio);
+    this.canvas = document.getElementById('city-canvas');
+    this.renderer = new NoirCityRenderer(this.canvas);
+    this.selectedStoryUid = null;
+    this.lastFrameTime = performance.now();
+    this.uiTickAccum = 0;
 
-const root = document.getElementById('world');
-if (!root) throw new Error('world root not found');
-const hudRoots = {
-  topCards:  document.getElementById('hud-stats'),
-  dossier:  document.getElementById('hud-dock'),
-  tutorial: document.getElementById('hud-tutorial-bubble'),
-  minimap:  document.getElementById('hud-minimap'),
-  minimapLabel: document.getElementById('hud-minimap-label'),
-  slowMoPill: document.getElementById('hud-slowmo-pill'),
-  zoomPill:   document.getElementById('hud-zoom-pill'),
-  helpPopover: buildHelpPopoverRefs(),
-};
-const OPTIONAL_HUD_ROOTS = new Set(['minimap', 'minimapLabel', 'slowMoPill', 'zoomPill', 'helpPopover']);
-for (const [k, el] of Object.entries(hudRoots)) {
-  if (OPTIONAL_HUD_ROOTS.has(k)) continue;  // null is allowed
-  if (!el) throw new Error(`hud root ${k} not found`);
-}
-const panelRoot = document.getElementById('debrief-panel');
-if (!panelRoot) throw new Error('debrief-panel root not found');
-const gameOverRoot = document.getElementById('gameover-overlay');
-if (!gameOverRoot) throw new Error('gameover-overlay root not found');
+    this._bindEvents();
 
-// v0.9.1 (#293): WebGL context creation can fail on Mesa llvmpipe, Chrome
-// with hardware acceleration disabled, over-the-limit tabs, etc. Pre-flight
-// probe short-circuits cleanly; the catch is the last-resort for failures
-// that get past the probe (e.g. driver crash inside THREE construction).
-if (!hasWebGL()) {
-  mountWebGLUnavailable(root, new Error('WebGL not supported in this browser'));
-  throw new Error('WebGL not supported in this browser');
-}
-let renderer;
-try {
-  renderer = new Renderer(root);
-} catch (err) {
-  mountWebGLUnavailable(root, err);
-  throw err;
-}
-// 0.8 (ICD-04 v0.1): attempt to restore from localStorage; fall through to
-// a fresh World on no-save / parse-fail / unknown-future-version.
-const world = loadSave() ?? new World();
-// 1.0.1 (ICD-09 v0.1.1): wire the Archive UI hold/release gesture as a
-// callback so the HUD stays projection-only and the World holds the mutator.
-const hud = new HudCorkboard(hudRoots, {
-  toggleArchive: (storyId) => world.toggleArchive(storyId),
-  // 1.1.0 (ICD-10 v0.1.1 §Open-Q3 close): arc branch-pick gesture from the
-  // dossier chip strip. World records the label; effects fire at the
-  // verified → plated boundary in _fireDebrief.
-  pickArcBranch: (storyId, label) => world.pickArcBranch(storyId, label),
-  // 1.1.2 (#337): renderer view-state window for the minimap's frustum
-  // overlay. The HUD reads pan + frustum + aspect each frame; the renderer
-  // stays the canonical owner. Returns null defensively if renderer hasn't
-  // attached its view state yet (boot-order safety).
-  getView: () => renderer.getView(),
-  // 1.2.0 (ICD-02 v0.3.3 §DESPERATE body): Observer partner-deal gestures.
-  // The Threats panel surfaces an Accept | Decline chip when the Observer
-  // has emitted PARTNER_REQUEST; clicks route through these callbacks. The
-  // World records the deal; the HUD stays projection-only.
-  acceptPartnerOffer:  () => world.acceptPartnerOffer(),
-  declinePartnerOffer: () => world.declinePartnerOffer(),
-  // 1.5.0 (ICD-02 v0.3.4 §Herald §BUYOUT body): Herald buyout gestures.
-  // Accept → CYCLE_ESTABLISHMENT_ENDING + game-over overlay (win path);
-  // Decline → Herald locks into PUNISH for the rest of the run.
-  acceptBuyout:  () => world.acceptBuyout(),
-  declineBuyout: () => world.declineBuyout(),
-  // 1.3.1: SlowMoPill reads remaining-active-ms each frame. State lives in
-  // this closure (line below initializes it); the HUD pulls via this
-  // getter so it doesn't need a slow-mo state reference of its own.
-  getSlowMo: () => slowMo,
-  // 1.4.0: settings popover gestures. Pan-speed reads/writes the
-  // preferences module directly (the slider mirrors the persisted value).
-  // Channel mute toggles flip the bus state + persist via preferences so
-  // the next boot restores the same surface.
-  getPanSpeedMultiplier,
-  setPanSpeedMultiplier,
-  getChannelMuted: (channel) => audioBus.isChannelMuted(channel),
-  toggleChannelMute: (channel) => {
-    const next = !audioBus.isChannelMuted(channel);
-    if (next) audioBus.mute(channel); else audioBus.unmute(channel);
-    setChannelMuted(channel, next);
-  },
-});
-new DebriefPanel(panelRoot, world);
-new GameOverOverlay(gameOverRoot, world);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('preview') === 'showcase') {
+      this._setupShowcaseState();
+    }
 
-// 0.10.1 (G-07): slow-mo state is real-time only (no save persistence) —
-// triggered by input.js's Space handler, consumed by the loop multiplier.
-let slowMo = newSlowMoState();
-// 1.3.0 (ICD-07 v0.1 first caller): construct the audio bus before input
-// attaches so the first mousedown/keydown can call audioBus.unlock(). The
-// bus stays locked until then per browser autoplay policy; loadAll()
-// preloads the three recorded SFX cues (SFX-01/05/07) so the first
-// pickup/verify/print has zero playback latency.
-const audioBus = new AudioBus(new HTMLAudioPlayer());
-audioBus.loadAll();
-// 1.4.0: restore any persisted channel-mute preferences onto the freshly-
-// built bus. The settings popover toggles write to both the bus + the
-// preferences module on each click; this is the symmetric read at boot
-// so a reload lands on the same audible state the player left. Master +
-// per-channel are independent — master mute survives a per-channel
-// unmute, so restoring both is safe.
-if (getChannelMuted(undefined)) audioBus.mute();
-for (const channel of AUDIO_CHANNELS) {
-  if (getChannelMuted(channel)) audioBus.mute(channel);
-}
-attachInput(root, renderer, world, {
-  triggerSlowMo: () => { slowMo = triggerSlowMo(slowMo, performance.now()); },
-  audioBus,
-});
-
-// 0.8 save trigger cadence (ICD-04 §Save-trigger-surface settles here —
-// the ICD recommendation is sim-external and may be settled by the 0.8
-// session without an ICD bump):
-//   - on CYCLE_BEGIN       — fires immediately after EDITION_DEBRIEF_END
-//                            inside ackDebrief, capturing the just-started
-//                            edition with a fresh clock. Saving on
-//                            EDITION_DEBRIEF_END itself would capture the
-//                            cycle mid-transition (fire_fired=true,
-//                            remainingMs=0, edition=N before cycle.start
-//                            advances to N+1) and the load would be stuck.
-//                            The constructor-time start(1) is dispatched
-//                            before subscribers attach, so this subscriber
-//                            never fires for the initial edition.
-//   - on CYCLE_GAME_OVER   — terminal round-trip integrity.
-// Autosave-every-N, multi-slot, compression deferred per ICD §Open-questions.
-world.subscribeCycle((ev) => {
-  if (ev.kind === 'CYCLE_BEGIN' || ev.kind === 'CYCLE_GAME_OVER') {
-    saveNow(world);
+    this._syncFullUI();
+    requestAnimationFrame((t) => this._loop(t));
   }
-});
 
-let lastFrameTime = performance.now();
-let lastTickTime = lastFrameTime;
-let accumulator = 0;
+  _setupShowcaseState() {
+    this.sim.spawnRivalAgent();
+    if (this.sim.leads[0]) {
+      this.sim.dispatchOperativeToLead('rep_1', this.sim.leads[0].uid);
+      this.sim.leads[0].progress = 72;
+      this.sim.leads[0].photoVerified = true;
+    }
+    if (this.sim.leads[1]) {
+      this.sim.dispatchOperativeToLead('photog_1', this.sim.leads[1].uid);
+      this.sim.leads[1].progress = 48;
+    }
+    if (this.sim.leads[2]) {
+      this.sim.dispatchOperativeToLead('rep_2', this.sim.leads[2].uid);
+      this.sim.leads[2].progress = 84;
+    }
+    for (let i = 0; i < 24; i++) {
+      this.sim.step(0.2);
+    }
 
-// Latch initial interp endpoints so the first frame doesn't lerp from origin.
-renderer.noteTick(world.snapshot(), TICK_DT);
-
-function buildHelpPopoverRefs() {
-  const helpButton = document.getElementById('hud-help-btn');
-  const panel      = document.getElementById('hud-help-popover');
-  if (!helpButton || !panel) return null;
-  const slider      = panel.querySelector('#hud-settings-pan-speed');
-  const sliderValue = panel.querySelector('[data-target="pan-speed-value"]');
-  const closeButton = panel.querySelector('[data-action="close-help"]');
-  const channelButtons = Array.from(panel.querySelectorAll('.settings-toggle'))
-    .map((el) => {
-      const attr = el.dataset.channel;
-      return { channel: attr === 'master' ? undefined : attr, el };
+    // Add 3 verified stories and plate 2 into the Front Page Broadsheet
+    const demoStories = [
+      {
+        uid: 'demo_story_1',
+        beat: 'SCANDAL',
+        color: '#f43f5e',
+        headline: 'DA’S STAR WITNESS SPOTTED IN BLUE VELVET VIP BOOTH',
+        subdeck: 'Speed Graphic flashbulb catches grand-jury informant toasting Syndicate counsel.',
+        baseValue: 220,
+        credibility: 9,
+        heat: 12,
+        photoVerified: true,
+      },
+      {
+        uid: 'demo_story_2',
+        beat: 'SYNDICATE',
+        color: '#ef4444',
+        headline: 'TORRIO COLD-STORAGE VAULT HIDES BOOTLEG PRINTING PLATES',
+        subdeck: 'Counterfeit ration stamps and union ballot boxes seized behind meat hooks.',
+        baseValue: 210,
+        credibility: 10,
+        heat: 15,
+        photoVerified: true,
+      },
+      {
+        uid: 'demo_story_3',
+        beat: 'GRAFT',
+        color: '#f59e0b',
+        headline: 'MAYOR’S BROTHER TIED TO PHANTOM PAVING PAYROLL',
+        subdeck: 'Auditor ledgers show $400,000 routed to nonexistent asphalt crews in Ward 4.',
+        baseValue: 175,
+        credibility: 7,
+        heat: 10,
+        photoVerified: false,
+      },
+    ];
+    this.sim.scoopedStories.push(...demoStories);
+    this.sim.plateStoryToFrontPage('demo_story_1', 'banner');
+    this.sim.plateStoryToFrontPage('demo_story_2', 'photo_expose');
+    this.sim.flashes.push({
+      x: this.sim.operatives[2].x,
+      y: this.sim.operatives[2].y,
+      r: 34,
+      alpha: 0.9,
+      color: '#38bdf8',
     });
-  return { helpButton, panel, slider, sliderValue, closeButton, channelButtons };
-}
-
-function loop() {
-  const now = performance.now();
-  const frameDt = Math.min(0.1, (now - lastFrameTime) / 1000);
-  lastFrameTime = now;
-  accumulator += frameDt;
-
-  // 0.10.1 (G-07): slow-mo multiplies the per-tick dt. The accumulator
-  // drains at real-time TICK_DT (loop cadence unchanged) but the world
-  // advances by TICK_DT * factor — so the deadline counts at half-speed
-  // when active, sim units move half-distance per tick, and the renderer
-  // interp window stays full TICK_DT real seconds (smooth playback).
-  const factor = speedFactor(slowMo, now);
-  const simDt = TICK_DT * factor;
-
-  while (accumulator >= TICK_DT) {
-    world.tick(simDt);
-    accumulator -= TICK_DT;
-    lastTickTime = now - accumulator * 1000;
-    renderer.noteTick(world.snapshot(), TICK_DT);
   }
 
-  const alpha = accumulator / TICK_DT;
-  const frame = world.snapshot();
-  renderer.apply(frame, alpha);
-  // 1.3.0 (ICD-07): drain the FX channel into the audio bus on the same
-  // frame the renderer consumed. renderer._consumeEffects iterates only
-  // (no mutation), so reading after is safe and keeps bus + renderer
-  // in lockstep on the snapshot's drained array.
-  audioBus.consumeEffects(frame.effects);
-  hud.apply(frame);
-  requestAnimationFrame(loop);
+  _bindEvents() {
+    const unlockAudio = () => this.audio.resume();
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+
+    this.canvas.addEventListener('mousemove', (e) => {
+      const pt = this.renderer.screenToWorld(e.clientX, e.clientY);
+      this.renderer.mouseWorld = pt;
+
+      let hoveredOp = null;
+      for (const op of this.sim.operatives) {
+        if (Math.hypot(op.x - pt.x, op.y - pt.y) <= 30) {
+          hoveredOp = op.id;
+          break;
+        }
+      }
+      this.renderer.hoverOperativeId = hoveredOp;
+
+      let hoveredLead = null;
+      for (const lead of this.sim.leads) {
+        if (Math.hypot(lead.x - pt.x, lead.y - pt.y) <= 34) {
+          hoveredLead = lead.uid;
+          break;
+        }
+      }
+      this.renderer.hoverLeadId = hoveredLead;
+    });
+
+    this.canvas.addEventListener('click', (e) => {
+      const pt = this.renderer.screenToWorld(e.clientX, e.clientY);
+
+      for (const op of this.sim.operatives) {
+        if (Math.hypot(op.x - pt.x, op.y - pt.y) <= 30) {
+          this.sim.selectedOpId = op.id;
+          this.audio.typewriter();
+          this._syncFullUI();
+          return;
+        }
+      }
+
+      for (const lead of this.sim.leads) {
+        if (Math.hypot(lead.x - pt.x, lead.y - pt.y) <= 36) {
+          this.sim.selectedLeadId = lead.uid;
+          this.sim.dispatchOperativeToLead(this.sim.selectedOpId, lead.uid);
+          this._syncFullUI();
+          return;
+        }
+      }
+
+      this.sim.dispatchOperativeToPoint(this.sim.selectedOpId, pt.x, pt.y);
+      this._syncFullUI();
+    });
+
+    this.canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const op = this.sim.operatives.find((o) => o.id === this.sim.selectedOpId);
+      if (op) {
+        op.targetLeadId = null;
+        op.targetRivalId = null;
+        op.targetX = this.sim.hq.x + this.sim.hq.w * 0.5;
+        op.targetY = this.sim.hq.y + this.sim.hq.h + 24;
+        op.state = 'RETURNING TO HQ';
+        this.audio.dispatch();
+        this._syncFullUI();
+      }
+    });
+
+    document.getElementById('btn-pause').addEventListener('click', () => {
+      this.sim.paused = !this.sim.paused;
+      this._syncSpeedButtons();
+    });
+    document.getElementById('btn-speed-1').addEventListener('click', () => {
+      this.sim.paused = false;
+      this.sim.speed = 1;
+      this._syncSpeedButtons();
+    });
+    document.getElementById('btn-speed-2').addEventListener('click', () => {
+      this.sim.paused = false;
+      this.sim.speed = 2;
+      this._syncSpeedButtons();
+    });
+
+    const btnAudio = document.getElementById('btn-audio');
+    btnAudio.addEventListener('click', () => {
+      const muted = this.audio.toggleMute();
+      btnAudio.textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
+      btnAudio.classList.toggle('active', !muted);
+    });
+
+    document.getElementById('btn-roll-press').addEventListener('click', () => {
+      this.sim.publishEdition();
+      this._syncFullUI();
+    });
+
+    document.getElementById('btn-auto-layout').addEventListener('click', () => {
+      this._autoLayoutBestStories();
+      this._syncFullUI();
+    });
+
+    document.getElementById('act-wiretap').addEventListener('click', () => {
+      this.sim.triggerWiretap();
+      this._syncFullUI();
+    });
+    document.getElementById('act-bribe').addEventListener('click', () => {
+      this.sim.acceptSyndicateBribe();
+      this._syncFullUI();
+    });
+    document.getElementById('act-fortify').addEventListener('click', () => {
+      this.sim.fortifyPressRoom();
+      this._syncFullUI();
+    });
+
+    document.getElementById('btn-modal-continue').addEventListener('click', () => {
+      if (this.sim.gameOver) {
+        this.sim.reset();
+      } else {
+        this.sim.editionSummary = null;
+      }
+      this._syncFullUI();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      const k = e.key.toLowerCase();
+      if (['1', '2', '3', '4'].includes(k)) {
+        const idx = Number(k) - 1;
+        if (this.sim.operatives[idx]) {
+          this.sim.selectedOpId = this.sim.operatives[idx].id;
+          this.audio.typewriter();
+          this._syncFullUI();
+        }
+      } else if (k === 'a') {
+        this._autoLayoutBestStories();
+        this._syncFullUI();
+      } else if (k === 'q') {
+        this.sim.triggerWiretap();
+        this._syncFullUI();
+      } else if (k === 'w') {
+        this.sim.acceptSyndicateBribe();
+        this._syncFullUI();
+      } else if (k === 'e') {
+        this.sim.fortifyPressRoom();
+        this._syncFullUI();
+      } else if (k === 'p') {
+        this.sim.paused = !this.sim.paused;
+        this._syncSpeedButtons();
+      } else if (k === 'm') {
+        const muted = this.audio.toggleMute();
+        btnAudio.textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
+      } else if (e.code === 'Space') {
+        e.preventDefault();
+        if (this.sim.editionSummary) {
+          this.sim.editionSummary = null;
+        } else {
+          this.sim.publishEdition();
+        }
+        this._syncFullUI();
+      }
+    });
+  }
+
+  _autoLayoutBestStories() {
+    for (const slot of FRONT_PAGE_SLOTS) {
+      if (!this.sim.frontPage[slot.id] && this.sim.scoopedStories.length > 0) {
+        this.sim.plateStoryToFrontPage(this.sim.scoopedStories[0].uid, slot.id);
+      }
+    }
+  }
+
+  _syncSpeedButtons() {
+    document
+      .getElementById('btn-pause')
+      .classList.toggle('active', this.sim.paused);
+    document
+      .getElementById('btn-speed-1')
+      .classList.toggle('active', !this.sim.paused && this.sim.speed === 1);
+    document
+      .getElementById('btn-speed-2')
+      .classList.toggle('active', !this.sim.paused && this.sim.speed === 2);
+  }
+
+  _syncTopBar() {
+    document.getElementById('hud-edition').textContent =
+      `#${this.sim.edition}`;
+    document.getElementById('hud-clock').textContent =
+      this.sim.getClockString();
+    document.getElementById('hud-circulation').textContent =
+      this.sim.circulation.toLocaleString();
+    document.getElementById('hud-funds').textContent = `$${this.sim.cash}`;
+    document.getElementById('hud-credibility').textContent =
+      `${this.sim.credibility}%`;
+    document.getElementById('hud-heat').textContent =
+      `${this.sim.syndicateHeat}%`;
+
+    const selOp =
+      this.sim.operatives.find((o) => o.id === this.sim.selectedOpId) ||
+      this.sim.operatives[0];
+    if (selOp) {
+      const idx = this.sim.operatives.indexOf(selOp) + 1;
+      document.getElementById('map-selection-status').textContent =
+        `UNIT [${idx}] ${selOp.name.toUpperCase()} (${selOp.roleLabel}) — CLICK ANY BREAKING LEAD ON MAP TO DISPATCH`;
+    }
+  }
+
+  _renderOperativesRoster() {
+    const container = document.getElementById('operative-list');
+    const spriteMap = {
+      reporter: 'assets/sprites/unit_reporter.png',
+      photographer: 'assets/sprites/unit_photographer.png',
+      fixer: 'assets/sprites/unit_fixer.png',
+    };
+
+    container.innerHTML = this.sim.operatives
+      .map((op, idx) => {
+        const isSel = op.id === this.sim.selectedOpId;
+        return `
+          <div class="op-card ${isSel ? 'selected' : ''}" data-op-id="${op.id}">
+            <div class="op-avatar-wrap">
+              <span class="op-key">${idx + 1}</span>
+              <img src="${spriteMap[op.sprite]}" alt="${op.name}" class="op-avatar" />
+            </div>
+            <div class="op-info">
+              <div class="op-name-row">
+                <span>${op.name}</span>
+              </div>
+              <div class="op-role">${op.roleLabel} · ${op.callsign}</div>
+              <div class="op-status">${op.state}</div>
+            </div>
+            <button class="op-dispatch-btn" data-dispatch-op="${op.id}" title="Dispatch to selected lead">
+              SEND
+            </button>
+          </div>
+        `;
+      })
+      .join('');
+
+    container.querySelectorAll('.op-card').forEach((card) => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.op-dispatch-btn')) return;
+        this.sim.selectedOpId = card.dataset.opId;
+        this.audio.typewriter();
+        this._syncFullUI();
+      });
+    });
+
+    container.querySelectorAll('.op-dispatch-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const opId = btn.dataset.dispatchOp;
+        this.sim.selectedOpId = opId;
+        const targetUid =
+          this.sim.selectedLeadId ||
+          (this.sim.leads[0] && this.sim.leads[0].uid);
+        if (targetUid) {
+          this.sim.dispatchOperativeToLead(opId, targetUid);
+          this._syncFullUI();
+        }
+      });
+    });
+  }
+
+  _renderLeadsList() {
+    const container = document.getElementById('lead-list');
+    document.getElementById('leads-count').textContent =
+      `${this.sim.leads.length} ACTIVE`;
+
+    container.innerHTML = this.sim.leads
+      .map((lead) => {
+        const isSel = lead.uid === this.sim.selectedLeadId;
+        return `
+          <div class="lead-item ${isSel ? 'selected' : ''}" data-lead-id="${lead.uid}">
+            <div class="lead-top">
+              <span class="lead-cat" style="color:${lead.color}">${lead.beat} · $${lead.baseValue}</span>
+              <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : ''}</span>
+            </div>
+            <div class="lead-headline">${lead.headline}</div>
+            <div class="lead-bars">
+              <div class="progress-track" title="Investigation ${Math.round(lead.progress)}%">
+                <div class="progress-fill player" style="width:${Math.round(lead.progress)}%"></div>
+              </div>
+              <div class="progress-track" title="Rival Herald ${Math.round(lead.rivalProgress)}%">
+                <div class="progress-fill rival" style="width:${Math.round(lead.rivalProgress)}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    container.querySelectorAll('.lead-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const leadUid = item.dataset.leadId;
+        this.sim.selectedLeadId = leadUid;
+        this.sim.dispatchOperativeToLead(this.sim.selectedOpId, leadUid);
+        this._syncFullUI();
+      });
+    });
+  }
+
+  _renderScoopTrayAndWire() {
+    const tray = document.getElementById('scoop-tray');
+    if (this.sim.scoopedStories.length === 0) {
+      tray.innerHTML = `
+        <div class="scoop-chip" style="grid-column: 1 / -1; opacity: 0.8;">
+          <div class="scoop-chip-top"><span>ALL SCOOPS PLATED ON FRONT PAGE</span><span>DISPATCH UNITS [1–4]</span></div>
+          <div class="scoop-chip-title">Verified scoops automatically plate into open columns on the right-hand broadsheet.</div>
+        </div>
+      `;
+    } else {
+      tray.innerHTML = this.sim.scoopedStories
+        .map((st) => {
+          return `
+            <div class="scoop-chip" data-story-uid="${st.uid}">
+              <div class="scoop-chip-top">
+                <span style="color:${st.color}">${st.beat} ${st.photoVerified ? '📸 1.8×' : ''}</span>
+                <span>+$${st.baseValue}</span>
+              </div>
+              <div class="scoop-chip-title">${st.headline}</div>
+            </div>
+          `;
+        })
+        .join('');
+
+      tray.querySelectorAll('.scoop-chip[data-story-uid]').forEach((el) => {
+        el.addEventListener('click', () => {
+          const uid = el.dataset.storyUid;
+          this.selectedStoryUid = uid;
+          this.sim.plateStoryToFrontPage(uid);
+          this._syncFullUI();
+        });
+      });
+    }
+
+    const wire = document.getElementById('wire-log');
+    wire.innerHTML = this.sim.wireLog
+      .slice(0, 7)
+      .map(
+        (entry) =>
+          `<div class="wire-entry ${entry.tone}">[${entry.time}] ${entry.text}</div>`
+      )
+      .join('');
+  }
+
+  _renderBroadsheetAndPress() {
+    document.getElementById('paper-edition-label').textContent =
+      `LATE NIGHT EDITION #${this.sim.edition}`;
+
+    const proj = this.sim.calculateEditionProjection();
+    document.getElementById('paper-projected- readers').textContent =
+      `EST. ${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()} READERS`;
+
+    const slotsEl = document.getElementById('layout-slots');
+    slotsEl.innerHTML = FRONT_PAGE_SLOTS.map((slot) => {
+      const st = this.sim.frontPage[slot.id];
+      if (!st) {
+        return `
+          <div class="paper-slot empty" data-slot-id="${slot.id}">
+            <div class="slot-meta">
+              <span>${slot.label} (${slot.mul}×)</span>
+              <span>CRED +${slot.credBonus}%</span>
+            </div>
+            <div class="slot-headline">[OPEN COLUMN — INVESTIGATE LEADS ON MAP TO PLATE]</div>
+          </div>
+        `;
+      }
+      return `
+        <div class="paper-slot" data-slot-id="${slot.id}">
+          <div class="slot-meta">
+            <span>${slot.label} (${slot.mul}×)</span>
+            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? '📸 PHOTO 1.8×' : ''}</span>
+          </div>
+          <div class="slot-headline">${st.headline}</div>
+          <div class="slot-deck">${st.subdeck}</div>
+        </div>
+      `;
+    }).join('');
+
+    slotsEl.querySelectorAll('.paper-slot').forEach((slotEl) => {
+      slotEl.addEventListener('click', () => {
+        const slotId = slotEl.dataset.slotId;
+        if (this.sim.scoopedStories.length > 0) {
+          const candidate =
+            this.sim.scoopedStories.find((s) => s.uid === this.selectedStoryUid) ||
+            this.sim.scoopedStories[0];
+          this.sim.plateStoryToFrontPage(candidate.uid, slotId);
+          this._syncFullUI();
+        }
+      });
+    });
+
+    document.getElementById('proj-circ').textContent =
+      `${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()}`;
+    document.getElementById('proj-cash').textContent = `+$${proj.cashDelta}`;
+    document.getElementById('proj-cred').textContent =
+      `${proj.credDelta >= 0 ? '+' : ''}${proj.credDelta}%`;
+    document.getElementById('proj-heat').textContent =
+      `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
+
+    const standingsEl = document.getElementById('rival-standings');
+    const allPapers = [
+      {
+        name: 'The Metropolitan Chronicle (You)',
+        circulation: this.sim.circulation,
+        color: '#f5b73b',
+      },
+      ...this.sim.rivalStandings,
+    ].sort((a, b) => b.circulation - a.circulation);
+
+    const maxCirc = Math.max(40000, ...allPapers.map((p) => p.circulation));
+    standingsEl.innerHTML = allPapers
+      .map((p) => {
+        const pct = Math.min(100, Math.round((p.circulation / maxCirc) * 100));
+        return `
+          <div class="rival-row">
+            <div class="rival-row-top">
+              <span style="color:${p.color}">${p.name}</span>
+              <span>${p.circulation.toLocaleString()}</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:${pct}%; background:${p.color}"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  _renderModal() {
+    const modal = document.getElementById('edition-modal');
+    const sum = this.sim.editionSummary;
+    if (!sum) {
+      modal.classList.add('hidden');
+      return;
+    }
+    modal.classList.remove('hidden');
+
+    document.getElementById('modal-kicker').textContent =
+      `ROTARY PRESS REPORT // EDITION #${sum.edition}`;
+    document.getElementById('modal-title').textContent =
+      `EXTRA! EXTRA! EDITION #${sum.edition} HITS THE STREETS`;
+    document.getElementById('modal-subtitle').textContent =
+      `Plated ${sum.slottedCount}/4 front-page columns. Managing Editor Lou Vance reviews the morning street sales:`;
+
+    document.getElementById('modal-metrics').innerHTML = `
+      <div class="modal-metric-box">
+        <span>CIRCULATION SHIFT</span>
+        <strong class="accent-gold">${sum.circDelta >= 0 ? '+' : ''}${sum.circDelta.toLocaleString()} (${sum.totalCirculation.toLocaleString()})</strong>
+      </div>
+      <div class="modal-metric-box">
+        <span>STREET &amp; AD REVENUE</span>
+        <strong class="accent-emerald">+$${sum.cashDelta} ($${sum.totalFunds})</strong>
+      </div>
+      <div class="modal-metric-box">
+        <span>CREDIBILITY RATING</span>
+        <strong class="accent-cyan">${sum.credibility}% (${sum.credDelta >= 0 ? '+' : ''}${sum.credDelta}%)</strong>
+      </div>
+      <div class="modal-metric-box">
+        <span>SYNDICATE MOB HEAT</span>
+        <strong class="accent-crimson">${sum.heat}%</strong>
+      </div>
+    `;
+  }
+
+  _syncFullUI() {
+    this._syncTopBar();
+    this._syncSpeedButtons();
+    this._renderOperativesRoster();
+    this._renderLeadsList();
+    this._renderScoopTrayAndWire();
+    this._renderBroadsheetAndPress();
+    this._renderModal();
+
+    const quoteIdx =
+      (this.sim.edition - 1 + this.sim.scoopsTotal) % EDITOR_QUOTES.length;
+    document.getElementById('editor-directive').textContent =
+      EDITOR_QUOTES[quoteIdx];
+  }
+
+  _loop(now) {
+    const rawDt = Math.min(0.05, (now - this.lastFrameTime) / 1000);
+    this.lastFrameTime = now;
+    const dt = rawDt * (this.sim.speed || 1);
+
+    this.sim.step(dt);
+    this.renderer.render(this.sim, rawDt);
+
+    this.uiTickAccum += rawDt;
+    if (this.uiTickAccum >= 0.25) {
+      this.uiTickAccum = 0;
+      this._syncTopBar();
+      this._renderOperativesRoster();
+      this._renderLeadsList();
+      this._renderScoopTrayAndWire();
+      this._renderBroadsheetAndPress();
+      this._renderModal();
+    }
+
+    requestAnimationFrame((t) => this._loop(t));
+  }
 }
 
-requestAnimationFrame(loop);
+window.addEventListener('DOMContentLoaded', () => {
+  window.lateEditionApp = new LateEditionApp();
+});
