@@ -20,14 +20,10 @@
             --snake: #10b981;
             --invaders: #8b5cf6;
             --cogfall: #d97706;
-            --typing: #2ed573;
-            --sokoban: #d97706;
+            --classics: #a78bfa;
             --solitaire: #e11d48;
             --tetris: #c084fc;
             --breakout: #38bdf8;
-            --mines: #10b981;
-            --pong: #00d4ff;
-            --tiles: #a78bfa;
             --inkwell: #b8923d;
             --asteroids: #00ff88;
             --oregon-trail: #d4a574;
@@ -148,12 +144,8 @@
         .card.snake:focus-visible     { outline-color: var(--snake); }
         .card.invaders:focus-visible  { outline-color: var(--invaders); }
         .card.cogfall:focus-visible   { outline-color: var(--cogfall); }
-        .card.tiles:focus-visible     { outline-color: var(--tiles); }
         .card.breakout:focus-visible  { outline-color: var(--breakout); }
-        .card.mines:focus-visible     { outline-color: var(--mines); }
-        .card.pong:focus-visible      { outline-color: var(--pong); }
-        .card.typing:focus-visible    { outline-color: var(--typing); }
-        .card.sokoban:focus-visible   { outline-color: var(--sokoban); }
+        .card.classics:focus-visible  { outline-color: var(--classics); }
         .card.inkwell:focus-visible   { outline-color: var(--inkwell); }
         .card.hexwire:focus-visible   { outline-color: var(--hexwire); }
         .card.dead-district:focus-visible { outline-color: var(--dead-district); }
@@ -221,12 +213,8 @@
         .card.snake:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.15); }
         .card.invaders:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.18); }
         .card.cogfall:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
-        .card.tiles:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(167,139,250,0.18); }
         .card.breakout:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(56,189,248,0.18); }
-        .card.mines:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.15); }
-        .card.pong:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(0,212,255,0.18); }
-        .card.typing:hover   { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(46,213,115,0.18); }
-        .card.sokoban:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
+        .card.classics:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(167,139,250,0.18); }
         .card.solitaire:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(225,29,72,0.15); }
         .card.inkwell:hover   { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(184,146,61,0.20); }
         .card.hexwire:hover   { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(255,138,61,0.20); }
@@ -389,15 +377,6 @@
       "theme": "cogfall"
     },
     {
-      "slug": "2048",
-      "title": "2048",
-      "description": "Slide, merge, and explode! Reach 2048 with strategic power-tile combos.",
-      "tag": "Puzzle",
-      "icon": "🔢",
-      "href": "2048/",
-      "theme": "tiles"
-    },
-    {
       "slug": "breakout",
       "title": "Breakout",
       "description": "Smash bricks, collect power-ups, and battle bosses in this brick-breaking arcade classic.",
@@ -407,40 +386,13 @@
       "theme": "breakout"
     },
     {
-      "slug": "pong",
-      "title": "Pong",
-      "description": "The classic arcade battle — challenge the CPU or play locally with a friend!",
-      "tag": "Arcade Classic",
-      "icon": "🏓",
-      "href": "pong/",
-      "theme": "pong"
-    },
-    {
-      "slug": "minesweeper",
-      "title": "Minesweeper",
-      "description": "Clear the minefield without detonating! Flag mines, reveal safe cells, and beat your best time.",
-      "tag": "Puzzle Classic",
-      "icon": "💣",
-      "href": "minesweeper/",
-      "theme": "mines"
-    },
-    {
-      "slug": "typing",
-      "title": "Typing Game",
-      "description": "Type falling words before they hit the ground! Multiple word lists, modes, and live WPM tracking.",
-      "tag": "Skill Builder",
-      "icon": "⌨️",
-      "href": "typing/",
-      "theme": "typing"
-    },
-    {
-      "slug": "sokoban",
-      "title": "Sokoban",
-      "description": "Push crates onto targets in this classic box-pushing puzzle. Think ahead — you can only push, never pull!",
-      "tag": "Puzzle Classic",
-      "icon": "📦",
-      "href": "sokoban/",
-      "theme": "sokoban"
+      "slug": "classics",
+      "title": "Retro Cabinet",
+      "description": "5-in-1 early LLM benchmark anthology: 2048 Power-Tiles, Minesweeper, Pong, 20-level Sokoban, and Typing Defense.",
+      "tag": "Classic Anthology",
+      "icon": "🕹️",
+      "href": "classics/",
+      "theme": "classics"
     },
     {
       "slug": "solitaire",

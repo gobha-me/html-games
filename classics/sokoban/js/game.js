@@ -189,11 +189,18 @@
       saveState();
 
       // Move box
-      board[br][bc] = board[br][bc] === TARGET ? BOX_ON_TARGET : BOX;
+      const ontoTarget = board[br][bc] === TARGET;
+      board[br][bc] = ontoTarget ? BOX_ON_TARGET : BOX;
       board[nr][nc] = target === BOX_ON_TARGET ? TARGET : FLOOR;
       pushes++;
+      if (typeof ArcadeSFX !== "undefined") {
+        ArcadeSFX.beep(ontoTarget ? 660 : 280, 0.06, "triangle", 0.08);
+      }
     } else {
       saveState();
+      if (typeof ArcadeSFX !== "undefined") {
+        ArcadeSFX.blip(0.025, 0.04);
+      }
     }
 
     // Move player
@@ -257,6 +264,9 @@
 
     // All boxes on targets!
     levelComplete = true;
+    if (typeof ArcadeSFX !== "undefined") {
+      ArcadeSFX.playPattern([523, 659, 784, 1046], 0.1, 0.04, "triangle", 0.1);
+    }
 
     // Update best
     if (bestMoves[currentLevel] === undefined || moves < bestMoves[currentLevel]) {
