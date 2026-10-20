@@ -10,7 +10,7 @@ no accounts.
 
 | Game | Description | Tech |
 |------|-------------|------|
-| [Frontline](frontline/) | Dieselpunk trench-warfare card battler across three sectors | vanilla JS |
+| [Frontline // Hexwire](frontline/) | Dual-style 3-lane tactical card battler (1918 Dieselpunk vs. 2099 Cyberpunk Street Magic & Rift Crossover) | vanilla JS |
 | [Kimi: Core Protector](kimi/defence.html) | Tower defense with zoom + strategic placement | vanilla JS |
 | [Snake](snake/) | Classic snake with difficulty levels and high scores | vanilla JS |
 | [Space Invaders](space-invaders/) | Retro arcade shooter with destructible shields and UFO bonuses | vanilla JS |
@@ -23,7 +23,6 @@ no accounts.
 | [Asteroids](asteroids/) | Vector-style space shooter — blast rocks, dodge UFOs | vanilla JS |
 | [Oregon Trail](oregon-trail/) | Lead your party to the Willamette Valley — resources, moral choices, reputation | vanilla JS |
 | [Late Edition](late-edition/) | 1940s noir RTS — a newspaper fronting an information empire (design phase) | vanilla JS |
-| [Hexwire](hexwire/) | Neon-noir cyberpunk lane battler across three city blocks | vanilla JS |
 | [DEAD DISTRICT](dead-district/) | Survival-horror wave shooter with an 18+ age gate | vanilla JS |
 | [BACKBEAT](backbeat/) | 4-lane rhythm game with onset-charted generated audio | vanilla JS |
 | [BREACH // 2099](breach/) | 2.5D normal-mapped WebGL2 cyberpunk tactical room-clear | WebGL2 + vanilla JS |

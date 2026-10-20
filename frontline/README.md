@@ -1,124 +1,76 @@
-# ⚔️ Frontline — The Great Works War
+# ⚔️🎴 Frontline // Hexwire — Dual-Style Tactical Card Battler
 
-A dieselpunk trench-warfare **card battler**. Field infantry on the line, dig
-artillery into the emplacements behind them, and requisition supply from the
-rear across three sectors. First HQ to break 20 morale loses.
+A unified **3-lane × 2-row tactical card battler** featuring a **dynamic style-driven rules engine** (`engine.js`) that shifts rulesets, card pools, Venice portrait art, synthesized WebAudio SFX, and tutorials on the fly across three playable card styles:
 
-This is a **self-contained vanilla playtest client** for the Frontline design.
-It reuses the design's pure-logic rules engine (`engine.js`) byte-for-byte and
-recreates the Claude Design prototype UI in plain ES modules — no build step,
-no framework, no backend.
+1. **⚔ FRONTLINE · 1918 TRENCHES (Dieselpunk)**
+   - **Positional M/R Ruleset:** Every unit carries two powers — **Melee (`M`)** on the front **Line**, and **Ranged (`R`)** from rear **Emplacements** (safe while the line in front holds).
+   - **24-card Standard Issue Pool** + 5-drill **Field Training** curriculum (*Hold the Line* through *Break Through* final exam).
+   - **Meridian Campaign War Ladder** & Officer Commissions.
+2. **🎴 HEXWIRE · 2099 STREET MAGIC (Cyberpunk)**
+   - **Overwatch + Subvert/Possession Ruleset:** Three city blocks wide across **Chrome**, **Street**, and **Hex** crews. Front-row operatives brawl on the **Street**; back-row operatives fire from **Overwatch** using `Strike`.
+   - **26-card Pool** unlocking **Puppeteer** (`Subvert ≤2` — seizes an enemy unit in its lane and hides beneath it until destroyed) and **Possession** (`5⚡` — permanently steals an enemy unit of cost ≤2).
+   - **8-step Street Curriculum** culminating in **THE SOLVE** exact-lethal puzzle, plus simulated Algorand wallet connect and **The Block / Syndicate Floor** lobbies.
+3. **⚡ RIFT WAR · CROSSOVER (1918 × 2099)**
+   - **Hybrid Ruleset:** Combines Frontline's positional `M/R` artillery math with Hexwire's `Rift Puppeteer` (`Subvert ≤2`) and `Rift Possession` cards in a 26-card crossover pool.
 
-> **Status: playtest client.** HTML-Games is not the permanent home for this
-> project — it is advanced playtesting. If the game proves fun, the code moves
-> to a project-specific repo where the real server / economy / chain platform
-> (see `Tech Decisions`) gets built. The full backend stack (authoritative
-> multiplayer, Postgres/Redis, real matchmaking, NFT minting) is **out of scope
-> here** and deferred to that repo.
+---
 
 ## 🎮 How to Play
 
 ### Objective
-Reduce the enemy HQ's **morale to 0** before yours breaks. Both sides start at
-20 morale (tunable in settings).
+Reduce the rival HQ / runner from **20 morale / life to 0** before yours breaks.
 
-### The board
-Every unit carries two powers: **Melee (M)** — used on the line — and
-**Ranged (R)** — used from the emplacement behind it. A unit with `R0` is
-melee-only and does nothing from the back row.
+### Turn Structure
+1. **Requisition / Fence (once per turn):** Tap **Requisition** (or **Fence a card**), then a card in hand to bank it for **+1 permanent supply/energy** (**+2** if the card costs `4+`). Supply/energy refills every turn.
+2. **Deploy Operatives & Units:** Tap a unit card, then an empty slot on your half of the board:
+   - **Front Row (`THE LINE` / `STREET`):** Fights down its sector/block with melee power and protects the back row behind it.
+   - **Back Row (`EMPLACEMENT` / `OVERWATCH`):** Fires over the front row without taking retaliation damage, protected as long as the front slot is occupied.
+3. **Issue Orders / Cast Hexes:** Play direct damage (`Artillery Strike` / `Hexbolt`), board wipes (`Creeping Barrage` / `Grid Surge`), buffs (`Fortify` / `Combat Stims`), card draw (`Intel Report` / `Datamine`), repositioning (`Forced March` / `Blinkstep`), or mind-control (`Possession`).
+4. **End Turn:** Combat resolves automatically from left to right (Sector A→C / Block 1→3), front row then back row.
 
-- **3 sectors** (A / B / C), each with two rows:
-  - **The line** (front) — units fight down their sector with their **Melee (M)**.
-  - **Emplacements** (back) — units fire over the line with their **Ranged (R)**,
-    safe while the line in front of them holds.
-- A **sector strip** between the armies shows each side's projected threat
-  (`↓` enemy, `↑` yours) per sector.
+### Keywords Across Styles
 
-### A turn
-1. **Requisition** once per turn: tap **Requisition**, then a hand card, to bank
-   it for **+1 permanent supply** (**+2** if it costs 4+). Supply refills each
-   turn.
-2. **Deploy**: tap a card, then an empty position — the line to fight with
-   **Melee (M)**, the emplacement behind it to fire with **Ranged (R)**. Fresh
-   troops are *entrenching* (can't act the turn they arrive) unless **Rapid**.
-3. **Orders** (spells): Artillery Strike (3 dmg to a unit), Creeping Barrage
-   (1 dmg to all enemies), Fortify (+1 pow / +2 ♥), Intel Report (draw 2),
-   Forced March (move one of your units).
-4. **End turn** — combat resolves automatically, then the enemy commander moves.
-
-### Stats & keywords
-Cards read as `M{melee}/R{ranged} · {♥}` with the cost badge in the corner.
-Hover (or tap on mobile) a roster thumbnail to open a large card zoom with the
-art, stats, and full keyword reminder text.
-
-| Tag | Name | Effect |
+| Frontline (1918) | Hexwire (2099) | Mechanics |
 |---|---|---|
-| BLW | Bulwark | Must be destroyed before units behind it are hit |
-| PLT | Plated | Ignores the first hit each engagement |
-| R+X | Rally | Buffs row neighbours by X |
-| RPD | Rapid | Can act the turn it deploys |
-| GAS | Gas | Poisons on hit |
-| OVR | Overrun | Excess damage carries to the HQ |
+| **Bulwark (`BLW`)** | **Guard (`GRD`)** | Enemies in this lane must strike this unit first — even before an exposed front or back row. |
+| **Plated (`PLT`)** | **Ward (`WRD`)** | Absorbs the first hit with zero damage taken. |
+| **Rally X (`R+X`)** | **Rally X (`R+X`)** | On deploy: grants `+X` power permanently to adjacent allies. |
+| **Rapid (`RPD`)** | **Wired (`WIRED`)** | Fights on the turn it deploys (skips *Dig In* / *ZZZ*). |
+| **Gas (`GAS`)** | **Curse (`CURSE`)** | Any damage dealt destroys the target outright. |
+| **Overrun (`OVR`)** | **Pierce (`PRC`)** | Excess lethal damage on a front-row kill spills through to the rival HQ/face. |
+| — *(Rift & Hexwire)* | **Subvert ≤2 (`SBV≤2`)** | On deploy: seizes an enemy unit of cost ≤2 in this lane and hides beneath it until the host dies. |
 
-Flanks (`◀x y▶`) lend firepower to a unit's row neighbours — order your
-formation to stack sectors.
+---
 
-### Modes
-- **Skirmish vs AI** — a ranked match against a randomised enemy commander.
-  Win **+18** standing, lose **−12** (floor 800).
-- **Field Training** — a five-drill scripted curriculum: Hold the Line, Bulwark
-  & Plated, Rally & Flanks, Gas & Overrun, and a Break Through final exam. Each
-  drill briefs a tactic, gates where you may deploy, and grades a pass. No
-  standing change.
-- **Rosters** — build 24-card decks (max 2 copies each), star a default.
-- **War Ladder** — the season standings, you inserted among the sim commanders.
-- **⚙ Settings** — playtest knobs: starting morale (5–40) and Fast AI.
+## 📁 File Layout
 
-## 🛠 Tech
-
-- **Vanilla ES modules**, zero dependencies, zero build step — the source *is*
-  the deployed artifact (served by `python3 -m http.server` behind Traefik).
-- `engine.js` — the design's pure-logic rules engine + heuristic AI
-  (`globalThis.FL`), **copied verbatim** from the design handoff. Never edited;
-  the dieselpunk names are applied to `FL.POOL` at runtime.
-- A tiny `h()` hyperscript helper + a `state` / `setState(patch)` → full re-render
-  loop mirrors the prototype's reactive model.
-- `localStorage` persists rosters, standing, and playtest prefs.
-- **Venice art drop-in**: cards and the battlefield show optional venice-generated
-  WebP art (board cell + hand-card art window) and fall back to the text card if
-  absent — see [`art/README.md`](art/README.md).
-- **Art-forward board** (see [`ui-art-notes.md`](ui-art-notes.md)): the terrain
-  reads through translucent board cells, deployed units render as tall portrait
-  mini-cards with the stat strip on the bottom edge, and a per-card `FOCAL` map
-  (`js/art.js`) drives one authored `object-position` crop everywhere the art
-  appears — hand band, board cell, roster thumb, and the deck-builder zoom.
-  The dispatches log collapses to a one-line ticker to keep the board on 1080p.
-
-## 📁 File layout
-
-```
+```text
 frontline/
-├── index.html            # dieselpunk shell: fonts, CSS, #app root, module entry
-├── engine.js             # rules + AI (dual-power M/R), verbatim from the design handoff (do NOT edit)
-├── venice-asset-brief.md # the art/audio generation spec
-├── ui-art-notes.md       # "art is the product" display brief (board / zoom / slots / focal)
-├── art/                  # venice drop-in target (cards/{id}.webp, env/board_field.webp)
-│   └── README.md         # naming contract
+├── index.html                 # Shell, fonts, animations, module entry
+├── engine.js                  # Unified dual-style rules engine + heuristic AI (globalThis.FL)
+├── README.md                  # This documentation
+├── CHANGELOG.md               # Shipped milestone history
+├── ART-DIRECTION-HEXWIRE.md   # Cyberpunk visual direction notes
+├── venice-asset-brief.md      # Dieselpunk art/audio brief
+├── ui-art-notes.md            # Display & focal crop notes
+├── art/                       # Frontline 1918 Venice WebP portraits + board_field.webp
+├── art-hw/                    # Hexwire 2099 Venice WebP portraits + board_field.webp
 └── js/
-    ├── main.js           # bootstrap: load engine, restore saves, mount render loop
-    ├── theme.js          # dieselpunk names, AI decks, ladder tiers, helpers
-    ├── store.js          # localStorage + sim ladder + prefs
-    ├── state.js          # app state + setState/ping + myTurn
-    ├── deck.js           # roster CRUD (2-copy / 24-cap rules)
-    ├── match.js          # match flow + player actions (ported 1:1 from the prototype)
-    ├── dom.js            # h() hyperscript helper
-    ├── art.js            # venice art hooks + per-card FOCAL crop map (onerror text fallback)
-    ├── labels.js         # keyword tag builders (M/R stat readouts)
-    └── views/            # home · rosters · ladder · match · overlays (incl. card zoom)
+    ├── main.js                # Bootstrap, URL ?style= support, reactive render loop
+    ├── state.js               # Reactive state store
+    ├── store.js               # Per-style localStorage persistence (fl_*, hw_*, rf_*)
+    ├── theme.js               # Card names, AI crews, 8-step HW_LESSONS, ladder tiers
+    ├── match.js               # Match flow, 5-drill TUT_LESSONS + 8-step HW_LESSONS, style switcher
+    ├── deck.js                # 24-card roster/crew builder CRUD
+    ├── art.js                 # Style-aware Venice portrait loader + focal crop map
+    ├── labels.js              # Style-aware keyword badges
+    ├── sfx.js                 # Synthesized WebAudio SFX per era
+    ├── dom.js                 # Hyperscript DOM helper
+    └── views/
+        ├── stylebar.js        # Top Style / Ruleset Switcher Bar
+        ├── home.js            # Frontline HQ / Hexwire Street Hub / Rift Command
+        ├── match.js           # 3×2 tactical board, hand scroller, tutorial panels
+        ├── rosters.js         # Roster / Crew deckbuilder with hover/tap card zoom
+        ├── ladder.js          # War Ladder / Syndicate Standings
+        └── overlays.js        # Card zoom, Weathervane / Credstick coin flip, Wallet modal, Settings
 ```
-
-## 🔗 Credits
-
-Rules, card pool, AI, and dieselpunk visual direction from the *Frontline* Claude
-Design blend. Engine reused unmodified so the eventual production port stays a
-faithful translation.

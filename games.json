@@ -2,9 +2,9 @@
   "games": [
     {
       "slug": "frontline",
-      "title": "Frontline",
-      "description": "A dieselpunk trench-warfare card battler — hold the line across three sectors and break the enemy's morale.",
-      "tag": "Card Battler",
+      "title": "Frontline // Hexwire",
+      "description": "Dual-style 3-lane tactical card battler — shift rulesets on the fly between 1918 Dieselpunk Trenches (positional M/R artillery), 2099 Street Magic (Subvert & Possession), and Rift Crossover.",
+      "tag": "Dual-Style Card Battler",
       "icon": "⚔️",
       "href": "frontline/",
       "theme": "frontline"
@@ -116,15 +116,6 @@
       "icon": "📰",
       "href": "late-edition/",
       "theme": "late-edition"
-    },
-    {
-      "slug": "hexwire",
-      "title": "Hexwire",
-      "description": "A neon-noir cyberpunk lane battler — magic leaked out of the network. Deploy street crews across three city blocks and drop the enemy to zero.",
-      "tag": "Card Battler",
-      "icon": "🎴",
-      "href": "hexwire/",
-      "theme": "hexwire"
     },
     {
       "slug": "dead-district",
