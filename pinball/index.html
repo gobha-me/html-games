@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <title>AETHERIUM // PINBALL — Alchemical Boss-Ritual Pinball</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/back-to-arcade.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="cabinet-shell">
+    <!-- Top Backglass Header -->
+    <header id="top-bar">
+      <div class="brand-block">
+        <div class="brand-title">AETHERIUM <span>//</span> PINBALL</div>
+        <div class="brand-sub">The Grand Athanor · Model 1618-IX</div>
+      </div>
+
+      <div class="header-telemetry">
+        <div class="stat-pill"><span class="sp-label">BALL</span><strong id="hud-ball">1 / 3</strong></div>
+        <div class="stat-pill"><span class="sp-label">MULTIPLIER</span><strong id="hud-mult" style="color:#fde047">1×</strong></div>
+        <div class="stat-pill"><span class="sp-label">CRUCIBLE LOCKS</span><strong id="hud-locks" style="color:#c084fc">0 / 3</strong></div>
+        <div class="stat-pill"><span class="sp-label">AEGIS SAVE</span><strong id="hud-aegis" style="color:#34d399">ACTIVE (18s)</strong></div>
+      </div>
+
+      <div class="top-actions">
+        <button class="top-btn launch" id="btn-launch" title="Pull &amp; Release Plunger [Space / Down Arrow]">🚀 Launch [Space]</button>
+        <button class="top-btn" id="btn-multiball-demo" title="Unleash Instant Azoth Multiball (requires 100% Azoth or Crucible Lock)">⚡ Azoth Burst</button>
+        <button class="top-btn" id="btn-pause" title="Pause Table [P]">⏸ Pause</button>
+        <button class="top-btn" id="btn-mute" title="Toggle Solenoid &amp; Chime Audio">🔊 SFX</button>
+        <button class="top-btn" id="btn-reset" title="Reset Table [R]">↻ Reset</button>
+      </div>
+    </header>
+
+    <!-- Left Backglass Telemetry Wing -->
+    <aside id="wing-left" class="cabinet-wing">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>DOT-MATRIX TELEMETRY</span>
+          <span style="color:#ff9f1c">DMD-1618</span>
+        </div>
+        <canvas id="dmd-canvas" width="256" height="60"></canvas>
+        <div class="score-grid">
+          <div class="score-cell">
+            <span class="sc-label">CURRENT SCORE</span>
+            <span class="sc-val" id="hud-score">0</span>
+          </div>
+          <div class="score-cell">
+            <span class="sc-label">GRAND RECORD</span>
+            <span class="sc-val hi" id="hud-hi">250,000</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>ACTIVE BOSS RITUAL</span>
+          <span id="hud-boss-tier" style="color:#fde047">RITUAL I</span>
+        </div>
+        <div class="boss-title" id="hud-boss-name">THE BRASS GARGOYLE</div>
+        <div class="boss-sub" id="hud-boss-sub">Clockwork Sentinel of the First Seal</div>
+        <div class="bar-wrap boss-bar">
+          <div id="hud-boss-hp-bar"></div>
+        </div>
+        <div class="bar-meta">
+          <span id="hud-boss-hp-text">320 / 320 HP</span>
+          <span id="hud-boss-banished">Banished: 0</span>
+        </div>
+        <div class="boss-desc" id="hud-boss-desc">
+          Strike the Gargoyle past its rotating brass shields or shatter its Homunculi.
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>ALCHEMICAL REAGENT VESSELS</span>
+          <span>CHARGE</span>
+        </div>
+        <div class="reagent-list">
+          <div class="reagent-row">
+            <span class="rg-name"><i style="background:#10b981"></i>SALT (NaCl)</span>
+            <div class="rg-track"><div id="rg-salt" style="background:#10b981;width:20%"></div></div>
+            <span class="rg-pct" id="rg-salt-val">20%</span>
+          </div>
+          <div class="reagent-row">
+            <span class="rg-name"><i style="background:#f43f5e"></i>SULFUR (S)</span>
+            <div class="rg-track"><div id="rg-sulfur" style="background:#f43f5e;width:20%"></div></div>
+            <span class="rg-pct" id="rg-sulfur-val">20%</span>
+          </div>
+          <div class="reagent-row">
+            <span class="rg-name"><i style="background:#38bdf8"></i>MERCURY (Hg)</span>
+            <div class="rg-track"><div id="rg-mercury" style="background:#38bdf8;width:35%"></div></div>
+            <span class="rg-pct" id="rg-mercury-val">35%</span>
+          </div>
+          <div class="reagent-row">
+            <span class="rg-name"><i style="background:#c084fc"></i>AZOTH STONE</span>
+            <div class="rg-track"><div id="rg-azoth" style="background:#c084fc;width:0%"></div></div>
+            <span class="rg-pct" id="rg-azoth-val">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>MAGNUM OPUS // RITUAL SEALS</span>
+          <span id="hud-cycle-tag">CYCLE I</span>
+        </div>
+        <div class="seal-grid" id="hud-seal-grid">
+          <div class="seal-pill active" data-seal="0">I · GARGOYLE</div>
+          <div class="seal-pill" data-seal="1">II · OUROBOROS</div>
+          <div class="seal-pill" data-seal="2">III · ALCHEMIST</div>
+        </div>
+        <div class="score-grid" style="margin-top:6px">
+          <div class="score-cell">
+            <span class="sc-label">TEMPLE BONUS</span>
+            <span class="sc-val" id="hud-bonus" style="font-size:13.5px;color:#38f2d7">0</span>
+          </div>
+          <div class="score-cell">
+            <span class="sc-label">SPHERES IN PLAY</span>
+            <span class="sc-val" id="hud-spheres" style="font-size:13.5px;color:#c084fc">1 ACTIVE</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-box" style="margin-top:auto">
+        <div class="panel-title">
+          <span>TILT PENDULUM &amp; SAFEGUARDS</span>
+          <span id="hud-tilt-status" style="color:#34d399">STABLE</span>
+        </div>
+        <div class="bar-wrap">
+          <div id="hud-tilt-bar" style="width:0%;background:linear-gradient(90deg,#f59e0b,#ef4444)"></div>
+        </div>
+        <div class="safeguard-row">
+          <span class="sg-badge" id="badge-kickback">⚡ KICKBACK: LIT</span>
+          <span class="sg-badge" id="badge-aegis">🛡 AEGIS: LIT</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Playfield Viewport -->
+    <main id="table-stage">
+      <div class="table-bezel">
+        <canvas id="table-canvas"></canvas>
+      </div>
+    </main>
+
+    <!-- Right Controls & Grimoire Wing -->
+    <aside id="wing-right" class="cabinet-wing">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>TRANSMUTE SIGIL MATRIX</span>
+          <span>+100K BONUS</span>
+        </div>
+        <div class="transmute-grid" id="hud-transmute-grid">
+          <span class="sigil-cell">T</span>
+          <span class="sigil-cell">R</span>
+          <span class="sigil-cell">A</span>
+          <span class="sigil-cell">N</span>
+          <span class="sigil-cell">S</span>
+          <span class="sigil-cell">M</span>
+          <span class="sigil-cell">U</span>
+          <span class="sigil-cell">T</span>
+          <span class="sigil-cell">E</span>
+        </div>
+        <div class="panel-note">
+          Drop the <b>Left (Salt)</b> &amp; <b>Right (Sulfur)</b> target banks and roll through the lower lanes to ignite all 9 letters.
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>MAGNETKINESIS CAPACITOR</span>
+          <span id="hud-mag-pct" style="color:#38bdf8">100%</span>
+        </div>
+        <div class="bar-wrap">
+          <div id="hud-mag-bar" style="width:100%;background:linear-gradient(90deg,#0284c7,#38bdf8)"></div>
+        </div>
+        <button class="cabinet-btn magnet" id="btn-magnet" style="margin-top:6px;width:100%">
+          🧲 Hold Magnetkinesis [W]
+        </button>
+        <div class="panel-note">
+          Curves falling spheres upward toward the center sanctum to prevent a drain. Recharges on bumper &amp; spinner hits.
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>TACTILE CABINET CONTROLS</span>
+          <span>KEY / CLICK</span>
+        </div>
+        <div class="control-pad">
+          <button class="cabinet-btn flipper" id="btn-flip-left">◀ Left [Z / ←]</button>
+          <button class="cabinet-btn flipper" id="btn-flip-right">Right [M / →] ▶</button>
+          <button class="cabinet-btn plunger" id="btn-plunger-hold" style="grid-column:1/-1">
+            🚀 Hold / Tap Plunger Spring [Space / ↓]
+          </button>
+        </div>
+        <div class="nudge-pad">
+          <button class="cabinet-btn" id="btn-nudge-left">◁ Nudge [A]</button>
+          <button class="cabinet-btn" id="btn-nudge-up">▲ Bump [X]</button>
+          <button class="cabinet-btn" id="btn-nudge-right">Nudge [D] ▷</button>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>ATHANO-LEDGER // SHOT VALUES</span>
+          <span>BASE PTS</span>
+        </div>
+        <div class="ledger-grid">
+          <div class="ledger-item"><span>POP BUMPER</span><strong>1,500</strong></div>
+          <div class="ledger-item"><span>SPINNER ORBIT</span><strong>1,500</strong></div>
+          <div class="ledger-item"><span>DROP BANK</span><strong>15,000</strong></div>
+          <div class="ledger-item"><span>CRUCIBLE LOCK</span><strong style="color:#c084fc">10,000 ×</strong></div>
+          <div class="ledger-item"><span>BOSS BANISH</span><strong style="color:#fde047">75,000 ×</strong></div>
+          <div class="ledger-item"><span>MAGNUM OPUS</span><strong style="color:#38f2d7">100,000</strong></div>
+        </div>
+      </div>
+
+      <div class="panel-box" style="margin-top:auto">
+        <div class="panel-title">
+          <span>HERMETIC TABLE RULES</span>
+          <span>GRIMOIRE</span>
+        </div>
+        <div class="rule-list">
+          <div><b>1. Crown Rollovers (SOL·LUNA·AZOTH):</b> Light all 3 at top of dome to raise Score Multiplier (+1×). Flippers shift lit lanes!</div>
+          <div><b>2. Philosopher's Crucible:</b> Lock 3 spheres in the upper-left saucer to unleash <b>3-Ball Azoth Multiball</b>.</div>
+          <div><b>3. Upper-Left Sanctum Flipper:</b> Shoot cross-table through the right <b>Alchemical Spinner</b> or straight into the Boss Core.</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="modal-gameover">
+    <div class="modal-card">
+      <div class="modal-eyebrow">GRAND ATHANOR CHRONICLE</div>
+      <h2>RITUAL COMPLETE</h2>
+      <p id="modal-summary"></p>
+      <button class="top-btn launch" id="btn-modal-restart" style="padding:10px 26px;font-size:15px">↻ Begin New Ritual</button>
+    </div>
+  </div>
+
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
