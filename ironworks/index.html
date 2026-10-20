@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <title>IRONWORKS // CORE — Industrial Logistics & Siege Defense</title>
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/back-to-arcade.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app-shell">
+    <!-- Top Telemetry Bar -->
+    <header id="top-bar">
+      <div class="brand-block">
+        <div class="brand-title">IRONWORKS <span>//</span> CORE</div>
+        <div class="brand-sub">Industrial Logistics &amp; Siege Defense</div>
+      </div>
+
+      <div class="telemetry-center">
+        <div class="core-meter">
+          <span class="core-label">REACTOR CORE</span>
+          <div class="core-bar-wrap"><div id="hud-core-bar"></div></div>
+          <span id="hud-core-hp">1200 / 1200 (100%)</span>
+        </div>
+        <div id="hud-wave-status">WAVE 1/8 IN 35s · PERIMETER SCRAPERS</div>
+      </div>
+
+      <div class="top-actions">
+        <button class="top-btn overdrive" id="btn-overdrive" title="Unleash Core Shockwave &amp; 2x Factory Overdrive">⚡ Core Overdrive [Space]</button>
+        <button class="top-btn" id="btn-send-wave" title="Call next hostile wave immediately">⚔ Call Wave</button>
+        <button class="top-btn" id="btn-rotate" title="Rotate conveyor/machine output direction [R]">↻ Rotate [R]</button>
+        <button class="top-btn" id="btn-center" title="Center camera on Reactor Core">⌖ Core</button>
+        <button class="top-btn" id="btn-pause" title="Pause simulation [P]">⏸ Pause</button>
+        <button class="top-btn" id="btn-mute">🔊 Audio On</button>
+      </div>
+    </header>
+
+    <!-- Left Logistics & Build Sidebar -->
+    <aside id="sidebar">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>CORE TELEMETRY STOCK</span>
+          <span style="color:#38bdf8">GLOBAL</span>
+        </div>
+        <div class="stock-grid">
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#cbd5e1"></i>IRON</span>
+            <span class="stock-val" id="res-iron">120</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#f59e0b"></i>COPPER</span>
+            <span class="stock-val" id="res-copper">80</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#64748b"></i>COAL</span>
+            <span class="stock-val" id="res-coal">40</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#94a3b8"></i>STEEL</span>
+            <span class="stock-val" id="res-steel">25</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#10b981"></i>CIRCUIT</span>
+            <span class="stock-val" id="res-circuit">15</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#eab308"></i>SLUGS</span>
+            <span class="stock-val" id="res-ammo">60</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#f43f5e"></i>SHELLS</span>
+            <span class="stock-val" id="res-shell">15</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#06b6d4"></i>CELLS</span>
+            <span class="stock-val" id="res-cell">5</span>
+          </div>
+          <div class="stock-chip">
+            <span class="stock-label"><i class="stock-dot" style="background:#38f2d7"></i>AETHER</span>
+            <span class="stock-val" id="res-aether">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>CONSTRUCTION PALETTE</span>
+          <span>KEYS 1–0, O</span>
+        </div>
+        <div id="build-palette"></div>
+        <div id="selected-tool-desc"></div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>MANUAL CORE FABRICATION</span>
+          <span>INSTANT</span>
+        </div>
+        <div class="craft-grid">
+          <button class="action-btn" data-craft="smelt_steel">+1 Steel (1 Fe, 1 Coal)</button>
+          <button class="action-btn" data-craft="fab_ammo">+2 Slugs (1 Fe, 1 Cu)</button>
+          <button class="action-btn" data-craft="fab_circuit">+1 Circuit (2 Cu, 1 Fe)</button>
+          <button class="action-btn" data-craft="fab_shell">+2 Shells (1 Stl, 1 Coal)</button>
+        </div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>DIRECTIVES &amp; ASCENSION</span>
+        </div>
+        <div id="obj-1" class="obj-row">○ Deploy Excavator Drills (1/2)</div>
+        <div id="obj-2" class="obj-row">○ Fortify with Defense Turrets (2/4)</div>
+        <div id="obj-3" class="obj-row">○ Smelt &amp; Fabricate Ordnance (0/25)</div>
+        <div id="obj-4" class="obj-row">○ Repel Siege Crawler Waves (0/5)</div>
+        <div id="obj-5" class="obj-row">○ Charge Orbital Ascension Spire (0%)</div>
+      </div>
+
+      <div class="panel-box" style="margin-top:auto">
+        <div class="craft-grid" style="grid-template-columns:repeat(3,1fr)">
+          <button class="action-btn" id="btn-save" title="Save Blueprint [F5]">💾 Save</button>
+          <button class="action-btn" id="btn-load" title="Load Blueprint [F9]">📂 Load</button>
+          <button class="action-btn" id="btn-reset" title="Generate New Sector">↻ New</button>
+        </div>
+        <div style="font:500 10px/1.45 'IBM Plex Mono',monospace;color:#64748b;margin-top:7px">
+          <b>LMB Drag</b>: Paint belts/walls · <b>RMB</b>: Deconstruct · <b>R</b>: Rotate · <b>WASD / Shift+Drag</b>: Pan · <b>Wheel</b>: Zoom
+        </div>
+      </div>
+    </aside>
+
+    <!-- Spatial Canvas Viewport -->
+    <main id="canvas-stage">
+      <canvas id="viewport"></canvas>
+      <div id="toast-banner"></div>
+      <div id="inspector-panel"></div>
+      <div id="minimap-wrap">
+        <canvas id="minimap" width="168" height="168"></canvas>
+      </div>
+    </main>
+  </div>
+
+  <!-- Victory / Defeat Modal -->
+  <div id="modal-gameover">
+    <div class="modal-card">
+      <h2 id="modal-title">ORBITAL ASCENSION COMPLETE</h2>
+      <p id="modal-summary"></p>
+      <button class="top-btn overdrive" id="btn-modal-restart" style="padding:10px 24px;font-size:16px">↻ Deploy to New Sector</button>
+    </div>
+  </div>
+
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

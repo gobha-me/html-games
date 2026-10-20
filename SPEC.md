@@ -26,7 +26,7 @@ HTML-Games/
 ├── LICENSE
 │
 ├── cogfall/                # steampunk 4X (Vite + TS)
-├── kimi/                   # core-protector tower defense (vanilla JS)
+├── ironworks/              # industrial logistics & siege defense (Canvas2D + vanilla JS)
 ├── snake/                  # classic snake (vanilla JS)
 ├── space-invaders/         # retro arcade shooter (vanilla JS)
 └── ...                     # see games.json for full game manifest
