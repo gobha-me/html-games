@@ -1,109 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BACKBEAT — Rhythm Game</title>
-    <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <title>BACKBEAT // OVERDRIVE — 4-Lane Synth &amp; Rhythm Deck</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/back-to-arcade.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div id="app">
-        <!-- Menu Screen -->
-        <div id="menu-screen" class="screen active">
-            <div class="menu-header">
-                <h1 class="game-title">BACKBEAT</h1>
-                <p class="game-subtitle">hit the beat &middot; feel the groove</p>
-            </div>
+  <div id="studio-shell">
+    <!-- Top Studio Telemetry Header -->
+    <header id="top-bar">
+      <div class="brand-block">
+        <div class="brand-title">BACKBEAT <span>//</span> OVERDRIVE</div>
+        <div class="brand-sub">4-Lane Synth Deck</div>
+      </div>
 
-            <div class="menu-panel">
-                <div class="menu-section">
-                    <h2>Select Track</h2>
-                    <div id="track-list" class="track-list">
-                        <!-- populated by JS from charts/manifest.json -->
-                    </div>
-                </div>
+      <div class="header-telemetry">
+        <div class="stat-pill"><span class="sp-label">TRACK</span><strong id="hud-track-pill" style="color:#00d4ff">BACKBEAT ANTHEM</strong></div>
+        <div class="stat-pill"><span class="sp-label">SCORE</span><strong id="hud-score">0</strong></div>
+        <div class="stat-pill"><span class="sp-label">COMBO</span><strong id="hud-combo" style="color:#ffd21f">0×</strong></div>
+        <div class="stat-pill"><span class="sp-label">ACCURACY</span><strong id="hud-accuracy" style="color:#00ffcc">100.0% · S+</strong></div>
+      </div>
 
-                <div class="menu-section">
-                    <h2>Select Difficulty</h2>
-                    <div class="diff-row" id="diff-row">
-                        <button class="diff-btn" data-diff="easy">Easy</button>
-                        <button class="diff-btn selected" data-diff="normal">Normal</button>
-                        <button class="diff-btn" data-diff="hard">Hard</button>
-                    </div>
-                </div>
+      <div class="top-actions">
+        <button class="top-btn primary" id="btn-play" title="Start or Restart Track [Enter]">▶ Play Track</button>
+        <button class="top-btn" id="btn-overdrive" title="Activate 2× Overdrive Fever [Space]">⚡ Overdrive [SPC]</button>
+        <button class="top-btn" id="btn-auto" title="Toggle Auto-DJ Demo Showcase [A]">🤖 Auto-DJ: OFF</button>
+        <button class="top-btn" id="btn-pause" title="Pause / Resume [P]">⏸ Pause</button>
+        <button class="top-btn" id="btn-mute" title="Toggle Synth Audio [M]">🔊 Audio</button>
+      </div>
+    </header>
 
-                <div class="menu-section">
-                    <h2>Controls</h2>
-                    <div class="controls-info">
-                        <div class="lane-keys">
-                            <span class="key">D</span>
-                            <span class="key">F</span>
-                            <span class="key">J</span>
-                            <span class="key">K</span>
-                        </div>
-                        <p>Hit the falling notes when they reach the line. <b>P</b> pauses.</p>
-                    </div>
-                </div>
+    <!-- Left Wing: Vinyl Track Crate, Difficulty Selector & Latency Calibration -->
+    <aside id="wing-left" class="studio-wing">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>SYNTH TRACK CRATE (4)</span>
+          <span id="hud-bpm-tag" style="color:#00d4ff">120 BPM</span>
+        </div>
+        <div id="track-list" class="track-list">
+          <!-- Populated by main.js with pixel-art album covers -->
+        </div>
+      </div>
 
-                <div class="menu-section">
-                    <h2>Audio Calibration</h2>
-                    <p class="cal-note">If hits feel early/late, adjust the offset until taps land on the pulse.</p>
-                    <div class="cal-row">
-                        <button id="cal-down" class="cal-btn">&minus;</button>
-                        <span id="cal-value" class="cal-value">0 ms</span>
-                        <button id="cal-up" class="cal-btn">+</button>
-                        <button id="cal-test" class="cal-test-btn">Test pulse</button>
-                    </div>
-                </div>
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>CHART DIFFICULTY</span>
+          <span id="hud-note-count" style="color:#ffd21f">240 NOTES</span>
+        </div>
+        <div class="diff-grid" id="diff-row">
+          <button class="diff-btn" data-diff="easy">
+            <strong>EASY</strong>
+            <span>1.0× · ±85ms</span>
+          </button>
+          <button class="diff-btn selected" data-diff="normal">
+            <strong>NORMAL</strong>
+            <span>1.4× · Chords</span>
+          </button>
+          <button class="diff-btn" data-diff="hard">
+            <strong>HARD</strong>
+            <span>1.85× · ±45ms</span>
+          </button>
+          <button class="diff-btn" data-diff="encore">
+            <strong>ENCORE</strong>
+            <span>2.4× · 16th Rush</span>
+          </button>
+        </div>
+      </div>
 
-                <button id="start-btn" class="main-btn">Start</button>
-                <div class="high-score">High Score: <span id="menu-high-score">0</span></div>
-            </div>
+      <div class="panel-box" style="margin-top:auto">
+        <div class="panel-title">
+          <span>AUDIO SYNC CALIBRATION</span>
+          <span id="cal-value" style="color:#00ffcc">0 ms</span>
+        </div>
+        <p class="cal-desc">Tune latency offset if visual note hits feel early or late against the beat.</p>
+        <div class="cal-controls">
+          <button id="cal-down" class="cal-btn" title="Shift -5ms">− 5ms</button>
+          <button id="cal-test" class="cal-btn pulse" title="Play Metronome Test Pulse">🔊 Test Pulse</button>
+          <button id="cal-up" class="cal-btn" title="Shift +5ms">+ 5ms</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center 3D Perspective Neon Highway & Cyber-DJ FFT Stage -->
+    <main id="stage-viewport">
+      <canvas id="game-canvas"></canvas>
+
+      <!-- Track Progress Bar Overlay at Top of Stage -->
+      <div id="stage-progress-wrap">
+        <div id="stage-progress-bar"></div>
+      </div>
+
+      <!-- Ready / Track Complete Banner Overlay -->
+      <div id="stage-overlay" class="stage-overlay">
+        <div class="overlay-card">
+          <div class="ov-eyebrow" id="ov-eyebrow">STUDIO DECK READY // 4-LANE PERSPECTIVE HIGHWAY</div>
+          <h2 id="ov-title">BACKBEAT ANTHEM</h2>
+          <p id="ov-sub">Select any track in the crate and press <b>▶ Play Track</b> or hit <b>[D] [F] [J] [K]</b> to drop the beat.</p>
+          <div class="ov-actions">
+            <button class="top-btn primary" id="btn-ov-start" style="padding:9px 22px;font-size:13px">▶ Drop The Beat [Enter]</button>
+            <button class="top-btn" id="btn-ov-demo" style="padding:9px 16px;font-size:13px">🤖 Watch Auto-DJ</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Wing: Live Grade Matrix, Overdrive Core & Timing Telemetry -->
+    <aside id="wing-right" class="studio-wing">
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>STAGE GRADE</span>
+          <span id="hud-time-clock" style="color:#94a3b8">00:00 / 01:28</span>
         </div>
 
-        <!-- Game Screen -->
-        <div id="game-screen" class="screen">
-            <div id="game-header">
-                <div class="hud-item"><span class="hud-label">Score</span><span class="hud-value" id="score">0</span></div>
-                <div class="hud-item"><span class="hud-label">Combo</span><span class="hud-value" id="combo">0</span></div>
-                <div class="hud-item"><span class="hud-label">Accuracy</span><span class="hud-value" id="accuracy">100%</span></div>
-            </div>
-            <canvas id="game-canvas" width="480" height="640"></canvas>
-            <div id="judgement" class="judgement"></div>
-            <div id="pause-overlay" class="pause-overlay" style="display:none;">
-                <div class="pause-box">
-                    <h2>Paused</h2>
-                    <button id="resume-btn" class="main-btn">Resume</button>
-                    <button id="quit-btn" class="ghost-btn">Quit to Menu</button>
-                </div>
-            </div>
+        <div class="grade-hero">
+          <div class="grade-badge" id="hud-grade-badge">S+</div>
+          <div class="grade-metrics">
+            <div class="gm-row"><span>ACCURACY</span><strong id="hud-acc-detail" style="color:#00ffcc">100.0%</strong></div>
+            <div class="gm-row"><span>MAX COMBO</span><strong id="hud-max-combo" style="color:#ffd21f">0×</strong></div>
+            <div class="gm-row"><span>MEAN TIMING</span><strong id="hud-mean-offset" style="color:#38bdf8">0 ms</strong></div>
+            <div class="gm-row"><span>TRACK BEST</span><strong id="hud-high-score" style="color:#e879f9">0</strong></div>
+          </div>
         </div>
 
-        <!-- Results Screen -->
-        <div id="results-screen" class="screen">
-            <div class="results-panel">
-                <h1 class="results-title">Track Complete</h1>
-                <div id="new-high-score" class="new-high-score" style="display:none;">&#127942; New High Score! &#127942;</div>
-                <div class="results-grid">
-                    <div class="stat-item"><span class="stat-label">Score</span><span class="stat-value" id="final-score">0</span></div>
-                    <div class="stat-item"><span class="stat-label">Max Combo</span><span class="stat-value" id="final-combo">0</span></div>
-                    <div class="stat-item"><span class="stat-label">Accuracy</span><span class="stat-value" id="final-accuracy">0%</span></div>
-                </div>
-                <div class="judgement-tally">
-                    <span class="tally perfect">Perfect: <b id="t-perfect">0</b></span>
-                    <span class="tally good">Good: <b id="t-good">0</b></span>
-                    <span class="tally miss">Miss: <b id="t-miss">0</b></span>
-                </div>
-                <div class="results-actions">
-                    <button id="retry-btn" class="main-btn">Retry</button>
-                    <button id="menu-btn" class="ghost-btn">Menu</button>
-                </div>
-            </div>
+        <div class="tally-list">
+          <div class="tally-row"><span style="color:#00ffcc">● PERFECT</span><strong id="t-perfect">0</strong></div>
+          <div class="tally-row"><span style="color:#ffd21f">● GOOD</span><strong id="t-good">0</strong></div>
+          <div class="tally-row"><span style="color:#38bdf8">● HOLD TICKS</span><strong id="t-holds">0</strong></div>
+          <div class="tally-row"><span style="color:#ff3b5c">● MISS</span><strong id="t-miss">0</strong></div>
         </div>
-    </div>
+      </div>
 
-    <a href="../" class="back-to-arcade">&larr; Back to Arcade</a>
-    <link rel="stylesheet" href="../shared/back-to-arcade.css">
-    <script type="module" src="js/main.js"></script>
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>OVERDRIVE CORE</span>
+          <span id="hud-od-status" style="color:#ffd21f">0% CHARGE</span>
+        </div>
+        <div class="od-bar-wrap">
+          <div id="hud-od-bar" style="width:0%"></div>
+        </div>
+        <p class="cal-desc" style="margin-top:6px">
+          Chain hits to charge the Overdrive Capacitor. Press <b>[Space]</b> at ≥50% for <b>2× Fever Score</b>!
+        </p>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>NOTE ARCHETYPES</span>
+          <span>HIGHWAY GUIDE</span>
+        </div>
+        <div class="archetype-list">
+          <div><b style="color:#00d4ff">■ Tap Synth Cap:</b> Strike key as note crosses the cyan receptor line.</div>
+          <div><b style="color:#ff2ec4">▮ Hold Ribbon:</b> Hold key down along the glowing neon ribbon for bonus ticks.</div>
+          <div><b style="color:#ffd21f">═ Gold Tie-Bar:</b> Simultaneous 2-lane chord — strike both keys together!</div>
+        </div>
+      </div>
+
+      <div class="panel-box" style="margin-top:auto">
+        <div class="panel-title">
+          <span>STUDIO DECK CONTROLS</span>
+          <span>KEYMAP</span>
+        </div>
+        <div class="lane-keymap">
+          <span class="k-chip" style="border-color:#00d4ff;color:#00d4ff">D / ←</span>
+          <span class="k-chip" style="border-color:#ff2ec4;color:#ff2ec4">F / ↓</span>
+          <span class="k-chip" style="border-color:#ffd21f;color:#ffd21f">J / ↑</span>
+          <span class="k-chip" style="border-color:#10b981;color:#10b981">K / →</span>
+        </div>
+        <div class="archetype-list" style="margin-top:6px">
+          <div><b>[Space]:</b> Trigger 2× Overdrive · <b>[A]:</b> Auto-DJ Demo</div>
+          <div><b>[P]:</b> Pause Track · <b>[Enter]:</b> Start / Retry Track</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <a href="../" class="back-to-arcade">← Back to Arcade</a>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -137,9 +137,9 @@
     },
     {
       "slug": "backbeat",
-      "title": "BACKBEAT",
-      "description": "A 4-lane rhythm game — hit D F J K in time with a generated track. Onset-charted, fully self-contained audio + art.",
-      "tag": "Rhythm",
+      "title": "BACKBEAT // OVERDRIVE",
+      "description": "3D perspective 4-lane synth & rhythm deck — 4 playable tracks (WebAudio multi-track synthwave, chiptune & industrial + original anthem), hold ribbons, chords, 2× Overdrive Fever, and live FFT spectrum stage.",
+      "tag": "Synth Rhythm Deck",
       "icon": "🎵",
       "href": "backbeat/",
       "theme": "backbeat"
