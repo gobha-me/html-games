@@ -15,12 +15,10 @@
             --surface: #12122a;
             --text: #e0e0f0;
             --muted: #7a7a9a;
-            --forge: #f59e0b;
             --frontline: #c9a227;
             --kimi: #f43f5e;
             --snake: #10b981;
             --invaders: #8b5cf6;
-            --reclamation: #eab308;
             --cogfall: #d97706;
             --typing: #2ed573;
             --sokoban: #d97706;
@@ -145,12 +143,10 @@
             border-color: rgba(255,255,255,0.15);
         }
 
-        .card.forge:focus-visible     { outline-color: var(--forge); }
         .card.frontline:focus-visible { outline-color: var(--frontline); }
         .card.kimi:focus-visible      { outline-color: var(--kimi); }
         .card.snake:focus-visible     { outline-color: var(--snake); }
         .card.invaders:focus-visible  { outline-color: var(--invaders); }
-        .card.reclamation:focus-visible { outline-color: var(--reclamation); }
         .card.cogfall:focus-visible   { outline-color: var(--cogfall); }
         .card.tiles:focus-visible     { outline-color: var(--tiles); }
         .card.breakout:focus-visible  { outline-color: var(--breakout); }
@@ -221,11 +217,9 @@
         }
 
         /* per-game glow */
-        .card.forge:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(245,158,11,0.15); }
         .card.kimi:hover     { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(244,63,94,0.15); }
         .card.snake:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.15); }
         .card.invaders:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.18); }
-        .card.reclamation:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(234,179,8,0.15); }
         .card.cogfall:hover  { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(217,119,6,0.15); }
         .card.tiles:hover    { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(167,139,250,0.18); }
         .card.breakout:hover { box-shadow: 0 20px 48px rgba(0,0,0,0.5), 0 0 40px rgba(56,189,248,0.18); }
@@ -350,15 +344,6 @@
 {
   "games": [
     {
-      "slug": "forge-defense",
-      "title": "Forge Defense",
-      "description": "Defend the forge against waves of enemies in this tactical defense game.",
-      "tag": "Tower Defense",
-      "icon": "⚒️",
-      "href": "forge-defense/",
-      "theme": "forge"
-    },
-    {
       "slug": "frontline",
       "title": "Frontline",
       "description": "A dieselpunk trench-warfare card battler — hold the line across three sectors and break the enemy's morale.",
@@ -393,15 +378,6 @@
       "icon": "👾",
       "href": "space-invaders/",
       "theme": "invaders"
-    },
-    {
-      "slug": "reclamation-wars",
-      "title": "Reclamation Wars",
-      "description": "Lead your forces to reclaim lost territory in this strategic war game.",
-      "tag": "Strategy",
-      "icon": "⚔️",
-      "href": "reclamation-wars/",
-      "theme": "reclamation"
     },
     {
       "slug": "cogfall",

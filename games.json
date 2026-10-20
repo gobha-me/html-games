@@ -1,15 +1,6 @@
 {
   "games": [
     {
-      "slug": "forge-defense",
-      "title": "Forge Defense",
-      "description": "Defend the forge against waves of enemies in this tactical defense game.",
-      "tag": "Tower Defense",
-      "icon": "⚒️",
-      "href": "forge-defense/",
-      "theme": "forge"
-    },
-    {
       "slug": "frontline",
       "title": "Frontline",
       "description": "A dieselpunk trench-warfare card battler — hold the line across three sectors and break the enemy's morale.",
@@ -44,15 +35,6 @@
       "icon": "👾",
       "href": "space-invaders/",
       "theme": "invaders"
-    },
-    {
-      "slug": "reclamation-wars",
-      "title": "Reclamation Wars",
-      "description": "Lead your forces to reclaim lost territory in this strategic war game.",
-      "tag": "Strategy",
-      "icon": "⚔️",
-      "href": "reclamation-wars/",
-      "theme": "reclamation"
     },
     {
       "slug": "cogfall",

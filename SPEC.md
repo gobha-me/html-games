@@ -25,14 +25,11 @@ HTML-Games/
 ├── deployment.yaml         # k8s deployment + Traefik ingress (/games)
 ├── LICENSE
 │
-├── cogfall/                # steampunk 4X (Vite + TS, dist/ committed)
-├── forge-defense/          # factory-building tower defense (vanilla JS)
+├── cogfall/                # steampunk 4X (Vite + TS)
 ├── kimi/                   # core-protector tower defense (vanilla JS)
-├── reclamation-wars/       # post-apoc 4X (vanilla JS)
 ├── snake/                  # classic snake (vanilla JS)
 ├── space-invaders/         # retro arcade shooter (vanilla JS)
-│
-└── demos/                  # historical artifacts; not linked from launcher
+└── ...                     # see games.json for full game manifest
 ```
 
 ## Subdir convention (one game per directory)
