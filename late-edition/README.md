@@ -1,23 +1,19 @@
 # LATE EDITION // 1947
 
-**1947 Noir Newsroom & City-Dispatch RTS** — Run the night desk of *The Metropolitan Chronicle*. Dispatch investigative reporters, Speed Graphic photojournalists, and Tommy-gun street fixers across a 2.5D rain-slicked metropolis, beat rival syndicate papers to breaking leads, and plate your 4-column front page before the midnight rotary presses roll.
+**1947 Noir Newsroom Desk & Broadsheet Paste-Up RTS** — Run the night desk of *The Metropolitan Chronicle*. Scout a 2.5D rain-slicked metropolis on the green-leather Precinct Dispatch Blotter (left), send investigative reporters, Speed Graphic photojournalists, and Tommy-gun street fixers via physical Manila Press Passes, and replace faded municipal wire stand-ins on a full-height 1947 Cream Newsprint Front Page (right) before the `12:00 AM` rotary presses roll.
 
-## How to Play
+## How to Play (1-2-3 Night Editor Workflow)
 
-- **Select Operatives (`[1]`–`[4]` or Click Unit/Roster Card)**:
-  - **[1] Jack Vance (`BEAT-1` Reporter)** & **[2] Peggy Sullivan (`BEAT-2` Reporter)** — Investigate breaking city leads and file verified copy for the front page.
-  - **[3] Clara Reyes (`FLASH-1` Photographer)** — Snaps Speed Graphic photo proof on active leads (**1.8×** front-page circulation & revenue multiplier) and stuns rival operatives with her flashbulb.
-  - **[4] "Knuckles" Malone (`ENFORCE-1` Street Fixer)** — Intercepts *Daily Herald* rival reporters and *Observer Syndicate* saboteurs (+$35 bounty per neutralization).
-- **Dispatch & Recall**:
-  - **Left-Click** any breaking lead node on the 2.5D city map (or click **SEND** in the roster) to dispatch your selected operative.
-  - **Right-Click** on the map to recall the selected operative back to Press Row HQ.
-- **Newsroom Desk Operations**:
-  - **`[Q]` Wiretap Police Band ($65)** — Intercepts 2 exclusive breaking leads across the city.
-  - **`[W]` Accept Syndicate Hush-Money (+$160)** — Emergency treasury injection at the cost of `-10%` credibility, while cooling mob heat by `-16%`.
-  - **`[E]` Fortify Press Room ($75)** — Restores rotary press integrity to `100%` and repels *Observer* saboteurs.
-- **Front-Page Broadsheet & Press Run**:
-  - Verified scoops automatically plate into open columns on the right-hand parchment broadsheet (`Banner Headline 2.0×`, `Above-the-Fold Lead 1.5×`, `Darkroom Photo Exposé 1.6×`, `Below-the-Fold Column 1.2×`), or click any scoop in the tray to re-plate.
-  - Press **`[SPACE]`** (or click **ROLL THE PRESSES**) at any time, or let the press clock reach `12:00 AM` midnight to print the edition and collect circulation & street revenue.
+1. **① Pick a Manila Press Pass (`[1]`–`[4]` or Click Pass at Bottom-Left):**
+   - **[1] Jack Vance (`BEAT-1` Reporter)** & **[2] Peggy Sullivan (`BEAT-2` Reporter)** — Investigate breaking city leads and file exclusive front-page scoops.
+   - **[3] Clara Reyes (`FLASH-1` Photographer)** — Snaps Speed Graphic halftone photo proof on active leads (**1.8×** front-page circulation & revenue multiplier) and stuns rival operatives with her flashbulb.
+   - **[4] "Knuckles" Malone (`ENFORCE-1` Street Fixer)** — Intercepts *Daily Herald* rival reporters and *Observer Syndicate* saboteurs (+$35 bounty per neutralization).
+2. **② Click a Breaking Lead on the Map (or Pinned Yellow Telegram Wire Slip):**
+   - Dispatches your selected operative along street avenues to investigate the lead before rival *Daily Herald* reporters scoop it.
+3. **③ Plate Exclusive Scoops on the Broadsheet & Roll the Presses (`[SPACE]`):**
+   - At the start of each night shift, the 4 front-page columns (`Banner Headline 2.0×`, `Above-the-Fold Lead 1.5×`, `Darkroom Photo Exposé 1.6×`, `Editorial Column 1.2×`) hold faded sepia municipal **Wire Stand-In** stories.
+   - Verified scoops automatically rip off the wire stand-in and plate bold black-ink headlines, datelines, multi-column justified newspaper copy, and halftone darkroom plates onto the front page!
+   - Press **`[SPACE]`** (or pull the **🖨️ ROLL PRESSES** lever) at any time, or let the engraved brass flip-clock reach `12:00 AM` midnight to print the edition.
 
 ## Tech Stack & File Layout
 
@@ -26,13 +22,13 @@
 
 ```text
 late-edition/
-├── index.html          # 3-column Noir Newsroom & Broadsheet Press Deck UI
+├── index.html          # Two-Zone 1947 Mahogany Desk: Left Dispatch Blotter + Right Cream Broadsheet
 ├── css/
-│   └── style.css       # Smoky mahogany, brass & aged-parchment responsive layout
+│   └── style.css       # Burled mahogany, green leather blotter, manila press passes & aged newsprint
 ├── js/
-│   ├── main.js         # UI controller, input bindings & showcase state
+│   ├── main.js         # UI controller, wire stand-in/paste-up renderer & input bindings
 │   ├── sim.js          # Deterministic 1947 city-dispatch, rival AI & edition economy
-│   ├── renderer.js     # 2.5D extruded noir city blocks, wet streetlamp reflections & rain
+│   ├── renderer.js     # 2.5D extruded noir landmarks, wet streetlamp reflections & rain
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
 │   └── audio.js        # Hybrid MP3 + procedural WebAudio typewriter, flashbulb & press SFX
 └── assets/

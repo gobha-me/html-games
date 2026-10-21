@@ -3,209 +3,212 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LATE EDITION // 1947 — Noir Newsroom &amp; City Dispatch</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <title>LATE EDITION // 1947 — Noir Newsroom Desk &amp; Broadsheet Paste-Up</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,600&family=IBM+Plex+Mono:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,700;0,6..72,800;1,6..72,500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <div class="newsroom-shell">
-    <!-- TOP MASTHEAD BAR -->
-    <header class="masthead-bar">
-      <div class="masthead-brand">
-        <span class="masthead-kicker">THE METROPOLITAN CHRONICLE // NIGHT DESK</span>
-        <h1>LATE EDITION <span class="accent-gold">// 1947</span></h1>
-      </div>
-
-      <div class="masthead-telemetry">
-        <div class="stat-pill">
-          <span class="stat-label">EDITION</span>
-          <strong id="hud-edition">1 / 5</strong>
-        </div>
-        <div class="stat-pill clock-pill">
-          <span class="stat-label">PRESS DEADLINE</span>
-          <strong id="hud-clock">11:00 PM</strong>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-label">CIRCULATION</span>
-          <strong id="hud-circulation" class="accent-gold">48,200</strong>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-label">TREASURY</span>
-          <strong id="hud-funds" class="accent-emerald">$420</strong>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-label">CREDIBILITY</span>
-          <strong id="hud-credibility" class="accent-cyan">86%</strong>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-label">MOB HEAT</span>
-          <strong id="hud-heat" class="accent-crimson">18%</strong>
+  <div class="newsroom-desk">
+    <!-- ── TOP ART-DECO BRASS & BAKELITE NIGHT-DESK RAIL ── -->
+    <header class="brass-rail">
+      <div class="rail-brand">
+        <a href="../" class="back-to-arcade" title="Return to Arcade Launcher">← Arcade</a>
+        <div class="plaque-title">
+          <span class="plaque-kicker">THE METROPOLITAN CHRONICLE · NIGHT DESK</span>
+          <h1>LATE EDITION <em>// 1947</em></h1>
         </div>
       </div>
 
-      <div class="masthead-controls">
+      <!-- Managing Editor Live Directive Strip -->
+      <div class="editor-strip">
+        <img
+          src="assets/sprites/portrait_editor.png"
+          alt="Managing Editor Lou Vance"
+          class="editor-portrait"
+        />
+        <div class="editor-bubble">
+          <span class="editor-tag">LOU VANCE // MANAGING EDITOR</span>
+          <p id="editor-directive" class="editor-quote">
+            "Rain's washing the blood off Pier 14, kid. Click any breaking lead on the map to dispatch Vance before the Herald steals our banner."
+          </p>
+        </div>
+      </div>
+
+      <!-- Diegetic 1947 Brass Flip-Clock & Engraved Night-Desk Ledger Plate -->
+      <div class="brass-ledger-plate">
+        <div class="flip-clock-unit">
+          <span class="fc-tag">EDITION <b id="hud-edition">#1</b> · DEADLINE 12:00 AM</span>
+          <strong id="hud-clock" class="fc-time">06:00 PM</strong>
+        </div>
+        <div class="ledger-divider"></div>
+        <div class="ledger-metric">
+          <span class="dial-lbl">CIRCULATION</span>
+          <strong id="hud-circulation" class="accent-gold">18,400</strong>
+        </div>
+        <div class="ledger-divider"></div>
+        <div class="ledger-metric">
+          <span class="dial-lbl">DESK FUNDS</span>
+          <strong id="hud-funds" class="accent-emerald">$340</strong>
+        </div>
+        <div class="ledger-divider"></div>
+        <div class="ledger-metric">
+          <span class="dial-lbl">PUBLIC TRUST</span>
+          <strong id="hud-credibility" class="accent-cyan">74%</strong>
+        </div>
+        <div class="ledger-divider"></div>
+        <div class="ledger-metric">
+          <span class="dial-lbl">MOB HEAT</span>
+          <strong id="hud-heat" class="accent-crimson">22%</strong>
+        </div>
+      </div>
+
+      <!-- Bakelite Speed Switches & Rotary Press Lever -->
+      <div class="rail-controls">
         <div class="speed-group" role="group" aria-label="Simulation speed">
           <button id="btn-pause" class="btn-chip" title="Pause simulation (P)">PAUSE</button>
           <button id="btn-speed-1" class="btn-chip active" title="Normal speed">1×</button>
           <button id="btn-speed-2" class="btn-chip" title="Fast speed">2×</button>
         </div>
-        <button id="btn-audio" class="btn-chip" title="Toggle Noir Jazz &amp; SFX (M)">SOUND: ON</button>
-        <button id="btn-roll-press" class="btn-press-cta" title="Lock front page and roll the rotary presses (Space)">
-          ROLL THE PRESSES
+        <button id="btn-audio" class="btn-chip active" title="Toggle Noir Jazz &amp; SFX (M)">🔊 JAZZ</button>
+        <button id="btn-roll-press" class="btn-press-lever" title="Lock front page and roll the rotary presses [Space]">
+          🖨️ ROLL PRESSES [SPC]
         </button>
       </div>
     </header>
 
-    <!-- 3-COLUMN TACTICAL NEWSROOM WORKSPACE -->
-    <main class="workspace-grid">
-      <!-- LEFT WING: MANAGING EDITOR, OPERATIVE ROSTER & WIRE LEADS -->
-      <aside class="wing-panel left-wing">
-        <!-- Managing Editor & Desk Actions -->
-        <section class="panel-card editor-card">
-          <div class="editor-header">
-            <img
-              src="assets/sprites/portrait_editor.png"
-              alt="Managing Editor Lou Vance"
-              class="editor-portrait"
-            />
-            <div class="editor-meta">
-              <div class="card-kicker">MANAGING EDITOR // LOU VANCE</div>
-              <p id="editor-directive" class="editor-quote">
-                "Rain's washing the blood off Pier 9, kid. Get Malone and Vega on the street before the Sentinel steals our banner."
-              </p>
-            </div>
-          </div>
-          <div class="desk-actions">
-            <button id="act-wiretap" class="btn-action">
-              <span class="act-title">[Q] Wiretap Police Band</span>
-              <span class="act-cost">$90</span>
-            </button>
-            <button id="act-bribe" class="btn-action">
-              <span class="act-title">[W] Pay Off Precinct</span>
-              <span class="act-cost">$120</span>
-            </button>
-            <button id="act-fortify" class="btn-action">
-              <span class="act-title">[E] Fortify Press Room</span>
-              <span class="act-cost">$110</span>
-            </button>
-          </div>
-        </section>
-
-        <!-- Operative Dispatch Roster -->
-        <section class="panel-card roster-card">
-          <div class="section-header">
-            <span>PRESS CORPS OPERATIVES</span>
-            <span class="hint-tag">KEYS [1–4]</span>
-          </div>
-          <div id="operative-list" class="operative-list"></div>
-        </section>
-
-        <!-- Active City Wire Leads -->
-        <section class="panel-card leads-card">
-          <div class="section-header">
-            <span>BREAKING CITY LEADS</span>
-            <span id="leads-count" class="hint-tag">0 ACTIVE</span>
-          </div>
-          <div id="lead-list" class="lead-list"></div>
-        </section>
-      </aside>
-
-      <!-- CENTER STAGE: 2.5D RAIN-SLICKED NOIR METROPOLIS MAP + SCOOP TRAY -->
-      <section class="center-stage">
+    <!-- ── TWO-ZONE MAHOGANY DESK WORKSPACE: LEFT PRECINCT DISPATCH MAP (60%) | RIGHT CREAM BROADSHEET PASTE-UP (40%) ── -->
+    <main class="desk-workspace">
+      <!-- ZONE 1 (LEFT 60%): GREEN-LEATHER PRECINCT DISPATCH BLOTTER, PINNED WIRE SLIPS & MANILA PRESS PASSES -->
+      <section class="dispatch-blotter">
         <div class="map-frame">
+          <!-- 1-2-3 Night Editor Onboarding Bar -->
           <div class="map-hud-bar">
+            <div class="workflow-steps">
+              <span class="wf-step"><b>①</b> PICK PRESS PASS [1–4]</span>
+              <span class="wf-sep">→</span>
+              <span class="wf-step"><b>②</b> CLICK LEAD ON MAP</span>
+              <span class="wf-sep">→</span>
+              <span class="wf-step"><b>③</b> PLATE &amp; ROLL PRESS [SPC]</span>
+            </div>
             <div class="map-instruction">
               <span class="dot-live"></span>
               <span id="map-selection-status">
-                UNIT [1] JACK MALONE SELECTED — CLICK ANY BREAKING LEAD NODE TO DISPATCH
+                UNIT [1] JACK VANCE SELECTED — CLICK ANY BREAKING LEAD ON MAP TO DISPATCH
               </span>
             </div>
-            <div class="map-legend">
-              <span class="legend-item"><i class="swatch crime"></i>Crime</span>
-              <span class="legend-item"><i class="swatch politics"></i>Politics</span>
-              <span class="legend-item"><i class="swatch society"></i>Society</span>
-              <span class="legend-item"><i class="swatch labor"></i>Labor</span>
-            </div>
           </div>
 
-          <canvas id="city-canvas" width="960" height="640"></canvas>
+          <!-- 2.5D Rain-Slicked Noir Metropolis Canvas -->
+          <div class="map-canvas-wrap">
+            <canvas id="city-canvas" width="980" height="640"></canvas>
+
+            <!-- Pinned Yellow Western Union / AP Teletype Wire Slips Overlaid at Top-Right of Map Board -->
+            <aside class="pinned-wires-overlay" aria-label="Breaking City Wire Slips">
+              <div class="wire-pin-header">
+                <span class="pin-tack"></span>
+                <span>BREAKING WIRE SLIPS (CLICK TO DISPATCH)</span>
+                <strong id="leads-count">3 ACTIVE</strong>
+              </div>
+              <div id="lead-list" class="lead-slip-stack"></div>
+            </aside>
+          </div>
         </div>
 
-        <!-- Bottom Scoop Tray & Teletype Ticker -->
-        <div class="bottom-desk-strip">
-          <div class="scoop-tray-panel">
-            <div class="section-header">
-              <span>VERIFIED SCOOP TRAY (CLICK TO SLOT INTO FRONT PAGE)</span>
-              <button id="btn-auto-layout" class="btn-mini-gold" title="Auto-fill front page with highest value scoops (A)">
-                [A] AUTO-LAYOUT BEST SCOOPS
-              </button>
+        <!-- Bottom Desk Tray: 4 Horizontal Manila Press-Pass Credentials + Switchboard Ops & Teletype Tape -->
+        <div class="blotter-bottom-tray">
+          <!-- 4 Manila Press-Pass Cards -->
+          <div class="press-corps-rack">
+            <div class="rack-header">
+              <span>PRESS CORPS CREDENTIALS — CLICK PASS OR PRESS [1–4], THEN CLICK ANY CITY LEAD</span>
+              <div class="desk-actions">
+                <button id="act-wiretap" class="btn-action" title="Intercept 2 fresh police-band leads [Q]">
+                  <span>📞 [Q] Wiretap</span>
+                  <b class="act-cost">$65</b>
+                </button>
+                <button id="act-bribe" class="btn-action" title="Take syndicate hush-money (-10% Cred, -16% Heat) [W]">
+                  <span>💼 [W] Hush-Money</span>
+                  <b class="act-cost">+$160</b>
+                </button>
+                <button id="act-fortify" class="btn-action" title="Repair Rotary Press to 100% &amp; repel saboteurs [E]">
+                  <span>🛡️ [E] Guard Press</span>
+                  <b class="act-cost">$75</b>
+                </button>
+              </div>
             </div>
-            <div id="scoop-tray" class="scoop-tray"></div>
+            <div id="operative-list" class="operative-pass-grid"></div>
           </div>
 
-          <div class="wire-ticker-panel">
-            <div class="section-header">
-              <span>TELETYPE WIRE LOG</span>
-              <span class="hint-tag">LIVE 1947 AP WIRE</span>
+          <!-- Live 1947 AP Teletype Paper Roll -->
+          <div class="teletype-roll-box">
+            <div class="teletype-head">
+              <span>AP TELETYPE TAPE</span>
+              <span>1947 NIGHT WIRE</span>
             </div>
             <div id="wire-log" class="wire-log"></div>
           </div>
         </div>
       </section>
 
-      <!-- RIGHT WING: FRONT-PAGE BROADSHEET COMPOSER & ROTARY PRESS -->
-      <aside class="wing-panel right-wing">
-        <section class="panel-card broadsheet-card">
-          <div class="broadsheet-paper">
-            <div class="broadsheet-masthead">
-              <div class="paper-ears">
-                <span>WEATHER: HEAVY RAIN</span>
-                <span>PRICE: FIVE CENTS</span>
+      <!-- ZONE 2 (RIGHT 40%): FULL-HEIGHT 1947 CREAM NEWSPRINT FRONT-PAGE PASTE-UP SHEET -->
+      <aside class="broadsheet-pasteup">
+        <div class="broadsheet-paper">
+          <!-- Authentic 1947 Newspaper Masthead -->
+          <div class="broadsheet-masthead">
+            <div class="paper-ears">
+              <div class="ear-box">WEATHER<br /><strong>HEAVY RAIN</strong></div>
+              <div class="masthead-title-block">
+                <span class="paper-motto">“ALL THE NEWS THAT SURVIVES THE NIGHT” · EST. 1889</span>
+                <h2>THE METROPOLITAN CHRONICLE</h2>
               </div>
-              <h2>THE METROPOLITAN CHRONICLE</h2>
-              <div class="paper-subbar">
-                <span id="paper-edition-label">LATE NIGHT EDITION #1</span>
-                <span id="paper-projected- readers">EST. +0 READERS</span>
-              </div>
+              <div class="ear-box">LATE FINAL<br /><strong>FIVE CENTS</strong></div>
             </div>
-
-            <div id="layout-slots" class="broadsheet-slots"></div>
-          </div>
-        </section>
-
-        <section class="panel-card pressroom-card">
-          <div class="pressroom-row">
-            <img
-              src="assets/sprites/masthead_press.png"
-              alt="1947 Rotary Printing Press"
-              class="press-illustration"
-            />
-            <div class="press-stats">
-              <div class="card-kicker">ROTARY PRESS PROJECTION</div>
-              <div class="proj-line">
-                <span>Projected Circulation:</span>
-                <strong id="proj-circ" class="accent-gold">+0</strong>
-              </div>
-              <div class="proj-line">
-                <span>Ad &amp; Street Revenue:</span>
-                <strong id="proj-cash" class="accent-emerald">+$140</strong>
-              </div>
-              <div class="proj-line">
-                <span>Credibility Shift:</span>
-                <strong id="proj-cred" class="accent-cyan">+0%</strong>
-              </div>
-              <div class="proj-line">
-                <span>Mob Heat Delta:</span>
-                <strong id="proj-heat" class="accent-crimson">+0%</strong>
-              </div>
+            <div class="paper-subbar">
+              <span id="paper-edition-label">VOL. LVIII · LATE NIGHT EDITION #1</span>
+              <span>METROPOLIS, OCT. 1947</span>
+              <span id="paper-projected- readers" class="red-stamp-inline">EST. +0 READERS</span>
             </div>
           </div>
 
-          <div class="section-header rival-header">
-            <span>SYNDICATE RIVAL CIRCULATIONS</span>
-            <span class="hint-tag">MARKET SHARE</span>
+          <!-- Multi-Column Front-Page Paste-Up Grid (Banner Across Top + 2-Column Below) -->
+          <div id="layout-slots" class="broadsheet-slots"></div>
+
+          <!-- Verified Scoop Paste-Up Tray (Sitting on the bottom margin of the newsprint sheet) -->
+          <div class="pasteup-scoop-strip">
+            <div class="pasteup-strip-head">
+              <span>COPY DESK SCOOP TRAY (CLICK TO PLATE ABOVE)</span>
+              <button id="btn-auto-layout" class="btn-ink-stamp" title="Auto-fill front page with highest value scoops [A]">
+                [A] AUTO-PLATE BEST SCOOPS
+              </button>
+            </div>
+            <div id="scoop-tray" class="scoop-tray"></div>
           </div>
-          <div id="rival-standings" class="rival-standings"></div>
-        </section>
+
+          <!-- Bottom Rotary Press Ledger & Syndicate Circulation Standings Printed in Footer -->
+          <div class="broadsheet-footer-ledger">
+            <div class="pressroom-summary">
+              <img
+                src="assets/sprites/masthead_press.png"
+                alt="1947 Rotary Printing Press"
+                class="press-illustration"
+              />
+              <div class="press-stats">
+                <div class="ledger-title">ROTARY PRESS RUN PROJECTION</div>
+                <div class="proj-grid">
+                  <div><span>READERS:</span> <strong id="proj-circ">+0</strong></div>
+                  <div><span>REVENUE:</span> <strong id="proj-cash">+$110</strong></div>
+                  <div><span>TRUST:</span> <strong id="proj-cred">+0%</strong></div>
+                  <div><span>MOB HEAT:</span> <strong id="proj-heat">+0%</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rival-ledger">
+              <div class="ledger-title">CITY CIRCULATION STANDINGS</div>
+              <div id="rival-standings" class="rival-standings"></div>
+            </div>
+          </div>
+        </div>
       </aside>
     </main>
 
@@ -217,13 +220,12 @@
         <p id="modal-subtitle" class="modal-subtitle"></p>
         <div id="modal-metrics" class="modal-metrics"></div>
         <div class="modal-actions">
-          <button id="btn-modal-continue" class="btn-press-cta">START NEXT NIGHT SHIFT</button>
+          <button id="btn-modal-continue" class="btn-press-lever">START NEXT NIGHT SHIFT [SPACE]</button>
         </div>
       </div>
     </div>
   </div>
 
-  <a href="../" class="back-to-arcade">← Back to Arcade</a>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
