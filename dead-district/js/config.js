@@ -352,8 +352,8 @@ export function buildDistrictMap() {
       drawW: 144,
       drawH: 74,
       headlights: [
-        { side: 'left', lx: 0.45, ly: -0.27, range: 310, spread: 0.29, color: 'rgba(253, 224, 71, 0.38)', tint: '#fde047', state: 'on' },
-        { side: 'right', lx: 0.45, ly: 0.27, range: 0, spread: 0.2, color: 'rgba(253, 224, 71, 0)', tint: '#f59e0b', state: 'broken' },
+        { side: 'left', lx: 0.45, ly: -0.27, range: 310, baseRange: 310, spread: 0.29, color: 'rgba(253, 224, 71, 0.38)', tint: '#fde047', state: 'on' },
+        { side: 'right', lx: 0.45, ly: 0.27, range: 0, baseRange: 310, spread: 0.29, color: 'rgba(253, 224, 71, 0.38)', tint: '#fde047', state: 'broken' },
       ],
       taillights: [
         { lx: -0.46, ly: -0.28, color: '#dc2626' },
@@ -423,11 +423,19 @@ export function buildDistrictMap() {
     { x: 1035, y: 745, r: 175, color: 'rgba(251, 191, 36, 0.22)', flicker: 0.08 },
     { x: 800, y: 600, r: 210, color: 'rgba(56, 189, 248, 0.18)', flicker: 0.04 }, // Central Supply Drop Beacon
     // Interior emergency bulbs
-    { x: 300, y: 250, r: 185, color: 'rgba(16, 185, 129, 0.16)', flicker: 0.12 },
-    { x: 1300, y: 250, r: 185, color: 'rgba(56, 189, 248, 0.16)', flicker: 0.12 },
-    { x: 300, y: 950, r: 185, color: 'rgba(245, 158, 11, 0.16)', flicker: 0.12 },
-    { x: 1300, y: 950, r: 185, color: 'rgba(244, 63, 94, 0.16)', flicker: 0.12 },
+    { x: 300, y: 250, r: 185, baseR: 185, color: 'rgba(16, 185, 129, 0.16)', flicker: 0.12 },
+    { x: 1300, y: 250, r: 185, baseR: 185, color: 'rgba(56, 189, 248, 0.16)', flicker: 0.12 },
+    { x: 300, y: 950, r: 185, baseR: 185, color: 'rgba(245, 158, 11, 0.16)', flicker: 0.12 },
+    { x: 1300, y: 950, r: 185, baseR: 185, color: 'rgba(244, 63, 94, 0.16)', flicker: 0.12 },
   ];
 
-  return { buildings, walls, barricades, lights };
+  // 4 Safe-Room Interior Wall Breaker Boxes ([E] floods safe-room & doorway approaches with 310px light for 40s)
+  const breakers = [
+    { id: 'nw_breaker', bldgId: 'pharmacy', name: 'Pharmacy Floodlight Breaker', x: 126, y: 126, lightIdx: 5, activeTimer: 0, color: '#10b981' },
+    { id: 'ne_breaker', bldgId: 'precinct', name: 'Precinct Armory Breaker',     x: 1474, y: 126, lightIdx: 6, activeTimer: 0, color: '#38bdf8' },
+    { id: 'sw_breaker', bldgId: 'garage',   name: 'Garage High-Bay Breaker',     x: 126, y: 1074, lightIdx: 7, activeTimer: 0, color: '#f59e0b' },
+    { id: 'se_breaker', bldgId: 'diner',    name: 'Diner Neon Grid Breaker',     x: 1474, y: 1074, lightIdx: 8, activeTimer: 0, color: '#f43f5e' },
+  ];
+
+  return { buildings, walls, barricades, lights, breakers };
 }

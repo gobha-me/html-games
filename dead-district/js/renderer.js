@@ -287,13 +287,20 @@ export class DeadDistrictRenderer {
       }
     }
 
-    // 5. Active Thermite Fire Pools & Sentry Turrets
+    // 5. Active Thermite Fire Pools, Magnesium Road Flares & Sentry Turrets
     for (const hz of sim.hazards) {
       if (hz.type !== 'fire') continue;
       const d = Math.hypot(wx - hz.x, wy - hz.y);
       const fireR = hz.r * 2.2;
       if (d < fireR) {
         level += 0.85 * (1 - d / fireR);
+      }
+    }
+
+    for (const fl of sim.flares || []) {
+      const d = Math.hypot(wx - fl.x, wy - fl.y);
+      if (d < fl.r) {
+        level += 0.92 * Math.pow(1 - d / fl.r, 1.2);
       }
     }
 
@@ -1067,7 +1074,7 @@ export class DeadDistrictRenderer {
       lctx.fill();
     }
 
-    // 5. Active Fire Pools
+    // 5. Active Fire Pools & Magnesium Road Flares (#33)
     for (const hz of sim.hazards) {
       if (hz.type !== 'fire') continue;
       const hx = hz.x - this.camX;
@@ -1079,6 +1086,21 @@ export class DeadDistrictRenderer {
       lctx.fillStyle = g;
       lctx.beginPath();
       lctx.arc(hx, hy, r, 0, Math.PI * 2);
+      lctx.fill();
+    }
+
+    for (const fl of sim.flares || []) {
+      const fx = fl.x - this.camX;
+      const fy = fl.y - this.camY;
+      const flick = 0.94 + 0.06 * Math.sin(sim.time * 28 + fl.x);
+      const r = fl.r * flick;
+      const g = lctx.createRadialGradient(fx, fy, 6, fx, fy, r);
+      g.addColorStop(0, 'rgba(0,0,0,0.95)');
+      g.addColorStop(0.65, 'rgba(0,0,0,0.68)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      lctx.fillStyle = g;
+      lctx.beginPath();
+      lctx.arc(fx, fy, r, 0, Math.PI * 2);
       lctx.fill();
     }
 
@@ -1285,6 +1307,22 @@ export class DeadDistrictRenderer {
       }
     }
 
+    // D. Red Magnesium Road Flares additive crimson glow (#33)
+    for (const fl of sim.flares || []) {
+      const fx = fl.x - this.camX;
+      const fy = fl.y - this.camY;
+      const pulse = 0.85 + 0.15 * Math.sin(sim.time * 32 + fl.x);
+      const fg = mainCtx.createRadialGradient(fx, fy, 2, fx, fy, fl.r * pulse);
+      fg.addColorStop(0, 'rgba(255, 241, 242, 0.85)');
+      fg.addColorStop(0.22, 'rgba(244, 63, 94, 0.42)');
+      fg.addColorStop(0.65, 'rgba(225, 29, 72, 0.14)');
+      fg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      mainCtx.fillStyle = fg;
+      mainCtx.beginPath();
+      mainCtx.arc(fx, fy, fl.r * pulse, 0, Math.PI * 2);
+      mainCtx.fill();
+    }
+
     mainCtx.restore();
   }
 
@@ -1336,7 +1374,7 @@ export class DeadDistrictRenderer {
   drawPostLightOverlays(ctx, sim) {
     const p = sim.player;
 
-    // SubtleVehicle Stencil Callouts when near or lit
+    // Subtle Vehicle Stencil Callouts & Interactive [E] Hotwire / Breaker Prompts (#33)
     for (const w of sim.walls) {
       if (w.type !== 'vehicle') continue;
       const vState = w._vState;
@@ -1344,13 +1382,56 @@ export class DeadDistrictRenderer {
       const d = Math.hypot(vState.cx - p.x, vState.cy - p.y);
       if (d < 340) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0.22, (1 - d / 340) * 0.65);
-        ctx.fillStyle = '#94a3b8';
+        ctx.globalAlpha = Math.max(0.22, (1 - d / 340) * 0.78);
+        ctx.fillStyle = w.alarmTimer > 0 ? '#fde047' : '#94a3b8';
         ctx.font = '700 8.5px "IBM Plex Mono", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(w.label, vState.cx, w.y - 8);
+        const prompt = d < 125
+          ? `[E] HOTWIRE ${w.label} (ALARM + HIGH-BEAMS)`
+          : w.alarmTimer > 0
+            ? `🔊 ${w.label} ALARM (${Math.ceil(w.alarmTimer)}s)`
+            : w.label;
+        ctx.fillText(prompt, vState.cx, w.y - 8);
         ctx.restore();
       }
+    }
+
+    // Safe-Room Wall Breaker Boxes & Active Road Flares (#33)
+    for (const br of sim.breakers || []) {
+      const d = Math.hypot(br.x - p.x, br.y - p.y);
+      ctx.save();
+      ctx.fillStyle = br.activeTimer > 0 ? br.color : '#1e293b';
+      ctx.strokeStyle = br.activeTimer > 0 ? '#ffffff' : br.color;
+      ctx.lineWidth = 1.6;
+      ctx.fillRect(br.x - 7, br.y - 7, 14, 14);
+      ctx.strokeRect(br.x - 7, br.y - 7, 14, 14);
+      if (d < 240 || br.activeTimer > 0) {
+        ctx.fillStyle = br.activeTimer > 0 ? '#fef08a' : '#cbd5e1';
+        ctx.font = '700 8px "IBM Plex Mono", monospace';
+        ctx.textAlign = 'center';
+        const txt = br.activeTimer > 0
+          ? `💡 FLOODLIT (${Math.ceil(br.activeTimer)}s)`
+          : d < 125
+            ? '[E] FLIP FLOODLIGHT BREAKER'
+            : 'BREAKER [E]';
+        ctx.fillText(txt, br.x, br.y - 12);
+      }
+      ctx.restore();
+    }
+
+    for (const fl of sim.flares || []) {
+      ctx.save();
+      ctx.translate(fl.x, fl.y);
+      ctx.fillStyle = '#e11d48';
+      ctx.strokeStyle = '#fecdd3';
+      ctx.lineWidth = 1.4;
+      ctx.fillRect(-6, -2.5, 12, 5);
+      ctx.strokeRect(-6, -2.5, 12, 5);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(6, 0, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
     // Distance & Light-Gated Sensory Cues for Unlit / Penumbra Infected

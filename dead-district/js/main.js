@@ -197,6 +197,12 @@ window.addEventListener('keydown', (e) => {
   } else if (k === 'G') {
     sim.throwMolotov(aimWorldX, aimWorldY);
     syncHud();
+  } else if (k === 'X') {
+    sim.throwFlare(aimWorldX, aimWorldY);
+    syncHud();
+  } else if (k === 'E') {
+    sim.interactEnvironmental();
+    syncHud();
   } else if (k === 'T') {
     sim.deployTurret();
     syncHud();
@@ -315,6 +321,10 @@ document.getElementById('belt-medkit')?.addEventListener('click', () => {
 });
 document.getElementById('belt-molotov')?.addEventListener('click', () => {
   sim.throwMolotov(aimWorldX, aimWorldY);
+  syncHud();
+});
+document.getElementById('belt-flare')?.addEventListener('click', () => {
+  sim.throwFlare(aimWorldX, aimWorldY);
   syncHud();
 });
 document.getElementById('belt-turret')?.addEventListener('click', () => {
@@ -463,6 +473,8 @@ function syncHud() {
   if (medEl) medEl.textContent = String(p.medkits);
   const molEl = document.getElementById('hud-molotovs');
   if (molEl) molEl.textContent = String(p.molotovs);
+  const flrEl = document.getElementById('hud-flares');
+  if (flrEl) flrEl.textContent = String(p.flares ?? 0);
   const turEl = document.getElementById('hud-turrets');
   if (turEl) turEl.textContent = String(p.turretKits);
   const beamEl = document.getElementById('hud-beam');
