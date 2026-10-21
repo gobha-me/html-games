@@ -10,6 +10,8 @@ import {
   STEAM_SYSTEMS,
   TOTAL_STEAM_BARS,
   ENEMY_ARCHETYPES,
+  CAR_REFIT_MODULES,
+  TRACK_BRANCHES,
   SECTOR_NODES,
 } from './config.js';
 
@@ -36,6 +38,8 @@ export class IronwakeSim {
     this.nodeIndex = 0;
     this.currentNode = { ...SECTOR_NODES[0] };
     this.distanceTraveledKm = 0;
+    this.trackBranch = 'upper'; // 'upper' | 'lower'
+    this.refitCursor = 0;
 
     this.scrap = 185;
     this.score = 0;
@@ -324,6 +328,57 @@ export class IronwakeSim {
     return true;
   }
 
+  refitSelectedCar() {
+    let car = this.cars.find((c) => c.id === this.selectedCarId) || this.cars[1];
+    if (car.id === 'loco') {
+      car = this.cars[1];
+      this.selectedCarId = car.id;
+    }
+    const cost = 45;
+    if (this.scrap < cost) return false;
+    this.scrap -= cost;
+
+    const mod =
+      CAR_REFIT_MODULES[this.refitCursor % CAR_REFIT_MODULES.length];
+    this.refitCursor += 1;
+
+    car.name = mod.name;
+    car.role = mod.role;
+    car.weaponType = mod.weaponType;
+    car.weaponLabel = mod.weaponLabel;
+    car.reloadSec = mod.reloadSec;
+    car.damage = Math.round(mod.damage * Math.pow(1.22, car.weaponLevel - 1));
+    car.projSpeed = mod.projSpeed;
+    car.splashRadius = mod.splashRadius || 0;
+    car.color = mod.color;
+    car.accent = mod.accent;
+    car.desc = mod.desc;
+    car.hp = Math.min(car.maxHp, car.hp + 45);
+
+    if (this.audio) this.audio.playClick();
+    this.logEvent(
+      `DEPOT REFIT: Installed ${mod.name} (${mod.weaponLabel}) on CAR-0${car.index + 1}.`,
+      'scoop'
+    );
+    this.addCallout(car.x, car.y - 42, `🔧 REFIT: ${mod.name}`, mod.color);
+    return true;
+  }
+
+  toggleTrackBranch(branchId = null) {
+    this.trackBranch =
+      branchId || (this.trackBranch === 'upper' ? 'lower' : 'upper');
+    const b = TRACK_BRANCHES[this.trackBranch] || TRACK_BRANCHES.upper;
+    if (this.audio) this.audio.playClick();
+    this.logEvent(`RAIL SWITCH SET → ${b.label}: ${b.desc}`, 'ops');
+    this.addCallout(
+      WORLD_W * 0.5,
+      TRACK_Y - 52,
+      `🛤️ SWITCH: ${b.short}`,
+      '#fde68a'
+    );
+    return this.trackBranch;
+  }
+
   advanceToNextNode() {
     if (this.nodeIndex + 1 >= SECTOR_NODES.length) {
       this.victory = true;
@@ -340,8 +395,10 @@ export class IronwakeSim {
     this.projectiles = [];
     this.shieldHp = this.maxShieldHp;
 
+    const branchCfg = TRACK_BRANCHES[this.trackBranch] || TRACK_BRANCHES.upper;
+    const repairAmt = 60 + (branchCfg.repairBonus || 0);
     for (const c of this.cars) {
-      c.hp = Math.min(c.maxHp, c.hp + 60);
+      c.hp = Math.min(c.maxHp, c.hp + repairAmt);
     }
 
     if (this.currentNode.isBossNode) {
@@ -697,11 +754,26 @@ export class IronwakeSim {
     en.hp -= dmg;
     en.hitFlash = 0.22;
 
+    if (p.weaponType === 'cryo') {
+      this.boilerHeat = Math.max(0, this.boilerHeat - 2.5);
+      en.speed = Math.max(55, en.speed * 0.94);
+    } else if (p.weaponType === 'tesla') {
+      const other = this.enemies.find(
+        (o) => o.id !== en.id && Math.hypot(o.x - en.x, o.y - en.y) <= 210
+      );
+      if (other) {
+        other.hp -= Math.round(dmg * 0.45);
+        other.hitFlash = 0.18;
+        if (other.hp <= 0) this._handleEnemyDestroyed(other);
+      }
+    }
+
     // Apply subsystem damage if this enemy is focused
     const subKey = this.targetSubsystem || 'weapons';
     const sub = en.subsystems[subKey];
     if (sub && !sub.destroyed) {
-      sub.hp = Math.max(0, sub.hp - dmg * 0.85);
+      const subMul = p.weaponType === 'railgun' ? 1.35 : 0.85;
+      sub.hp = Math.max(0, sub.hp - dmg * subMul);
       if (sub.hp <= 0) {
         sub.destroyed = true;
         this.addCallout(
@@ -741,7 +813,12 @@ export class IronwakeSim {
     this.enemies = this.enemies.filter((e) => e.id !== en.id);
     this.harpoons = this.harpoons.filter((h) => h.enemyId !== en.id);
     this.kills += 1;
-    this.scrap += en.scrapReward;
+    const branchMul =
+      (TRACK_BRANCHES[this.trackBranch] &&
+        TRACK_BRANCHES[this.trackBranch].scrapMul) ||
+      1.0;
+    const scrapGain = Math.round(en.scrapReward * branchMul);
+    this.scrap += scrapGain;
     this.score += en.scoreReward;
 
     if (this.score > this.bestScore) {
@@ -764,11 +841,11 @@ export class IronwakeSim {
     this.addCallout(
       en.x,
       en.y - 20,
-      `💥 +${en.scrapReward} SCRAP`,
+      `💥 +${scrapGain} SCRAP`,
       '#fde68a'
     );
     this.logEvent(
-      `DESTROYED ${en.name} (+${en.scrapReward} Scrap, +${en.scoreReward} Score).`,
+      `DESTROYED ${en.name} (+${scrapGain} Scrap, +${en.scoreReward} Score).`,
       'scoop'
     );
 

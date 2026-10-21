@@ -26,9 +26,14 @@
       <div class="canopy-route-visor">
         <div class="visor-header">
           <span class="visor-label">SECTOR <strong id="hud-sector">1 / 4</strong> · <strong id="hud-distance">0.0 / 18 KM</strong></span>
-          <button id="btn-next-sector" class="btn-visor-jump" title="Advance to next sector node (N)">
-            [N] NEXT SECTOR ▸
-          </button>
+          <div style="display:flex;gap:4px">
+            <button id="btn-branch-switch" class="btn-visor-jump" title="Toggle railroad switch fork (B)">
+              [B] TRESTLE (+35% ⚙)
+            </button>
+            <button id="btn-next-sector" class="btn-visor-jump" title="Advance to next sector node (N)">
+              [N] NEXT ▸
+            </button>
+          </div>
         </div>
         <div id="sector-route-strip" class="sector-route-strip"></div>
       </div>
@@ -162,9 +167,14 @@
               37mm AP rotary sabots with automatic target lead.
             </span>
           </div>
-          <button id="btn-upgrade-car" class="btn-upgrade-consist">
-            [U] UPGRADE VULCAN-8 (60 ⚙) — +22% DMG &amp; +40 HULL
-          </button>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button id="btn-refit-car" class="btn-visor-jump" style="padding:6px 9px" title="Refit selected car [2-5] with Tesla, Cryo or Railgun module (R)">
+              [R] REFIT MODULE (45 ⚙)
+            </button>
+            <button id="btn-upgrade-car" class="btn-upgrade-consist">
+              [U] UPGRADE VULCAN-8 (60 ⚙) — +22% DMG &amp; +40 HULL
+            </button>
+          </div>
         </div>
       </main>
 

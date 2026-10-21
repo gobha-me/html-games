@@ -507,11 +507,19 @@ export class IronwakeRenderer {
         ctx.fillRect(5, -4, 24, 3);
         ctx.fillRect(5, 1, 24, 3);
         ctx.fillRect(5, 6, 21, 3);
-      } else if (car.weaponType === 'plasma') {
-        // Heavy siege mortar barrel
+      } else if (car.weaponType === 'plasma' || car.weaponType === 'cryo') {
+        // Heavy siege / cryo mortar barrel
         ctx.fillRect(4, -6, 22, 12);
-        ctx.fillStyle = '#ef4444';
+        ctx.fillStyle = car.weaponType === 'cryo' ? '#06b6d4' : '#ef4444';
         ctx.fillRect(22, -4, 5, 8);
+      } else if (car.weaponType === 'tesla') {
+        // High-voltage Tesla arc prongs
+        ctx.fillRect(5, -7, 22, 3);
+        ctx.fillRect(5, 4, 22, 3);
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(27, 0, 4.5, 0, Math.PI * 2);
+        ctx.fill();
       } else {
         // Twin high-velocity rotary barrels
         ctx.fillRect(6, -6, 24, 4);
