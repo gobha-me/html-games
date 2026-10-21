@@ -9,17 +9,19 @@ test('plating an arc out of order preserves the highest published part', () => {
   const arcStory = (part) => story(`part_${part}`, { ...arc.parts[part - 1],
     arcId: arc.id, arcPart: part, arcTitle: arc.title });
   sim.scoopedStories.push(arcStory(3));
-  assert.equal(sim.plateStoryToFrontPage('part_3', 'banner'), true);
+  sim.lockUp();
+  assert.equal(sim.placeStory('part_3', 'banner').ok, true);
   assert.equal(sim.arcProgress[arc.id], 0, 'Plating alone does not unlock the next part');
   assert.equal(sim.calculateEditionProjection().seriesBonusReaders, 4500);
   sim.publishEdition();
   assert.equal(sim.arcProgress[arc.id], 3, 'Legacy progress records the highest published part');
   assert.equal(sim.editionSummary.cashDelta, 880);
   assert.equal(sim.editionSummary.circDelta, 12620);
-  assert.equal(sim.editionSummary.heatDelta, 14, 'Finale reduces heat by 12');
+  assert.equal(sim.editionSummary.heatDelta, 22, 'Finale reduces heat by 12');
   sim.step(0.05);
   sim.scoopedStories.push(arcStory(1));
-  sim.plateStoryToFrontPage('part_1', 'editorial');
+  sim.lockUp();
+  sim.placeStory('part_1', 'editorial');
   sim.publishEdition();
   assert.equal(sim.arcProgress[arc.id], 3, 'An older part cannot regress progress');
 });
@@ -58,7 +60,8 @@ test('arc spawning avoids duplicates on the map, in the queue and on the page', 
   sim.spawnLead();
   assert.equal(sim.spawnLead(), null, 'The map holds at most four leads');
   sim.leads = [];
-  sim.plateStoryToFrontPage('queued', 'banner');
+  sim.lockUp();
+  sim.placeStory('queued', 'banner');
   sim.arcRotation = 0;
   assert.notEqual(sim.spawnLead().arcId, arc.id, 'A plated unpublished part blocks another copy');
   sim.arcProgress = Object.fromEntries(INVESTIGATIVE_ARCS.map((a) => [a.id, 3]));
@@ -75,7 +78,7 @@ test('a scoop cannot be completed twice or fabricate a nonexistent lead', () => 
   assert.equal(sim.completeLeadScoop({ ...lead, uid: 'missing' }), false);
   assert.equal(sim.getStateHash(), hash);
   assert.equal(sim.scoopsTotal, 1);
-  assert.equal(Object.values(sim.frontPage).filter(Boolean).length, 1);
+  assert.equal(Object.values(sim.frontPage).filter(Boolean).length, 0);
 });
 
 test('when all slots are full, scoops stay queued instead of displacing plates', () => {

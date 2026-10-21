@@ -1578,3 +1578,70 @@ button:focus-visible,
   background: #b5893f;
   color: #0e0d0c;
 }
+
+/* #85: paste-up uses only the locked period palette; legacy desk art is separate. */
+.paste-up-active {
+  grid-template-columns: 0.65fr 1.4fr;
+}
+
+.paste-up-active .broadsheet-paper {
+  overflow-y: auto;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.paste-up-active .broadsheet-slots {
+  flex-shrink: 0;
+}
+
+#pasteup-controls,
+#layout-status {
+  color: #0e0d0c;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+#layout-destinations,
+#inside-stories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.paste-up-active .scoop-tray {
+  max-height: 150px;
+}
+
+.scoop-chip,
+.paper-slot[data-story-uid] {
+  touch-action: none;
+}
+
+.selected-copy,
+.drop-target {
+  outline: 3px solid #e8a23a;
+  outline-offset: -3px;
+}
+
+.drag-copy {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  padding: 8px;
+  background: #ede4ce;
+  color: #0e0d0c;
+  border: 2px solid #b5893f;
+  font-family: var(--font-mono);
+}
+
+.paste-up-active .btn-ink-stamp {
+  background: #a3221b;
+  color: #ede4ce;
+  border-color: #6b655c;
+}
+
+.paste-up-active .scoop-chip {
+  background: #ede4ce;
+  color: #0e0d0c;
+  border-color: #6b655c;
+}

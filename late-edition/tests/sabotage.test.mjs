@@ -96,5 +96,5 @@ test('photographer captures proof once, then assists an already verified lead', 
   assert.equal(lead.progress, 28.8);
   assert.equal(photographer.targetLeadId, lead.uid);
   sim.completeLeadScoop(lead);
-  assert.equal(sim.frontPage.photo_expose.photoVerified, true);
+  assert.equal(sim.scoopedStories[0].photoVerified, true);
 });

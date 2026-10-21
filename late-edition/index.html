@@ -187,15 +187,28 @@
             </div>
           </div>
 
+          <button type="button" id="btn-lock-page" class="btn-ink-stamp">Lock up the page [L]</button>
+          <div id="pasteup-controls" hidden>
+            <p>Select copy with Tab or arrows. Assign: 1/B Banner · 2/F Fold · 3/P Photo · 4/E Editorial · 5/I Inside · 6/S Spike. U returns placed copy to tray.</p>
+            <div id="layout-destinations">
+              <button type="button" class="btn-ink-stamp" data-slot-id="inside">[5/I] Inside · ¼ value &amp; heat</button>
+              <button type="button" class="btn-ink-stamp" data-slot-id="spike">[6/S] Spike</button>
+              <button type="button" id="btn-unplace" class="btn-ink-stamp">Return to tray [U]</button>
+            </div>
+            <div id="inside-stories" role="group" aria-label="Inside stories"></div>
+            <p><span id="spiked-count">0 SPIKED</span> · <span id="assist-note">MANUAL PASTE-UP</span></p>
+          </div>
+          <p id="layout-status" role="status" aria-live="polite"></p>
+
           <!-- Multi-Column Front-Page Paste-Up Grid (Banner Across Top + 2-Column Below) -->
           <div id="layout-slots" class="broadsheet-slots"></div>
 
           <!-- Verified Scoop Paste-Up Tray (Sitting on the bottom margin of the newsprint sheet) -->
           <div class="pasteup-scoop-strip">
             <div class="pasteup-strip-head">
-              <span>COPY DESK SCOOP TRAY (CLICK TO PLATE ABOVE)</span>
-              <button type="button" id="btn-auto-layout" class="btn-ink-stamp" title="Auto-fill front page with highest value scoops [A]">
-                [A] AUTO-PLATE BEST SCOOPS
+              <span>COPY DESK · SELECT COPY, THEN A SLOT</span>
+              <button type="button" id="btn-auto-layout" class="btn-ink-stamp" title="Optional assist: fill empty slots; costs 500 readers [A]">
+                [A] ASSIST (−500 READERS)
               </button>
             </div>
             <div id="scoop-tray" class="scoop-tray"></div>

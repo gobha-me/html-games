@@ -220,8 +220,10 @@ test('keyboard-only dispatch, plating, press run and next edition; resize mid-ed
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect(page.locator('#lead-list button').first()).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.lateEditionApp.sim.scoopsTotal), { timeout: 25000 }).toBeGreaterThan(0);
-  await expect(page.locator('#layout-slots .paper-slot:not(.empty)')).not.toHaveCount(0);
-  await page.keyboard.press('a');
+  await expect(page.locator('#layout-slots .paper-slot:not(.empty)')).toHaveCount(0);
+  await page.keyboard.press('l');
+  await page.keyboard.press('b');
+  await expect(page.locator('#layout-slots [data-slot-id="banner"]')).not.toHaveClass(/empty/);
   await tabTo(page, '#btn-roll-press');
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'EXTRA! EXTRA! EDITION #1 HITS THE STREETS', exact: true })).toBeVisible();

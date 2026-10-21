@@ -10,6 +10,10 @@ export const EDITION_DURATION_SEC = 210; // 6:00 PM -> midnight, about 3½ minut
 // so dispatch throughput per real minute still follows the original work rates.
 export const EDITION_TIME_SCALE = EDITION_DURATION_SEC / 90;
 export const LEAD_LIFETIME_SEC = 48 * EDITION_TIME_SCALE;
+export const PASTE_UP_START_SEC = EDITION_DURATION_SEC * 5 / 6; // 11 PM: final 35 seconds.
+export const ASSIST_READER_PENALTY = 500;
+export const EMPTY_BANNER_TRUST_PENALTY = 6;
+export const INSIDE_SLOT = Object.freeze({ id: 'inside', mul: 0.25 });
 export const COLD_OPEN_DURATION_SEC = 30;
 export const MIN_DESK_WIDTH = 1280;
 export const MIN_DESK_HEIGHT = 720;
