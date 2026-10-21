@@ -1,5 +1,5 @@
 // ============================================================================
-// IRONWAKE // CONVOY — Main Application & HUD Controller
+// IRONWAKE // CONVOY — Main Application & Panoramic Bridge Controller
 // ============================================================================
 
 import {
@@ -24,7 +24,9 @@ class IronwakeApp {
     this.audio = new IronwakeAudio();
     this.sim = new IronwakeSim(this.audio);
     this.canvas = document.getElementById('convoy-canvas');
-    this.renderer = new IronwakeRenderer(this.canvas);
+    this.renderer = new IronwakeRenderer(this.canvas, () => {
+      this.renderer.render(this.sim, 0.016);
+    });
     this.lastFrameTime = performance.now();
     this.uiAccum = 0;
 
@@ -33,19 +35,25 @@ class IronwakeApp {
     const params = new URLSearchParams(window.location.search);
     if (params.get('preview') === 'showcase') {
       this._setupShowcaseState();
+    } else {
+      // Step a fraction of a second so turrets orient & initial projectiles/smoke are visible immediately
+      for (let i = 0; i < 6; i++) {
+        this.sim.step(0.06);
+      }
     }
 
     this._syncFullUI();
+    this.renderer.render(this.sim, 0.016);
     requestAnimationFrame((t) => this._loop(t));
   }
 
   _setupShowcaseState() {
     // Advance into intense combat with Goliath Siege Crawler Boss, Gyrocopter, Harpoon Rig & active tether
     this.sim.enemies = [];
-    const boss = this.sim.spawnEnemy('boss', 960, 175);
-    const gyro = this.sim.spawnEnemy('gyro', 430, 165);
-    const harp = this.sim.spawnEnemy('harpoon', 690, 745);
-    const skiff = this.sim.spawnEnemy('skiff', 1050, 735);
+    const boss = this.sim.spawnEnemy('boss', 990, 175);
+    this.sim.spawnEnemy('gyro', 390, 165);
+    const harp = this.sim.spawnEnemy('harpoon', 540, 745);
+    this.sim.spawnEnemy('skiff', 1110, 735);
 
     if (boss) {
       boss.hp = 640;
@@ -55,19 +63,21 @@ class IronwakeApp {
       this.sim.harpoons.push({
         id: 'hp_showcase',
         enemyId: harp.id,
-        carId: 'flak',
+        carId: 'mortar',
         hp: 45,
       });
     }
+    this.sim.userLockedTarget = true;
     this.sim.cars[1].weaponLevel = 2;
     this.sim.cars[2].weaponLevel = 2;
     this.sim.score = 2480;
     this.sim.kills = 6;
     this.sim.scrap = 240;
 
-    for (let i = 0; i < 16; i++) {
-      this.sim.step(0.08);
+    for (let i = 0; i < 12; i++) {
+      this.sim.step(0.06);
     }
+    this.sim.callouts = [];
     this.sim.explosions.push({
       x: 940,
       y: 190,
@@ -116,6 +126,7 @@ class IronwakeApp {
       for (const en of this.sim.enemies) {
         if (Math.hypot(en.x - pt.x, en.y - pt.y) <= en.radius + 18) {
           this.sim.selectedEnemyId = en.id;
+          this.sim.userLockedTarget = true;
           this.audio.playClick();
           this.sim.addCallout(en.x, en.y - 30, '🎯 TARGET LOCKED', '#fde047');
           this._syncFullUI();
@@ -287,7 +298,7 @@ class IronwakeApp {
       this.sim.score.toLocaleString();
 
     const hBadge = document.getElementById('harpoon-badge');
-    hBadge.textContent = `TETHERS: ${this.sim.harpoons.length} ACTIVE`;
+    hBadge.textContent = `⚓ TETHERS: ${this.sim.harpoons.length} ACTIVE`;
   }
 
   _renderSteamManifold() {
@@ -306,8 +317,8 @@ class IronwakeApp {
       return `
         <div class="steam-row">
           <div class="steam-row-top">
-            <span style="color:${sys.color}">${sys.label}</span>
-            <span>${val} / ${sys.maxBars}</span>
+            <span style="color:${sys.color}">${sys.short} // ${sys.label.split(' ')[0]}</span>
+            <span>${val}/${sys.maxBars}</span>
           </div>
           <div class="steam-controls">
             <button class="btn-steam-step" data-sys="${sys.id}" data-delta="-1">−</button>
@@ -347,12 +358,12 @@ class IronwakeApp {
       const statusLabel = !st
         ? 'READY'
         : st.destroyed
-          ? 'CRIPPLED'
+          ? 'OUT'
           : `${Math.round(st.hp)}%`;
 
       return `
         <button class="btn-subsystem ${isAct ? 'active' : ''}" data-sub-id="${sub.id}">
-          <span>[${keys[i]}] ${sub.label} (${sub.code})</span>
+          <span>[${keys[i]}] ${sub.code}</span>
           <span>${statusLabel}</span>
         </button>
       `;
@@ -363,7 +374,7 @@ class IronwakeApp {
         <div class="target-summary">
           <div class="target-meta">
             <div class="target-title">NO HOSTILE LOCKED</div>
-            <div style="font-size:10px;color:#94a3b8">Scanning salt flat for incoming raiders…</div>
+            <div style="font-size:9px;color:#94a3b8">Scanning salt flat for incoming raiders…</div>
           </div>
         </div>
         <div class="sub-btn-list">${subButtons}</div>
@@ -374,8 +385,8 @@ class IronwakeApp {
           <img src="${spriteMap[target.sprite]}" alt="${target.name}" class="target-sprite" />
           <div class="target-meta">
             <div class="target-title">🎯 ${target.name}</div>
-            <div style="font-size:10px;color:#cbd5e1;font-family:var(--font-mono)">
-              HULL ${Math.max(0, target.hp)} / ${target.maxHp} · REWARD +${target.scrapReward}⚙
+            <div style="font-size:9px;color:#cbd5e1;font-family:var(--font-mono)">
+              HULL ${Math.max(0, target.hp)}/${target.maxHp} · +${target.scrapReward}⚙ SALVAGE
             </div>
           </div>
         </div>
@@ -394,23 +405,55 @@ class IronwakeApp {
 
   _renderRailcarConsist() {
     const listEl = document.getElementById('railcar-list');
-    listEl.innerHTML = this.sim.cars
+    // Sort left-to-right matching physical train position on canvas (CAR-05 Rear Caboose -> CAR-01 Front Engine)
+    const orderedCars = [...this.sim.cars].sort((a, b) => a.offsetX - b.offsetX);
+
+    const turretGlyphs = {
+      ciws: '╦ 20MM CIWS ▶',
+      autocannon: '╬ 37MM ROTARY',
+      flak: '╩ 88MM FLAK',
+      plasma: '◉ PLASMA MORTAR',
+      railgun: '◈ AEGIS DOME',
+    };
+
+    const shortCarTitles = {
+      loco: 'IRONWAKE LOCO',
+      autocannon: 'VULCAN-8 ROTARY',
+      flak: 'SKYBURST FLAK',
+      mortar: 'HELLFIRE MORTAR',
+      aegis: 'BULWARK AEGIS',
+    };
+
+    const shortCarDescs = {
+      loco: 'Steam turbine core & 20mm CIWS.',
+      autocannon: '37mm AP rotary sabots with auto-lead.',
+      flak: '88mm airburst shrapnel & tether cutter.',
+      mortar: 'Superheated plasma shells melt armor.',
+      aegis: 'Convoy Aegis shield & repair drones.',
+    };
+
+    listEl.innerHTML = orderedCars
       .map((car) => {
         const isSel = car.id === this.sim.selectedCarId;
+        const isLoco = car.id === 'loco';
         const pct = Math.max(0, Math.round((car.hp / car.maxHp) * 100));
         const tethered = this.sim.harpoons.some((h) => h.carId === car.id);
 
         return `
-          <div class="car-item ${isSel ? 'selected' : ''}" data-car-id="${car.id}">
+          <div class="car-item ${isSel ? 'selected' : ''} ${isLoco ? 'loco-front' : ''}" data-car-id="${car.id}">
             <div class="car-item-top">
-              <span style="color:${car.color}">[${car.index + 1}] ${car.code}</span>
-              <span>MK-${car.weaponLevel} ${tethered ? '· ⚓ TETHERED' : ''}</span>
+              <span class="car-hotkey-badge" style="color:${car.color}">[${car.index + 1}] ${car.code.split('//')[0].trim()}</span>
+              <span class="car-mk-badge">MK-${car.weaponLevel}${tethered ? ' ⚓' : ''}</span>
+            </div>
+            <div class="car-schematic-silhouette">
+              <span class="car-turret-glyph" style="color:${car.accent}">${turretGlyphs[car.weaponType] || '╬ TURRET'}</span>
+              <span class="car-dmg-tag">${car.damage} DMG</span>
             </div>
             <div class="car-item-title">
-              <span>${car.name}</span>
-              <span>${Math.round(car.hp)}/${car.maxHp}</span>
+              <span>${shortCarTitles[car.id] || car.name}</span>
+              <span class="car-hp-num">${Math.round(car.hp)}/${car.maxHp}</span>
             </div>
-            <div class="car-item-sub">${car.weaponLabel} · DMG ${car.damage}</div>
+            <div class="car-item-sub">${car.weaponLabel}</div>
             <div class="hp-track">
               <div class="hp-fill" style="width:${pct}%;background:${car.color}"></div>
             </div>
@@ -433,9 +476,11 @@ class IronwakeApp {
     if (selCar) {
       const cost = 60 + (selCar.weaponLevel - 1) * 35;
       document.getElementById('inspected-car-code').textContent =
-        `${selCar.code} // MK-${selCar.weaponLevel}`;
-      document.getElementById('inspected-car-name').textContent = selCar.name;
-      document.getElementById('inspected-car-desc').textContent = selCar.desc;
+        `[${selCar.index + 1}] ${selCar.code.split('//')[0].trim()} // MK-${selCar.weaponLevel}`;
+      document.getElementById('inspected-car-name').textContent =
+        shortCarTitles[selCar.id] || selCar.name;
+      document.getElementById('inspected-car-desc').textContent =
+        shortCarDescs[selCar.id] || selCar.desc;
       document.getElementById('btn-upgrade-car').textContent =
         `[U] UPGRADE ${selCar.name.split(' ')[0]} (${cost} ⚙) — +22% DMG & +40 HULL`;
     }
@@ -443,6 +488,12 @@ class IronwakeApp {
 
   _renderRouteAndLog() {
     const routeEl = document.getElementById('sector-route-strip');
+    const shortNames = [
+      'SALT FLATS',
+      'GORGE RUN',
+      'BADLANDS',
+      'CITADEL',
+    ];
     routeEl.innerHTML = SECTOR_NODES.map((node, idx) => {
       const stateClass =
         idx < this.sim.nodeIndex
@@ -452,16 +503,15 @@ class IronwakeApp {
             : '';
       return `
         <div class="route-node-card ${stateClass}">
-          <div class="rn-kicker">STAGE ${idx + 1} · ${node.threat}</div>
-          <div class="rn-title">${node.name}</div>
-          <div class="rn-sub">${node.type} (${node.distanceKm} KM)</div>
+          <div class="rn-kicker">S${idx + 1} · ${node.distanceKm}KM</div>
+          <div class="rn-title">${shortNames[idx] || node.name}</div>
         </div>
       `;
     }).join('');
 
     const logEl = document.getElementById('combat-log');
     logEl.innerHTML = this.sim.combatLog
-      .slice(0, 6)
+      .slice(0, 2)
       .map(
         (entry) =>
           `<div class="log-entry ${entry.tone}">[${entry.time}] ${entry.text}</div>`
@@ -529,7 +579,7 @@ class IronwakeApp {
   }
 
   _loop(now) {
-    const rawDt = Math.min(0.05, (now - this.lastFrameTime) / 1000);
+    const rawDt = Math.max(0.001, Math.min(0.05, (now - this.lastFrameTime) / 1000));
     this.lastFrameTime = now;
     const dt = rawDt * (this.sim.speed || 1);
 

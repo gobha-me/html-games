@@ -89,7 +89,7 @@ export class IronwakeSim {
     this.bossSpawnedForNode = false;
 
     this.logEvent(
-      `SECTOR 1 // Departed Outpost 9 across Alkali Salt Flats. All turrets online.`,
+      `SECTOR 1 // Outpost 9 departed. Turrets online.`,
       'ops'
     );
 
@@ -495,6 +495,19 @@ export class IronwakeSim {
         en.y += en.vy * dt;
       }
 
+      // Keep horizontal spacing between raiders on the same salt-flat lane
+      for (const other of this.enemies) {
+        if (other.id === en.id) continue;
+        if (Math.abs(other.y - en.y) < 140) {
+          const sepX = en.x - other.x;
+          const minGap = en.radius + other.radius + 115;
+          if (Math.abs(sepX) < minGap) {
+            const dir = sepX >= 0 ? 1 : -1;
+            en.x = Math.max(160, Math.min(WORLD_W - 160, en.x + dir * 95 * dt));
+          }
+        }
+      }
+
       // Face along track (+X) or toward nearest railcar
       const nearestCar = this._findNearestAliveCar(en.x, en.y);
       if (nearestCar) {
@@ -693,7 +706,7 @@ export class IronwakeSim {
         sub.destroyed = true;
         this.addCallout(
           en.x,
-          en.y - 24,
+          en.y - en.radius - 46,
           `🎯 ${subKey.toUpperCase()} CRIPPLED!`,
           '#38bdf8'
         );
