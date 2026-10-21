@@ -1,5 +1,6 @@
 // ============================================================================
-// DEAD DISTRICT // SECTOR 7 — Input Controller, HUD Sync & Showcase Hook
+// DEAD DISTRICT // SECTOR 7 — Full-Bleed Horror HUD, ECG Telemetry,
+// Brass Cartridge Counter, Safe-Room Armory Workbench & Input Controller
 // ============================================================================
 
 import { audio } from './audio.js';
@@ -9,52 +10,212 @@ import { DeadDistrictRenderer } from './renderer.js';
 const sim = new DeadDistrictSim();
 const gameCanvas = document.getElementById('game-canvas');
 const minimapCanvas = document.getElementById('minimap-canvas');
+const ecgCanvas = document.getElementById('ecg-canvas');
+const ecgCtx = ecgCanvas ? ecgCanvas.getContext('2d') : null;
 const renderer = new DeadDistrictRenderer(gameCanvas, minimapCanvas);
 
 const keys = new Set();
 let pointerDown = false;
 let aimWorldX = 960;
 let aimWorldY = 520;
+let workbenchOpen = false;
+let pausedBeforeWorkbench = false;
 
-window.addEventListener('keydown', e => {
+// Build stable 5-slot weapon holster buttons once (avoids innerHTML thrashing on hover/focus)
+const holsterSlotEls = [];
+function initWeaponRack() {
+  const rack = document.getElementById('hud-weapon-rack');
+  if (!rack) return;
+  rack.innerHTML = '';
+  sim.weapons.forEach((w, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'weapon-slot';
+    const keyEl = document.createElement('span');
+    keyEl.className = 'ws-key';
+    keyEl.textContent = `[${w.slot}]`;
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'ws-name';
+    nameEl.textContent = w.name.split(' ')[0];
+    nameEl.style.color = w.color;
+
+    const stateEl = document.createElement('span');
+    stateEl.className = 'ws-state';
+
+    btn.append(keyEl, nameEl, stateEl);
+    btn.addEventListener('click', () => {
+      sim.selectWeapon(idx);
+      syncHud();
+    });
+    rack.appendChild(btn);
+    holsterSlotEls.push({ btn, stateEl, weapon: w, idx });
+  });
+}
+
+// Build Workbench Weapon Rows inside the Safe-Room Armory Drawer
+function renderWorkbenchWeapons() {
+  const listEl = document.getElementById('wb-weapon-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  sim.weapons.forEach((w, idx) => {
+    const row = document.createElement('div');
+    row.className = `wb-weapon-row ${idx === sim.currentWeaponIdx ? 'active' : ''}`;
+
+    const info = document.createElement('div');
+    info.className = 'wb-w-info';
+    const title = document.createElement('strong');
+    title.style.color = w.color;
+    title.textContent = `[${w.slot}] ${w.name}`;
+    const sub = document.createElement('span');
+    sub.textContent = w.unlocked
+      ? `${w.caliber} · MAG ${w.mag}/${w.magSize} · RES ${w.infiniteReserve ? '∞' : w.reserve}`
+      : `${w.caliber} · LOCKED FIREARM`;
+    info.append(title, sub);
+
+    const actions = document.createElement('div');
+    actions.className = 'wb-w-actions';
+
+    if (!w.unlocked) {
+      const unlockBtn = document.createElement('button');
+      unlockBtn.type = 'button';
+      unlockBtn.className = 'wb-act-btn';
+      unlockBtn.textContent = `BUY $${w.cost}`;
+      unlockBtn.addEventListener('click', () => {
+        sim.selectWeapon(idx);
+        syncHud();
+        renderWorkbenchWeapons();
+      });
+      actions.appendChild(unlockBtn);
+    } else {
+      const equipBtn = document.createElement('button');
+      equipBtn.type = 'button';
+      equipBtn.className = 'wb-act-btn';
+      equipBtn.textContent = idx === sim.currentWeaponIdx ? 'EQUIPPED' : 'EQUIP';
+      equipBtn.addEventListener('click', () => {
+        sim.selectWeapon(idx);
+        syncHud();
+        renderWorkbenchWeapons();
+      });
+      actions.appendChild(equipBtn);
+
+      if (!w.infiniteReserve) {
+        const ammoBtn = document.createElement('button');
+        ammoBtn.type = 'button';
+        ammoBtn.className = 'wb-act-btn';
+        ammoBtn.textContent = `+${w.ammoPack} AMMO ($${w.ammoCost})`;
+        ammoBtn.addEventListener('click', () => {
+          sim.requisitionAction(`ammo_w_${idx}`);
+          syncHud();
+          renderWorkbenchWeapons();
+        });
+        actions.appendChild(ammoBtn);
+      }
+    }
+
+    row.append(info, actions);
+    listEl.appendChild(row);
+  });
+}
+
+function toggleWorkbench(forceState) {
+  const drawer = document.getElementById('workbench-drawer');
+  if (!drawer) return;
+  const next = typeof forceState === 'boolean' ? forceState : !workbenchOpen;
+  if (next === workbenchOpen) return;
+  workbenchOpen = next;
+  if (workbenchOpen) {
+    pausedBeforeWorkbench = sim.paused;
+    sim.paused = true;
+    drawer.classList.add('open');
+    drawer.setAttribute('aria-hidden', 'false');
+    renderWorkbenchWeapons();
+    syncHud();
+  } else {
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    sim.paused = pausedBeforeWorkbench;
+    syncHud();
+  }
+}
+
+function toggleSitrep(forceHide = false) {
+  const card = document.getElementById('sitrep-card');
+  if (!card) return;
+  if (forceHide) {
+    card.classList.add('hidden');
+  } else {
+    card.classList.toggle('hidden');
+  }
+}
+
+window.addEventListener('keydown', (e) => {
   const k = e.key.toUpperCase();
+  if (e.key === 'Tab' || k === 'B') {
+    e.preventDefault();
+    toggleWorkbench();
+    return;
+  }
+  if (e.key === 'Escape' && workbenchOpen) {
+    e.preventDefault();
+    toggleWorkbench(false);
+    return;
+  }
+  if (e.key === '?' || e.key === '/') {
+    toggleSitrep();
+    return;
+  }
+  if (sim.gameOver && e.key === 'Enter') {
+    sim.reset();
+    document.getElementById('modal-gameover').style.display = 'none';
+    syncHud();
+    return;
+  }
+
   keys.add(k);
 
   if (k >= '1' && k <= '5') {
     sim.selectWeapon(Number(k) - 1);
     syncHud();
+    if (workbenchOpen) renderWorkbenchWeapons();
   } else if (k === 'R') {
     sim.startReload();
   } else if (k === 'G') {
     sim.throwMolotov(aimWorldX, aimWorldY);
+    syncHud();
   } else if (k === 'T') {
     sim.deployTurret();
+    syncHud();
   } else if (k === 'H') {
     sim.useMedkit();
+    syncHud();
   } else if (k === 'F') {
     sim.repairNearestBarricade();
+    syncHud();
   } else if (k === 'L') {
-    if (!sim.player.wideBeam) {
-      sim.player.wideBeam = true;
-    } else {
+    // Cycle Flashlight: Wide Flood -> Focused Spot -> Stealth Off
+    if (sim.player.flashlightOn && sim.player.wideBeam) {
       sim.player.wideBeam = false;
+    } else if (sim.player.flashlightOn && !sim.player.wideBeam) {
+      sim.player.flashlightOn = false;
+    } else {
+      sim.player.flashlightOn = true;
+      sim.player.wideBeam = true;
     }
-    document.getElementById('btn-flashlight').textContent =
-      sim.player.wideBeam ? '🔦 Beam: Flood [L]' : '🔦 Beam: Spot [L]';
+    syncHud();
   } else if (k === ' ') {
     e.preventDefault();
     const { mx, my } = getMoveAxes();
     sim.triggerDash(mx, my);
   } else if (k === 'P') {
     sim.paused = !sim.paused;
-    document.getElementById('btn-pause').textContent = sim.paused ? '▶ Resume' : '⏸ Pause';
+    syncHud();
   } else if (k === 'M') {
-    const m = audio.toggleMute();
-    document.getElementById('btn-mute').textContent = m ? '🔇 Mute' : '🔊 SFX';
+    audio.toggleMute();
   }
 });
 
-window.addEventListener('keyup', e => {
+window.addEventListener('keyup', (e) => {
   keys.delete(e.key.toUpperCase());
 });
 
@@ -68,19 +229,20 @@ function getMoveAxes() {
   return { mx, my };
 }
 
-gameCanvas.addEventListener('pointermove', e => {
+gameCanvas.addEventListener('pointermove', (e) => {
   const pt = renderer.screenToWorld(e.clientX, e.clientY);
   aimWorldX = pt.x;
   aimWorldY = pt.y;
 });
 
-gameCanvas.addEventListener('pointerdown', e => {
-  if (e.button === 0) {
+gameCanvas.addEventListener('pointerdown', (e) => {
+  if (e.button === 0 && !workbenchOpen) {
     pointerDown = true;
     const pt = renderer.screenToWorld(e.clientX, e.clientY);
     aimWorldX = pt.x;
     aimWorldY = pt.y;
     sim.fireWeapon();
+    syncHud();
   }
 });
 
@@ -88,35 +250,33 @@ window.addEventListener('pointerup', () => {
   pointerDown = false;
 });
 
-gameCanvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  const dir = e.deltaY > 0 ? 1 : -1;
-  const next = (sim.currentWeaponIdx + dir + sim.weapons.length) % sim.weapons.length;
-  if (sim.weapons[next].unlocked) {
-    sim.selectWeapon(next);
-    syncHud();
-  }
-}, { passive: false });
+gameCanvas.addEventListener(
+  'wheel',
+  (e) => {
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? 1 : -1;
+    const next = (sim.currentWeaponIdx + dir + sim.weapons.length) % sim.weapons.length;
+    if (sim.weapons[next].unlocked) {
+      sim.selectWeapon(next);
+      syncHud();
+    }
+  },
+  { passive: false }
+);
 
-// Wire Top & Belt Buttons
-document.getElementById('btn-flashlight')?.addEventListener('click', e => {
-  sim.player.wideBeam = !sim.player.wideBeam;
-  e.currentTarget.textContent = sim.player.wideBeam ? '🔦 Beam: Flood [L]' : '🔦 Beam: Spot [L]';
+// Wire HUD & Workbench Controls
+document.getElementById('btn-workbench')?.addEventListener('click', () => toggleWorkbench());
+document.getElementById('btn-close-workbench')?.addEventListener('click', () => toggleWorkbench(false));
+document.getElementById('wb-backdrop')?.addEventListener('click', () => toggleWorkbench(false));
+document.getElementById('btn-dossier')?.addEventListener('click', () => toggleSitrep());
+document.getElementById('btn-dismiss-sitrep')?.addEventListener('click', () => {
+  sim.awaitingFirstInput = false;
+  toggleSitrep(true);
 });
 
-document.getElementById('btn-repair-all')?.addEventListener('click', () => {
-  sim.repairNearestBarricade();
-  syncHud();
-});
-
-document.getElementById('btn-pause')?.addEventListener('click', e => {
+document.getElementById('btn-pause')?.addEventListener('click', () => {
   sim.paused = !sim.paused;
-  e.currentTarget.textContent = sim.paused ? '▶ Resume' : '⏸ Pause';
-});
-
-document.getElementById('btn-mute')?.addEventListener('click', e => {
-  const m = audio.toggleMute();
-  e.currentTarget.textContent = m ? '🔇 Mute' : '🔊 SFX';
+  syncHud();
 });
 
 document.getElementById('btn-reset')?.addEventListener('click', () => {
@@ -125,80 +285,182 @@ document.getElementById('btn-reset')?.addEventListener('click', () => {
   syncHud();
 });
 
-document.getElementById('btn-modal-restart')?.addEventListener('click', () => {
+document.getElementById('btn-restart-modal')?.addEventListener('click', () => {
   sim.reset();
   document.getElementById('modal-gameover').style.display = 'none';
   syncHud();
 });
 
 document.getElementById('btn-reload')?.addEventListener('click', () => sim.startReload());
-document.getElementById('btn-use-med')?.addEventListener('click', () => { sim.useMedkit(); syncHud(); });
-document.getElementById('btn-use-molotov')?.addEventListener('click', () => { sim.throwMolotov(aimWorldX, aimWorldY); syncHud(); });
-document.getElementById('btn-use-turret')?.addEventListener('click', () => { sim.deployTurret(); syncHud(); });
-document.getElementById('btn-use-dash')?.addEventListener('click', () => {
+document.getElementById('belt-medkit')?.addEventListener('click', () => {
+  sim.useMedkit();
+  syncHud();
+});
+document.getElementById('belt-molotov')?.addEventListener('click', () => {
+  sim.throwMolotov(aimWorldX, aimWorldY);
+  syncHud();
+});
+document.getElementById('belt-turret')?.addEventListener('click', () => {
+  sim.deployTurret();
+  syncHud();
+});
+document.getElementById('belt-repair')?.addEventListener('click', () => {
+  sim.repairNearestBarricade();
+  syncHud();
+});
+document.getElementById('belt-light')?.addEventListener('click', () => {
+  if (sim.player.flashlightOn && sim.player.wideBeam) {
+    sim.player.wideBeam = false;
+  } else if (sim.player.flashlightOn && !sim.player.wideBeam) {
+    sim.player.flashlightOn = false;
+  } else {
+    sim.player.flashlightOn = true;
+    sim.player.wideBeam = true;
+  }
+  syncHud();
+});
+document.getElementById('belt-dash')?.addEventListener('click', () => {
   const { mx, my } = getMoveAxes();
   sim.triggerDash(mx, my);
 });
 
-document.querySelectorAll('.shop-btn').forEach(btn => {
+document.querySelectorAll('.shop-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
-    const req = btn.getAttribute('data-req');
-    sim.requisitionAction(req);
+    const action = btn.getAttribute('data-buy') || btn.getAttribute('data-req');
+    sim.requisitionAction(action);
     syncHud();
+    if (workbenchOpen) renderWorkbenchWeapons();
   });
 });
 
-function renderWeaponRack() {
-  const rack = document.getElementById('hud-weapon-rack');
-  if (!rack) return;
-  rack.innerHTML = '';
-  sim.weapons.forEach((w, idx) => {
-    const btn = document.createElement('button');
-    btn.className = `weapon-slot ${idx === sim.currentWeaponIdx ? 'active' : ''} ${!w.unlocked ? 'locked' : ''}`;
-    const rightLabel = w.unlocked
-      ? `${w.mag}/${w.infiniteReserve ? '∞' : w.reserve}`
-      : `UNLOCK $${w.cost}`;
-    btn.innerHTML = `
-      <span class="ws-left">
-        <span class="ws-key">[${w.slot}]</span>
-        <strong style="color:${w.color}">${w.name}</strong>
-      </span>
-      <span class="ws-right">${rightLabel}</span>
-    `;
-    btn.addEventListener('click', () => {
-      sim.selectWeapon(idx);
-      syncHud();
-    });
-    rack.appendChild(btn);
-  });
+// Render Brass Cartridge Pips inside #ammo-pips
+function syncAmmoPips(w) {
+  const container = document.getElementById('ammo-pips');
+  if (!container) return;
+  const maxPips = Math.min(32, w.magSize);
+  while (container.children.length < maxPips) {
+    const pip = document.createElement('span');
+    pip.className = 'ammo-pip';
+    container.appendChild(pip);
+  }
+  while (container.children.length > maxPips) {
+    container.removeChild(container.lastChild);
+  }
+  const activePips = Math.round((w.mag / w.magSize) * maxPips);
+  for (let i = 0; i < maxPips; i++) {
+    const child = container.children[i];
+    if (i < activePips) {
+      child.classList.remove('spent');
+    } else {
+      child.classList.add('spent');
+    }
+  }
+}
+
+// Live ECG Heartbeat Waveform Renderer
+let ecgPhase = 0;
+function renderEcg(dt) {
+  if (!ecgCtx || !ecgCanvas) return;
+  const p = sim.player;
+  const hpRatio = Math.max(0, p.hp / p.maxHp);
+  const bpm = Math.round(74 + (1 - hpRatio) * 86 + (sim.enemies.length > 8 ? 16 : 0));
+  ecgPhase += dt * (bpm / 60) * Math.PI * 2;
+
+  const w = ecgCanvas.width;
+  const h = ecgCanvas.height;
+  ecgCtx.fillStyle = '#05080c';
+  ecgCtx.fillRect(0, 0, w, h);
+
+  // Grid lines
+  ecgCtx.strokeStyle = 'rgba(16, 185, 129, 0.1)';
+  ecgCtx.lineWidth = 1;
+  ecgCtx.beginPath();
+  ecgCtx.moveTo(0, h * 0.5);
+  ecgCtx.lineTo(w, h * 0.5);
+  ecgCtx.stroke();
+
+  const strokeCol = hpRatio > 0.55 ? '#10b981' : hpRatio > 0.28 ? '#f59e0b' : '#ef4444';
+  ecgCtx.strokeStyle = strokeCol;
+  ecgCtx.lineWidth = 1.6;
+  ecgCtx.beginPath();
+  for (let x = 0; x < w; x++) {
+    const t = ((x / w) * 2.2 + ecgPhase / (Math.PI * 2)) % 1;
+    let y = h * 0.54;
+    if (t > 0.35 && t < 0.40) y -= 4;
+    else if (t >= 0.40 && t < 0.44) y += 5;
+    else if (t >= 0.44 && t < 0.49) y -= 13;
+    else if (t >= 0.49 && t < 0.54) y += 8;
+    else if (t >= 0.60 && t < 0.68) y -= 3.5;
+    if (x === 0) ecgCtx.moveTo(x, y);
+    else ecgCtx.lineTo(x, y);
+  }
+  ecgCtx.stroke();
+
+  const bpmEl = document.getElementById('hud-bpm');
+  const condEl = document.getElementById('hud-cond');
+  if (bpmEl) bpmEl.textContent = `${bpm} BPM`;
+  if (condEl) {
+    condEl.textContent = hpRatio > 0.55 ? 'STABLE' : hpRatio > 0.28 ? 'ELEVATED' : 'CRITICAL';
+    condEl.className = hpRatio > 0.55 ? 'cond-ok' : hpRatio > 0.28 ? 'cond-warn' : 'cond-crit';
+  }
 }
 
 function syncHud() {
   const p = sim.player;
-  document.getElementById('hud-wave').textContent = sim.waveActive
-    ? `${sim.wave}`
-    : `PREP ${Math.ceil(sim.breatherTimer)}s`;
   const rem = sim.enemies.length + sim.enemiesToSpawn.length;
-  document.getElementById('hud-hostiles').textContent = `${rem}`;
-  document.getElementById('hud-scrap').textContent = `$${sim.scrap.toLocaleString()}`;
-  document.getElementById('hud-score').textContent = `${sim.score.toLocaleString()} / ${sim.highScore.toLocaleString()}`;
+
+  // Top-left telemetry
+  const waveEl = document.getElementById('hud-wave');
+  if (waveEl) waveEl.textContent = `#0${sim.wave}`.slice(-3);
+  const hostilesEl = document.getElementById('hud-hostiles');
+  if (hostilesEl) hostilesEl.textContent = `${rem}`;
+  const scrapEl = document.getElementById('hud-scrap');
+  if (scrapEl) scrapEl.textContent = `$${sim.scrap.toLocaleString()}`;
+  const wbScrapEl = document.getElementById('wb-scrap-val');
+  if (wbScrapEl) wbScrapEl.textContent = `$${sim.scrap.toLocaleString()}`;
+  const scoreEl = document.getElementById('hud-score');
+  if (scoreEl) scoreEl.textContent = sim.score.toLocaleString();
 
   // Vitals
-  document.getElementById('hud-hp-text').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
-  document.getElementById('hud-hp-bar').style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
-  document.getElementById('hud-armor-text').textContent = `${Math.ceil(p.armor)} / ${p.maxArmor}`;
-  document.getElementById('hud-armor-bar').style.width = `${Math.max(0, (p.armor / p.maxArmor) * 100)}%`;
+  const hpColor = p.hp > p.maxHp * 0.5 ? '#10b981' : p.hp > p.maxHp * 0.25 ? '#f59e0b' : '#ef4444';
+  const hudHp = document.getElementById('hud-hp');
+  if (hudHp) {
+    hudHp.textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
+    hudHp.style.color = hpColor;
+  }
+  const barHp = document.getElementById('bar-hp');
+  if (barHp) {
+    barHp.style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
+    barHp.style.background = hpColor;
+  }
+  const topLeftBox = document.getElementById('hud-top-left');
+  if (topLeftBox) topLeftBox.style.borderLeftColor = hpColor;
 
-  document.getElementById('hud-med-count').textContent = String(p.medkits);
-  document.getElementById('hud-molotov-count').textContent = String(p.molotovs);
-  document.getElementById('hud-turret-count').textContent = String(p.turretKits);
-  document.getElementById('hud-dash-state').textContent =
-    p.dashCooldown > 0 ? `${p.dashCooldown.toFixed(1)}s` : 'READY';
+  const hudArmor = document.getElementById('hud-armor');
+  if (hudArmor) hudArmor.textContent = `${Math.ceil(p.armor)} / ${p.maxArmor}`;
+  const barArmor = document.getElementById('bar-armor');
+  if (barArmor) barArmor.style.width = `${Math.max(0, (p.armor / p.maxArmor) * 100)}%`;
+
+  // Belt counts
+  const medEl = document.getElementById('hud-medkits');
+  if (medEl) medEl.textContent = String(p.medkits);
+  const molEl = document.getElementById('hud-molotovs');
+  if (molEl) molEl.textContent = String(p.molotovs);
+  const turEl = document.getElementById('hud-turrets');
+  if (turEl) turEl.textContent = String(p.turretKits);
+  const beamEl = document.getElementById('hud-beam');
+  if (beamEl) {
+    beamEl.textContent = !p.flashlightOn ? 'OFF' : p.wideBeam ? 'WIDE' : 'SPOT';
+  }
+  const stamEl = document.getElementById('hud-stamina');
+  if (stamEl) {
+    stamEl.textContent = p.dashCooldown > 0 ? `${p.dashCooldown.toFixed(1)}s` : '100%';
+  }
 
   // Barricades
-  let intactCount = 0;
+  let breachedCount = 0;
   for (const b of sim.barricades) {
-    if (b.hp > 0) intactCount++;
+    if (b.hp <= 0) breachedCount++;
     const el = document.getElementById(`bc-${b.id}`);
     if (el) {
       const pct = Math.max(0, (b.hp / b.maxHp) * 100);
@@ -206,38 +468,93 @@ function syncHud() {
       el.style.background = pct > 50 ? '#10b981' : pct > 0 ? '#f59e0b' : '#ef4444';
     }
   }
-  const bSum = document.getElementById('hud-barricade-summary');
-  bSum.textContent = `${intactCount} / 8 INTACT`;
-  bSum.style.color = intactCount >= 6 ? '#10b981' : intactCount >= 3 ? '#f59e0b' : '#ef4444';
 
-  // Active Weapon
+  // Active Weapon & Brass Cartridge Pips
   const w = sim.currentWeapon;
-  document.getElementById('hud-caliber').textContent = w.caliber.toUpperCase();
-  document.getElementById('hud-caliber').style.color = w.color;
-  document.getElementById('hud-weapon-name').textContent = w.name;
-  document.getElementById('hud-ammo-mag').textContent =
-    sim.reloadTimer > 0 ? 'RELOADING...' : `${w.mag} / ${w.magSize}`;
-  document.getElementById('hud-ammo-res').textContent =
-    w.infiniteReserve ? 'RESERVE: ∞' : `RESERVE: ${w.reserve}`;
-  document.getElementById('hud-ammo-bar').style.width = `${(w.mag / w.magSize) * 100}%`;
-  document.getElementById('hud-ammo-bar').style.background = w.color;
+  const calEl = document.getElementById('hud-weapon-caliber');
+  if (calEl) {
+    calEl.textContent = `${w.caliber.toUpperCase()} // SLOT [${w.slot}]`;
+    calEl.style.color = w.color;
+  }
+  const wNameEl = document.getElementById('hud-weapon-name');
+  if (wNameEl) wNameEl.textContent = w.name;
+  const magEl = document.getElementById('hud-ammo-mag');
+  if (magEl) magEl.textContent = sim.reloadTimer > 0 ? 'RLD' : String(w.mag);
+  const resEl = document.getElementById('hud-ammo-res');
+  if (resEl) resEl.textContent = w.infiniteReserve ? '/ ∞ RESERVE' : `/ ${w.reserve} RES`;
+  const barAmmo = document.getElementById('bar-ammo');
+  if (barAmmo) {
+    barAmmo.style.width = `${(w.mag / w.magSize) * 100}%`;
+    barAmmo.style.background = w.color;
+  }
+  syncAmmoPips(w);
 
-  renderWeaponRack();
+  // Update 5-Slot Holster without rebuilding DOM
+  for (const item of holsterSlotEls) {
+    const isAct = item.idx === sim.currentWeaponIdx;
+    item.btn.className = `weapon-slot ${isAct ? 'active' : ''} ${!item.weapon.unlocked ? 'locked' : ''}`;
+    item.stateEl.textContent = item.weapon.unlocked
+      ? `${item.weapon.mag}/${item.weapon.infiniteReserve ? '∞' : item.weapon.reserve}`
+      : `$${item.weapon.cost}`;
+  }
 
-  // Perk shop costs
-  document.getElementById('req-dmg-cost').textContent =
-    sim.perks.hollowPoint >= 4 ? 'MAX' : `$${90 + sim.perks.hollowPoint * 50}`;
-  document.getElementById('req-rel-cost').textContent =
-    sim.perks.speedLoader >= 4 ? 'MAX' : `$${80 + sim.perks.speedLoader * 45}`;
+  // Workbench Perk Labels
+  const dmgLvl = document.getElementById('perk-dmg-lvl');
+  const dmgCost = document.getElementById('perk-dmg-cost');
+  if (dmgLvl) dmgLvl.textContent = `Tier ${sim.perks.hollowPoint} / 5`;
+  if (dmgCost) dmgCost.textContent = sim.perks.hollowPoint >= 5 ? 'MAX' : `$${85 + sim.perks.hollowPoint * 45}`;
 
-  // Banner
-  const bannerEl = document.getElementById('sector-banner');
+  const kw = sim.perks.kevlarWeave || 0;
+  const hpLvl = document.getElementById('perk-hp-lvl');
+  const hpCost = document.getElementById('perk-hp-cost');
+  if (hpLvl) hpLvl.textContent = `Tier ${kw} / 5`;
+  if (hpCost) hpCost.textContent = kw >= 5 ? 'MAX' : `$${80 + kw * 45}`;
+
+  const relLvl = document.getElementById('perk-rel-lvl');
+  const relCost = document.getElementById('perk-rel-cost');
+  if (relLvl) relLvl.textContent = `Tier ${sim.perks.speedLoader} / 4`;
+  if (relCost) relCost.textContent = sim.perks.speedLoader >= 4 ? 'MAX' : `$${75 + sim.perks.speedLoader * 45}`;
+
+  // Pause button & Armory button pulse
+  const pauseBtn = document.getElementById('btn-pause');
+  if (pauseBtn) {
+    pauseBtn.querySelector('.tb-txt').textContent = sim.paused && !workbenchOpen ? 'RESUME [P]' : 'PAUSE [P]';
+  }
+  const armoryBtn = document.getElementById('btn-workbench');
+  const armoryBadge = document.getElementById('armory-badge');
+  if (armoryBtn && armoryBadge) {
+    if (!sim.waveActive) {
+      armoryBtn.classList.add('pulse-ready');
+      armoryBadge.textContent = `PREP ${Math.ceil(sim.breatherTimer)}s`;
+    } else if (sim.scrap >= 110) {
+      armoryBtn.classList.add('pulse-ready');
+      armoryBadge.textContent = `$${sim.scrap} READY`;
+    } else {
+      armoryBtn.classList.remove('pulse-ready');
+      armoryBadge.textContent = `$${sim.scrap}`;
+    }
+  }
+
+  // Top-Center Live Tactical Directive Banner (Always visible so player knows exact current objective!)
+  const phaseEl = document.getElementById('hud-phase');
+  const bTitle = document.getElementById('banner-title');
+  const bSub = document.getElementById('banner-sub');
   if (sim.banner.timer > 0) {
-    bannerEl.style.opacity = '1';
-    document.getElementById('banner-title').textContent = sim.banner.title;
-    document.getElementById('banner-sub').textContent = sim.banner.sub;
+    if (phaseEl) phaseEl.textContent = sim.waveActive ? `WAVE 0${sim.wave} // ALERT` : 'SAFE-ROOM BREATHER';
+    if (bTitle) bTitle.textContent = sim.banner.title;
+    if (bSub) bSub.textContent = sim.banner.sub;
+  } else if (!sim.waveActive) {
+    if (phaseEl) phaseEl.textContent = `SAFE-ROOM BREATHER // ${Math.ceil(sim.breatherTimer)}s REMAINING`;
+    if (bTitle) bTitle.textContent = `WAVE ${sim.wave} CLEARED — OPEN ARMORY WORKBENCH [B]`;
+    if (bSub) bSub.textContent = `SPEND $${sim.scrap} SCRAP ON WEAPONS, AMMO, TURRETS & BARRICADES BEFORE WAVE ${sim.wave + 1}`;
+  } else if (breachedCount > 0) {
+    if (phaseEl) phaseEl.textContent = `PERIMETER WARNING // ${breachedCount} DOOR${breachedCount > 1 ? 'S' : ''} BREACHED`;
+    if (bTitle) bTitle.textContent = `WAVE 0${sim.wave} // ${rem} HOSTILES REMAINING`;
+    if (bSub) bSub.textContent = 'STAND NEAR SAFE-ROOM DOORS & PRESS [F] TO REINFORCE BARRICADES OR FIGHT NEAR VEHICLE BEAMS';
   } else {
-    bannerEl.style.opacity = '0';
+    if (phaseEl) phaseEl.textContent = `ACTIVE SWARM // ${rem} HOSTILES IN SECTOR`;
+    if (bTitle) bTitle.textContent = `WAVE 0${sim.wave} // DEFEND THE CROSSROADS`;
+    if (bSub) bSub.textContent = 'SWEEP FLASHLIGHT [MOUSE] & FIGHT NEAR VEHICLE HEADLIGHTS TO SPOT LURKING INFECTED';
   }
 
   // Game Over Modal
@@ -245,17 +562,23 @@ function syncHud() {
     const modal = document.getElementById('modal-gameover');
     if (modal && modal.style.display !== 'flex') {
       modal.style.display = 'flex';
-      document.getElementById('modal-summary').textContent =
-        `Wave Reached: ${sim.wave} · Hostiles Eliminated: ${sim.kills} · Score: ${sim.score.toLocaleString()} (Best: ${sim.highScore.toLocaleString()})`;
+      const goStats = document.getElementById('go-stats');
+      if (goStats) {
+        goStats.textContent = `Wave Reached: ${sim.wave} · Infected Neutralized: ${sim.kills} · Score: ${sim.score.toLocaleString()} (Best: ${sim.highScore.toLocaleString()})`;
+      }
     }
   }
 }
 
+initWeaponRack();
 window.addEventListener('resize', () => renderer.resize());
 renderer.resize();
 
-// Optional ?preview=showcase query hook for visual inspection of active wave combat, fire pools & 2D shadows
-if (new URLSearchParams(window.location.search).get('preview') === 'showcase') {
+// Support ?preview=showcase, ?preview=combat, or ?preview=workbench for visual verification
+const previewMode = new URLSearchParams(window.location.search).get('preview');
+if (previewMode === 'showcase' || previewMode === 'combat' || previewMode === 'workbench') {
+  sim.awaitingFirstInput = false;
+  sim.enemies = [];
   sim.wave = 3;
   sim.score = 1850;
   sim.scrap = 320;
@@ -264,20 +587,32 @@ if (new URLSearchParams(window.location.search).get('preview') === 'showcase') {
   sim.currentWeaponIdx = 3;
   sim.player.x = 760;
   sim.player.y = 580;
-  aimWorldX = 940;
-  aimWorldY = 510;
+  aimWorldX = 950;
+  aimWorldY = 530;
   sim.deployTurret();
   sim.spawnFireExplosion(885, 535, 72);
-  sim.spawnEnemy('brute', 920, 500);
-  sim.spawnEnemy('screamer', 680, 480);
-  sim.spawnEnemy('spitter', 860, 680);
-  sim.spawnEnemy('sprinter', 640, 630);
-  sim.spawnEnemy('walker', 950, 610);
+  // Spawn enemies in both lit vehicle beams and dark penumbra/blackout zones to showcase light-distance visibility!
+  sim.spawnEnemy('brute', 925, 525);      // Lit in flashlight & fire pool
+  sim.spawnEnemy('screamer', 915, 315);   // Lit in PD-Cruiser 04 twin xenon headlights
+  sim.spawnEnemy('spitter', 1225, 588);   // Lit in SWAT Bearcat twin floodlights
+  sim.spawnEnemy('walker', 625, 862);     // Lit in EMS Ambulance halogen headlight
+  sim.spawnEnemy('sprinter', 655, 645);   // Lurking in penumbra (dark silhouette + glowing eyes)
+  sim.spawnEnemy('walker', 610, 470);     // Lurking in deep darkness (acoustic footstep ripple + faint eyes)
   sim.barricades[0].hp = 120;
   sim.barricades[2].hp = 60;
   sim.step(0.05, { moveX: 0, moveY: 0, aimWorldX, aimWorldY, firing: false });
   sim.fireWeapon();
-  sim.setBanner('WAVE 3 // REDLINE CROSSROADS SIEGE', 'FN-FAL 7.62 AP + AEGIS SENTRY OVERWATCH ACTIVE', 10.0);
+  sim.awaitingFirstInput = true;
+  sim.setBanner(
+    'WAVE 03 // REDLINE CROSSROADS SIEGE',
+    'ALIGNED VEHICLE HIGH-BEAMS, RAYCAST FLASHLIGHT & LIGHT-DISTANCE THREAT VISIBILITY',
+    10.0
+  );
+  if (previewMode === 'combat') {
+    toggleSitrep(true);
+  } else if (previewMode === 'workbench') {
+    toggleWorkbench(true);
+  }
 }
 
 let lastTime = performance.now();
@@ -296,6 +631,7 @@ function frame(now) {
     firing: pointerDown,
   });
   renderer.render(sim);
+  renderEcg(dt);
 
   hudAccum += dt;
   if (hudAccum >= 0.1) {
@@ -307,6 +643,7 @@ function frame(now) {
 }
 
 renderer.render(sim);
+renderEcg(0.016);
 syncHud();
-window.__deadDistrict = { sim, renderer };
+window.__deadDistrict = { sim, renderer, toggleWorkbench };
 requestAnimationFrame(frame);

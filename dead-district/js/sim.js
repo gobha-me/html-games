@@ -29,6 +29,7 @@ export class DeadDistrictSim {
     this.time = 0;
     this.paused = false;
     this.gameOver = false;
+    this.awaitingFirstInput = true;
 
     this.score = 0;
     this.kills = 0;
@@ -150,12 +151,14 @@ export class DeadDistrictSim {
         this.enemiesToSpawn.push('walker');
       }
     }
-    // Immediately spawn 4 vanguard infected along the 4 street approaches
+    // Immediately spawn vanguard infected in vehicle headlight zones & dark penumbra
     const vanguards = [
-      ['walker', 790, 295],
-      ['sprinter', 990, 585],
-      ['walker', 810, 905],
-      ['walker', 575, 615],
+      ['walker', 905, 312],    // Caught in PD-Cruiser 04 twin xenon beams (North)
+      ['sprinter', 1225, 588], // Caught in SWAT Bearcat twin floodlights (East)
+      ['walker', 625, 862],    // Caught in EMS Ambulance halogen beam (South)
+      ['walker', 565, 518],    // Caught in Metro Taxi single amber beam (West)
+      ['sprinter', 660, 655],  // Lurking in twilight penumbra (dark silhouette + glowing eyes)
+      ['walker', 650, 465],    // Lurking in deep darkness (acoustic footstep ripple + faint eye glints)
     ];
     for (const [vt, vx, vy] of vanguards) {
       if (this.enemiesToSpawn.length > 0) this.enemiesToSpawn.pop();
@@ -443,6 +446,19 @@ export class DeadDistrictSim {
 
   // Armory Requisition Actions
   requisitionAction(actionId) {
+    if (actionId && actionId.startsWith('ammo_w_')) {
+      const idx = Number(actionId.replace('ammo_w_', ''));
+      const w = this.weapons[idx];
+      if (!w || !w.unlocked || w.infiniteReserve) return false;
+      const cost = w.ammoCost || 40;
+      if (this.scrap < cost) return false;
+      this.scrap -= cost;
+      w.reserve += w.ammoPack || 30;
+      w.mag = w.magSize;
+      audio.buy();
+      this.setBanner(`${w.name} AMMO RESUPPLIED`, `+${w.ammoPack || 30} ROUNDS ADDED TO RESERVE`, 2.0);
+      return true;
+    }
     if (actionId === 'ammo_all') {
       if (this.scrap < 45) return false;
       this.scrap -= 45;
@@ -454,40 +470,75 @@ export class DeadDistrictSim {
       this.setBanner('FULL AMMO CRATE RESUPPLIED', 'ALL MAGAZINES & RESERVES TOPPED UP', 2.0);
       return true;
     }
-    if (actionId === 'armor_plate') {
-      if (this.scrap < 40 || this.player.armor >= this.player.maxArmor) return false;
+    if (actionId === 'medkit') {
+      if (this.scrap < 40) return false;
       this.scrap -= 40;
+      if (this.player.hp < this.player.maxHp) {
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + 55);
+      } else {
+        this.player.medkits += 1;
+      }
+      audio.buy();
+      this.addFloatText(this.player.x, this.player.y - 18, '+MED-STIM', '#10b981');
+      return true;
+    }
+    if (actionId === 'armor_plate' || actionId === 'armor') {
+      const cost = actionId === 'armor' ? 50 : 40;
+      if (this.scrap < cost || this.player.armor >= this.player.maxArmor) return false;
+      this.scrap -= cost;
       this.player.armor = Math.min(this.player.maxArmor, this.player.armor + 60);
       audio.buy();
       this.addFloatText(this.player.x, this.player.y - 18, '+60 KEVLAR', '#38bdf8');
       return true;
     }
-    if (actionId === 'molotov_pack') {
+    if (actionId === 'molotov_pack' || actionId === 'molotov') {
       if (this.scrap < 45) return false;
       this.scrap -= 45;
       this.player.molotovs += 2;
       audio.buy();
-      this.addFloatText(this.player.x, this.player.y - 18, '+2 MOLOTOVS', '#fb923c');
+      this.addFloatText(this.player.x, this.player.y - 18, '+2 THERMITE', '#fb923c');
       return true;
     }
-    if (actionId === 'turret_kit') {
-      if (this.scrap < 95) return false;
-      this.scrap -= 95;
+    if (actionId === 'turret_kit' || actionId === 'turret') {
+      const cost = actionId === 'turret' ? 110 : 95;
+      if (this.scrap < cost) return false;
+      this.scrap -= cost;
       this.player.turretKits += 1;
       this.deployTurret();
       return true;
     }
-    if (actionId === 'perk_dmg') {
-      const cost = 90 + this.perks.hollowPoint * 50;
-      if (this.scrap < cost || this.perks.hollowPoint >= 4) return false;
+    if (actionId === 'barricadeAll') {
+      const damaged = this.barricades.filter(b => b.hp < b.maxHp);
+      if (damaged.length === 0 || this.scrap < 65) return false;
+      this.scrap -= 65;
+      for (const b of this.barricades) b.hp = b.maxHp;
+      audio.repair();
+      this.setBanner('STEEL BULKHEAD OVERHAUL', 'ALL 8 SAFE-ROOM DOORS RESTORED TO 100%', 2.2);
+      return true;
+    }
+    if (actionId === 'perk_dmg' || actionId === 'perkDamage') {
+      const cost = 85 + this.perks.hollowPoint * 45;
+      if (this.scrap < cost || this.perks.hollowPoint >= 5) return false;
       this.scrap -= cost;
       this.perks.hollowPoint++;
       audio.buy();
-      this.setBanner(`HOLLOW-POINT ROUNDS TIER ${this.perks.hollowPoint}`, `+${this.perks.hollowPoint * 20}% BALLISTIC DAMAGE`, 2.2);
+      this.setBanner(`HOLLOW-POINT ROUNDS TIER ${this.perks.hollowPoint}`, `+${this.perks.hollowPoint * 18}% BALLISTIC DAMAGE`, 2.2);
       return true;
     }
-    if (actionId === 'perk_reload') {
-      const cost = 80 + this.perks.speedLoader * 45;
+    if (actionId === 'perkArmor') {
+      this.perks.kevlarWeave = this.perks.kevlarWeave || 0;
+      const cost = 80 + this.perks.kevlarWeave * 45;
+      if (this.scrap < cost || this.perks.kevlarWeave >= 5) return false;
+      this.scrap -= cost;
+      this.perks.kevlarWeave++;
+      this.player.maxHp += 25;
+      this.player.hp = Math.min(this.player.maxHp, this.player.hp + 25);
+      audio.buy();
+      this.setBanner(`KEVLAR WEAVE TIER ${this.perks.kevlarWeave}`, `MAX TRAUMA HP INCREASED TO ${this.player.maxHp}`, 2.2);
+      return true;
+    }
+    if (actionId === 'perk_reload' || actionId === 'perkReload') {
+      const cost = 75 + this.perks.speedLoader * 45;
       if (this.scrap < cost || this.perks.speedLoader >= 4) return false;
       this.scrap -= cost;
       this.perks.speedLoader++;
@@ -502,7 +553,13 @@ export class DeadDistrictSim {
     if (this.paused || this.gameOver) return;
     this.time += dt;
 
-    if (this.banner.timer > 0) this.banner.timer = Math.max(0, this.banner.timer - dt);
+    if (input.moveX || input.moveY || input.firing) {
+      this.awaitingFirstInput = false;
+    }
+
+    if (this.banner.timer > 0 && !this.awaitingFirstInput) {
+      this.banner.timer = Math.max(0, this.banner.timer - dt);
+    }
     if (this.fireCooldown > 0) this.fireCooldown = Math.max(0, this.fireCooldown - dt);
     if (this.player.muzzleFlash > 0) this.player.muzzleFlash = Math.max(0, this.player.muzzleFlash - dt);
     if (this.player.hitFlash > 0) this.player.hitFlash = Math.max(0, this.player.hitFlash - dt * 3);
@@ -544,6 +601,15 @@ export class DeadDistrictSim {
     }
 
     // 2. Step Wave Spawner & Breather Timer
+    if (this.awaitingFirstInput) {
+      for (const e of this.enemies) {
+        e.stepPhase += dt * 5.5;
+        e.angle = Math.atan2(this.player.y - e.y, this.player.x - e.x);
+      }
+      this.stepEffects(dt);
+      return;
+    }
+
     if (this.waveActive) {
       if (this.enemiesToSpawn.length > 0) {
         this.spawnTimer -= dt;

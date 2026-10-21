@@ -1,228 +1,352 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
-  <title>DEAD DISTRICT // SECTOR 7 — Tactical Survival Horror</title>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../shared/back-to-arcade.css">
-  <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DEAD DISTRICT // SECTOR 7 — Urban Bio-Horror Survival</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <!-- Full-Bleed 100vw x 100vh Survival Horror Viewport -->
   <div id="sector-shell">
-    <!-- Top Tactical Telemetry Bar -->
-    <header id="top-bar">
-      <div class="brand-block">
-        <div class="brand-title">DEAD DISTRICT <span>//</span> SECTOR 7</div>
-        <div class="brand-sub">Quarantine Ops</div>
-      </div>
-
-      <div class="header-telemetry">
-        <div class="stat-pill"><span class="sp-label">WAVE</span><strong id="hud-wave" style="color:#f43f5e">1</strong></div>
-        <div class="stat-pill"><span class="sp-label">HOSTILES</span><strong id="hud-hostiles" style="color:#fb923c">13</strong></div>
-        <div class="stat-pill"><span class="sp-label">SCRAP</span><strong id="hud-scrap" style="color:#38bdf8">$140</strong></div>
-        <div class="stat-pill"><span class="sp-label">SCORE</span><strong id="hud-score">0 / 2,400</strong></div>
-      </div>
-
-      <div class="top-actions">
-        <button class="top-btn primary" id="btn-flashlight" title="Toggle Tactical Flashlight Beam Mode [L]">🔦 Beam: Spot [L]</button>
-        <button class="top-btn" id="btn-repair-all" title="Repair Nearby Barricade [F] or All ($35)">🔨 Fortify [F]</button>
-        <button class="top-btn" id="btn-pause" title="Pause Operations [P]">⏸ Pause</button>
-        <button class="top-btn" id="btn-mute" title="Toggle Gunfire &amp; Horror Audio [M]">🔊 SFX</button>
-        <button class="top-btn" id="btn-reset" title="Restart Sector 7 Deployment">↻ Restart</button>
-      </div>
-    </header>
-
-    <!-- Left Bio-Monitor, Minimap & Barricade Wing -->
-    <aside id="wing-left" class="sector-wing">
-      <div class="panel-box">
-        <div class="panel-title">
-          <span>OPERATOR BIO-TELEMETRY</span>
-          <span id="hud-status-tag" style="color:#34d399">ACTIVE</span>
-        </div>
-
-        <div class="vital-row">
-          <div class="vital-head">
-            <span>VITAL INTEGRITY (HP)</span>
-            <strong id="hud-hp-text" style="color:#34d399">100 / 100</strong>
-          </div>
-          <div class="bar-wrap"><div id="hud-hp-bar" style="width:100%;background:linear-gradient(90deg,#dc2626,#22c55e)"></div></div>
-        </div>
-
-        <div class="vital-row" style="margin-top:7px">
-          <div class="vital-head">
-            <span>KEVLAR TRAUMA PLATE</span>
-            <strong id="hud-armor-text" style="color:#38bdf8">50 / 100</strong>
-          </div>
-          <div class="bar-wrap"><div id="hud-armor-bar" style="width:50%;background:linear-gradient(90deg,#0284c7,#38bdf8)"></div></div>
-        </div>
-
-        <div class="quick-belt">
-          <button class="belt-btn" id="btn-use-med" title="Inject Emergency Med-Stim (+55 HP) [H]">
-            <span>💉 MED-STIM [H]</span>
-            <strong id="hud-med-count">2</strong>
-          </button>
-          <button class="belt-btn" id="btn-use-molotov" title="Throw Incendiary Molotov [G]">
-            <span>🔥 MOLOTOV [G]</span>
-            <strong id="hud-molotov-count">2</strong>
-          </button>
-          <button class="belt-btn" id="btn-use-turret" title="Deploy 360° Aegis Sentry Turret [T]">
-            <span>🤖 TURRET [T]</span>
-            <strong id="hud-turret-count">1</strong>
-          </button>
-          <button class="belt-btn" id="btn-use-dash" title="Evasive Combat Roll [Space]">
-            <span>⚡ DASH [SPC]</span>
-            <strong id="hud-dash-state">READY</strong>
-          </button>
-        </div>
-      </div>
-
-      <div class="panel-box">
-        <div class="panel-title">
-          <span>SECTOR 7 BIO-RADAR</span>
-          <span style="color:#38bdf8">1600×1200M</span>
-        </div>
-        <canvas id="minimap-canvas" width="268" height="200"></canvas>
-        <div class="radar-legend">
-          <span><i style="background:#38bdf8"></i>OPERATOR</span>
-          <span><i style="background:#10b981"></i>BARRICADE</span>
-          <span><i style="background:#ef4444"></i>INFECTED</span>
-          <span><i style="background:#38f2d7"></i>SENTRY</span>
-        </div>
-      </div>
-
-      <div class="panel-box">
-        <div class="panel-title">
-          <span>SAFE-ROOM BARRICADES (8)</span>
-          <span id="hud-barricade-summary" style="color:#10b981">8 / 8 INTACT</span>
-        </div>
-        <div class="barricade-grid" id="hud-barricade-grid">
-          <div class="bar-cell"><span class="bc-name">PHARM-S</span><div class="bc-track"><div id="bc-nw_s"></div></div></div>
-          <div class="bar-cell"><span class="bc-name">PHARM-E</span><div class="bc-track"><div id="bc-nw_e"></div></div></div>
-          <div class="bar-cell"><span class="bc-name">PREC-S</span><div class="bc-track"><div id="bc-ne_s"></div></div></div>
-          <div class="bar-cell"><span class="bc-name">PREC-W</span><div class="bc-track"><div id="bc-ne_w"></div></div></div>
-          <div class="bar-cell"><span class="bc-name">GARAGE-N</span><div class="bc-track"><div id="bc-sw_n"></div></div></div>
-          <div class="bar-cell"><span class="bc-name">GARAGE-E</span><div class="bc-track"><div id="bc-sw_e"></div></div></div>
-          <div class="bar-cell"><span class="bc-name">DINER-N</span><div class="bc-track"><div id="bc-se_n"></div></div></div>
-          <div class="bar-cell"><span class="bc-name">DINER-W</span><div class="bc-track"><div id="bc-se_w"></div></div></div>
-        </div>
-      </div>
-
-      <div class="panel-box" style="margin-top:auto">
-        <div class="panel-title">
-          <span>INFECTED THREAT DOSSIER</span>
-          <span>CLASS I–V</span>
-        </div>
-        <div class="threat-grid">
-          <div class="threat-item"><img src="assets/sprites/shambler.png" alt="Shambler" class="threat-sprite"><span><b style="color:#84cc16">Shambler:</b> Claws doors</span></div>
-          <div class="threat-item"><img src="assets/sprites/runner.png" alt="Sprinter" class="threat-sprite"><span><b style="color:#ef4444">Sprinter:</b> Fast flanker</span></div>
-          <div class="threat-item"><img src="assets/sprites/spitter.png" alt="Spitter" class="threat-sprite"><span><b style="color:#10b981">Spitter:</b> Acid pools</span></div>
-          <div class="threat-item"><img src="assets/sprites/brute.png" alt="Juggernaut" class="threat-sprite"><span><b style="color:#f97316">Juggernaut:</b> SWAT armor</span></div>
-          <div class="threat-item" style="grid-column:1/-1"><img src="assets/sprites/screamer.png" alt="Screamer" class="threat-sprite"><span><b style="color:#e879f9">Necro Screamer:</b> Sonic frenzy pulse — priority target!</span></div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Center Urban Combat Viewport -->
     <main id="viewport-stage">
       <canvas id="game-canvas"></canvas>
-      <div id="sector-banner">
-        <div class="sb-title" id="banner-title">SECTOR 7 // QUARANTINE BREACH</div>
-        <div class="sb-sub" id="banner-sub">HOLD THE CROSSROADS OR FORTIFY SAFE-ROOMS</div>
-      </div>
+      <!-- Diegetic Body-Cam Vignette & Visor Frame -->
+      <div class="visor-overlay" aria-hidden="true"></div>
+
+      <!-- ── TOP-LEFT: Cracked Helmet Bio-Monitor & Telemetry Badge ── -->
+      <section id="hud-top-left" class="hud-corner">
+        <div class="biocam-header">
+          <a href="../" class="back-to-arcade" title="Return to Arcade Launcher">← Back to Arcade</a>
+          <span class="rec-pill"><i class="rec-dot"></i> BODYCAM // SEC-07</span>
+          <span class="brand-tag">DEAD DISTRICT <span>// S7</span></span>
+        </div>
+
+        <div class="biocam-body">
+          <!-- Live ECG Oscilloscope -->
+          <div class="ecg-box">
+            <canvas id="ecg-canvas" width="116" height="36"></canvas>
+            <div class="ecg-meta">
+              <span id="hud-bpm">76 BPM</span>
+              <span id="hud-cond" class="cond-ok">STABLE</span>
+            </div>
+          </div>
+
+          <!-- Trauma HP & Kevlar Bars -->
+          <div class="vitals-stack">
+            <div class="vital-row">
+              <div class="vital-head">
+                <span>TRAUMA INTEGRITY</span>
+                <strong id="hud-hp" style="color: #10b981;">100 / 100</strong>
+              </div>
+              <div class="bar-wrap"><div id="bar-hp" style="width: 100%; background: #10b981;"></div></div>
+            </div>
+            <div class="vital-row">
+              <div class="vital-head">
+                <span>KEVLAR RIG</span>
+                <strong id="hud-armor" style="color: #38bdf8;">50 / 100</strong>
+              </div>
+              <div class="bar-wrap"><div id="bar-armor" style="width: 50%; background: #38bdf8;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compact Field Counters -->
+        <div class="telemetry-strip">
+          <div class="tele-cell">
+            <span class="tc-lbl">WAVE</span>
+            <strong id="hud-wave" class="tc-val" style="color: #fde047;">#01</strong>
+          </div>
+          <div class="tele-cell">
+            <span class="tc-lbl">HOSTILES</span>
+            <strong id="hud-hostiles" class="tc-val" style="color: #ef4444;">10</strong>
+          </div>
+          <div class="tele-cell">
+            <span class="tc-lbl">SCRAP</span>
+            <strong id="hud-scrap" class="tc-val" style="color: #38bdf8;">$90</strong>
+          </div>
+          <div class="tele-cell">
+            <span class="tc-lbl">SCORE</span>
+            <strong id="hud-score" class="tc-val">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── TOP-CENTER: Tactical Wave Banner & Immediate Starting Directive ── -->
+      <header id="hud-top-center">
+        <div id="sector-banner">
+          <div class="sb-eyebrow" id="hud-phase">ACTIVE SWARM</div>
+          <div class="sb-title" id="banner-title">WAVE 01 // QUARANTINE BREACH</div>
+          <div class="sb-sub" id="banner-sub">SWEEP FLASHLIGHT [MOUSE] &amp; USE VEHICLE HEADLIGHTS TO SPOT INFECTED IN THE DARK</div>
+        </div>
+      </header>
+
+      <!-- Non-blocking Field Sitrep Guide docked top-right (makes starting state & player goals 100% clear without covering crossroads) -->
+      <aside id="sitrep-card">
+        <div class="sitrep-head">
+          <span>TACTICAL SITREP // HOW TO SURVIVE SECTOR 7</span>
+          <button id="btn-dismiss-sitrep" type="button" title="Hide Sitrep [Space/Click]">HIDE [×]</button>
+        </div>
+        <div class="sitrep-steps">
+          <div class="sr-step">
+            <strong>1. LIGHT REVEALS THREATS</strong>
+            <span>Zombies outside your flashlight &amp; vehicle beams lurk in darkness. Watch for <em>eye glints</em> &amp; <em>sound ripples</em>.</span>
+          </div>
+          <div class="sr-step">
+            <strong>2. HOLD THE CROSSROADS</strong>
+            <span>Move <b>[WASD]</b>, Aim/Fire <b>[Mouse]</b>, Roll <b>[Space]</b>, Fortify 8 Safe-Room Doors <b>[F]</b>, Beam <b>[L]</b>.</span>
+          </div>
+          <div class="sr-step">
+            <strong>3. REQUISITION ARMORY</strong>
+            <span>Collect <b>$SCRAP</b> &amp; press <b>[B]</b> or <b>[TAB]</b> anytime to buy guns, ammo, turrets &amp; perks.</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ── TOP-RIGHT: Safe-Room Armory Workbench & Utility Controls ── -->
+      <nav id="hud-top-right" class="hud-corner">
+        <button id="btn-workbench" class="tactical-btn armory-trigger" type="button">
+          <span class="tb-key">[B]</span>
+          <span class="tb-txt">ARMORY WORKBENCH</span>
+          <span id="armory-badge" class="tb-badge">OPEN SHOP</span>
+        </button>
+        <button id="btn-dossier" class="tactical-btn" type="button" title="Toggle Sitrep & Field Intel">
+          <span class="tb-key">[?]</span>
+          <span class="tb-txt">SITREP</span>
+        </button>
+        <button id="btn-pause" class="tactical-btn" type="button">
+          <span class="tb-txt">PAUSE [P]</span>
+        </button>
+        <button id="btn-reset" class="tactical-btn danger" type="button">
+          <span class="tb-txt">RESET</span>
+        </button>
+      </nav>
+
+      <!-- ── BOTTOM-LEFT: Circular Acoustic Motion Tracker, Perimeter Matrix & Quick Belt ── -->
+      <section id="hud-bottom-left" class="hud-corner">
+        <div class="tracker-cluster">
+          <div class="radar-bezel">
+            <canvas id="minimap-canvas" width="144" height="144"></canvas>
+            <div class="radar-ring-label">ACOUSTIC SCOPE</div>
+          </div>
+
+          <div class="perimeter-panel">
+            <div class="pp-title">
+              <span>SAFE-ROOM DOORS</span>
+              <span class="pp-hint">[F] REPAIR $15</span>
+            </div>
+            <div id="barricade-grid" class="barricade-grid">
+              <div class="bar-cell"><span class="bc-name">NW-S</span><div class="bc-track"><div id="bc-nw_s"></div></div></div>
+              <div class="bar-cell"><span class="bc-name">NW-E</span><div class="bc-track"><div id="bc-nw_e"></div></div></div>
+              <div class="bar-cell"><span class="bc-name">NE-S</span><div class="bc-track"><div id="bc-ne_s"></div></div></div>
+              <div class="bar-cell"><span class="bc-name">NE-W</span><div class="bc-track"><div id="bc-ne_w"></div></div></div>
+              <div class="bar-cell"><span class="bc-name">SW-N</span><div class="bc-track"><div id="bc-sw_n"></div></div></div>
+              <div class="bar-cell"><span class="bc-name">SW-E</span><div class="bc-track"><div id="bc-sw_e"></div></div></div>
+              <div class="bar-cell"><span class="bc-name">SE-N</span><div class="bc-track"><div id="bc-se_n"></div></div></div>
+              <div class="bar-cell"><span class="bc-name">SE-W</span><div class="bc-track"><div id="bc-se_w"></div></div></div>
+            </div>
+            <div class="radar-legend">
+              <span><i style="background:#38bdf8;"></i>YOU</span>
+              <span><i style="background:#10b981;"></i>DOOR</span>
+              <span><i style="background:#ef4444;"></i>HOSTILE</span>
+              <span><i style="background:#e879f9;"></i>ELITE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tactical Rig Quick-Belt -->
+        <div class="quick-belt">
+          <button class="belt-btn" id="belt-medkit" type="button" title="Inject Combat Med-Stim [H]">
+            <span>[H] MED-STIM</span>
+            <strong id="hud-medkits">1</strong>
+          </button>
+          <button class="belt-btn" id="belt-molotov" type="button" title="Throw Thermite Incendiary [G]">
+            <span>[G] THERMITE</span>
+            <strong id="hud-molotovs">2</strong>
+          </button>
+          <button class="belt-btn" id="belt-turret" type="button" title="Deploy Aegis Auto-Turret [T]">
+            <span>[T] TURRET</span>
+            <strong id="hud-turrets">1</strong>
+          </button>
+          <button class="belt-btn" id="belt-repair" type="button" title="Repair Nearest Door Barricade [F]">
+            <span>[F] FORTIFY</span>
+            <strong>$15</strong>
+          </button>
+          <button class="belt-btn" id="belt-light" type="button" title="Cycle Flashlight Wide / Focused / Off [L]">
+            <span>[L] BEAM</span>
+            <strong id="hud-beam">WIDE</strong>
+          </button>
+          <button class="belt-btn" id="belt-dash" type="button" title="Evasive Combat Roll [Space]">
+            <span>[SPC] ROLL</span>
+            <strong id="hud-stamina">100%</strong>
+          </button>
+        </div>
+      </section>
+
+      <!-- ── BOTTOM-RIGHT: Diegetic Firearm & Brass Cartridge Counter ── -->
+      <section id="hud-bottom-right" class="hud-corner">
+        <div class="firearm-card">
+          <div class="fc-top">
+            <div>
+              <div class="fc-caliber" id="hud-weapon-caliber">9MM PARABELLUM // SIDEARM</div>
+              <div class="fc-name" id="hud-weapon-name">M9 TACTICAL</div>
+            </div>
+            <button class="reload-btn" id="btn-reload" type="button">[R] RELOAD</button>
+          </div>
+
+          <!-- Brass Cartridge Visual Pips -->
+          <div id="ammo-pips" class="ammo-pips" aria-label="Magazine Rounds"></div>
+
+          <div class="fc-ammo-row">
+            <div class="fc-mag-wrap">
+              <span class="fc-mag" id="hud-ammo-mag">15</span>
+              <span class="fc-mag-lbl">IN MAG</span>
+            </div>
+            <span class="fc-reserve" id="hud-ammo-res">/ ∞ RESERVE</span>
+          </div>
+          <div class="bar-wrap"><div id="bar-ammo" style="width: 100%; background: #fde047;"></div></div>
+        </div>
+
+        <!-- 5-Slot Holster Selector Strip (Updated without DOM thrashing) -->
+        <div id="hud-weapon-rack" class="weapon-rack"></div>
+      </section>
+
+      <!-- ── SLIDE-OVER DRAWER: Safe-Room Requisition Workbench & Infected Dossier ([B] / [TAB]) ── -->
+      <aside id="workbench-drawer" aria-hidden="true">
+        <div class="wb-backdrop" id="wb-backdrop"></div>
+        <div class="wb-crate">
+          <div class="wb-header">
+            <div>
+              <div class="wb-eyebrow">PRECINCT 7 SAFE-ROOM // FIELD REQUISITION LOCKER</div>
+              <h2>TACTICAL ARMORY WORKBENCH</h2>
+            </div>
+            <div class="wb-header-right">
+              <div class="wb-scrap-pill">AVAILABLE SCRAP: <strong id="wb-scrap-val">$90</strong></div>
+              <button id="btn-close-workbench" class="wb-close-btn" type="button">CLOSE [B / ESC]</button>
+            </div>
+          </div>
+
+          <div class="wb-columns">
+            <!-- Col 1: Firearms & Ammunition -->
+            <div class="wb-section">
+              <div class="wb-sec-title">1. FIREARMS &amp; AMMO CRATES <span>CLICK OR PRESS [1–5]</span></div>
+              <div id="wb-weapon-list" class="wb-weapon-list"></div>
+            </div>
+
+            <!-- Col 2: Field Gear, Turrets & Operator Perks -->
+            <div class="wb-section">
+              <div class="wb-sec-title">2. TACTICAL ORDNANCE &amp; PERKS <span>INSTANT REQUISITION</span></div>
+              <div class="shop-grid">
+                <button class="shop-btn" data-buy="medkit" type="button">
+                  <span class="sh-name">COMBAT MED-STIM (+55 HP)</span>
+                  <span class="sh-sub">Emergency adrenaline injector [Key H]</span>
+                  <strong class="sh-cost">$40</strong>
+                </button>
+                <button class="shop-btn" data-buy="armor" type="button">
+                  <span class="sh-name">KEVLAR VEST PLATE (+60 AP)</span>
+                  <span class="sh-sub">Absorbs 65% of claw &amp; acid trauma</span>
+                  <strong class="sh-cost">$50</strong>
+                </button>
+                <button class="shop-btn" data-buy="molotov" type="button">
+                  <span class="sh-name">THERMITE INCENDIARY (x2)</span>
+                  <span class="sh-sub">Ignites street chokepoints &amp; lights dark lanes [Key G]</span>
+                  <strong class="sh-cost">$45</strong>
+                </button>
+                <button class="shop-btn" data-buy="turret" type="button">
+                  <span class="sh-name">AEGIS AUTO-TURRET</span>
+                  <span class="sh-sub">360° rotary sentry with spotlight [Key T]</span>
+                  <strong class="sh-cost">$110</strong>
+                </button>
+                <button class="shop-btn" data-buy="barricadeAll" type="button">
+                  <span class="sh-name">STEEL BULKHEAD OVERHAUL</span>
+                  <span class="sh-sub">Restores all 8 Safe-Room doorways to 100%</span>
+                  <strong class="sh-cost">$65</strong>
+                </button>
+                <button class="shop-btn" data-buy="perkDamage" type="button">
+                  <span class="sh-name">PERK: HOLLOW-POINT (+18% DMG)</span>
+                  <span class="sh-sub" id="perk-dmg-lvl">Tier 0 / 5</span>
+                  <strong class="sh-cost" id="perk-dmg-cost">$85</strong>
+                </button>
+                <button class="shop-btn" data-buy="perkArmor" type="button">
+                  <span class="sh-name">PERK: KEVLAR WEAVE (+25 MAX HP)</span>
+                  <span class="sh-sub" id="perk-hp-lvl">Tier 0 / 5</span>
+                  <strong class="sh-cost" id="perk-hp-cost">$80</strong>
+                </button>
+                <button class="shop-btn" data-buy="perkReload" type="button">
+                  <span class="sh-name">PERK: SPEED LOADER (+25% RELOAD)</span>
+                  <span class="sh-sub" id="perk-rel-lvl">Tier 0 / 4</span>
+                  <strong class="sh-cost" id="perk-rel-cost">$75</strong>
+                </button>
+              </div>
+            </div>
+
+            <!-- Col 3: Infected Threat Dossier & Vehicle Light Guide -->
+            <div class="wb-section">
+              <div class="wb-sec-title">3. INFECTED FIELD DOSSIER <span>SPECIMEN INTEL</span></div>
+              <div class="dossier-list">
+                <div class="dossier-card">
+                  <img src="assets/sprites/shambler.png" alt="Shambler" class="threat-sprite" />
+                  <div>
+                    <strong style="color:#84cc16;">SHAMBLER (WALKER)</strong>
+                    <p>Relentless urban horde. Hides in unlit alleys; claws down safe-room barricades.</p>
+                  </div>
+                </div>
+                <div class="dossier-card">
+                  <img src="assets/sprites/runner.png" alt="Feral Sprinter" class="threat-sprite" />
+                  <div>
+                    <strong style="color:#f87171;">FERAL SPRINTER</strong>
+                    <p>High-velocity hunter. Watch for rapid red footstep ripples &amp; crimson eye glints in the dark.</p>
+                  </div>
+                </div>
+                <div class="dossier-card">
+                  <img src="assets/sprites/spitter.png" alt="Bile Spitter" class="threat-sprite" />
+                  <div>
+                    <strong style="color:#34d399;">BILE SPITTER</strong>
+                    <p>Lobs glowing corrosive acid pools from afar. Prioritize when spotted in vehicle beams.</p>
+                  </div>
+                </div>
+                <div class="dossier-card">
+                  <img src="assets/sprites/brute.png" alt="Riot Juggernaut" class="threat-sprite" />
+                  <div>
+                    <strong style="color:#fb923c;">RIOT JUGGERNAUT</strong>
+                    <p>Front riot armor deflects light rounds; use FN-FAL 7.62 AP, Shotgun, or Thermite fire.</p>
+                  </div>
+                </div>
+                <div class="dossier-card">
+                  <img src="assets/sprites/screamer.png" alt="Necro Screamer" class="threat-sprite" />
+                  <div>
+                    <strong style="color:#e879f9;">NECRO SCREAMER</strong>
+                    <p>Emits violet acoustic shockwaves that summon sprint-packs. Eliminate immediately.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="vehicle-intel-box">
+                <div class="vib-title">STREET VEHICLE LIGHTING INTEL</div>
+                <p>4 abandoned vehicles ring the crossroads: <b>PD-Cruiser 04</b> (North, twin xenon + strobe), <b>EMS Ambulance 12</b> (South, left beam + flickering right bulb + rotating beacon), <b>Metro Taxi 718</b> (West, single amber beam), and <b>SWAT Bearcat 01</b> (East, twin tactical floods). Fight near their beams to spot infected early!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
     </main>
-
-    <!-- Right Arsenal Loadout & Requisition Armory Wing -->
-    <aside id="wing-right" class="sector-wing">
-      <div class="panel-box">
-        <div class="panel-title">
-          <span>FIREARM TELEMETRY</span>
-          <span id="hud-caliber" style="color:#fb923c">12-GA BUCK</span>
-        </div>
-        <div class="active-weapon-card">
-          <div class="aw-header">
-            <div class="aw-name" id="hud-weapon-name">REMINGTON 870</div>
-            <button class="reload-btn" id="btn-reload" title="Reload Magazine [R]">↻ RELOAD [R]</button>
-          </div>
-          <div class="aw-ammo-row">
-            <span class="aw-mag" id="hud-ammo-mag">8 / 8</span>
-            <span class="aw-res" id="hud-ammo-res">RESERVE: 48</span>
-          </div>
-          <div class="bar-wrap"><div id="hud-ammo-bar" style="width:100%;background:#fb923c"></div></div>
-        </div>
-
-        <div class="weapon-rack" id="hud-weapon-rack">
-          <!-- Populated dynamically by main.js -->
-        </div>
-      </div>
-
-      <div class="panel-box">
-        <div class="panel-title">
-          <span>REQUISITION ARMORY</span>
-          <span style="color:#38bdf8">SCRAP ($)</span>
-        </div>
-        <div class="shop-grid">
-          <button class="shop-btn" data-req="ammo_all">
-            <span class="sh-name">📦 FULL AMMO CRATE</span>
-            <span class="sh-sub">Refill all mags &amp; reserves</span>
-            <strong class="sh-cost">$45</strong>
-          </button>
-          <button class="shop-btn" data-req="armor_plate">
-            <span class="sh-name">🛡 KEVLAR PLATE (+60)</span>
-            <span class="sh-sub">Ballistic trauma absorption</span>
-            <strong class="sh-cost">$40</strong>
-          </button>
-          <button class="shop-btn" data-req="molotov_pack">
-            <span class="sh-name">🔥 2× THERMITE MOLOTOVS</span>
-            <span class="sh-sub">6.5s choke-point fire pool</span>
-            <strong class="sh-cost">$45</strong>
-          </button>
-          <button class="shop-btn" data-req="turret_kit">
-            <span class="sh-name">🤖 AEGIS SENTRY TURRET</span>
-            <span class="sh-sub">Auto-deploys 140-rd sentry</span>
-            <strong class="sh-cost">$95</strong>
-          </button>
-          <button class="shop-btn" data-req="perk_dmg">
-            <span class="sh-name" id="req-dmg-title">⚡ HOLLOW-POINT (+20% DMG)</span>
-            <span class="sh-sub">Permanent ballistic upgrade</span>
-            <strong class="sh-cost" id="req-dmg-cost">$90</strong>
-          </button>
-          <button class="shop-btn" data-req="perk_reload">
-            <span class="sh-name" id="req-rel-title">⏩ SPEED-LOADER (+25% REL)</span>
-            <span class="sh-sub">Permanent reload speed rig</span>
-            <strong class="sh-cost" id="req-rel-cost">$80</strong>
-          </button>
-        </div>
-      </div>
-
-      <div class="panel-box" style="margin-top:auto">
-        <div class="panel-title">
-          <span>TACTICAL FIELD MANUAL</span>
-          <span>CONTROLS</span>
-        </div>
-        <div class="manual-list">
-          <div><b>WASD / Arrows:</b> Move · <b>Space:</b> Combat Roll Dash</div>
-          <div><b>Mouse Aim + Left Click:</b> Aim Flashlight &amp; Fire</div>
-          <div><b>[1]–[5] / Click Slot:</b> Switch / Unlock Firearm</div>
-          <div><b>[R]:</b> Reload · <b>[G]:</b> Molotov · <b>[T]:</b> Auto-Turret</div>
-          <div><b>[F]:</b> Repair Door Barricades · <b>[H]:</b> Med-Stim</div>
-        </div>
-      </div>
-    </aside>
   </div>
 
   <!-- Game Over Modal -->
   <div id="modal-gameover">
     <div class="modal-card">
-      <div class="modal-eyebrow">SECTOR 7 BIO-CONTAINMENT LOG</div>
-      <h2>OPERATOR KIA</h2>
-      <p id="modal-summary"></p>
-      <button class="top-btn primary" id="btn-modal-restart" style="padding:10px 24px;font-size:15px">↻ Redeploy Into Sector 7</button>
+      <div class="modal-eyebrow">BIO-SIGNAL FLATLINE // SECTOR 7 LOST</div>
+      <h2 id="go-title">OPERATOR OVERRUN</h2>
+      <p id="go-stats">Wave Reached: 1 · Infected Neutralized: 0 · Final Score: 0</p>
+      <button class="tactical-btn armory-trigger" id="btn-restart-modal" type="button" style="margin: 0 auto; padding: 0 22px; height: 38px;">
+        <span class="tb-txt">DEPLOY NEW OPERATOR [ENTER]</span>
+      </button>
     </div>
   </div>
 
-  <a href="../" class="back-to-arcade">← Back to Arcade</a>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
