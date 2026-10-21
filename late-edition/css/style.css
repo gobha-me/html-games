@@ -392,6 +392,86 @@ body {
   cursor: crosshair;
 }
 
+/* Non-Blocking Bakelite Rotary Phone Editorial Dilemma Card */
+.rotary-phone-card {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 318px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(24, 15, 10, 0.96) 0%, rgba(13, 8, 5, 0.96) 100%);
+  border: 2px solid var(--brass-bright);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.8), 0 0 14px rgba(247, 201, 104, 0.28);
+  z-index: 15;
+  pointer-events: auto;
+}
+
+.rotary-phone-card.hidden {
+  display: none;
+}
+
+.rotary-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--brass-bright);
+  border-bottom: 1px solid rgba(212, 155, 56, 0.35);
+  padding-bottom: 4px;
+  margin-bottom: 5px;
+}
+
+.rotary-head strong {
+  margin-left: auto;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #991b1b;
+  color: #fff;
+}
+
+.rotary-prompt {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-style: italic;
+  line-height: 1.28;
+  color: #f6ead4;
+  margin-bottom: 6px;
+}
+
+.rotary-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.btn-rotary {
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--brass);
+}
+
+.btn-rotary.accept {
+  background: #14532d;
+  color: #dcfce7;
+  border-color: #22c55e;
+}
+
+.btn-rotary.reject {
+  background: #7f1d1d;
+  color: #fee2e2;
+  border-color: #f87171;
+}
+
+.btn-rotary:hover {
+  filter: brightness(1.15);
+}
+
 /* Pinned Yellow Western Union / AP Teletype Telegram Slips Docked in Open Bottom-Center Plaza */
 .pinned-wires-overlay {
   position: absolute;

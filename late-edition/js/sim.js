@@ -11,6 +11,7 @@ import {
   FRONT_PAGE_SLOTS,
   STORY_CATALOG,
   INVESTIGATIVE_ARCS,
+  EDITORIAL_DILEMMAS,
 } from './config.js';
 
 const STORAGE_KEY_BEST = 'lateEdition.bestCirculation.v2';
@@ -77,6 +78,11 @@ export class LateEditionSim {
       tenement_torch: 0,
     };
     this.arcRotation = 0;
+
+    // Midnight Rotary-Phone Editorial Dilemmas
+    this.activeDilemma = null;
+    this.dilemmaIdx = 0;
+    this.dilemmaTriggeredThisEdition = false;
 
     // Scooped Stories & 4 Front-Page Broadsheet Slots
     this.scoopedStories = [];
@@ -471,6 +477,44 @@ export class LateEditionSim {
     return true;
   }
 
+  triggerRotaryDilemma() {
+    if (this.activeDilemma) return this.activeDilemma;
+    const template =
+      EDITORIAL_DILEMMAS[this.dilemmaIdx % EDITORIAL_DILEMMAS.length];
+    this.dilemmaIdx++;
+    this.activeDilemma = {
+      ...template,
+      timer: 26,
+    };
+    if (this.audio && this.audio.phoneRing) this.audio.phoneRing();
+    this.logWire(
+      `☎️ ROTARY PHONE RINGING: ${template.caller} on the night line!`,
+      'ops'
+    );
+    return this.activeDilemma;
+  }
+
+  resolveDilemma(accept = true) {
+    if (!this.activeDilemma) return false;
+    const eff = accept
+      ? this.activeDilemma.acceptEffect
+      : this.activeDilemma.rejectEffect;
+    this.cash = Math.max(0, this.cash + (eff.cash || 0));
+    this.circulation = Math.max(2000, this.circulation + (eff.circulation || 0));
+    this.credibility = Math.max(
+      0,
+      Math.min(100, this.credibility + (eff.credibility || 0))
+    );
+    this.syndicateHeat = Math.max(
+      0,
+      Math.min(100, this.syndicateHeat + (eff.heat || 0))
+    );
+    this.logWire(eff.wire, accept ? 'ops' : 'scoop');
+    this.activeDilemma = null;
+    if (this.audio) this.audio.typewriter();
+    return true;
+  }
+
   publishEdition() {
     let editionCash = 110; // Base newsstand sales
     let circDelta = 0;
@@ -572,6 +616,8 @@ export class LateEditionSim {
     };
     this.clockSec = 0;
     this.edition++;
+    this.dilemmaTriggeredThisEdition = false;
+    this.activeDilemma = null;
 
     if (this.audio) this.audio.pressRun();
     this.flashes.push({
@@ -601,6 +647,23 @@ export class LateEditionSim {
 
     if (this.banner.timer > 0) {
       this.banner.timer = Math.max(0, this.banner.timer - dt);
+    }
+
+    // Midnight Rotary-Phone Editorial Dilemma around 09:00 PM (clockSec >= 36)
+    if (
+      this.clockSec >= 36 &&
+      !this.dilemmaTriggeredThisEdition &&
+      !this.activeDilemma
+    ) {
+      this.dilemmaTriggeredThisEdition = true;
+      this.triggerRotaryDilemma();
+    }
+
+    if (this.activeDilemma) {
+      this.activeDilemma.timer -= dt;
+      if (this.activeDilemma.timer <= 0) {
+        this.resolveDilemma(false);
+      }
     }
 
     // Midnight print deadline reached!

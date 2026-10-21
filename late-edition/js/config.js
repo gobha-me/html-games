@@ -441,3 +441,72 @@ export const INVESTIGATIVE_ARCS = [
     ],
   },
 ];
+
+export const EDITORIAL_DILEMMAS = [
+  {
+    id: 'da_hold',
+    caller: 'DISTRICT ATTORNEY’S OFFICE // NIGHT LINE',
+    prompt:
+      '"Lou, Assistant DA Mercer here. Hold your Pier 14 Syndicate story 24 hours so our detectives can raid the slip before the mob bolts."',
+    acceptLabel: '[Y] COOPERATE (+$140 · +6% TRUST · -15% HEAT)',
+    rejectLabel: '[N] RUN EXPOSÉ (+2,800 READERS · +14% HEAT)',
+    acceptEffect: {
+      cash: 140,
+      circulation: 0,
+      credibility: 6,
+      heat: -15,
+      wire: 'ROTARY PHONE: Held Syndicate brief for DA raid (+$140 Municipal Stipend, +6% Credibility, -15% Heat).',
+    },
+    rejectEffect: {
+      cash: 0,
+      circulation: 2800,
+      credibility: 4,
+      heat: 14,
+      wire: 'ROTARY PHONE: Defied DA hold request — street sales surge (+2,800 Readers, +14% Syndicate Heat)!',
+    },
+  },
+  {
+    id: 'advertiser_threat',
+    caller: 'VANDERBILT DEPT. STORE // AD ACCOUNT',
+    prompt:
+      '"Our board chairman sits on the Municipal Transit Commission! Kill that City Hall graft headline or we pull our $160 full-page Sunday display ad!"',
+    acceptLabel: '[Y] APPEASE SPONSOR (+$160 AD · -9% TRUST)',
+    rejectLabel: '[N] DEFY SPONSOR (-$75 AD · +12% TRUST · +2,200 RDRS)',
+    acceptEffect: {
+      cash: 160,
+      circulation: -600,
+      credibility: -9,
+      heat: -6,
+      wire: 'ROTARY PHONE: Appeased display advertiser (+$160 Ad Contract, -9% Credibility).',
+    },
+    rejectEffect: {
+      cash: -75,
+      circulation: 2200,
+      credibility: 12,
+      heat: 6,
+      wire: 'ROTARY PHONE: Refused advertiser censorship (+12% Public Trust, +2,200 Readers, -$75 Ad Pull)!',
+    },
+  },
+  {
+    id: 'payphone_tipster',
+    caller: 'WET PAYPHONE BOOTH // PIER 9 WHISTLEBLOWER',
+    prompt:
+      '"Don’t trace this call! I have carbon-copy payroll vouchers from the Alderman’s safe. Slip $85 to the newsstand clerk at 4th & Pine and they’re yours."',
+    acceptLabel: '[Y] BUY VOUCHERS (-$85 · +2,500 RDRS · +8% TRUST)',
+    rejectLabel: '[N] HANG UP ($0 · +3% TRUST)',
+    acceptEffect: {
+      cash: -85,
+      circulation: 2500,
+      credibility: 8,
+      heat: 10,
+      wire: 'ROTARY PHONE: Bought whistleblower carbon ledgers (-$85, +2,500 Readers, +8% Credibility)!',
+    },
+    rejectEffect: {
+      cash: 0,
+      circulation: 0,
+      credibility: 3,
+      heat: -4,
+      wire: 'ROTARY PHONE: Passed on unverified payphone tipster (+3% Credibility).',
+    },
+  },
+];

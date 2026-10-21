@@ -103,6 +103,20 @@
           <div class="map-canvas-wrap">
             <canvas id="city-canvas" width="980" height="640"></canvas>
 
+            <!-- Non-Blocking Bakelite Rotary Phone Editorial Dilemma Card -->
+            <aside id="rotary-phone-card" class="rotary-phone-card hidden" aria-label="Rotary Phone Editorial Dilemma">
+              <div class="rotary-head">
+                <span class="rotary-bell">☎️</span>
+                <span id="rotary-caller">DISTRICT ATTORNEY’S OFFICE</span>
+                <strong id="rotary-timer">24s</strong>
+              </div>
+              <p id="rotary-prompt" class="rotary-prompt"></p>
+              <div class="rotary-actions">
+                <button id="btn-dilemma-accept" class="btn-rotary accept"></button>
+                <button id="btn-dilemma-reject" class="btn-rotary reject"></button>
+              </div>
+            </aside>
+
             <!-- Pinned Yellow Western Union / AP Teletype Wire Slips Overlaid at Top-Right of Map Board -->
             <aside class="pinned-wires-overlay" aria-label="Breaking City Wire Slips">
               <div class="wire-pin-header">
@@ -133,6 +147,9 @@
                 <button id="act-fortify" class="btn-action" title="Repair Rotary Press to 100% &amp; repel saboteurs [E]">
                   <span>🛡️ [E] Guard Press</span>
                   <b class="act-cost">$75</b>
+                </button>
+                <button id="act-phone" class="btn-action" title="Answer incoming Bakelite Rotary Phone call [T]">
+                  <span>☎️ [T] Night Line</span>
                 </button>
               </div>
             </div>

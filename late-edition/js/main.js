@@ -106,6 +106,7 @@ class LateEditionApp {
     this.sim.plateStoryToFrontPage('demo_story_1', 'banner');
     this.sim.plateStoryToFrontPage('demo_story_2', 'photo_expose');
     this.sim.plateStoryToFrontPage('demo_story_3', 'above_fold');
+    this.sim.triggerRotaryDilemma();
     this.sim.banner.timer = 0;
     this.sim.flashes.push({
       x: this.sim.operatives[2].x,
@@ -227,6 +228,27 @@ class LateEditionApp {
       this.sim.fortifyPressRoom();
       this._syncFullUI();
     });
+    const actPhone = document.getElementById('act-phone');
+    if (actPhone) {
+      actPhone.addEventListener('click', () => {
+        this.sim.triggerRotaryDilemma();
+        this._syncFullUI();
+      });
+    }
+    const btnDilemmaAccept = document.getElementById('btn-dilemma-accept');
+    if (btnDilemmaAccept) {
+      btnDilemmaAccept.addEventListener('click', () => {
+        this.sim.resolveDilemma(true);
+        this._syncFullUI();
+      });
+    }
+    const btnDilemmaReject = document.getElementById('btn-dilemma-reject');
+    if (btnDilemmaReject) {
+      btnDilemmaReject.addEventListener('click', () => {
+        this.sim.resolveDilemma(false);
+        this._syncFullUI();
+      });
+    }
 
     document.getElementById('btn-modal-continue').addEventListener('click', () => {
       if (this.sim.gameOver) {
@@ -258,6 +280,15 @@ class LateEditionApp {
         this._syncFullUI();
       } else if (k === 'e') {
         this.sim.fortifyPressRoom();
+        this._syncFullUI();
+      } else if (k === 't') {
+        this.sim.triggerRotaryDilemma();
+        this._syncFullUI();
+      } else if (k === 'y' && this.sim.activeDilemma) {
+        this.sim.resolveDilemma(true);
+        this._syncFullUI();
+      } else if (k === 'n' && this.sim.activeDilemma) {
+        this.sim.resolveDilemma(false);
         this._syncFullUI();
       } else if (k === 'p') {
         this.sim.paused = !this.sim.paused;
@@ -390,7 +421,7 @@ class LateEditionApp {
           <div class="lead-item ${isSel ? 'selected' : ''}" data-lead-id="${lead.uid}">
             <div class="lead-top">
               <span class="lead-cat" style="color:${lead.color}">${lead.beat} · $${lead.baseValue}</span>
-              ${lead.seriesBadge ? `<span class="series-badge">${lead.seriesBadge}</span>` : ''}
+              ${lead.arcCode ? `<span class="series-badge">${lead.arcCode}·P${lead.arcPart}/3</span>` : ''}
               <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : lead.scoopedByRival ? '· ⚠️ 0.5×' : ''}</span>
             </div>
             <div class="lead-headline">${lead.headline}</div>
@@ -656,6 +687,23 @@ class LateEditionApp {
     `;
   }
 
+  _renderRotaryPhone() {
+    const card = document.getElementById('rotary-phone-card');
+    if (!card) return;
+    const d = this.sim.activeDilemma;
+    if (!d) {
+      card.classList.add('hidden');
+      return;
+    }
+    card.classList.remove('hidden');
+    document.getElementById('rotary-caller').textContent = d.caller;
+    document.getElementById('rotary-timer').textContent =
+      `${Math.max(1, Math.ceil(d.timer))}s`;
+    document.getElementById('rotary-prompt').textContent = d.prompt;
+    document.getElementById('btn-dilemma-accept').textContent = d.acceptLabel;
+    document.getElementById('btn-dilemma-reject').textContent = d.rejectLabel;
+  }
+
   _syncFullUI() {
     this._syncTopBar();
     this._syncSpeedButtons();
@@ -663,6 +711,7 @@ class LateEditionApp {
     this._renderLeadsList();
     this._renderScoopTrayAndWire();
     this._renderBroadsheetAndPress();
+    this._renderRotaryPhone();
     this._renderModal();
 
     const quoteIdx =
@@ -687,6 +736,7 @@ class LateEditionApp {
       this._renderLeadsList();
       this._renderScoopTrayAndWire();
       this._renderBroadsheetAndPress();
+      this._renderRotaryPhone();
       this._renderModal();
     }
 
