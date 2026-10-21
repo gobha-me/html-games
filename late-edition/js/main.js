@@ -28,11 +28,12 @@ class LateEditionApp {
     this._bindEvents();
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get('preview') === 'showcase') {
+    if (params.get('preview') === 'showcase' || params.get('preview') === 'combat') {
       this._setupShowcaseState();
     }
 
     this._syncFullUI();
+    this.renderer.render(this.sim, 0.016);
     requestAnimationFrame((t) => this._loop(t));
   }
 
@@ -94,6 +95,8 @@ class LateEditionApp {
     this.sim.scoopedStories.push(...demoStories);
     this.sim.plateStoryToFrontPage('demo_story_1', 'banner');
     this.sim.plateStoryToFrontPage('demo_story_2', 'photo_expose');
+    this.sim.plateStoryToFrontPage('demo_story_3', 'above_fold');
+    this.sim.banner.timer = 0;
     this.sim.flashes.push({
       x: this.sim.operatives[2].x,
       y: this.sim.operatives[2].y,
@@ -320,20 +323,22 @@ class LateEditionApp {
         const isSel = op.id === this.sim.selectedOpId;
         return `
           <div class="op-card ${isSel ? 'selected' : ''}" data-op-id="${op.id}">
-            <div class="op-avatar-wrap">
-              <span class="op-key">${idx + 1}</span>
-              <img src="${spriteMap[op.sprite]}" alt="${op.name}" class="op-avatar" />
-            </div>
-            <div class="op-info">
-              <div class="op-name-row">
-                <span>${op.name}</span>
+            <div class="op-pass-top">
+              <div class="op-avatar-wrap">
+                <span class="op-key">${idx + 1}</span>
+                <img src="${spriteMap[op.sprite]}" alt="${op.name}" class="op-avatar" />
               </div>
-              <div class="op-role">${op.roleLabel} · ${op.callsign}</div>
-              <div class="op-status">${op.state}</div>
+              <div class="op-info">
+                <div class="op-name-row">${op.name}</div>
+                <div class="op-role">${op.roleLabel} · ${op.callsign}</div>
+              </div>
             </div>
-            <button class="op-dispatch-btn" data-dispatch-op="${op.id}" title="Dispatch to selected lead">
-              SEND
-            </button>
+            <div class="op-pass-bottom">
+              <div class="op-status">${op.state}</div>
+              <button class="op-dispatch-btn" data-dispatch-op="${op.id}" title="Dispatch to selected lead">
+                SEND
+              </button>
+            </div>
           </div>
         `;
       })
@@ -447,34 +452,97 @@ class LateEditionApp {
 
   _renderBroadsheetAndPress() {
     document.getElementById('paper-edition-label').textContent =
-      `LATE NIGHT EDITION #${this.sim.edition}`;
+      `VOL. LVIII · LATE NIGHT EDITION #${this.sim.edition}`;
 
     const proj = this.sim.calculateEditionProjection();
     document.getElementById('paper-projected- readers').textContent =
       `EST. ${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()} READERS`;
 
+    const bodyCopyByBeat = {
+      SCANDAL:
+        'Sworn testimony sealed by the Municipal Court clerk confirms late-night meetings between precinct brass and syndicate fixers. Watchmen on the night shift recorded license plates matching three city limousines parked behind the alley entrance until 2:15 A.M.',
+      SYNDICATE:
+        'Federal Treasury agents and Evening Star reporters traced the unmarked manifests through three dummy cold-storage holding companies. Armed lookouts fled down the freight elevator moments before flashbulbs illuminated the subterranean vault.',
+      GRAFT:
+        'Canceled municipal vouchers examined under the night desk lamp reveal duplicate payouts signed by the controller’s office every Friday since April. Civic auditors demand an immediate grand-jury subpoena of all Fourth Ward ledgers.',
+      CRIME:
+        'Harbor patrolmen cordoned off the fog-shrouded slip after night stevedores discovered the tampered manifest lockbox. Detectives believe the contraband was unloaded under cover of the 11:00 P.M. squall before customs cutters arrived.',
+    };
+
+    const standInBySlot = {
+      banner: {
+        stamp: 'WIRE STAND-IN · CLICK MAP LEAD FOR 2.0× SCOOP',
+        headline: 'CITY COUNCIL DEBATES HARBOR DREDGING APPROPRIATION',
+        deck: 'Routine municipal bond hearing adjourns without roll-call vote; replace this dull wire filler with an exclusive street scoop.',
+        body: 'Aldermen spent four hours reviewing dredging contracts for the outer channel before tabling the measure until November. Night editors are holding the top banner plate open for breaking crime or graft dispatches from our precinct reporters.',
+      },
+      above_fold: {
+        stamp: 'WIRE STAND-IN · 1.5× ABOVE-THE-FOLD',
+        headline: 'AUTUMN SQUALL DELAYS EVENING COMMUTER FERRIES',
+        deck: 'Cross-harbor schedule resumes at dawn; dispatch Vance [1] or Sullivan [2] to replace this wire brief.',
+        body: 'Harbor Master bulletins report twenty-minute delays along the Staten slip due to heavy October rain and southwest gusts. Commuters crowded the terminal waiting room until the 9:15 P.M. steamer cleared the breakwater.',
+      },
+      photo_expose: {
+        stamp: 'DARKROOM PLATE · SEND CLARA [3] FOR 1.8× PHOTO',
+        headline: 'COURTHOUSE ANNEX REPAIRS ENTER FOURTH MONTH',
+        deck: 'Scaffolding remains over east portico; send Photographer Clara Reyes [3] to a crime scene for a 1.8× Speed Graphic exposé.',
+        body: 'Public Works crews completed masonry pointing on the third-floor cornice Tuesday afternoon. A front-page Speed Graphic flashbulb exclusive in this column multiplies story value and circulation.',
+      },
+      editorial: {
+        stamp: 'WIRE STAND-IN · 1.2× EDITORIAL COLUMN (-8% HEAT)',
+        headline: 'MUNICIPAL COAL RESERVES REPORTED ADEQUATE BY BOARD',
+        deck: 'Winter stockpiles at eighty percent capacity; plating a story here also cools Syndicate Mob Heat by -8%.',
+        body: 'Fuel commissioners assured building superintendents that rail shipments from the anthracite valley remain on schedule despite wet switchyards.',
+      },
+    };
+
     const slotsEl = document.getElementById('layout-slots');
     slotsEl.innerHTML = FRONT_PAGE_SLOTS.map((slot) => {
       const st = this.sim.frontPage[slot.id];
+      const isPhotoSlot = slot.id === 'photo_expose';
       if (!st) {
+        const filler = standInBySlot[slot.id] || standInBySlot.banner;
         return `
           <div class="paper-slot empty" data-slot-id="${slot.id}">
             <div class="slot-meta">
-              <span>${slot.label} (${slot.mul}×)</span>
-              <span>CRED +${slot.credBonus}%</span>
+              <span>${slot.label}</span>
+              <span class="galley-stamp">${filler.stamp}</span>
             </div>
-            <div class="slot-headline">[OPEN COLUMN — INVESTIGATE LEADS ON MAP TO PLATE]</div>
+            ${
+              isPhotoSlot
+                ? `<div class="halftone-photo-box">
+                     <img src="assets/sprites/unit_photographer.png" alt="Darkroom Plate" class="halftone-photo-img" />
+                     <div class="halftone-caption-bar"><span>DARKROOM PLATE OPEN</span><span>📸 1.8× PHOTO BONUS</span></div>
+                   </div>`
+                : ''
+            }
+            <div class="standin-copy">
+              <div class="slot-headline">${filler.headline}</div>
+              <div class="slot-deck">${filler.deck}</div>
+              <div class="slot-body-copy">${filler.body}</div>
+            </div>
           </div>
         `;
       }
+      const bodyText = bodyCopyByBeat[st.beat] || bodyCopyByBeat.CRIME;
       return `
         <div class="paper-slot" data-slot-id="${slot.id}">
           <div class="slot-meta">
             <span>${slot.label} (${slot.mul}×)</span>
-            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? '📸 PHOTO 1.8×' : ''}</span>
+            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? '· 📸 1.8× PHOTO' : ''}</span>
           </div>
+          ${
+            isPhotoSlot
+              ? `<div class="halftone-photo-box">
+                   <img src="assets/sprites/masthead_press.png" alt="Speed Graphic Exposé" class="halftone-photo-img" />
+                   <div class="halftone-caption-bar"><span>📸 SPEED GRAPHIC // ${st.beat}</span><span>${st.photoVerified ? 'VERIFIED 1.8×' : 'FILE PHOTO'}</span></div>
+                 </div>`
+              : ''
+          }
           <div class="slot-headline">${st.headline}</div>
           <div class="slot-deck">${st.subdeck}</div>
+          <div class="slot-byline">By Staff Correspondent · Metropolis, Oct. 1947</div>
+          <div class="slot-body-copy">${bodyText}</div>
         </div>
       `;
     }).join('');
@@ -501,13 +569,21 @@ class LateEditionApp {
       `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
 
     const standingsEl = document.getElementById('rival-standings');
+    const inkColorMap = {
+      herald: '#1e3a8a',
+      observer: '#991b1b',
+      gazette: '#334155',
+    };
     const allPapers = [
       {
-        name: 'The Metropolitan Chronicle (You)',
+        name: '★ Metropolitan Chronicle (You)',
         circulation: this.sim.circulation,
-        color: '#f5b73b',
+        inkColor: '#b91c1c',
       },
-      ...this.sim.rivalStandings,
+      ...this.sim.rivalStandings.map((r) => ({
+        ...r,
+        inkColor: inkColorMap[r.id] || '#1e293b',
+      })),
     ].sort((a, b) => b.circulation - a.circulation);
 
     const maxCirc = Math.max(40000, ...allPapers.map((p) => p.circulation));
@@ -517,11 +593,11 @@ class LateEditionApp {
         return `
           <div class="rival-row">
             <div class="rival-row-top">
-              <span style="color:${p.color}">${p.name}</span>
-              <span>${p.circulation.toLocaleString()}</span>
+              <span style="color:${p.inkColor}">${p.name}</span>
+              <span style="color:#14100a">${p.circulation.toLocaleString()}</span>
             </div>
             <div class="progress-track">
-              <div class="progress-fill" style="width:${pct}%; background:${p.color}"></div>
+              <div class="progress-fill" style="width:${pct}%; background:${p.inkColor}"></div>
             </div>
           </div>
         `;
@@ -581,7 +657,7 @@ class LateEditionApp {
   }
 
   _loop(now) {
-    const rawDt = Math.min(0.05, (now - this.lastFrameTime) / 1000);
+    const rawDt = Math.max(0.001, Math.min(0.05, (now - this.lastFrameTime) / 1000));
     this.lastFrameTime = now;
     const dt = rawDt * (this.sim.speed || 1);
 

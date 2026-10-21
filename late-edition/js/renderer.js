@@ -155,11 +155,12 @@ export class NoirCityRenderer {
 
     // Puddle ripples on wet asphalt
     for (const rp of this.ripples) {
-      const alpha = Math.max(0, 1 - rp.r / rp.maxR) * 0.25;
+      const rx = Math.max(0.5, rp.r);
+      const alpha = Math.max(0, 1 - rx / rp.maxR) * 0.25;
       ctx.strokeStyle = `rgba(165, 210, 255, ${alpha.toFixed(3)})`;
       ctx.lineWidth = 1.1;
       ctx.beginPath();
-      ctx.ellipse(rp.x, rp.y, rp.r, rp.r * 0.55, 0, 0, Math.PI * 2);
+      ctx.ellipse(rp.x, rp.y, rx, rx * 0.55, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.restore();
@@ -299,6 +300,56 @@ export class NoirCityRenderer {
       ctx.lineWidth = d.isHQ ? 2.4 : 1.5;
       ctx.strokeRect(rx, ry, d.w, d.h);
 
+      // Inner Art-Deco Rooftop Setback & Architectural Details
+      ctx.strokeStyle = d.accent + '44';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rx + 10, ry + 10, d.w - 20, d.h - 20);
+
+      if (d.id === 'cityhall') {
+        // Classical Rotunda Dome & Sweeping Searchlight
+        const domeX = rx + d.w * 0.5;
+        const domeY = ry + d.h * 0.62;
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.14)';
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+        ctx.beginPath();
+        ctx.arc(domeX, domeY, 34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(domeX, domeY, 16, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (d.id === 'docks') {
+        // Waterfront Cargo Pier Cranes & Slip Lines
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.42)';
+        for (const cxOff of [42, d.w - 42]) {
+          ctx.strokeRect(rx + cxOff - 14, ry + d.h - 68, 28, 26);
+          ctx.beginPath();
+          ctx.moveTo(rx + cxOff, ry + d.h - 55);
+          ctx.lineTo(rx + cxOff + (cxOff < 100 ? -26 : 26), ry + d.h - 82);
+          ctx.stroke();
+        }
+      } else if (d.id === 'redlight') {
+        // Neon Lounge Rooftop Skylight & Cocktail Sign Ring
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.55)';
+        ctx.strokeRect(rx + d.w * 0.5 - 56, ry + d.h - 72, 112, 26);
+      } else if (d.id === 'wallst') {
+        // Neoclassical Colonnade Steps & Vault Skylight
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+        for (let p = 0; p < 6; p++) {
+          ctx.strokeRect(rx + 36 + p * 42, ry + 14, 16, 8);
+        }
+      } else if (d.id === 'slaughterhouse') {
+        // Brick Smokestacks & Water Tower Circles
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+        for (const sx of [rx + 46, rx + d.w - 46]) {
+          ctx.beginPath();
+          ctx.arc(sx, ry + d.h - 58, 13, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+
       // Lit Art Deco window strips on roof/facade
       const cols = Math.floor((d.w - 28) / 22);
       for (let c = 0; c < cols; c++) {
@@ -308,8 +359,8 @@ export class NoirCityRenderer {
           const lit = ((c * 7 + r * 3 + d.x) % 4) !== 0;
           ctx.fillStyle = lit
             ? d.isHQ
-              ? 'rgba(255, 212, 122, 0.78)'
-              : d.accent + '66'
+              ? 'rgba(255, 212, 122, 0.85)'
+              : d.accent + '77'
             : 'rgba(15, 23, 42, 0.7)';
           ctx.fillRect(wx, wy, 12, 5);
         }
@@ -468,6 +519,24 @@ export class NoirCityRenderer {
         ctx.fillStyle = '#090d16';
         ctx.font = '800 9.5px "JetBrains Mono", monospace';
         ctx.fillText('1.8×', 29, -12);
+      }
+
+      // First-launch onboarding prompt on the selected lead when all units are idle at HQ
+      const allIdle = sim.operatives.every(
+        (op) => !op.targetLeadId && !op.targetRivalId
+      );
+      if (allIdle && isSelected && sim.scoopsTotal === 0) {
+        const bounce = Math.sin(sim.time * 6) * 4;
+        const prompt = '▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE';
+        ctx.font = '800 11.5px "IBM Plex Mono", monospace';
+        const pw = ctx.measureText(prompt).width + 20;
+        ctx.fillStyle = '#f5b73b';
+        ctx.strokeStyle = '#14100a';
+        ctx.lineWidth = 2;
+        ctx.fillRect(-pw / 2, 34 + bounce, pw, 22);
+        ctx.strokeRect(-pw / 2, 34 + bounce, pw, 22);
+        ctx.fillStyle = '#14100a';
+        ctx.fillText(prompt, 0, 49 + bounce);
       }
 
       ctx.restore();
@@ -673,24 +742,26 @@ export class NoirCityRenderer {
 
   _drawBannerOverlay(ctx, sim) {
     if (!sim.banner || sim.banner.timer <= 0) return;
+    // Only show top-center toast after first dispatch so bottom telegram slips stay 100% clear
+    if (sim.time < 0.8 && sim.scoopsTotal === 0) return;
     const alpha = Math.min(1, sim.banner.timer / 0.8);
-    const by = WORLD_H - 72;
+    const by = 14;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = 'rgba(9, 13, 22, 0.94)';
-    ctx.strokeStyle = '#ffd47a';
+    ctx.fillStyle = 'rgba(20, 13, 8, 0.94)';
+    ctx.strokeStyle = '#f5b73b';
     ctx.lineWidth = 2;
-    ctx.fillRect(WORLD_W * 0.5 - 310, by, 620, 54);
-    ctx.strokeRect(WORLD_W * 0.5 - 310, by, 620, 54);
+    ctx.fillRect(WORLD_W * 0.5 - 290, by, 580, 48);
+    ctx.strokeRect(WORLD_W * 0.5 - 290, by, 580, 48);
 
     ctx.textAlign = 'center';
-    ctx.font = '800 14.5px "Playfair Display", Georgia, serif';
-    ctx.fillStyle = '#ffd47a';
-    ctx.fillText(sim.banner.title, WORLD_W * 0.5, by + 22);
+    ctx.font = '800 13.5px "Playfair Display", Georgia, serif';
+    ctx.fillStyle = '#f7c968';
+    ctx.fillText(sim.banner.title, WORLD_W * 0.5, by + 20);
 
-    ctx.font = '700 10.5px "JetBrains Mono", monospace';
-    ctx.fillStyle = '#e2e8f0';
-    ctx.fillText(sim.banner.sub, WORLD_W * 0.5, by + 42);
+    ctx.font = '700 10px "IBM Plex Mono", monospace';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(sim.banner.sub, WORLD_W * 0.5, by + 38);
     ctx.restore();
   }
 }
