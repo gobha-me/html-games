@@ -36,18 +36,19 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
+  padding: 6px 12px;
   background: rgba(8, 15, 28, 0.92);
   border-bottom: 1px solid var(--border-glow);
   backdrop-filter: blur(10px);
   z-index: 20;
-  gap: 12px;
+  gap: 8px;
 }
 
 .brand-cluster {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .back-link {
@@ -75,51 +76,59 @@ html, body {
 }
 
 .title-main {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   background: linear-gradient(90deg, #ffde7a, #ff6289);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .title-sub {
-  font-size: 0.75rem;
+  font-size: 0.66rem;
   font-weight: 700;
   color: var(--ocean-cyan);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
 }
 
 .tech-pill {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: #ffe2b3;
   background: rgba(255, 126, 71, 0.16);
   border: 1px solid rgba(255, 165, 82, 0.35);
-  padding: 3px 8px;
+  padding: 3px 7px;
   border-radius: 999px;
   white-space: nowrap;
+}
+
+@media (max-width: 1520px) {
+  .tech-pill {
+    display: none;
+  }
 }
 
 .scoreboard-cluster {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 8px;
   background: rgba(5, 10, 20, 0.75);
-  padding: 4px 18px;
+  padding: 3px 10px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
 }
 
 .team-score {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .team-name {
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .team-left .team-name {
@@ -180,16 +189,18 @@ html, body {
 }
 
 .match-meta {
-  font-size: 0.63rem;
+  font-size: 0.56rem;
   color: var(--text-dim);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .tuner-cluster {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .tuner-select {
@@ -349,7 +360,7 @@ html, body {
 }
 
 .modal-card {
-  width: min(940px, 94vw);
+  width: min(1040px, 95vw);
   background: linear-gradient(180deg, rgba(16, 29, 51, 0.96), rgba(9, 17, 31, 0.98));
   border: 1px solid rgba(255, 184, 77, 0.4);
   border-radius: 14px;
@@ -473,9 +484,16 @@ html, body {
 }
 
 .slot-stats {
-  font-size: 0.66rem;
+  font-size: 0.67rem;
   color: #b7cbe3;
-  line-height: 1.35;
+  line-height: 1.4;
+}
+
+.slot-archetype {
+  font-size: 0.68rem;
+  color: #ffe2b3;
+  font-weight: 700;
+  margin-bottom: 2px;
 }
 
 .gamepad-status-bar {
