@@ -1,6 +1,6 @@
 # LATE EDITION // 1947
 
-**1947 Noir Newsroom Desk & Broadsheet Paste-Up RTS** — Run the night desk of *The Metropolitan Chronicle*. Scout a 2.5D rain-slicked metropolis on the green-leather Precinct Dispatch Blotter (left), send investigative reporters, Speed Graphic photojournalists, and Tommy-gun street fixers via physical Manila Press Passes, and replace faded municipal wire stand-ins on a full-height 1947 Cream Newsprint Front Page (right) before the `12:00 AM` rotary presses roll.
+**1947 Noir Newsroom Desk & Broadsheet Paste-Up RTS** — Run the night desk of *The Evening Star*. Scout a 2.5D rain-slicked metropolis on the green-leather Precinct Dispatch Blotter (left), send investigative reporters, Speed Graphic photojournalists, and Tommy-gun street fixers via physical Manila Press Passes, and replace faded municipal wire stand-ins on a full-height 1947 Cream Newsprint Front Page (right) before the `12:00 AM` rotary presses roll.
 
 ## How to Play (1-2-3 Night Editor Workflow)
 
@@ -27,7 +27,7 @@ late-edition/
 │   └── style.css       # Burled mahogany, green leather blotter, manila press passes & aged newsprint
 ├── js/
 │   ├── main.js         # UI controller, wire stand-in/paste-up renderer & input bindings
-│   ├── sim.js          # Deterministic 1947 city-dispatch, rival AI & edition economy
+│   ├── sim.js          # 1947 city-dispatch, rival AI & edition economy (seeded determinism planned in #81)
 │   ├── renderer.js     # 2.5D extruded noir landmarks, wet streetlamp reflections & rain
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
 │   └── audio.js        # Hybrid MP3 + procedural WebAudio typewriter, flashbulb & press SFX
@@ -35,3 +35,12 @@ late-edition/
     ├── audio/          # Newsroom & street MP3 sound effects
     └── sprites/        # Top-down pixel-art operatives, editor portrait & rotary press art
 ```
+
+## Status and Direction
+
+Playable with investigative story arcs, rival scoop races and rotary-phone dilemmas.
+The sim currently uses unseeded randomness, wall-clock IDs, audio and browser storage;
+the pure, seeded core is tracked in #81. See [AGENTS.md](AGENTS.md) for the current
+module map and verification commands. Lint tooling arrives in #80 and the adversarial
+sim suite in #82. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
+and art bible; its manual layout, file drawer and visual overhaul are targets.

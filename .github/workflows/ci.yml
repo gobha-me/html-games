@@ -18,6 +18,11 @@ jobs:
       - name: Check launcher links
         run: bash scripts/linkcheck.sh
 
+      - name: Check Late Edition documentation and checker self-tests
+        run: |
+          bash late-edition/scripts/check-docs.sh
+          bash late-edition/scripts/check-docs.test.sh
+
       - name: Verify games.json and index.html manifest parity
         run: |
           node -e '
