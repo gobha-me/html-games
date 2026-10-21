@@ -14,19 +14,53 @@ import {
   EDITORIAL_DILEMMAS,
 } from './config.js';
 
-const STORAGE_KEY_BEST = 'lateEdition.bestCirculation.v2';
+import { mulberry32 } from './rng.js';
+import { createAudioAdapter, sanitizeBestScore } from './adapters.js';
+import { presentation } from './presentation.js';
+
+// Match the browser frame cap. Bound catch-up work as well as movement per tick.
+export const MAX_SUBSTEP_SEC = 0.05;
+export const MAX_CATCHUP_SEC = 10;
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+  }
+  return value;
+}
+
+function withoutCosmetics(record) {
+  const cosmeticKeys = ['angle', 'stepPhase', 'state', 'color', 'headline', 'subdeck',
+    'seriesBadge', 'arcTitle', 'arcCode', 'districtName', 'name', 'callsign', 'roleLabel',
+    'sprite', 'label', 'caller', 'prompt', 'acceptLabel', 'rejectLabel', 'wire'];
+  return Object.fromEntries(Object.entries(record)
+    .filter(([key]) => !cosmeticKeys.includes(key))
+    .map(([key, value]) => [key, value && typeof value === 'object'
+      ? withoutCosmetics(value) : value]));
+}
 
 export class LateEditionSim {
-  constructor(audio) {
-    this.audio = audio;
-    this.highCirculation =
-      (typeof localStorage !== 'undefined' &&
-        Number(localStorage.getItem(STORAGE_KEY_BEST))) ||
-      24500;
+  constructor({ seed = 0, rng, storage, audio, now } = {}) {
+    this.seed = seed;
+    this.injectedRng = rng;
+    this.storage = storage;
+    this.audio = createAudioAdapter(audio);
+    // The default clock follows simulated time; callers may inject a replay clock.
+    this.now = now ?? (() => this.time * 1000);
+    this.highCirculation = 0;
+    try {
+      this.highCirculation = sanitizeBestScore(this.storage?.readBest());
+    } catch {
+      // Custom adapters may fail too; persistence is optional for gameplay.
+    }
     this.reset();
   }
 
   reset() {
+    this.rng = this.injectedRng ?? mulberry32(this.seed);
+    this.randomDraws = 0;
+    this.nextRivalUid = 1;
     this.time = 0;
     this.edition = 1;
     this.maxEditions = 5;
@@ -131,6 +165,7 @@ export class LateEditionSim {
   logWire(text, tone = 'info') {
     this.wireLog.unshift({
       time: this.getClockString(),
+      at: this.now(),
       text,
       tone,
     });
@@ -195,14 +230,39 @@ export class LateEditionSim {
   }
 
   getClockString() {
-    // 0s = 06:00 PM, 90s = 12:00 AM
-    const pct = Math.min(1, Math.max(0, this.clockSec / EDITION_DURATION_SEC));
-    const totalMins = Math.floor(pct * 360); // 6 hours = 360 mins
-    const hour24 = 18 + Math.floor(totalMins / 60);
-    const mins = totalMins % 60;
-    if (hour24 >= 24) return '12:00 AM';
-    const h12 = hour24 > 12 ? hour24 - 12 : hour24;
-    return `${String(h12).padStart(2, '0')}:${String(mins).padStart(2, '0')} PM`;
+    return presentation.clock(this.clockSec);
+  }
+
+  nextFloat() {
+    this.randomDraws++;
+    return this.rng.nextFloat();
+  }
+
+  getStateHash() {
+    // Hash gameplay and future-driving counters, not adapters, saved records,
+    // wire timestamps/messages, banners, traffic, flashes or display-only fields.
+    const state = {};
+    for (const key of ['time', 'edition', 'maxEditions', 'clockSec', 'speed', 'paused',
+      'gameOver', 'victory', 'cash', 'circulation', 'credibility', 'syndicateHeat',
+      'pressHp', 'editionsPrinted', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
+      'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
+      'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws']) {
+      state[key] = this[key];
+    }
+    state.rng = this.rng.getState?.() ?? null;
+    for (const key of ['operatives', 'leads', 'scoopedStories', 'rivals', 'rivalStandings', 'districts']) {
+      state[key] = this[key].map(withoutCosmetics);
+    }
+    state.frontPage = Object.fromEntries(Object.entries(this.frontPage)
+      .map(([key, story]) => [key, story && withoutCosmetics(story)]));
+    state.activeDilemma = this.activeDilemma && withoutCosmetics(this.activeDilemma);
+    state.editionSummary = this.editionSummary;
+    // FNV-1a over UTF-8 canonical JSON; sorted object keys, ordered arrays.
+    let hash = 0x811c9dc5;
+    for (const byte of new TextEncoder().encode(JSON.stringify(canonical(state)))) {
+      hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
   }
 
   spawnLead(preferredDistrictId = null) {
@@ -244,7 +304,7 @@ export class LateEditionSim {
         arcCode: arcChoice.arc.shortCode,
         arcTitle: arcChoice.arc.title,
         arcPart: arcChoice.partObj.part,
-        seriesBadge: `${arcChoice.arc.shortCode} · ${arcChoice.partObj.badge}`,
+        seriesBadge: presentation.seriesBadge(arcChoice.arc, arcChoice.partObj),
       };
     } else {
       template = STORY_CATALOG[this.catalogIdx % STORY_CATALOG.length];
@@ -290,8 +350,7 @@ export class LateEditionSim {
     };
 
     this.leads.push(lead);
-    const arcTag = lead.seriesBadge ? ` [${lead.seriesBadge}]` : '';
-    this.logWire(`WIRE FLASH [${lead.beat}]${arcTag}: ${lead.headline}`, 'info');
+    this.logWire(presentation.leadFlash(lead), 'info');
     return lead;
   }
 
@@ -304,11 +363,11 @@ export class LateEditionSim {
     op.targetRivalId = null;
     op.targetX = lead.x + (op.role === 'photographer' ? 22 : -18);
     op.targetY = lead.y + 8;
-    op.state = `EN ROUTE → ${lead.districtName}`;
+    op.state = presentation.enRoute(lead);
 
-    if (this.audio) this.audio.dispatch();
-    this.addCallout(lead.x, lead.y - 16, `${op.callsign} DISPATCHED`, op.color);
-    this.logWire(`DISPATCH: ${op.name} (${op.callsign}) en route to ${lead.districtName}.`, 'ops');
+    this.audio.dispatch();
+    this.addCallout(lead.x, lead.y - 16, presentation.dispatched(op), op.color);
+    this.logWire(presentation.dispatchLog(op, lead), 'ops');
     return true;
   }
 
@@ -331,9 +390,9 @@ export class LateEditionSim {
         op.targetLeadId = null;
         op.targetX = rv.x;
         op.targetY = rv.y;
-        op.state = `INTERCEPTING ${rv.label}`;
-        if (this.audio) this.audio.dispatch();
-        this.addCallout(rv.x, rv.y - 14, `INTERCEPT ORDERED`, '#10b981');
+        op.state = presentation.intercepting(rv);
+        this.audio.dispatch();
+        this.addCallout(rv.x, rv.y - 14, 'INTERCEPT ORDERED', '#10b981');
         return;
       }
     }
@@ -344,7 +403,7 @@ export class LateEditionSim {
     op.targetX = Math.max(50, Math.min(WORLD_W - 50, wx));
     op.targetY = Math.max(50, Math.min(WORLD_H - 50, wy));
     op.state = 'PATROLLING BEAT';
-    if (this.audio) this.audio.dispatch();
+    this.audio.dispatch();
   }
 
   autoDispatchBestForLead(leadUid) {
@@ -385,19 +444,19 @@ export class LateEditionSim {
 
     this.scoopedStories.splice(idx, 1);
     this.frontPage[slotId] = story;
-    if (this.audio) this.audio.typewriter();
+    this.audio.typewriter();
     return true;
   }
 
   spawnRivalAgent() {
     if (this.rivals.length >= 3) return;
     const isGoon =
-      this.syndicateHeat >= 35 || Math.random() < 0.45;
+      this.syndicateHeat >= 35 || this.nextFloat() < 0.45;
 
     if (isGoon) {
       const obs = this.districts.find((d) => d.id === 'observer_hq');
       this.rivals.push({
-        id: `rv_${Date.now()}_${Math.random()}`,
+        id: `rv_${this.nextRivalUid++}`,
         type: 'goon',
         label: 'OBSERVER MOB ENFORCER',
         x: obs.x + 20,
@@ -416,7 +475,7 @@ export class LateEditionSim {
           .filter((l) => !l.scoopedByRival)
           .sort((a, b) => b.baseValue - a.baseValue)[0] || this.leads[0];
       this.rivals.push({
-        id: `rv_${Date.now()}_${Math.random()}`,
+        id: `rv_${this.nextRivalUid++}`,
         type: 'herald',
         label: 'DAILY HERALD SCOOPER',
         x: her.x + her.w - 10,
@@ -428,7 +487,7 @@ export class LateEditionSim {
         targetLeadId: targetLead.uid,
       });
       this.logWire(
-        `RIVAL ALERT: Daily Herald press cruiser racing toward ${targetLead.districtName} ($${targetLead.baseValue} ${targetLead.beat})!`,
+        presentation.rivalAlert(targetLead),
         'danger'
       );
     }
@@ -440,7 +499,7 @@ export class LateEditionSim {
     this.cash -= 65;
     this.spawnLead();
     this.spawnLead();
-    if (this.audio) this.audio.wireBell();
+    this.audio.wireBell();
     this.setBanner(
       'SWITCHBOARD WIRETAP ACTIVE',
       '2 EXCLUSIVE CITY LEADS INTERCEPTED ON POLICE BAND',
@@ -453,7 +512,7 @@ export class LateEditionSim {
     this.cash += 160;
     this.credibility = Math.max(0, this.credibility - 10);
     this.syndicateHeat = Math.max(0, this.syndicateHeat - 16);
-    if (this.audio) this.audio.bribe();
+    this.audio.bribe();
     this.setBanner(
       'SYNDICATE HUSH-MONEY ACCEPTED (+$160)',
       'CREDIBILITY -10% · SYNDICATE HEAT REDUCED',
@@ -468,7 +527,7 @@ export class LateEditionSim {
     this.pressHp = 100;
     // Clear any goons near HQ
     this.rivals = this.rivals.filter((r) => r.type !== 'goon');
-    if (this.audio) this.audio.typewriter();
+    this.audio.typewriter();
     this.setBanner(
       'ROTARY PRESS ROOM REINFORCED',
       'PRESS INTEGRITY 100% · OBSERVER SABOTEURS REPELLED',
@@ -486,9 +545,9 @@ export class LateEditionSim {
       ...template,
       timer: 26,
     };
-    if (this.audio && this.audio.phoneRing) this.audio.phoneRing();
+    this.audio.phoneRing();
     this.logWire(
-      `☎️ ROTARY PHONE RINGING: ${template.caller} on the night line!`,
+      presentation.phoneRing(template),
       'ops'
     );
     return this.activeDilemma;
@@ -511,7 +570,7 @@ export class LateEditionSim {
     );
     this.logWire(eff.wire, accept ? 'ops' : 'scoop');
     this.activeDilemma = null;
-    if (this.audio) this.audio.typewriter();
+    this.audio.typewriter();
     return true;
   }
 
@@ -550,12 +609,12 @@ export class LateEditionSim {
         );
         if (st.arcPart < 3) {
           this.logWire(
-            `INVESTIGATIVE SERIES [${st.arcCode}]: ${st.arcTitle} Part ${st.arcPart}/3 printed (+${arcReaderBonus.toLocaleString()} readers) — PART ${st.arcPart + 1}/3 UNLOCKED!`,
+            presentation.arcPublished(st, arcReaderBonus),
             'scoop'
           );
         } else {
           this.logWire(
-            `PULITZER EXPOSÉ FINALE [${st.arcCode}]: ${st.arcTitle} Part 3/3 indicts Syndicate (+4,500 readers, -12% Heat)!`,
+            presentation.arcFinale(st),
             'scoop'
           );
         }
@@ -577,7 +636,7 @@ export class LateEditionSim {
     if (this.circulation > this.highCirculation) {
       this.highCirculation = this.circulation;
       try {
-        localStorage.setItem(STORAGE_KEY_BEST, String(this.highCirculation));
+        this.storage?.writeBest(this.highCirculation);
       } catch {
         // Storage may be blocked or full; retain the best score in memory this run.
       }
@@ -599,11 +658,11 @@ export class LateEditionSim {
     };
 
     for (const rv of this.rivalStandings) {
-      rv.circulation = Math.max(8000, rv.circulation + Math.round((Math.random() - 0.35) * 2400));
+      rv.circulation = Math.max(8000, rv.circulation + Math.round((this.nextFloat() - 0.35) * 2400));
     }
 
     this.logWire(
-      `EDITION #${printedEditionNum} PRINTED: ${circDelta >= 0 ? '+' : ''}${circDelta.toLocaleString()} readers, +$${editionCash} revenue.`,
+      presentation.editionPrinted(printedEditionNum, circDelta, editionCash),
       'scoop'
     );
 
@@ -619,7 +678,7 @@ export class LateEditionSim {
     this.dilemmaTriggeredThisEdition = false;
     this.activeDilemma = null;
 
-    if (this.audio) this.audio.pressRun();
+    this.audio.pressRun();
     this.flashes.push({
       x: this.hq.x + this.hq.w * 0.5,
       y: this.hq.y + this.hq.h * 0.5,
@@ -629,8 +688,8 @@ export class LateEditionSim {
     });
 
     this.setBanner(
-      `EDITION #${this.edition - 1} HIT THE STREETS! (+$${editionCash})`,
-      `CIRCULATION: ${this.circulation.toLocaleString()} (${circDelta >= 0 ? '+' : ''}${circDelta.toLocaleString()}) · CREDIBILITY ${this.credibility}%`,
+      presentation.editionBanner(this.edition - 1, editionCash),
+      presentation.circulationBanner(this.circulation, circDelta, this.credibility),
       4.5
     );
 
@@ -641,7 +700,19 @@ export class LateEditionSim {
   }
 
   step(dt) {
-    if (this.paused || this.gameOver) return;
+    if (!Number.isFinite(dt) || dt <= 0 || this.paused || this.gameOver) return;
+    // Consume up to 10 seconds in <=50 ms slices, never a teleport-sized tick.
+    // The catch-up cap prevents hostile finite deltas from monopolizing the loop.
+    const elapsed = Math.min(dt, MAX_CATCHUP_SEC);
+    const fullSteps = Math.floor(elapsed / MAX_SUBSTEP_SEC);
+    for (let i = 0; i < fullSteps && !this.paused && !this.gameOver; i++) {
+      this._step(MAX_SUBSTEP_SEC);
+    }
+    const remainder = elapsed - fullSteps * MAX_SUBSTEP_SEC;
+    if (remainder > 0 && !this.paused && !this.gameOver) this._step(remainder);
+  }
+
+  _step(dt) {
     this.time += dt;
     this.clockSec += dt;
 
@@ -672,7 +743,7 @@ export class LateEditionSim {
     }
 
     // Maintain at least 3 active leads on the city map
-    if (this.leads.length < 3 && Math.random() < dt * 0.65) {
+    if (this.leads.length < 3 && this.nextFloat() < dt * 0.65) {
       this.spawnLead();
     }
 
@@ -737,7 +808,7 @@ export class LateEditionSim {
             if (!lead.photoVerified) {
               lead.photoVerified = true;
               lead.progress = Math.min(100, lead.progress + 28);
-              if (this.audio) this.audio.shutter();
+              this.audio.shutter();
               this.flashes.push({
                 x: lead.x,
                 y: lead.y,
@@ -755,11 +826,11 @@ export class LateEditionSim {
               op.targetLeadId = null;
             } else {
               lead.progress = Math.min(100, lead.progress + dt * 16);
-              op.state = `ASSISTING AT ${lead.districtName}`;
+              op.state = presentation.assisting(lead);
             }
           } else {
             // Reporter investigating lead
-            op.state = `INVESTIGATING (${Math.floor(lead.progress)}%)`;
+            op.state = presentation.investigating(lead);
             lead.progress += dt * 24 * op.workRate;
             if (lead.progress >= 100) {
               this.completeLeadScoop(lead);
@@ -778,7 +849,7 @@ export class LateEditionSim {
           this.addCallout(
             rv.x,
             rv.y - 16,
-            `💥 ${rv.type === 'goon' ? 'GOON' : 'HERALD'} ROUTED (+$35)`,
+            presentation.routed(rv),
             '#10b981'
           );
           this.cash += 35;
@@ -849,7 +920,7 @@ export class LateEditionSim {
                 '#eab308'
               );
               this.logWire(
-                `SCOOP CONTESTED: Daily Herald beat us to ${lead.districtName}! Send Clara [3] for Speed Graphic photo proof to restore full value.`,
+                presentation.contested(lead),
                 'danger'
               );
             } else {
@@ -861,7 +932,7 @@ export class LateEditionSim {
               );
               this.credibility = Math.max(0, this.credibility - 5);
               this.logWire(
-                `SCOOP STOLEN: Daily Herald published the ${lead.districtName} exclusive first (-5% Credibility)!`,
+                presentation.stolen(lead),
                 'danger'
               );
               this.leads = this.leads.filter((l) => l.uid !== lead.uid);
@@ -950,14 +1021,14 @@ export class LateEditionSim {
     const openSlot = openOrder.find((k) => !this.frontPage[k]);
     if (openSlot) {
       this.plateStoryToFrontPage(story.uid, openSlot);
-    } else if (this.audio) {
+    } else {
       this.audio.wireBell();
     }
 
     this.addCallout(
       lead.x,
       lead.y - 22,
-      `📰 SCOOPED: +$${lead.baseValue}`,
+      presentation.scooped(lead),
       '#ffd47a'
     );
     this.spawnLead();

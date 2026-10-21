@@ -17,6 +17,18 @@ export default [
     languageOptions: { globals: globals.browser },
   },
   {
+    files: ['js/sim.js'],
+    rules: {
+      'no-restricted-globals': ['error', 'Date', 'window', 'document', 'localStorage', 'performance'],
+      'no-restricted-properties': ['error',
+        { object: 'Math', property: 'random', message: 'Use the injected seeded RNG.' },
+        ...['Date', 'window', 'document', 'localStorage', 'performance'].map((property) => ({
+          object: 'globalThis', property, message: 'Use an injected adapter.',
+        })),
+      ],
+    },
+  },
+  {
     files: ['*.{js,mjs}', 'tests/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
