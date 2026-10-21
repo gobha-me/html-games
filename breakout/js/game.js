@@ -610,14 +610,29 @@ const Game = (() => {
   // ── init ──
   function init() {
     showOverlay('BREAKOUT', 'Brick Breaker',
-      `<dl class="controls">
-        <dt>← → / A D</dt><dd>Move paddle</dd>
-        <dt>Mouse</dt><dd>Move paddle (hover over canvas)</dd>
-        <dt>Space / ↑ / W</dt><dd>Launch ball</dd>
-        <dt>F</dt><dd>Fire lasers (when active)</dd>
-        <dt>ESC</dt><dd>Pause</dd>
-      </dl>
-      <p style="margin-top:16px;color:var(--muted)">Break all bricks to advance. Watch for power-ups!</p>`,
+      `<div class="controls-card">
+        <div class="control-row">
+          <span class="control-keys"><kbd>←</kbd><kbd>→</kbd> <span>or</span> <kbd>A</kbd><kbd>D</kbd></span>
+          <span class="control-desc">Move paddle</span>
+        </div>
+        <div class="control-row">
+          <span class="control-keys"><kbd>Mouse</kbd></span>
+          <span class="control-desc">Move paddle on canvas</span>
+        </div>
+        <div class="control-row">
+          <span class="control-keys"><kbd>Space</kbd> <kbd>↑</kbd> <kbd>W</kbd></span>
+          <span class="control-desc">Launch ball</span>
+        </div>
+        <div class="control-row">
+          <span class="control-keys"><kbd>F</kbd></span>
+          <span class="control-desc">Fire lasers (when active)</span>
+        </div>
+        <div class="control-row">
+          <span class="control-keys"><kbd>ESC</kbd></span>
+          <span class="control-desc">Pause / Resume</span>
+        </div>
+      </div>
+      <p class="controls-tip">Break all bricks to advance. Watch for power-ups!</p>`,
       'START GAME');
     state = 'menu';
     initLevel(0);
