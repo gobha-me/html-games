@@ -273,7 +273,8 @@
                     cell.wasMerged = false;
                 }
 
-                el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+                el.style.left = `${pos.x}px`;
+                el.style.top = `${pos.y}px`;
                 tileLayer.appendChild(el);
             }
         }

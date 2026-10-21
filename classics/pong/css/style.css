@@ -33,29 +33,29 @@ body {
 
 #pong .screen {
     text-align: center;
-    padding: 2rem;
+    padding: 0.85rem 1.5rem;
 }
 
 #pong h1 {
-    font-size: 4rem;
+    font-size: 2.6rem;
     color: var(--pong-primary);
     text-shadow: 0 0 20px var(--pong-primary), 0 0 40px var(--pong-primary);
-    margin-bottom: 2rem;
+    margin: 0.25rem 0 0.75rem;
     letter-spacing: 0.3em;
 }
 
 #pong h3 {
     color: var(--pong-text);
-    margin: 1.5rem 0 0.75rem;
-    font-size: 1rem;
+    margin: 0 0 0.45rem;
+    font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
 }
 
 /* Menu Sections */
 #pong .menu-section {
-    margin: 1.5rem 0;
-    padding: 1rem;
+    margin: 0.55rem 0;
+    padding: 0.65rem 1rem;
     background: rgba(255, 255, 255, 0.03);
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.05);
@@ -69,8 +69,8 @@ body {
 }
 
 #pong .mode-btn, #pong .difficulty-btn, #pong .win-score-btn {
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.9rem;
     font-family: inherit;
     border: 2px solid var(--pong-primary);
     background: transparent;
@@ -175,8 +175,8 @@ body {
 
 /* Main Button */
 #pong .main-btn {
-    padding: 1rem 3rem;
-    font-size: 1.25rem;
+    padding: 0.75rem 2.5rem;
+    font-size: 1.1rem;
     font-family: inherit;
     font-weight: bold;
     border: none;
@@ -186,7 +186,7 @@ body {
     background: linear-gradient(135deg, var(--pong-primary) 0%, #0099cc 100%);
     color: var(--pong-bg);
     box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
-    margin-top: 1rem;
+    margin-top: 0.5rem;
 }
 
 #pong .main-btn:hover {
@@ -213,9 +213,9 @@ body {
 
 /* High Score Section */
 #pong .high-score-section {
-    margin-top: 2rem;
+    margin-top: 0.65rem;
     color: #ffd700;
-    font-size: 1.25rem;
+    font-size: 1.05rem;
 }
 
 /* Game Screen */
