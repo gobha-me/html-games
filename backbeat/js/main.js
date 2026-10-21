@@ -24,8 +24,17 @@ const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const audio = new AudioEngine();
 
+const urlParams = new URLSearchParams(window.location.search);
 let selectedTrackIdx = 0;
 let selectedDiffId = 'tour';
+let customSeed = urlParams.get('seed') || '';
+if (urlParams.get('track')) {
+  const idx = TRACK_ROSTER.findIndex((t) => t.id === urlParams.get('track'));
+  if (idx >= 0) selectedTrackIdx = idx;
+}
+if (urlParams.get('diff') && DIFFICULTY[urlParams.get('diff')]) {
+  selectedDiffId = DIFFICULTY[urlParams.get('diff')].id;
+}
 let playMode = 'jukebox'; // 'jukebox' | 'tour'
 let tourStageIdx = Math.min(TOUR_VENUES.length - 1, Math.max(0, Number(localStorage.getItem(STORAGE_KEY_TOUR)) || 0));
 let audioOffsetMs = Number(localStorage.getItem(STORAGE_KEY_OFFSET)) || 0;
@@ -39,8 +48,8 @@ try {
   bestGrades = {};
 }
 
-let currentTrack = TRACK_ROSTER[0];
-let currentChart = generateProceduralChart(currentTrack, DIFFICULTY[selectedDiffId]);
+let currentTrack = TRACK_ROSTER[selectedTrackIdx];
+let currentChart = generateProceduralChart(currentTrack, DIFFICULTY[selectedDiffId], customSeed);
 let game = new Game(currentChart, selectedDiffId, audioOffsetMs);
 
 // Idle preview time (2.15s) so the 3D highway shows incoming notes, chords & hold ribbons immediately
@@ -129,13 +138,13 @@ async function selectTrack(idx, autoStart = false) {
   if (overlay) overlay.style.display = 'none';
 
   // Immediately build procedural fallback chart so UI/canvas updates synchronously
-  currentChart = generateProceduralChart(currentTrack, DIFFICULTY[selectedDiffId]);
+  currentChart = generateProceduralChart(currentTrack, DIFFICULTY[selectedDiffId], customSeed);
   game = new Game(currentChart, selectedDiffId, audioOffsetMs);
   renderTrackCrate();
   syncHud(idlePreviewSec);
 
   // Load JSON chart if external URL exists
-  const loadedChart = await buildTrackChart(currentTrack, selectedDiffId);
+  const loadedChart = await buildTrackChart(currentTrack, selectedDiffId, customSeed);
   if (currentTrack === TRACK_ROSTER[selectedTrackIdx]) {
     currentChart = loadedChart;
     game = new Game(currentChart, selectedDiffId, audioOffsetMs);
@@ -362,17 +371,80 @@ function updateCalLabel() {
 updateCalLabel();
 
 document.getElementById('cal-down').addEventListener('click', () => {
-  audioOffsetMs = Math.max(-150, audioOffsetMs - 5);
+  audioOffsetMs = Math.max(-100, audioOffsetMs - 5);
   updateCalLabel();
 });
 document.getElementById('cal-up').addEventListener('click', () => {
-  audioOffsetMs = Math.min(150, audioOffsetMs + 5);
+  audioOffsetMs = Math.min(100, audioOffsetMs + 5);
   updateCalLabel();
 });
+
+// Interactive 4-Beat 120 BPM Cowbell Tap Calibration (#40)
+let calStartPerf = 0;
+let calTaps = [];
+let calActive = false;
 document.getElementById('cal-test').addEventListener('click', async () => {
   await audio.init();
   await audio.resume();
-  audio.pulse();
+  const now = performance.now();
+  if (calActive && now - calStartPerf < 2400) {
+    // Record player tap against nearest 500ms beat
+    const elapsed = now - calStartPerf;
+    const nearestBeat = Math.round(elapsed / 500) * 500;
+    const errMs = Math.round(elapsed - nearestBeat);
+    if (Math.abs(errMs) <= 160) {
+      calTaps.push(errMs);
+    }
+    audio.pulse();
+    if (calTaps.length >= 3) {
+      const avg = Math.round(calTaps.reduce((a, b) => a + b, 0) / calTaps.length);
+      audioOffsetMs = Math.max(-100, Math.min(100, avg));
+      updateCalLabel();
+      calActive = false;
+      document.getElementById('cal-test').textContent = '✓ SYNC';
+      setTimeout(() => {
+        document.getElementById('cal-test').textContent = '🥁 TAP';
+      }, 1500);
+    }
+    return;
+  }
+  calActive = true;
+  calStartPerf = now;
+  calTaps = [];
+  document.getElementById('cal-test').textContent = 'TAP 4×';
+  for (let b = 0; b < 4; b++) {
+    setTimeout(() => {
+      if (calActive) audio.pulse();
+    }, b * 500);
+  }
+  setTimeout(() => {
+    if (calActive) {
+      calActive = false;
+      document.getElementById('cal-test').textContent = '🥁 TAP';
+    }
+  }, 2450);
+});
+
+// Shareable Beatmap Seed URL generator (#40)
+document.getElementById('btn-share-seed')?.addEventListener('click', () => {
+  if (!customSeed) {
+    customSeed = `bb89-${Math.floor(1000 + Math.random() * 9000)}`;
+  } else {
+    customSeed = `bb89-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+  const shareUrl = `${window.location.pathname}?track=${currentTrack.id}&diff=${selectedDiffId}&seed=${customSeed}`;
+  window.history.replaceState(null, '', shareUrl);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(window.location.href).catch(() => {});
+  }
+  const btn = document.getElementById('btn-share-seed');
+  if (btn) {
+    btn.textContent = `✓ ${customSeed.toUpperCase()}`;
+    setTimeout(() => {
+      btn.textContent = '🔗 SEED';
+    }, 1800);
+  }
+  selectTrack(selectedTrackIdx, false);
 });
 
 // Jukebox & Transport buttons

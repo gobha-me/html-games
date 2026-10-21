@@ -5,10 +5,10 @@
 
 import { DIFFICULTY } from './config.js';
 
-export async function buildTrackChart(track, difficultyId = 'normal') {
-  const diff = DIFFICULTY[difficultyId] || DIFFICULTY.normal;
+export async function buildTrackChart(track, difficultyId = 'tour', customSeed = '') {
+  const diff = DIFFICULTY[difficultyId] || DIFFICULTY.tour;
 
-  if (track.chartUrl) {
+  if (track.chartUrl && !customSeed) {
     try {
       const res = await fetch(track.chartUrl);
       if (res.ok) {
@@ -20,7 +20,7 @@ export async function buildTrackChart(track, difficultyId = 'normal') {
     }
   }
 
-  return generateProceduralChart(track, diff);
+  return generateProceduralChart(track, diff, customSeed);
 }
 
 function adaptAnthemChart(raw, track, diff) {
@@ -92,15 +92,15 @@ function adaptAnthemChart(raw, track, diff) {
   };
 }
 
-export function generateProceduralChart(track, diff) {
+export function generateProceduralChart(track, diff, customSeed = '') {
   const bpm = track.bpm;
   const beatSec = 60 / bpm;
   const stepSec = beatSec / 2; // 8th-note grid
   const totalSteps = Math.floor((track.duration - 3.5) / stepSec);
   const notes = [];
 
-  // Deterministic PRNG per track + difficulty
-  let seed = hashString(`${track.id}:${diff.id}`);
+  // Deterministic PRNG per track + difficulty + optional shareable seed (#40)
+  let seed = hashString(`${track.id}:${diff.id}:${customSeed || 'std'}`);
   const rand = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
