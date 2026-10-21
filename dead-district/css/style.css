@@ -1,12 +1,13 @@
 /* ============================================================================
-   DEAD DISTRICT // SECTOR 7 — Tactical Bio-Horror Command HUD Stylesheet
+   DEAD DISTRICT // SECTOR 7 — Full-Bleed Diegetic Bio-Horror Visor & Armory UI
    ============================================================================ */
 
 :root {
-  --bg-void: #07090e;
-  --wing-bg: #0e121b;
-  --panel-bg: #141a26;
-  --border-steel: #263147;
+  --bg-void: #05070b;
+  --hud-glass: rgba(10, 14, 21, 0.84);
+  --hud-glass-heavy: rgba(9, 12, 18, 0.94);
+  --border-olive: rgba(100, 116, 139, 0.38);
+  --border-amber: rgba(245, 158, 11, 0.55);
   --crimson: #ef4444;
   --amber: #f59e0b;
   --emerald: #10b981;
@@ -32,176 +33,181 @@ html, body {
 }
 
 #sector-shell {
-  display: grid;
-  grid-template-columns: 304px 1fr 304px;
-  grid-template-rows: 46px 1fr;
+  position: relative;
   width: 100vw;
   height: 100vh;
-}
-
-/* ── Top Telemetry Header ── */
-#top-bar {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0 14px;
-  background: linear-gradient(180deg, #151b28 0%, #0b0e15 100%);
-  border-bottom: 1px solid var(--border-steel);
-  z-index: 20;
-}
-
-.brand-block {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.brand-title {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #f8fafc;
-  white-space: nowrap;
-}
-
-.brand-title span {
-  color: var(--crimson);
-}
-
-.brand-sub {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 9.5px;
-  color: var(--text-muted);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding-left: 10px;
-  border-left: 1px solid var(--border-steel);
-  white-space: nowrap;
-}
-
-.header-telemetry {
-  display: flex;
-  align-items: center;
-  gap: 7px;
   overflow: hidden;
 }
 
-.stat-pill {
-  background: #101520;
-  border: 1px solid var(--border-steel);
-  border-radius: 5px;
-  padding: 4px 9px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
+#viewport-stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #05070b;
+  cursor: crosshair;
 }
 
-.sp-label {
-  color: var(--text-muted);
-  font-size: 9.5px;
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.top-actions {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
+/* Subtle tactical helmet-cam vignette & scanline framing */
+.visor-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 58%, rgba(2, 4, 9, 0.62) 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.012) 0px,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  box-shadow: inset 0 0 48px rgba(0, 0, 0, 0.75);
 }
 
-.top-btn {
-  background: var(--panel-bg);
-  color: var(--text-main);
-  border: 1px solid var(--border-steel);
-  border-radius: 5px;
-  padding: 0 10px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: 0.14s;
+.hud-corner {
+  position: absolute;
+  z-index: 20;
 }
 
-.top-btn:hover {
-  border-color: var(--cyan);
-  background: #1d2638;
-}
-
-.top-btn.primary {
-  background: linear-gradient(135deg, #991b1b, #7f1d1d);
-  border-color: #f87171;
-  color: #fef2f2;
-}
-
-/* ── Left & Right Tactical Wings ── */
-.sector-wing {
-  background: var(--wing-bg);
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 8px 10px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: 15;
-}
-
-#wing-left {
-  border-right: 1px solid var(--border-steel);
-}
-
-#wing-right {
-  border-left: 1px solid var(--border-steel);
-}
-
-.panel-box {
-  background: var(--panel-bg);
-  border: 1px solid var(--border-steel);
+/* ── TOP-LEFT: Cracked Helmet Bio-Monitor & Telemetry Badge ── */
+#hud-top-left {
+  top: 12px;
+  left: 14px;
+  width: 300px;
+  background: var(--hud-glass);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-olive);
+  border-left: 3px solid var(--emerald);
   border-radius: 6px;
   padding: 8px 10px;
-  flex-shrink: 0;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65);
 }
 
-.panel-title {
+.biocam-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 7px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.back-to-arcade {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.11em;
+  font-weight: 600;
   color: #cbd5e1;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-  display: flex;
-  justify-content: space-between;
+  text-decoration: none;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 4px;
+  padding: 2px 6px;
+  transition: 0.15s;
+}
+
+.back-to-arcade:hover {
+  color: #fde047;
+  border-color: #fde047;
+}
+
+.rec-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #fca5a5;
+  letter-spacing: 0.06em;
+}
+
+.rec-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--crimson);
+  box-shadow: 0 0 6px var(--crimson);
+  animation: recBlink 1.2s infinite;
+}
+
+@keyframes recBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.brand-tag {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #f8fafc;
+}
+
+.brand-tag span {
+  color: var(--crimson);
+}
+
+.biocam-body {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  gap: 9px;
   align-items: center;
 }
 
-/* Vitals & Quick Belt */
+.ecg-box {
+  background: #05080c;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 4px;
+  padding: 3px 4px;
+}
+
+#ecg-canvas {
+  display: block;
+  width: 108px;
+  height: 32px;
+}
+
+.ecg-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.cond-ok { color: var(--emerald); font-weight: 700; }
+.cond-warn { color: var(--amber); font-weight: 700; }
+.cond-crit { color: var(--crimson); font-weight: 700; }
+
+.vitals-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .vital-head {
   display: flex;
   justify-content: space-between;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  margin-bottom: 3px;
+  font-size: 9px;
+  color: #cbd5e1;
+  margin-bottom: 2px;
 }
 
 .bar-wrap {
   width: 100%;
-  height: 8px;
-  background: #090c12;
-  border: 1px solid #243046;
-  border-radius: 4px;
+  height: 7px;
+  background: #06080d;
+  border: 1px solid rgba(100, 116, 139, 0.38);
+  border-radius: 3px;
   overflow: hidden;
 }
 
@@ -210,99 +216,350 @@ html, body {
   transition: width 0.14s;
 }
 
-.quick-belt {
+.telemetry-strip {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 5px;
-  margin-top: 8px;
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
 }
 
-.belt-btn {
-  background: #0d121c;
-  border: 1px solid #28354e;
-  border-radius: 5px;
-  padding: 5px 7px;
+.tele-cell {
+  background: rgba(7, 10, 16, 0.78);
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  border-radius: 4px;
+  padding: 3px 5px;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  color: var(--text-main);
+}
+
+.tc-lbl {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9.5px;
-  cursor: pointer;
-  transition: 0.14s;
-}
-
-.belt-btn:hover {
-  border-color: var(--cyan);
-  background: #172133;
-}
-
-.belt-btn strong {
-  color: var(--cyan);
-}
-
-/* Minimap */
-#minimap-canvas {
-  width: 100%;
-  height: 170px;
-  display: block;
-  border: 1px solid #2b3954;
-  border-radius: 5px;
-  background: #090c12;
-}
-
-.radar-legend {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 5px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 8.5px;
+  font-size: 8px;
   color: var(--text-muted);
 }
 
-.radar-legend span {
-  display: inline-flex;
+.tc-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+/* ── TOP-CENTER: Tactical Wave Banner & Non-Blocking Field Sitrep ── */
+#hud-top-center {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  width: min(540px, calc(100vw - 660px));
+  min-width: 340px;
+  pointer-events: none;
 }
 
-.radar-legend i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
+#sector-banner {
+  width: 100%;
+  background: rgba(9, 13, 20, 0.88);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(239, 68, 68, 0.52);
+  border-top: 2px solid var(--crimson);
+  border-radius: 6px;
+  padding: 5px 14px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
 }
 
-/* Barricade Grid */
-.barricade-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.sb-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #f87171;
+  text-transform: uppercase;
+}
+
+.sb-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: #fef08a;
+  line-height: 1.15;
+}
+
+.sb-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #cbd5e1;
+  margin-top: 1px;
+}
+
+#sitrep-card {
+  position: fixed;
+  top: 52px;
+  right: 14px;
+  width: 282px;
+  background: rgba(9, 13, 21, 0.72);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-right: 2px solid var(--cyan);
+  border-radius: 6px;
+  padding: 6px 9px;
+  pointer-events: auto;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 22;
+}
+
+#sitrep-card.hidden {
+  display: none;
+}
+
+.sitrep-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+  margin-bottom: 5px;
+}
+
+.sitrep-head button {
+  background: rgba(30, 41, 59, 0.8);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  cursor: pointer;
+}
+
+.sitrep-head button:hover {
+  border-color: var(--cyan);
+  color: #ffffff;
+}
+
+.sitrep-steps {
+  display: flex;
+  flex-direction: column;
   gap: 5px;
 }
 
-.bar-cell {
-  background: #0d121c;
-  border: 1px solid #243046;
+.sr-step {
+  background: rgba(6, 9, 14, 0.72);
+  border: 1px solid rgba(71, 85, 105, 0.38);
   border-radius: 4px;
   padding: 4px 6px;
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sr-step strong {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  color: #fde047;
+}
+
+.sr-step span {
+  font-size: 10.5px;
+  color: #cbd5e1;
+  line-height: 1.2;
+}
+
+.sr-step em {
+  color: #f87171;
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* ── TOP-RIGHT: Safe-Room Armory Workbench & Utility Controls ── */
+#hud-top-right {
+  top: 12px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tactical-btn {
+  background: var(--hud-glass);
+  backdrop-filter: blur(6px);
+  color: var(--text-main);
+  border: 1px solid var(--border-olive);
+  border-radius: 5px;
+  padding: 0 10px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: 0.15s;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+.tactical-btn:hover {
+  border-color: var(--cyan);
+  background: rgba(23, 33, 51, 0.92);
+}
+
+.tactical-btn.armory-trigger {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.88), rgba(120, 53, 15, 0.92));
+  border-color: #fbbf24;
+  color: #fef3c7;
+}
+
+.tactical-btn.armory-trigger.pulse-ready {
+  animation: armoryPulse 1.3s infinite;
+}
+
+@keyframes armoryPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.55); }
+  50% { box-shadow: 0 0 16px 3px rgba(251, 191, 36, 0.45); }
+}
+
+.tactical-btn.danger:hover {
+  border-color: var(--crimson);
+  color: #fecaca;
+}
+
+.tb-key {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  color: #fde047;
+}
+
+.tb-badge {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(253, 224, 71, 0.45);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  color: #fde047;
+}
+
+/* ── BOTTOM-LEFT: Circular Acoustic Motion Tracker & Quick Belt ── */
+#hud-bottom-left {
+  bottom: 12px;
+  left: 14px;
+  width: 318px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tracker-cluster {
+  display: grid;
+  grid-template-columns: 144px 1fr;
+  gap: 8px;
+  background: var(--hud-glass);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-olive);
+  border-radius: 6px;
+  padding: 7px 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65);
+}
+
+.radar-bezel {
+  position: relative;
+  width: 144px;
+  height: 144px;
+  border-radius: 50%;
+  padding: 3px;
+  background: radial-gradient(circle, #0b1512 0%, #05080c 100%);
+  border: 2px solid rgba(16, 185, 129, 0.48);
+  box-shadow: inset 0 0 14px rgba(16, 185, 129, 0.22);
+  overflow: hidden;
+}
+
+#minimap-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+}
+
+.radar-ring-label {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(5, 10, 14, 0.82);
+  padding: 0 5px;
+  border-radius: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 7.5px;
+  color: #34d399;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+.perimeter-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pp-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.pp-hint {
+  color: #fbbf24;
+  font-size: 8px;
+}
+
+.barricade-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.bar-cell {
+  background: rgba(8, 12, 19, 0.85);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 3px;
+  padding: 3px 5px;
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 4px;
 }
 
 .bc-name {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8.5px;
+  font-size: 8px;
   color: var(--text-muted);
-  white-space: nowrap;
 }
 
 .bc-track {
   flex: 1;
-  height: 6px;
-  background: #07090e;
-  border-radius: 3px;
+  height: 5px;
+  background: #05070b;
+  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -313,195 +570,427 @@ html, body {
   transition: width 0.15s;
 }
 
-.threat-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px 8px;
-  font-size: 11px;
-  color: #cbd5e1;
-  line-height: 1.25;
-}
-
-.threat-item {
+.radar-legend {
   display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.threat-sprite {
-  width: 24px;
-  height: 24px;
-  image-rendering: pixelated;
-  flex-shrink: 0;
-  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.85));
-}
-
-/* ── Center Viewport ── */
-#viewport-stage {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #06080c;
-  cursor: crosshair;
-}
-
-#game-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-#sector-banner {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(10, 14, 22, 0.88);
-  border: 1px solid rgba(239, 68, 68, 0.55);
-  border-radius: 6px;
-  padding: 6px 18px;
-  text-align: center;
-  pointer-events: none;
-  transition: opacity 0.25s;
-}
-
-.sb-title {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #fef08a;
-}
-
-.sb-sub {
+  justify-content: space-between;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9.5px;
-  color: #cbd5e1;
-  margin-top: 2px;
+  font-size: 7.5px;
+  color: var(--text-muted);
 }
 
-/* ── Right Wing: Arsenal & Requisition Armory ── */
-.active-weapon-card {
-  background: #0d121c;
-  border: 1px solid #2b3954;
+.radar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.radar-legend i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.quick-belt {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.belt-btn {
+  background: var(--hud-glass);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-olive);
   border-radius: 5px;
-  padding: 7px 9px;
-  margin-bottom: 7px;
-}
-
-.aw-header {
+  padding: 5px 7px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  color: var(--text-main);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  cursor: pointer;
+  transition: 0.14s;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
 }
 
-.aw-name {
-  font-size: 16px;
+.belt-btn:hover {
+  border-color: var(--cyan);
+  background: rgba(23, 33, 51, 0.92);
+}
+
+.belt-btn strong {
+  color: var(--cyan);
+}
+
+/* ── BOTTOM-RIGHT: Diegetic Firearm & Brass Cartridge Counter ── */
+#hud-bottom-right {
+  bottom: 12px;
+  right: 14px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.firearm-card {
+  background: var(--hud-glass);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-olive);
+  border-right: 3px solid #fde047;
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.65);
+}
+
+.fc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.fc-caliber {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.fc-name {
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #fef3c7;
+  line-height: 1.1;
 }
 
 .reload-btn {
-  background: #1e293b;
+  background: rgba(30, 41, 59, 0.9);
   color: #fde047;
-  border: 1px solid #475569;
+  border: 1px solid rgba(253, 224, 71, 0.45);
   border-radius: 4px;
-  padding: 2px 7px;
+  padding: 3px 7px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .reload-btn:hover {
   border-color: #fde047;
+  background: rgba(51, 65, 85, 0.95);
 }
 
-.aw-ammo-row {
+/* Visual Brass Shell Pips */
+.ammo-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.5px;
+  margin: 6px 0 5px;
+  min-height: 12px;
+}
+
+.ammo-pip {
+  width: 5px;
+  height: 11px;
+  border-radius: 1.5px 1.5px 1px 1px;
+  background: linear-gradient(180deg, #fef08a 0%, #d97706 100%);
+  border: 1px solid rgba(254, 240, 138, 0.55);
+  transition: opacity 0.1s, transform 0.1s;
+}
+
+.ammo-pip.spent {
+  background: rgba(30, 41, 59, 0.55);
+  border-color: rgba(71, 85, 105, 0.35);
+  opacity: 0.35;
+  transform: scaleY(0.78);
+}
+
+.fc-ammo-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin: 4px 0 5px;
+  margin-bottom: 4px;
   font-family: 'IBM Plex Mono', monospace;
 }
 
-.aw-mag {
-  font-size: 17px;
+.fc-mag-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.fc-mag {
+  font-size: 20px;
   font-weight: 700;
   color: #f8fafc;
 }
 
-.aw-res {
+.fc-mag-lbl {
+  font-size: 8.5px;
+  color: var(--text-muted);
+}
+
+.fc-reserve {
   font-size: 10px;
   color: var(--text-muted);
 }
 
+/* 5-Slot Holster Strip */
 .weapon-rack {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
 }
 
 .weapon-slot {
-  background: #0d121c;
-  border: 1px solid #232f46;
+  background: rgba(10, 14, 21, 0.65);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(100, 116, 139, 0.28);
   border-radius: 5px;
-  padding: 5px 8px;
+  padding: 4px 4px;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
+  gap: 2px;
   color: var(--text-main);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
   cursor: pointer;
+  opacity: 0.62;
   transition: 0.14s;
 }
 
 .weapon-slot:hover {
   border-color: var(--cyan);
+  opacity: 0.92;
 }
 
 .weapon-slot.active {
-  background: rgba(56, 189, 248, 0.14);
+  background: rgba(56, 189, 248, 0.22);
   border-color: var(--cyan);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.28);
+  opacity: 1;
 }
 
 .weapon-slot.locked {
-  opacity: 0.72;
-}
-
-.ws-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  opacity: 0.68;
 }
 
 .ws-key {
-  background: #1e293b;
-  color: #cbd5e1;
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-size: 9px;
+  font-size: 8px;
+  color: #94a3b8;
 }
 
-.ws-right {
+.ws-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.ws-state {
+  font-size: 8px;
+  color: #fde047;
+}
+
+/* ── SLIDE-OVER SAFE-ROOM REQUISITION WORKBENCH ([B] / [TAB]) ── */
+#workbench-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#workbench-drawer.open {
+  display: flex;
+}
+
+.wb-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 5, 10, 0.78);
+  backdrop-filter: blur(5px);
+}
+
+.wb-crate {
+  position: relative;
+  z-index: 2;
+  width: min(1020px, 94vw);
+  max-height: 88vh;
+  background: linear-gradient(180deg, #121824 0%, #0b0f18 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+  overflow-y: auto;
+}
+
+.wb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.wb-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 9.5px;
+  color: #fbbf24;
+  letter-spacing: 0.12em;
+}
+
+.wb-header h2 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #fef3c7;
+}
+
+.wb-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wb-scrap-pill {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid var(--cyan);
+  border-radius: 5px;
+  padding: 5px 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.wb-scrap-pill strong {
+  color: var(--cyan);
+  font-size: 14px;
+}
+
+.wb-close-btn {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #64748b;
+  border-radius: 5px;
+  padding: 6px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wb-close-btn:hover {
+  border-color: #fde047;
+  color: #fde047;
+}
+
+.wb-columns {
+  display: grid;
+  grid-template-columns: 1.05fr 1.1fr 1fr;
+  gap: 14px;
+}
+
+.wb-section {
+  background: rgba(9, 13, 21, 0.85);
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 7px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wb-sec-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fde047;
+  letter-spacing: 0.08em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.wb-sec-title span {
+  font-size: 8.5px;
   color: var(--text-muted);
 }
 
-/* Requisition Shop */
-.shop-grid {
+.wb-weapon-list, .shop-grid {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+.wb-weapon-row {
+  background: #0d131f;
+  border: 1px solid #243046;
+  border-radius: 5px;
+  padding: 7px 9px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.wb-weapon-row.active {
+  border-color: var(--cyan);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.wb-w-info strong {
+  display: block;
+  font-size: 14px;
+  color: #f8fafc;
+  letter-spacing: 0.03em;
+}
+
+.wb-w-info span {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.wb-w-actions {
+  display: flex;
   gap: 5px;
+}
+
+.wb-act-btn {
+  background: #172133;
+  color: #f1f5f9;
+  border: 1px solid #38bdf8;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wb-act-btn:hover {
+  background: #1e293b;
+  border-color: #fde047;
+  color: #fde047;
 }
 
 .shop-btn {
   background: #0d121c;
   border: 1px solid #243046;
   border-radius: 5px;
-  padding: 5px 8px;
+  padding: 6px 9px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -538,11 +1027,60 @@ html, body {
   padding-left: 8px;
 }
 
-.manual-list {
+.dossier-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  font-size: 11.5px;
+  gap: 6px;
+}
+
+.dossier-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0d121c;
+  border: 1px solid #232f46;
+  border-radius: 5px;
+  padding: 5px 7px;
+}
+
+.threat-sprite {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.9));
+}
+
+.dossier-card strong {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px;
+  display: block;
+}
+
+.dossier-card p {
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.2;
+}
+
+.vehicle-intel-box {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 5px;
+  padding: 7px 9px;
+  margin-top: auto;
+}
+
+.vib-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fbbf24;
+  margin-bottom: 3px;
+}
+
+.vehicle-intel-box p {
+  font-size: 11px;
   color: #cbd5e1;
   line-height: 1.25;
 }
@@ -586,15 +1124,11 @@ html, body {
   margin-bottom: 18px;
 }
 
-@media (max-height: 830px) {
-  .sector-wing {
-    gap: 5px;
-    padding: 6px 8px;
+@media (max-width: 1150px) {
+  #hud-top-center {
+    width: min(420px, calc(100vw - 560px));
   }
-  .panel-box {
-    padding: 6px 8px;
-  }
-  #minimap-canvas {
-    height: 138px;
+  .wb-columns {
+    grid-template-columns: 1fr;
   }
 }
