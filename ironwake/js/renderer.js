@@ -748,6 +748,29 @@ export class IronwakeRenderer {
         barY - 6
       );
 
+      if (en.isBoss && en.bossPhase) {
+        const phaseLabel =
+          en.bossPhase === 3
+            ? '🔥 PHASE 3/3 // FURNACE CORE EXPOSED (1.75× CRIT)'
+            : en.bossPhase === 2
+              ? '⚠️ PHASE 2/3 // BROADSIDE SIEGE MORTARS'
+              : '⚔️ PHASE 1/3 // HARPOON & SKIFF ESCORT';
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        const pw = ctx.measureText(phaseLabel).width + 14;
+        ctx.fillStyle =
+          en.bossPhase === 3
+            ? '#7c2d12'
+            : en.bossPhase === 2
+              ? '#7f1d1d'
+              : '#1e293b';
+        ctx.strokeStyle = '#fde68a';
+        ctx.lineWidth = 1.3;
+        ctx.fillRect(-pw * 0.5, barY - 38, pw, 16);
+        ctx.strokeRect(-pw * 0.5, barY - 38, pw, 16);
+        ctx.fillStyle = '#fef08a';
+        ctx.fillText(phaseLabel, 0, barY - 27);
+      }
+
       // Starting-state onboarding prompt above the primary target War-Rig
       if (isSelected && !sim.userLockedTarget) {
         const promptText = '▼ CLICK ANY WAR-RIG TO FOCUS TURRETS';
@@ -796,6 +819,36 @@ export class IronwakeRenderer {
   _drawProjectilesAndExplosions(ctx, sim) {
     ctx.save();
     for (const p of sim.projectiles) {
+      if (p.isMortarShell && p.targetX !== undefined) {
+        // Draw red target reticle on targeted railcar
+        ctx.save();
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.arc(p.targetX, p.targetY, 34, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Dashed trajectory arc from mortar shell to target car
+        ctx.strokeStyle = 'rgba(249, 115, 22, 0.45)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.targetX, p.targetY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Intercept ring around mortar shell
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.save();
       ctx.translate(p.x, p.y);
       const ang = Math.atan2(p.vy, p.vx);

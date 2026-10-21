@@ -134,4 +134,22 @@ export class IronwakeAudio {
     osc.start(now);
     osc.stop(now + 0.045);
   }
+
+  playBossSiren() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.linearRampToValueAtTime(440, now + 0.25);
+    osc.frequency.linearRampToValueAtTime(190, now + 0.5);
+    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.54);
+  }
 }

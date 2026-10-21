@@ -230,6 +230,8 @@ export class IronwakeSim {
       canHarpoon: arch.canHarpoon,
       isAir: arch.isAir,
       isBoss: Boolean(arch.isBoss),
+      bossPhase: arch.isBoss ? 1 : 0,
+      mortarTimer: 3.2,
       hitFlash: 0,
       subsystems: {
         weapons: { hp: 100, maxHp: 100, destroyed: false },
@@ -600,7 +602,12 @@ export class IronwakeSim {
       if (car.hitFlash > 0) car.hitFlash = Math.max(0, car.hitFlash - dt * 3);
       if (car.hp <= 0) continue;
 
-      // Pick primary target, or if CAR-01 CIWS and a barricade is close ahead, engage barricade
+      // Pick primary target, or if CIWS/Flak and a Siege Mortar Shell is incoming, intercept the shell!
+      const incomingMortar =
+        car.weaponType === 'ciws' || car.weaponType === 'flak'
+          ? this.projectiles.find((p) => !p.fromPlayer && p.isMortarShell)
+          : null;
+
       const urgentBarricade =
         car.id === 'loco' &&
         this.barricades[0] &&
@@ -609,6 +616,7 @@ export class IronwakeSim {
           : this.barricades.find((b) => b.id === this.selectedEnemyId);
 
       let target =
+        incomingMortar ||
         urgentBarricade ||
         this.enemies.find((e) => e.id === this.selectedEnemyId) ||
         this.enemies[0] ||
@@ -640,6 +648,49 @@ export class IronwakeSim {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const en = this.enemies[i];
       if (en.hitFlash > 0) en.hitFlash = Math.max(0, en.hitFlash - dt * 3);
+
+      // 3-Phase Boss Transitions (Phase 1: 100-65%, Phase 2: 65-30%, Phase 3: <30%)
+      if (en.isBoss) {
+        const hpRatio = en.hp / Math.max(1, en.maxHp);
+        if (hpRatio <= 0.3 && en.bossPhase < 3) {
+          en.bossPhase = 3;
+          if (this.audio && this.audio.playBossSiren) this.audio.playBossSiren();
+          this.addCallout(
+            en.x,
+            en.y - 64,
+            '🔥 PHASE 3: FURNACE CORE EXPOSED (1.75× CRIT)!',
+            '#f97316'
+          );
+          this.logEvent(
+            'CDR. KAEL: Goliath Furnace Core exposed! All subsystem hits deal 1.75× critical damage!',
+            'danger'
+          );
+        } else if (hpRatio <= 0.65 && en.bossPhase < 2) {
+          en.bossPhase = 2;
+          if (this.audio && this.audio.playBossSiren) this.audio.playBossSiren();
+          this.addCallout(
+            en.x,
+            en.y - 64,
+            '⚠️ PHASE 2: BROADSIDE SIEGE MORTARS!',
+            '#ef4444'
+          );
+          this.logEvent(
+            'CDR. KAEL: Goliath entered Phase 2 — Broadside Siege Mortars launching! CIWS & Flak intercept incoming shells!',
+            'danger'
+          );
+        }
+
+        if (en.bossPhase === 3 && Math.random() < dt * 2.2) {
+          this.explosions.push({
+            x: en.x,
+            y: en.y,
+            r: 22,
+            maxR: 112,
+            color: '#f97316',
+            alpha: 0.48,
+          });
+        }
+      }
 
       const engFactor = en.subsystems.engine.destroyed ? 0.45 : 1.0;
       const wpnFactor = en.subsystems.weapons.destroyed ? 0.45 : 1.0;
@@ -711,6 +762,33 @@ export class IronwakeSim {
         }
       }
 
+      // Boss Phase 2/3 Broadside Siege Mortar Salvos (slow, high-damage, interceptable by CIWS/Flak)
+      if (en.isBoss && en.bossPhase >= 2 && nearestCar) {
+        en.mortarTimer -= dt;
+        if (en.mortarTimer <= 0) {
+          en.mortarTimer = en.bossPhase === 3 ? 3.2 : 4.2;
+          const mAng = Math.atan2(nearestCar.y - en.y, nearestCar.x - en.x);
+          const mSpd = 185;
+          this.projectiles.push({
+            id: `mortar_${Date.now()}`,
+            fromPlayer: false,
+            isMortarShell: true,
+            hp: 16,
+            targetCarId: nearestCar.id,
+            targetX: nearestCar.x,
+            targetY: nearestCar.y,
+            x: en.x + Math.cos(mAng) * 28,
+            y: en.y + Math.sin(mAng) * 28,
+            vx: Math.cos(mAng) * mSpd,
+            vy: Math.sin(mAng) * mSpd,
+            damage: 32,
+            color: '#f97316',
+            radius: 9,
+            life: 3.4,
+          });
+        }
+      }
+
       // Fire ballistic rounds at nearest railcar
       en.fireTimer -= dt * wpnFactor;
       if (en.fireTimer <= 0 && nearestCar) {
@@ -757,6 +835,40 @@ export class IronwakeSim {
 
       if (p.fromPlayer) {
         let hit = false;
+        // Check mid-air interception of Boss Siege Mortar Shells!
+        for (let j = this.projectiles.length - 1; j >= 0; j--) {
+          const mp = this.projectiles[j];
+          if (!mp || mp.fromPlayer || !mp.isMortarShell) continue;
+          if (Math.hypot(p.x - mp.x, p.y - mp.y) <= 26) {
+            hit = true;
+            mp.hp -= p.damage;
+            this.explosions.push({
+              x: mp.x,
+              y: mp.y,
+              r: 6,
+              maxR: 32,
+              color: '#f97316',
+              alpha: 0.9,
+            });
+            if (mp.hp <= 0) {
+              this.scrap += 12;
+              this.score += 95;
+              this.addCallout(
+                mp.x,
+                mp.y - 16,
+                '💥 MORTAR INTERCEPTED (+12 ⚙)',
+                '#38bdf8'
+              );
+              this.projectiles.splice(j, 1);
+              if (j < i) i -= 1;
+            }
+            break;
+          }
+        }
+        if (hit) {
+          this.projectiles.splice(i, 1);
+          continue;
+        }
         for (let j = this.enemies.length - 1; j >= 0; j--) {
           const en = this.enemies[j];
           const d = Math.hypot(p.x - en.x, p.y - en.y);
@@ -918,6 +1030,9 @@ export class IronwakeSim {
     if (p.weaponType === 'flak' && en.isAir) {
       dmg = Math.round(dmg * 1.6);
     }
+    if (en.isBoss && en.bossPhase === 3) {
+      dmg = Math.round(dmg * 1.75);
+    }
 
     en.hp -= dmg;
     en.hitFlash = 0.22;
@@ -946,7 +1061,7 @@ export class IronwakeSim {
         sub.destroyed = true;
         this.addCallout(
           en.x,
-          en.y - en.radius - 46,
+          en.y - en.radius - 68,
           `🎯 ${subKey.toUpperCase()} CRIPPLED!`,
           '#38bdf8'
         );

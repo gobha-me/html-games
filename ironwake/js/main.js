@@ -57,7 +57,8 @@ class IronwakeApp {
     this.sim.spawnEnemy('skiff', 1110, 735);
 
     if (boss) {
-      boss.hp = 640;
+      boss.hp = 460;
+      boss.bossPhase = 2;
       this.sim.selectedEnemyId = boss.id;
     }
     if (harp) {
@@ -79,6 +80,23 @@ class IronwakeApp {
       this.sim.step(0.06);
     }
     this.sim.spawnRailBarricade(1235);
+    this.sim.projectiles.push({
+      id: 'mortar_showcase',
+      fromPlayer: false,
+      isMortarShell: true,
+      hp: 16,
+      targetCarId: this.sim.cars[2].id,
+      targetX: this.sim.cars[2].x,
+      targetY: this.sim.cars[2].y,
+      x: 840,
+      y: 285,
+      vx: -95,
+      vy: 120,
+      damage: 32,
+      color: '#f97316',
+      radius: 9,
+      life: 2.5,
+    });
     this.sim.callouts = [];
     this.sim.explosions.push({
       x: 940,
