@@ -8,6 +8,8 @@ let uiCanvas, uiCtx;
 let animFrameId = null;
 
 // Initialize canvases
+const UI_SIDE_MARGIN = 140;
+
 function initRenderer() {
     boardCanvas = document.getElementById('board-canvas');
     boardCtx = boardCanvas.getContext('2d');
@@ -20,7 +22,7 @@ function initRenderer() {
     
     boardCanvas.width = boardW;
     boardCanvas.height = boardH;
-    uiCanvas.width = boardW;
+    uiCanvas.width = boardW + UI_SIDE_MARGIN * 2;
     uiCanvas.height = boardH;
 }
 
@@ -200,101 +202,108 @@ function drawUI() {
     const boardW = CONFIG.BOARD_WIDTH * bs;
     const boardH = CONFIG.BOARD_HEIGHT * bs;
     
-    ctx.clearRect(0, 0, boardW, boardH);
-    
-    // Only draw UI elements if game is active
-    if (!GameState.isPlaying && !GameState.isGameOver) return;
+    ctx.clearRect(0, 0, uiCanvas.width, boardH);
+    ctx.save();
+    ctx.translate(UI_SIDE_MARGIN, 0);
     
     // ── Next Pieces (right side) ──
-    const nextX = boardW + 12;
+    const nextX = boardW + 16;
     let nextY = 20;
     
     ctx.fillStyle = '#e0e0f0';
-    ctx.font = '12px Inter, sans-serif';
+    ctx.font = 'bold 12px Orbitron, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('NEXT', nextX + 50, nextY);
-    nextY += 20;
+    ctx.fillText('NEXT', nextX + 54, nextY);
+    nextY += 12;
     
     // Background panel
-    ctx.fillStyle = 'rgba(18,18,42,0.8)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(18,18,42,0.88)';
+    ctx.strokeStyle = 'rgba(192,132,252,0.22)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(nextX, nextY, 100, 120, 8);
+    ctx.roundRect(nextX, nextY, 108, 148, 8);
     ctx.fill();
     ctx.stroke();
     
-    nextY += 15;
+    nextY += 16;
+    const previewList = (GameState.nextPieces && GameState.nextPieces.length > 0)
+        ? GameState.nextPieces
+        : ['T', 'I', 'S'];
     for (let i = 0; i < CONFIG.PREVIEW_COUNT; i++) {
-        if (GameState.nextPieces[i]) {
-            drawMiniPiece(ctx, GameState.nextPieces[i], nextX + 15, nextY + i * 38, 16);
+        if (previewList[i]) {
+            drawMiniPiece(ctx, previewList[i], nextX + 22, nextY + i * 44, 16);
         }
     }
     
     // ── Hold Piece (left side) ──
-    const holdX = -112;
+    const holdX = -124;
     let holdY = 20;
     
-    ctx.fillStyle = GameState.canHold ? '#e0e0f0' : '#555';
-    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = GameState.canHold ? '#e0e0f0' : '#7a7a9a';
+    ctx.font = 'bold 12px Orbitron, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('HOLD', holdX + 50, holdY);
-    holdY += 20;
+    ctx.fillText('HOLD', holdX + 54, holdY);
+    holdY += 12;
     
     // Background panel
-    ctx.fillStyle = 'rgba(18,18,42,0.8)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(18,18,42,0.88)';
+    ctx.strokeStyle = 'rgba(192,132,252,0.22)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(holdX, holdY, 100, 70, 8);
+    ctx.roundRect(holdX, holdY, 108, 76, 8);
     ctx.fill();
     ctx.stroke();
     
     if (GameState.holdPiece) {
-        drawMiniPiece(ctx, GameState.holdPiece, holdX + 20, holdY + 15, 18);
+        drawMiniPiece(ctx, GameState.holdPiece, holdX + 24, holdY + 18, 18);
+    } else {
+        ctx.fillStyle = 'rgba(122,122,154,0.45)';
+        ctx.font = '11px Inter, sans-serif';
+        ctx.fillText('[ C ] Empty', holdX + 54, holdY + 42);
     }
     
     // ── Score Panel (below hold) ──
-    const scoreY = holdY + 90;
+    const scoreY = holdY + 94;
     
-    ctx.fillStyle = 'rgba(18,18,42,0.8)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(18,18,42,0.88)';
+    ctx.strokeStyle = 'rgba(192,132,252,0.22)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(holdX, scoreY, 100, 140, 8);
+    ctx.roundRect(holdX, scoreY, 108, 152, 8);
     ctx.fill();
     ctx.stroke();
     
     ctx.textAlign = 'left';
     ctx.font = '10px Inter, sans-serif';
     ctx.fillStyle = '#7a7a9a';
-    ctx.fillText('SCORE', holdX + 10, scoreY + 20);
+    ctx.fillText('SCORE', holdX + 12, scoreY + 22);
     
     ctx.font = 'bold 16px Orbitron, monospace';
     ctx.fillStyle = '#e0e0f0';
-    ctx.fillText(GameState.score.toLocaleString(), holdX + 10, scoreY + 40);
+    ctx.fillText(GameState.score.toLocaleString(), holdX + 12, scoreY + 42);
     
     ctx.font = '10px Inter, sans-serif';
     ctx.fillStyle = '#7a7a9a';
-    ctx.fillText('LEVEL', holdX + 10, scoreY + 65);
+    ctx.fillText('LEVEL', holdX + 12, scoreY + 68);
     
-    ctx.font = 'bold 14px Orbitron, monospace';
+    ctx.font = 'bold 15px Orbitron, monospace';
     ctx.fillStyle = '#c084fc';
-    ctx.fillText(GameState.level.toString(), holdX + 10, scoreY + 82);
+    ctx.fillText(GameState.level.toString(), holdX + 12, scoreY + 86);
     
     ctx.font = '10px Inter, sans-serif';
     ctx.fillStyle = '#7a7a9a';
-    ctx.fillText('LINES', holdX + 10, scoreY + 105);
+    ctx.fillText('LINES', holdX + 12, scoreY + 112);
     
-    ctx.font = 'bold 14px Orbitron, monospace';
+    ctx.font = 'bold 15px Orbitron, monospace';
     ctx.fillStyle = '#38bdf8';
-    ctx.fillText(GameState.lines.toString(), holdX + 10, scoreY + 122);
+    ctx.fillText(GameState.lines.toString(), holdX + 12, scoreY + 130);
     
     // ── High Score ──
     ctx.font = '10px Inter, sans-serif';
-    ctx.fillStyle = '#7a7a9a';
+    ctx.fillStyle = '#f59e0b';
     ctx.textAlign = 'center';
-    ctx.fillText('HI: ' + GameState.highScore.toLocaleString(), holdX + 50, scoreY + 138);
+    ctx.fillText('HI: ' + GameState.highScore.toLocaleString(), holdX + 54, scoreY + 146);
+    ctx.restore();
 }
 
 // Draw start screen
@@ -304,44 +313,55 @@ function drawStartScreen() {
     const boardW = CONFIG.BOARD_WIDTH * bs;
     const boardH = CONFIG.BOARD_HEIGHT * bs;
     
-    // Background
-    ctx.fillStyle = '#0a0a1a';
-    ctx.fillRect(0, 0, boardW, boardH);
+    // Draw subtle grid background
+    drawBoardGrid();
+
+    // Decorative showcase tetrominoes at bottom of the well
+    drawMiniPiece(ctx, 'L', bs * 1, boardH - bs * 2, bs);
+    drawMiniPiece(ctx, 'O', bs * 4, boardH - bs * 2, bs);
+    drawMiniPiece(ctx, 'Z', bs * 6, boardH - bs * 2, bs);
     
+    // Translucent card backdrop inside well
+    ctx.fillStyle = 'rgba(10, 10, 26, 0.78)';
+    ctx.fillRect(0, 0, boardW, boardH);
+
     // Title
     ctx.textAlign = 'center';
     ctx.fillStyle = '#c084fc';
-    ctx.font = 'bold 36px Orbitron, monospace';
+    ctx.font = 'bold 34px Orbitron, monospace';
     ctx.shadowColor = '#c084fc';
     ctx.shadowBlur = 20;
-    ctx.fillText('TETRIS', boardW / 2, boardH / 2 - 60);
+    ctx.fillText('TETRIS', boardW / 2, boardH / 2 - 44);
     ctx.shadowBlur = 0;
     
     // Subtitle
-    ctx.fillStyle = '#7a7a9a';
-    ctx.font = '14px Inter, sans-serif';
-    ctx.fillText('Falling Block Puzzle', boardW / 2, boardH / 2 - 30);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '13px Inter, sans-serif';
+    ctx.fillText('Falling Block Puzzle', boardW / 2, boardH / 2 - 16);
     
-    // Start prompt
-    ctx.fillStyle = '#e0e0f0';
-    ctx.font = '16px Inter, sans-serif';
+    // Start prompt pill
     const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 500);
-    ctx.globalAlpha = 0.5 + pulse * 0.5;
-    ctx.fillText('Press ENTER to Start', boardW / 2, boardH / 2 + 20);
-    ctx.globalAlpha = 1;
-    
-    // Controls hint
-    ctx.fillStyle = '#555';
-    ctx.font = '11px Inter, sans-serif';
-    ctx.fillText('← → Move  |  ↑ Rotate  |  ↓ Soft Drop', boardW / 2, boardH / 2 + 60);
-    ctx.fillText('Space: Hard Drop  |  C: Hold  |  P: Pause', boardW / 2, boardH / 2 + 78);
+    ctx.fillStyle = `rgba(192, 132, 252, ${0.15 + pulse * 0.12})`;
+    ctx.strokeStyle = '#c084fc';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(boardW / 2 - 110, boardH / 2 + 8, 220, 40, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 14px Orbitron, monospace';
+    ctx.fillText('PRESS ENTER TO START', boardW / 2, boardH / 2 + 33);
     
     // High score
     if (GameState.highScore > 0) {
         ctx.fillStyle = '#f59e0b';
         ctx.font = '12px Inter, sans-serif';
-        ctx.fillText('High Score: ' + GameState.highScore.toLocaleString(), boardW / 2, boardH / 2 + 110);
+        ctx.fillText('High Score: ' + GameState.highScore.toLocaleString(), boardW / 2, boardH / 2 + 78);
     }
+
+    // Also render side UI panels (HOLD, SCORE/LEVEL/LINES, NEXT) on start screen
+    drawUI();
 }
 
 // Draw game over screen
