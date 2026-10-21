@@ -391,7 +391,7 @@ class LateEditionApp {
             <div class="lead-top">
               <span class="lead-cat" style="color:${lead.color}">${lead.beat} · $${lead.baseValue}</span>
               ${lead.seriesBadge ? `<span class="series-badge">${lead.seriesBadge}</span>` : ''}
-              <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : ''}</span>
+              <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : lead.scoopedByRival ? '· ⚠️ 0.5×' : ''}</span>
             </div>
             <div class="lead-headline">${lead.headline}</div>
             <div class="lead-bars">
@@ -543,7 +543,7 @@ class LateEditionApp {
         <div class="paper-slot" data-slot-id="${slot.id}">
           <div class="slot-meta">
             <span>${slot.label} (${slot.mul}×)</span>
-            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? '· 📸 1.8× PHOTO' : ''}</span>
+            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? (st.scoopedByRival ? '· 📸 COUNTER-SCOOP 1.8×' : '· 📸 1.8× PHOTO') : st.scoopedByRival ? '· ⚠️ RIVAL 0.5×' : ''}</span>
           </div>
           ${seriesPill}
           ${

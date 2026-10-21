@@ -562,6 +562,12 @@ export class NoirCityRenderer {
         ctx.fillStyle = '#090d16';
         ctx.font = '800 9.5px "JetBrains Mono", monospace';
         ctx.fillText('1.8×', 29, -12);
+      } else if (lead.scoopedByRival) {
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(-38, -22, 24, 14);
+        ctx.fillStyle = '#fef2f2';
+        ctx.font = '800 9px "JetBrains Mono", monospace';
+        ctx.fillText('0.5×', -26, -12);
       }
 
       // First-launch onboarding prompt on the selected lead when all units are idle at HQ
@@ -589,10 +595,42 @@ export class NoirCityRenderer {
   _drawRivals(ctx, sim) {
     const rivalImg = this.sprites.rival;
     for (const rv of sim.rivals) {
+      if (rv.type === 'herald' && rv.targetLeadId) {
+        const tgt = sim.leads.find((l) => l.uid === rv.targetLeadId);
+        if (tgt) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(234, 179, 8, 0.5)';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([7, 6]);
+          ctx.beginPath();
+          ctx.moveTo(rv.x, rv.y);
+          ctx.lineTo(tgt.x, tgt.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
       ctx.save();
       ctx.translate(rv.x, rv.y);
 
       const ringColor = rv.type === 'goon' ? '#f43f5e' : '#eab308';
+      // Press cruiser / saboteur searchlight cone
+      ctx.save();
+      ctx.rotate(rv.angle);
+      const beam = ctx.createLinearGradient(12, 0, 78, 0);
+      beam.addColorStop(0, ringColor + '44');
+      beam.addColorStop(1, ringColor + '00');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(10, -6);
+      ctx.lineTo(78, -26);
+      ctx.lineTo(78, 26);
+      ctx.lineTo(10, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
       ctx.fillStyle = 'rgba(244, 63, 94, 0.18)';
       ctx.strokeStyle = rv.stunTimer > 0 ? '#94a3b8' : ringColor;
       ctx.lineWidth = 2.4;
@@ -617,14 +655,14 @@ export class NoirCityRenderer {
       ctx.font = '700 10px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
-      ctx.fillRect(-44, 24, 88, 15);
+      ctx.fillRect(-48, 24, 96, 15);
       ctx.fillStyle = rv.stunTimer > 0 ? '#cbd5e1' : ringColor;
       ctx.fillText(
         rv.stunTimer > 0
           ? 'FLASH STUNNED'
           : rv.type === 'goon'
             ? 'MOB SABOTEUR'
-            : 'HERALD RIVAL',
+            : 'DAILY GRAPHIC',
         0,
         35
       );

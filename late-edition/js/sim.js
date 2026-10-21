@@ -144,7 +144,8 @@ export class LateEditionSim {
       if (!st) continue;
       platedCount++;
       const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
-      const storyCash = Math.round(st.baseValue * slot.mul * photoMul);
+      const rivalMul = st.scoopedByRival && !st.photoVerified ? 0.5 : 1.0;
+      const storyCash = Math.round(st.baseValue * slot.mul * photoMul * rivalMul);
       cashDelta += storyCash;
       circDelta += Math.round(storyCash * 14);
       credDelta += st.credibility + slot.credBonus;
@@ -277,7 +278,8 @@ export class LateEditionSim {
       y,
       progress: 0, // 0..100
       photoVerified: false,
-      rivalProgress: 0, // Herald rival scoop progress 0..100
+      rivalProgress: 0, // Rival tabloid scoop progress 0..100
+      scoopedByRival: false,
       timeLeft: 48,
     };
 
@@ -402,19 +404,27 @@ export class LateEditionSim {
       });
     } else if (this.leads.length > 0) {
       const her = this.districts.find((d) => d.id === 'herald_hq');
-      const targetLead = this.leads[0];
+      // Target the highest-value unscooped lead on the map
+      const targetLead =
+        [...this.leads]
+          .filter((l) => !l.scoopedByRival)
+          .sort((a, b) => b.baseValue - a.baseValue)[0] || this.leads[0];
       this.rivals.push({
         id: `rv_${Date.now()}_${Math.random()}`,
         type: 'herald',
-        label: 'HERALD RIVAL REPORTER',
+        label: 'DAILY GRAPHIC SCOOPER',
         x: her.x + her.w - 10,
         y: her.y + her.h * 0.5,
         angle: 0,
-        speed: 88,
+        speed: 90,
         hp: 80,
         stunTimer: 0,
         targetLeadId: targetLead.uid,
       });
+      this.logWire(
+        `RIVAL ALERT: Daily Graphic press cruiser racing toward ${targetLead.districtName} ($${targetLead.baseValue} ${targetLead.beat})!`,
+        'danger'
+      );
     }
   }
 
@@ -474,7 +484,8 @@ export class LateEditionSim {
       if (!st) continue;
       platedCount++;
       const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
-      const storyCash = Math.round(st.baseValue * slot.mul * photoMul);
+      const rivalMul = st.scoopedByRival && !st.photoVerified ? 0.5 : 1.0;
+      const storyCash = Math.round(st.baseValue * slot.mul * photoMul * rivalMul);
       editionCash += storyCash;
       circDelta += Math.round(storyCash * 14);
       credDelta += st.credibility + slot.credBonus;
@@ -757,14 +768,41 @@ export class LateEditionSim {
         } else {
           lead.rivalProgress += dt * 15;
           if (lead.rivalProgress >= 100) {
-            this.addCallout(
-              lead.x,
-              lead.y - 16,
-              '⚠️ SCOOPED BY THE HERALD!',
-              '#eab308'
-            );
-            this.credibility = Math.max(0, this.credibility - 5);
-            this.leads = this.leads.filter((l) => l.uid !== lead.uid);
+            lead.rivalProgress = 100;
+            const playerContesting =
+              lead.progress >= 20 ||
+              this.operatives.some((op) => op.targetLeadId === lead.uid);
+
+            if (this.rivalStandings[0]) {
+              this.rivalStandings[0].circulation += 1400;
+            }
+
+            if (playerContesting) {
+              lead.scoopedByRival = true;
+              this.addCallout(
+                lead.x,
+                lead.y - 16,
+                '⚠️ RIVAL BEAT US (0.5× UNLESS PHOTO VERIFIED)',
+                '#eab308'
+              );
+              this.logWire(
+                `SCOOP CONTESTED: Daily Graphic beat us to ${lead.districtName}! Send Clara [3] for Speed Graphic photo proof to restore full value.`,
+                'danger'
+              );
+            } else {
+              this.addCallout(
+                lead.x,
+                lead.y - 16,
+                '⚠️ SCOOP STOLEN BY DAILY GRAPHIC!',
+                '#eab308'
+              );
+              this.credibility = Math.max(0, this.credibility - 5);
+              this.logWire(
+                `SCOOP STOLEN: Daily Graphic published the ${lead.districtName} exclusive first (-5% Credibility)!`,
+                'danger'
+              );
+              this.leads = this.leads.filter((l) => l.uid !== lead.uid);
+            }
             this.rivals.splice(i, 1);
           }
         }
@@ -833,6 +871,7 @@ export class LateEditionSim {
       credibility: lead.credibility,
       heat: lead.heat,
       photoVerified: lead.photoVerified,
+      scoopedByRival: Boolean(lead.scoopedByRival),
       arcId: lead.arcId || null,
       arcCode: lead.arcCode || null,
       arcTitle: lead.arcTitle || null,
