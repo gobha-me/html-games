@@ -662,7 +662,7 @@ export class NoirCityRenderer {
           ? 'FLASH STUNNED'
           : rv.type === 'goon'
             ? 'MOB SABOTEUR'
-            : 'DAILY GRAPHIC',
+            : 'DAILY HERALD',
         0,
         35
       );

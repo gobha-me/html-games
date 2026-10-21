@@ -622,7 +622,7 @@ class LateEditionApp {
     };
     const allPapers = [
       {
-        name: '★ Metropolitan Chronicle (You)',
+        name: '★ The Evening Star (You)',
         circulation: this.sim.circulation,
         inkColor: '#b91c1c',
       },

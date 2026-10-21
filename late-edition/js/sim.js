@@ -116,7 +116,7 @@ export class LateEditionSim {
     this.rivalStandings = [
       { id: 'herald', name: 'The Daily Herald', circulation: 21500, color: '#eab308' },
       { id: 'observer', name: 'The Observer Syndicate', circulation: 19800, color: '#f43f5e' },
-      { id: 'gazette', name: 'Midtown Gazette', circulation: 15200, color: '#c084fc' },
+      { id: 'gazette', name: 'The Daily Herald (Midtown)', circulation: 15200, color: '#c084fc' },
     ];
 
     this.logWire('NIGHT DESK OPEN — Rotary presses warmed for the 12:00 AM deadline.', 'ops');
@@ -418,7 +418,7 @@ export class LateEditionSim {
       this.rivals.push({
         id: `rv_${Date.now()}_${Math.random()}`,
         type: 'herald',
-        label: 'DAILY GRAPHIC SCOOPER',
+        label: 'DAILY HERALD SCOOPER',
         x: her.x + her.w - 10,
         y: her.y + her.h * 0.5,
         angle: 0,
@@ -428,7 +428,7 @@ export class LateEditionSim {
         targetLeadId: targetLead.uid,
       });
       this.logWire(
-        `RIVAL ALERT: Daily Graphic press cruiser racing toward ${targetLead.districtName} ($${targetLead.baseValue} ${targetLead.beat})!`,
+        `RIVAL ALERT: Daily Herald press cruiser racing toward ${targetLead.districtName} ($${targetLead.baseValue} ${targetLead.beat})!`,
         'danger'
       );
     }
@@ -849,19 +849,19 @@ export class LateEditionSim {
                 '#eab308'
               );
               this.logWire(
-                `SCOOP CONTESTED: Daily Graphic beat us to ${lead.districtName}! Send Clara [3] for Speed Graphic photo proof to restore full value.`,
+                `SCOOP CONTESTED: Daily Herald beat us to ${lead.districtName}! Send Clara [3] for Speed Graphic photo proof to restore full value.`,
                 'danger'
               );
             } else {
               this.addCallout(
                 lead.x,
                 lead.y - 16,
-                '⚠️ SCOOP STOLEN BY DAILY GRAPHIC!',
+                '⚠️ SCOOP STOLEN BY DAILY HERALD!',
                 '#eab308'
               );
               this.credibility = Math.max(0, this.credibility - 5);
               this.logWire(
-                `SCOOP STOLEN: Daily Graphic published the ${lead.districtName} exclusive first (-5% Credibility)!`,
+                `SCOOP STOLEN: Daily Herald published the ${lead.districtName} exclusive first (-5% Credibility)!`,
                 'danger'
               );
               this.leads = this.leads.filter((l) => l.uid !== lead.uid);
