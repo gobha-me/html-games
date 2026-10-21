@@ -70,7 +70,7 @@ export class Renderer {
     return { x, y, laneW: laneWidthAtDepth, scale, p };
   }
 
-  addFlash(lane, judgement) {
+  addFlash(lane, judgement, isChord = false) {
     const color =
       judgement === JUDGE.PERFECT
         ? '#00ffcc'
@@ -84,19 +84,20 @@ export class Renderer {
       this.shockwaves.push({
         x: pos.x,
         y: pos.y,
-        color: LANE_COLORS[lane],
-        r: 12,
+        color: isChord ? '#ffd21f' : LANE_COLORS[lane],
+        r: isChord ? 18 : 12,
         alpha: 0.98,
       });
-      for (let i = 0; i < 16; i++) {
-        const ang = (Math.PI * 2 * i) / 16 + (Math.random() - 0.5) * 0.3;
-        const spd = 2.4 + Math.random() * 5.0;
+      const count = isChord ? 24 : 16;
+      for (let i = 0; i < count; i++) {
+        const ang = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3;
+        const spd = (isChord ? 3.2 : 2.4) + Math.random() * 5.0;
         this.particles.push({
           x: pos.x,
           y: pos.y,
           vx: Math.cos(ang) * spd,
           vy: Math.sin(ang) * spd - 1.6,
-          color: i % 2 === 0 ? LANE_COLORS[lane] : '#ffffff',
+          color: isChord && i % 3 === 0 ? '#ffd21f' : i % 2 === 0 ? LANE_COLORS[lane] : '#ffffff',
           alpha: 1,
           size: 2.5 + Math.random() * 2.8,
         });
@@ -136,12 +137,13 @@ export class Renderer {
   drawStageBackdrop(ctx, W, H, t, beatFloat, beatPulse, spectrum, track, overdrive) {
     const horizonY = H * 0.33;
     const cx = W * 0.5;
-    const accent = overdrive ? '#ffd21f' : (track && track.accent) || '#00d4ff';
+    const venue = this.activeTourVenue || null;
+    const accent = overdrive ? '#ffd21f' : (venue && venue.accent) || (track && track.accent) || '#00d4ff';
 
-    // Deep Synthwave Night Sky Gradient
+    // Deep Synthwave Night Sky Gradient (parameterized per Tour Venue #39)
     const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
     skyGrad.addColorStop(0, overdrive ? '#160624' : '#04050d');
-    skyGrad.addColorStop(0.22, overdrive ? '#2e0b3d' : '#100724');
+    skyGrad.addColorStop(0.22, overdrive ? '#2e0b3d' : (venue && venue.skyColor) || '#100724');
     skyGrad.addColorStop(0.33, overdrive ? '#4c1152' : '#240c3b');
     skyGrad.addColorStop(0.34, '#070814');
     skyGrad.addColorStop(1, '#03040a');

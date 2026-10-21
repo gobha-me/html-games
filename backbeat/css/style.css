@@ -248,6 +248,56 @@ body.playing .jukebox-drawer {
   margin-top: 2px;
 }
 
+.mode-switch-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.mode-pill {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(14, 9, 30, 0.78);
+  color: #cbd5e1;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.mode-pill.selected {
+  border-color: var(--cyan);
+  background: rgba(0, 212, 255, 0.18);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+}
+
+.tour-banner {
+  padding: 6px 8px;
+  border-radius: 7px;
+  background: rgba(255, 46, 196, 0.12);
+  border: 1px solid rgba(255, 46, 196, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tb-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.62rem;
+  color: #fde047;
+}
+
+.tb-sub {
+  font-size: 0.56rem;
+  color: #cbd5e1;
+}
+
 .step-num {
   display: inline-flex;
   align-items: center;

@@ -5,10 +5,10 @@
 
 import { DIFFICULTY } from './config.js';
 
-export async function buildTrackChart(track, difficultyId = 'normal') {
-  const diff = DIFFICULTY[difficultyId] || DIFFICULTY.normal;
+export async function buildTrackChart(track, difficultyId = 'tour', customSeed = '') {
+  const diff = DIFFICULTY[difficultyId] || DIFFICULTY.tour;
 
-  if (track.chartUrl) {
+  if (track.chartUrl && !customSeed) {
     try {
       const res = await fetch(track.chartUrl);
       if (res.ok) {
@@ -20,7 +20,7 @@ export async function buildTrackChart(track, difficultyId = 'normal') {
     }
   }
 
-  return generateProceduralChart(track, diff);
+  return generateProceduralChart(track, diff, customSeed);
 }
 
 function adaptAnthemChart(raw, track, diff) {
@@ -33,8 +33,8 @@ function adaptAnthemChart(raw, track, diff) {
   const beatSec = 60 / (raw.bpm || track.bpm || 120);
 
   for (let i = 0; i < baseNotes.length; i++) {
-    // Easy filters every 2nd dense note
-    if (diff.id === 'easy' && i % 3 === 1) continue;
+    // Club filters every 3rd dense note
+    if (diff.id === 'club' && i % 3 === 1) continue;
 
     const src = baseNotes[i];
     const next = baseNotes[i + 1];
@@ -54,8 +54,8 @@ function adaptAnthemChart(raw, track, diff) {
       chord: false,
     });
 
-    // Add simultaneous 2-lane chord bursts on downbeats for Normal/Hard/Encore
-    if (diff.allowChords && duration === 0 && i % (diff.id === 'normal' ? 8 : 5) === 0 && gap > 0.32) {
+    // Add simultaneous 2-lane chord bursts on downbeats for Tour/Hyperdrive/Encore
+    if (diff.allowChords && duration === 0 && i % (diff.id === 'tour' ? 8 : 5) === 0 && gap > 0.32) {
       const partnerLane = (src.lane + 2) % 4;
       notes.push({
         id: notes.length,
@@ -92,15 +92,15 @@ function adaptAnthemChart(raw, track, diff) {
   };
 }
 
-export function generateProceduralChart(track, diff) {
+export function generateProceduralChart(track, diff, customSeed = '') {
   const bpm = track.bpm;
   const beatSec = 60 / bpm;
   const stepSec = beatSec / 2; // 8th-note grid
   const totalSteps = Math.floor((track.duration - 3.5) / stepSec);
   const notes = [];
 
-  // Deterministic PRNG per track + difficulty
-  let seed = hashString(`${track.id}:${diff.id}`);
+  // Deterministic PRNG per track + difficulty + optional shareable seed (#40)
+  let seed = hashString(`${track.id}:${diff.id}:${customSeed || 'std'}`);
   const rand = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
@@ -140,17 +140,17 @@ export function generateProceduralChart(track, diff) {
     let lane = pat[stepInBar];
 
     if (lane < 0) {
-      // On Hard / Encore, fill some offbeats
-      if ((diff.id === 'hard' || diff.id === 'encore') && rand() < 0.42) {
+      // On Hyperdrive / Encore, fill some offbeats
+      if ((diff.id === 'hyperdrive' || diff.id === 'encore') && rand() < 0.42) {
         lane = Math.floor(rand() * 4);
       } else {
         continue;
       }
     }
 
-    // Easy skips odd 8th notes except downbeats
-    if (diff.id === 'easy' && stepInBar % 2 === 1 && rand() < 0.78) continue;
-    if (diff.id === 'normal' && stepInBar % 2 === 1 && rand() < 0.35) continue;
+    // Club skips odd 8th notes except downbeats
+    if (diff.id === 'club' && stepInBar % 2 === 1 && rand() < 0.78) continue;
+    if (diff.id === 'tour' && stepInBar % 2 === 1 && rand() < 0.35) continue;
 
     if (t < laneOccupiedUntil[lane] + 0.12) continue;
 
@@ -181,7 +181,7 @@ export function generateProceduralChart(track, diff) {
       diff.allowChords &&
       duration === 0 &&
       stepInBar === 0 &&
-      bar % (diff.id === 'normal' ? 2 : 1) === 0
+      bar % (diff.id === 'tour' ? 2 : 1) === 0
     ) {
       const altLane = (lane + (rand() < 0.65 ? 2 : 1)) % 4;
       if (t >= laneOccupiedUntil[altLane] + 0.12) {

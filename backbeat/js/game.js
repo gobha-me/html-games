@@ -109,8 +109,11 @@ export class Game {
     const held = this.activeHolds[lane];
     if (held) {
       const t = this.now(audioTimeSec);
-      if (t >= held.time + held.duration - 0.12) {
+      const goodWinSec = (this.diff.good || 120) / 1000;
+      if (t >= held.time + held.duration - goodWinSec) {
         held.holdCompleted = true;
+        this.tally.holds++;
+        this.score += Math.round(120 * this.diff.scoreMul * (this.overdriveActive ? 2.0 : 1.0));
       }
       held.holding = false;
       this.activeHolds[lane] = null;

@@ -232,15 +232,34 @@ export class AudioEngine {
 
   scheduleLead(ctx, t, dur, freq, style, isChord = false) {
     const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
     const gain = ctx.createGain();
 
     osc.type = style === 'chiptune' ? 'square' : style === 'industrial' ? 'sawtooth' : 'triangle';
     osc.frequency.setValueAtTime(freq, t);
 
-    gain.gain.setValueAtTime(isChord ? 0.16 : 0.2, t);
+    // Sustained Hold Ribbon pitch-bend vibrato & filter sweep (#38)
+    filter.type = 'lowpass';
+    if (dur >= 0.32) {
+      filter.frequency.setValueAtTime(950, t);
+      filter.frequency.exponentialRampToValueAtTime(2800, t + dur * 0.7);
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.setValueAtTime(6.0, t);
+      lfoGain.gain.setValueAtTime(freq * 0.015, t);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      lfo.start(t);
+      lfo.stop(t + dur);
+    } else {
+      filter.frequency.setValueAtTime(2400, t);
+    }
+
+    gain.gain.setValueAtTime(isChord ? 0.18 : 0.2, t);
     gain.gain.exponentialRampToValueAtTime(0.008, t + dur);
 
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(ctx.destination);
     osc.start(t);
     osc.stop(t + dur + 0.01);
