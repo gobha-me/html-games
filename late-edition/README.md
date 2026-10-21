@@ -45,8 +45,8 @@ Playable with investigative story arcs, rival scoop races and rotary-phone dilem
 The sim is deterministic: equal seeds, ordered inputs and elapsed-time steps produce
 equal gameplay hashes. Browser storage, audio and clocks are injected ports.
 See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint, stylelint and HTML validation are
-enforced in CI; deterministic replay and adapter failures are tested now, with broader
-gameplay coverage tracked in #82. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
+enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
+for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
 and art bible; its manual layout, file drawer and visual overhaul are targets.
 
 ## Deterministic runs
@@ -68,7 +68,8 @@ independently timed browser clicks/frame sequences identical.
 
 `getStateHash()` returns eight hex digits: FNV-1a over UTF-8 canonical JSON
 (sorted object keys, ordered arrays) of gameplay state, RNG state/draw count,
-IDs/counters, economy, movement, leads, arcs, dilemmas and edition summaries.
+IDs/counters, economy, movement, leads, arcs, dilemmas, edition summaries and the
+last-published time (which prevents duplicate publication within a sim tick).
 Stored best scores, adapters, wire messages/timestamps, traffic, banners,
 flashes, callouts and display-only labels/angles/animation phases are excluded:
 they never drive gameplay. The injected `now()` supplies wire event timestamps
@@ -81,6 +82,10 @@ Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
 zero. Blocked reads and quota-exceeded writes never interrupt play; the current
 run's best is retained in memory.
 
+Publishing returns `true` on success and `false` for a duplicate in the same sim
+tick, a destroyed press or a finished run. The first print can happen at time zero;
+another requires simulated time to advance. A reset clears the guard.
+
 ## Development checks
 
 Use Node 22.22+ (22.x) or 24.8+. From `late-edition/`:
@@ -88,7 +93,7 @@ Use Node 22.22+ (22.x) or 24.8+. From `late-edition/`:
 ```bash
 npm ci
 npm run lint
-npm test
+npm run test:coverage
 ```
 
 `lint:js`, `lint:css` and `lint:html` run ESLint 10 flat config, stylelint's
@@ -96,7 +101,12 @@ standard config and html-validate's recommended checks separately. There are no
 rule relaxations or lint disables. `npm test` checks deliberately bad fixtures,
 lint failure exit codes, clean real sources, PRNG validation, five-edition golden
 replays and adversarial sim/adapter inputs; fixtures are excluded from normal
-lint runs. The classic-script fixture exercises `no-implicit-globals`, which
+lint runs. `test:coverage` runs the same suite with native Node coverage, includes
+only `js/sim.js`, and fails below 80% line coverage. The area suites pin current
+dispatch, publish, phone, economy, arc, race and sabotage behavior; fuzz tests run
+50 seeds through three editions of legal/illegal commands and both terminal paths,
+checking numeric bounds, unique plates and sticky game over after every action.
+The classic-script fixture exercises `no-implicit-globals`, which
 cannot fire for module-scoped declarations. Documentation checks and their shell
 self-tests are listed in [AGENTS.md](AGENTS.md).
 

@@ -1,6 +1,6 @@
 {
   "name": "late-edition",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,7 +11,8 @@
     "lint:css": "stylelint \"css/**/*.css\" --max-warnings 0",
     "lint:html": "html-validate index.html",
     "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-include='js/sim.js' tests/*.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

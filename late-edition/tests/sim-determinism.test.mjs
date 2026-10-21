@@ -37,7 +37,8 @@ test('five-edition scripted replay matches the golden gameplay hashes', () => {
   const first = playFiveEditions();
   assert.deepEqual(first.hashes, playFiveEditions().hashes);
   assert.deepEqual(first.hashes, [
-    '7344c4b3', 'f09f9f01', '91d81f00', '52a7661a', '130eceee',
+    // #82 adds the publish guard to canonical state; gameplay snapshots still match #81.
+    '6ee85415', 'af4a596c', 'eee947c2', 'ede73b0e', 'c9f4b6b3',
   ]);
   assert.notEqual(first.sim.getStateHash(), playFiveEditions({ seed: 82 }).sim.getStateHash());
 });
@@ -137,6 +138,7 @@ test('valid stored score is retained and writes keep the existing key', () => {
   assert.equal(sim.highCirculation, 20000);
   assert.equal(writes.length, 0, 'Lower scores must not overwrite a best');
   sim.completeLeadScoop(sim.leads[0]);
+  sim.step(MAX_SUBSTEP_SEC);
   sim.publishEdition();
   assert.equal(writes.length, 1);
   assert.deepEqual(writes[0], ['lateEdition.bestCirculation.v2', String(sim.highCirculation)]);

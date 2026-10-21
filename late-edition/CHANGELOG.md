@@ -1,5 +1,33 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.3.1] — 2026-10-21 (#82 — Adversarial sim coverage)
+
+### Added
+- Focused `node:test` suites for dispatch, publishing, dilemmas, economy/clamps,
+  arcs, rival races and sabotage, with exact outcomes for expired/missing leads,
+  unknown operative fallback, busy retasking, empty/double publication, unanswered
+  calls, insufficient funds, stat bounds, destroyed presses, out-of-order arc
+  publication and simultaneous player/rival completion.
+- Property-style fuzzing across 50 seeds, each completing three editions with
+  legal/illegal commands, then forcing press destruction or trust collapse.
+  Every command and step checks finite numeric state, trust/heat/press bounds,
+  nonnegative funds, unique story placement and sticky game over.
+- `npm run test:coverage` uses Node's experimental test coverage and enforces
+  at least 80% lines specifically for `js/sim.js`. Native include/threshold flags
+  verified on Node 22.23.3; the GitHub late-edition job now runs this command.
+
+### Fixed
+- Repeated/reentrant publishing in one sim tick no longer counts editions,
+  rewards or adapter effects twice. Destroyed presses and finished runs refuse
+  publication; publishing returns a success boolean. The guard resets per run.
+- Nonfinite/nonnumeric dispatch coordinates cannot poison movement state;
+  invalid slot IDs cannot consume a queued story into an unprintable property.
+- Repeated/stale scoop completions cannot duplicate stories or scoop rewards.
+- Included the publish guard in canonical hashes and updated the golden replay.
+  Compared all five complete edition snapshots against #81: gameplay is unchanged
+  apart from the added guard field. Existing unknown-ID fallback, retasking,
+  cash floors, arc highest-part progression and player-first tick order remain.
+
 ## [2.3.0] — 2026-10-21 (#81 — Deterministic simulation)
 
 ### Added
