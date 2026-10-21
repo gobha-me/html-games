@@ -8,7 +8,7 @@ Keep work inside this game unless the task explicitly permits shared files.
 
 ## Current module map
 
-This is a static HTML/CSS game with five native ES modules, no bundler, and
+This is a static HTML/CSS game with native ES modules, no bundler, and
 no external JavaScript runtime dependencies. Serve it over HTTP.
 
 | File | Responsibility today |
@@ -16,47 +16,53 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
 | `index.html` | Desk shell, map canvas, broadsheet, controls, rotary-phone card, edition modal; loads `js/main.js`. |
 | `css/style.css` | Mahogany desk, leather blotter, brass rail, newsprint slots, passes, phone and modal styling. |
 | `js/config.js` | World dimensions, 90-second editions, districts, lamps, four operatives, slots, story catalog, three investigative arcs and phone dilemmas. |
-| `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, plating, projections, publishing, arc progression and dilemmas. Also audio calls, best-circulation storage and display strings. |
+| `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, plating, projections, publishing, arc progression and dilemmas. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
 | `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup. |
 | `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
+| `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
+| `js/adapters.js` | Safe best-score persistence, optional audio ports and URL seed parsing. |
+| `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
 | `assets/` | Existing sprite PNGs and three MP3 effects, loaded with relative URLs. |
 | `scripts/` | Documentation-reference checker and its isolated adversarial shell tests. |
-| `tests/` | Adversarial lint fixtures, CLI exit-code checks and real-source lint checks. |
+| `tests/` | Adversarial lint/PRNG/adapter/delta tests and a five-edition golden replay. |
 | `package.json` | Native ES modules; development-only lint/test tools and npm scripts. |
 
-## Sim/UI boundary: current and intended
+## Sim/UI boundary
 
 - Today `main.js` passes audio into the sim, calls its methods, and also
   mutates selection, speed, pause, summary and operative targets directly.
   It scales frame delta by speed, calls `sim.step(dt)`, draws each frame,
   and rebuilds much of the DOM every 250 ms.
-- `sim.js` imports only config, but is **not pure**: it reads/writes
-  localStorage, calls audio, uses wall-clock/random values and formats wire
-  messages, banners and clock strings. It also owns visual effect/traffic data.
+- `sim.js` imports config and pure helper/adapter modules; no DOM or browser APIs.
+  Gameplay randomness uses the injected RNG; IDs use counters. It owns visual
+  effect/traffic data for compatibility, excluded from gameplay hashes.
 - The canvas renderer reads sim state and maintains its own decorative
   rain/ripples and hover state. DOM updates and input binding belong in
   `main.js`; Canvas2D drawing belongs in `renderer.js`.
-- Target (#81): a pure sim with explicit inputs and injected seeded PRNG
-  (mulberry32) and clock. Storage, audio and display formatting move behind
-  adapters; UI consumes state/events rather than changing sim internals.
-  Keep DOM, browser storage and audio APIs out of new sim logic.
+- The constructor accepts `{ seed, rng, storage, audio, now }`. `main.js` creates
+  browser adapters and parses `?seed=N`, falling back to a wall-clock seed.
+  Storage uses `readBest`/`writeBest`; audio has optional named cues. Display
+  formatting lives in `presentation.js`. Keep browser APIs out of sim logic.
 - Current scoops auto-plate; arc progress advances on publishing; unanswered
   phone calls take the reject effect. The art bible's manual print/bury/spike
   workflow, persistent file drawer and 210-second editions are future work.
 
 ## Determinism rules
 
-- Target: equal seeds, elapsed-time steps and ordered inputs produce equal
-  gameplay state. Route all gameplay randomness through the injected PRNG.
-  No `Math.random()` or wall-clock IDs in the target sim.
-- This is **not yet true**: rival choice/IDs, lead replenishment and standings
-  use `Math.random()`; rival IDs also use `Date.now()`. Tracked in #81.
-  Do not describe the current sim as deterministic or add more hidden entropy.
-- Renderer-only randomness may vary, but must never affect gameplay, IDs,
-  hit-testing or the sim's random stream.
-- Time must come through explicit steps/clock inputs. Validate invalid and
-  extreme deltas during #81; today's frame-loop clamp is not a sim-level guard.
+- Equal seeds, elapsed-time steps and ordered inputs produce equal gameplay
+  hashes, pinned after each of five editions in the golden replay test.
+- All gameplay randomness uses injected mulberry32. ESLint and source tests ban
+  `Math.random`, `Date`, `window`, `document`, `localStorage` and `performance` in sim.
+- Renderer-only rain/ripple randomness may use `Math.random`, but must never
+  affect gameplay, IDs, hit-testing or the sim's random stream.
+- `step` ignores nonfinite/nonpositive deltas, splits valid time into <=50 ms
+  substeps and caps catch-up at 10 s per call to bound work. `now()` only stamps
+  wire events; steps drive gameplay time. Reset rewinds the built-in RNG only.
+- `getStateHash()` uses FNV-1a over UTF-8 canonical JSON, sorting object keys.
+  It includes gameplay, RNG/counters and edition summaries, excluding saved best,
+  ports, wire/timestamps, traffic, banners, flashes, callouts and display fields.
+  See README for the replay contract and injected RNG lifecycle.
 
 ## Lore: canonical names
 
@@ -105,7 +111,7 @@ tests feed their contents through the production configurations deliberately.
 The docs checker skips vendor `node_modules` and exempts only direction/changelog
 history in project files. Its optional directory argument is for isolated fixtures.
 Both shell checks and the separate `late-edition` npm job run in GitHub CI.
-Sim tests and coverage arrive in #82. Run all tests/linters before finishing;
+Broader gameplay tests and coverage arrive in #82. Run all tests/linters before finishing;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 
@@ -118,8 +124,8 @@ and simultaneous rival/player completion, rather than only successful play.
 
 - Native modules and committed source avoid a build stage because the game
   deploys directly from static files; preserve relative asset/import URLs.
-- Mutable sim/UI coupling, formatted strings and browser storage in the sim
-  are legacy debt retained until #81 to avoid mixing a refactor into copy work.
+- Mutable sim/UI coupling remains legacy debt for the stable-input work; browser
+  APIs and display formatting are now behind ports/adapters (#81).
 - Repeated `innerHTML` rendering uses authored content today; stable keyed
   updates and an explicit game-over screen are planned to fix lost input/focus.
   Never interpolate untrusted content into this path.

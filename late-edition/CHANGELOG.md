@@ -1,5 +1,25 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.3.0] — 2026-10-21 (#81 — Deterministic simulation)
+
+### Added
+- Mulberry32 seeded PRNG with validated `nextFloat`, `nextInt` and `pick` helpers;
+  constructor injection for seed/RNG, storage, audio and clock. Browser runs accept
+  `?seed=N`, with a wall-clock fallback supplied by `main.js`.
+- Canonical UTF-8 JSON/FNV-1a gameplay hashes and a five-edition golden replay;
+  adversarial RNG, delta, storage, missing-audio and lint-enforcement tests.
+- ESLint restrictions and a source grep test banning ambient entropy/browser
+  identifiers in `sim.js`; display formatting extracted into its own adapter.
+
+### Fixed
+- Counter-based rival IDs and seeded rival choices, lead replenishment and
+  standings make identical scripts repeatable; cosmetic effects and saved best
+  records do not affect gameplay hashes.
+- Nonfinite/nonpositive deltas do nothing. Long deltas subdivide into <=50 ms
+  ticks with a 10 s catch-up cap, preserving travel and event processing.
+- Missing/corrupt/nonfinite/negative best scores become zero; blocked reads and
+  quota-exceeded writes cannot crash gameplay and best scores survive in memory.
+
 ## [2.2.2] — 2026-10-21 (#80 — Lint tooling and CI)
 
 ### Added

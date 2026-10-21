@@ -27,7 +27,10 @@ late-edition/
 │   └── style.css       # Burled mahogany, green leather blotter, manila press passes & aged newsprint
 ├── js/
 │   ├── main.js         # UI controller, wire stand-in/paste-up renderer & input bindings
-│   ├── sim.js          # 1947 city-dispatch, rival AI & edition economy (seeded determinism planned in #81)
+│   ├── sim.js          # 1947 city-dispatch, rival AI & edition economy, injected ports & canonical state hash
+│   ├── rng.js          # Mulberry32 seeded PRNG, validated integer bounds & array selection
+│   ├── adapters.js     # Safe score persistence, audio ports & URL seed parsing
+│   ├── presentation.js # Display-only clock, wire, banner & status formatting
 │   ├── renderer.js     # 2.5D extruded noir landmarks, wet streetlamp reflections & rain
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
 │   └── audio.js        # Hybrid MP3 + procedural WebAudio typewriter, flashbulb & press SFX
@@ -39,11 +42,44 @@ late-edition/
 ## Status and Direction
 
 Playable with investigative story arcs, rival scoop races and rotary-phone dilemmas.
-The sim currently uses unseeded randomness, wall-clock IDs, audio and browser storage;
-the pure, seeded core is tracked in #81. See [AGENTS.md](AGENTS.md) for the current
-module map and verification commands. ESLint, stylelint and HTML validation are
-enforced in CI; the adversarial sim suite is tracked in #82. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
+The sim is deterministic: equal seeds, ordered inputs and elapsed-time steps produce
+equal gameplay hashes. Browser storage, audio and clocks are injected ports.
+See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint, stylelint and HTML validation are
+enforced in CI; deterministic replay and adapter failures are tested now, with broader
+gameplay coverage tracked in #82. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
 and art bible; its manual layout, file drawer and visual overhaul are targets.
+
+## Deterministic runs
+
+Open `?seed=81` to choose the run's seed (`0` and signed safe integers are valid).
+Missing/invalid seeds use `Date.now()` in `main.js`. Mulberry32 normalizes seeds to
+unsigned 32-bit values. The browser supplies storage/audio adapters and a monotonic
+clock; headless callers can use `new LateEditionSim({ seed: 81 })` with no browser.
+An injected `rng` overrides `seed` and must provide `nextFloat()`; optional
+`getState()` is included in the hash. Reset rewinds the built-in seeded generator;
+callers own the lifecycle/reset of an injected generator.
+
+Call `step(seconds)` with the same deltas and ordered commands for a replay.
+Nonfinite, negative and zero deltas do nothing, including consuming no randomness.
+Valid deltas subdivide into **at most 50 ms** steps; each call processes at most
+**10 seconds**, dropping additional catch-up time to bound work after a long stall.
+Normal frame-sized deltas keep their existing timing. A seed alone does not make
+independently timed browser clicks/frame sequences identical.
+
+`getStateHash()` returns eight hex digits: FNV-1a over UTF-8 canonical JSON
+(sorted object keys, ordered arrays) of gameplay state, RNG state/draw count,
+IDs/counters, economy, movement, leads, arcs, dilemmas and edition summaries.
+Stored best scores, adapters, wire messages/timestamps, traffic, banners,
+flashes, callouts and display-only labels/angles/animation phases are excluded:
+they never drive gameplay. The injected `now()` supplies wire event timestamps
+only; gameplay time always comes from `step()`. Renderer rain/ripples may use
+`Math.random()` independently without advancing the gameplay generator.
+
+The golden test runs five editions with dispatches, investigation, auto-plating,
+rivals, fortification and phone choices, asserting a pinned hash after each print.
+Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
+zero. Blocked reads and quota-exceeded writes never interrupt play; the current
+run's best is retained in memory.
 
 ## Development checks
 
@@ -58,7 +94,8 @@ npm test
 `lint:js`, `lint:css` and `lint:html` run ESLint 10 flat config, stylelint's
 standard config and html-validate's recommended checks separately. There are no
 rule relaxations or lint disables. `npm test` checks deliberately bad fixtures,
-lint failure exit codes and clean real sources; fixtures are excluded from normal
+lint failure exit codes, clean real sources, PRNG validation, five-edition golden
+replays and adversarial sim/adapter inputs; fixtures are excluded from normal
 lint runs. The classic-script fixture exercises `no-implicit-globals`, which
 cannot fire for module-scoped declarations. Documentation checks and their shell
 self-tests are listed in [AGENTS.md](AGENTS.md).

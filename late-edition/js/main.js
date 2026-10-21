@@ -6,6 +6,7 @@ import { FRONT_PAGE_SLOTS } from './config.js';
 import { LateEditionSim } from './sim.js';
 import { NoirCityRenderer } from './renderer.js';
 import { NoirAudio } from './audio.js';
+import { createAudioAdapter, createStorageAdapter, resolveSeed } from './adapters.js';
 
 const EDITOR_QUOTES = [
   '"Rain\'s washing the blood off Pier 14, kid. Get Vance and Reyes on the street before the Herald steals our banner."',
@@ -18,7 +19,13 @@ const EDITOR_QUOTES = [
 class LateEditionApp {
   constructor() {
     this.audio = new NoirAudio();
-    this.sim = new LateEditionSim(this.audio);
+    const params = new URLSearchParams(window.location.search);
+    this.sim = new LateEditionSim({
+      seed: resolveSeed(params.get('seed'), Date.now()),
+      storage: createStorageAdapter(() => window.localStorage),
+      audio: createAudioAdapter(this.audio),
+      now: () => performance.now(),
+    });
     this.canvas = document.getElementById('city-canvas');
     this.renderer = new NoirCityRenderer(this.canvas);
     this.selectedStoryUid = null;
@@ -27,7 +34,6 @@ class LateEditionApp {
 
     this._bindEvents();
 
-    const params = new URLSearchParams(window.location.search);
     if (params.get('preview') === 'showcase' || params.get('preview') === 'combat') {
       this._setupShowcaseState();
     }
