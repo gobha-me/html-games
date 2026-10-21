@@ -1,0 +1,3 @@
+# Late Edition deploys its static sources; lint dependencies and tests are development-only.
+late-edition/node_modules/
+late-edition/tests/

@@ -497,7 +497,7 @@ class LateEditionApp {
       `VOL. LVIII · LATE NIGHT EDITION #${this.sim.edition}`;
 
     const proj = this.sim.calculateEditionProjection();
-    document.getElementById('paper-projected- readers').textContent =
+    document.getElementById('paper-projected-readers').textContent =
       `EST. ${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()} READERS`;
 
     const bodyCopyByBeat = {

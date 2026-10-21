@@ -521,7 +521,6 @@ export class LateEditionSim {
     let credDelta = 0;
     let heatDelta = 0;
     let platedCount = 0;
-    let seriesBonusReaders = 0;
 
     for (const slot of FRONT_PAGE_SLOTS) {
       const st = this.frontPage[slot.id];
@@ -540,7 +539,6 @@ export class LateEditionSim {
           st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200;
         const arcCashBonus =
           st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60;
-        seriesBonusReaders += arcReaderBonus;
         circDelta += arcReaderBonus;
         editionCash += arcCashBonus;
         if (st.arcPart === 3) {
@@ -580,7 +578,9 @@ export class LateEditionSim {
       this.highCirculation = this.circulation;
       try {
         localStorage.setItem(STORAGE_KEY_BEST, String(this.highCirculation));
-      } catch (_) {}
+      } catch {
+        // Storage may be blocked or full; retain the best score in memory this run.
+      }
     }
 
     const printedEditionNum = this.edition;

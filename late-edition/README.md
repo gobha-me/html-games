@@ -41,6 +41,29 @@ late-edition/
 Playable with investigative story arcs, rival scoop races and rotary-phone dilemmas.
 The sim currently uses unseeded randomness, wall-clock IDs, audio and browser storage;
 the pure, seeded core is tracked in #81. See [AGENTS.md](AGENTS.md) for the current
-module map and verification commands. Lint tooling arrives in #80 and the adversarial
-sim suite in #82. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
+module map and verification commands. ESLint, stylelint and HTML validation are
+enforced in CI; the adversarial sim suite is tracked in #82. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
 and art bible; its manual layout, file drawer and visual overhaul are targets.
+
+## Development checks
+
+Use Node 22.22+ (22.x) or 24.8+. From `late-edition/`:
+
+```bash
+npm ci
+npm run lint
+npm test
+```
+
+`lint:js`, `lint:css` and `lint:html` run ESLint 10 flat config, stylelint's
+standard config and html-validate's recommended checks separately. There are no
+rule relaxations or lint disables. `npm test` checks deliberately bad fixtures,
+lint failure exit codes and clean real sources; fixtures are excluded from normal
+lint runs. The classic-script fixture exercises `no-implicit-globals`, which
+cannot fire for module-scoped declarations. Documentation checks and their shell
+self-tests are listed in [AGENTS.md](AGENTS.md).
+
+These are development dependencies only; the game still deploys without a build.
+The root `.dockerignore` excludes `late-edition/node_modules/` and
+`late-edition/tests/` because the Dockerfile copies the repository into the static
+server image. Tests and their deliberately invalid fixtures are never game assets.
