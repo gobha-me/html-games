@@ -183,27 +183,27 @@ function createRNGStub(seed) {
 function bindEvents() {
   // Pace selection
   DOM.paceOptions.addEventListener('click', (e) => {
-    if (e.target.classList.contains('option-btn')) {
-      const pace = e.target.dataset.value;
-      gameState.pace = pace;
+    const btn = e.target.closest('.option-btn');
+    if (btn) {
+      gameState.pace = btn.dataset.value;
       renderDecisionPanel();
     }
   });
   
   // Ration selection
   DOM.rationOptions.addEventListener('click', (e) => {
-    if (e.target.classList.contains('option-btn')) {
-      const ration = e.target.dataset.value;
-      gameState.ration = ration;
+    const btn = e.target.closest('.option-btn');
+    if (btn) {
+      gameState.ration = btn.dataset.value;
       renderDecisionPanel();
     }
   });
   
   // Action selection
   DOM.actionOptions.addEventListener('click', (e) => {
-    if (e.target.classList.contains('option-btn')) {
-      const action = e.target.dataset.value;
-      gameState.action = action;
+    const btn = e.target.closest('.option-btn');
+    if (btn) {
+      gameState.action = btn.dataset.value;
       renderDecisionPanel();
     }
   });
