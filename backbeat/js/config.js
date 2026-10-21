@@ -135,6 +135,64 @@ export const TRACK_ROSTER = [
 
 export const TRACK_CATALOG = TRACK_ROSTER;
 
+export const TOUR_VENUES = [
+  {
+    stage: 1,
+    id: 'rustbelt',
+    name: 'RUSTBELT BASEMENT ARCADE',
+    trackId: 'anthem',
+    diffId: 'club',
+    goalScore: 10000,
+    skyColor: '#120828',
+    accent: '#00d4ff',
+    gearBadge: 'CASIO SK-1 SAMPLER',
+  },
+  {
+    stage: 2,
+    id: 'starlight',
+    name: 'STARLIGHT NEON ROLLER RINK',
+    trackId: 'synthwave',
+    diffId: 'tour',
+    goalScore: 18000,
+    skyColor: '#2a0636',
+    accent: '#ff2ec4',
+    gearBadge: 'JUNO-106 CHORUS',
+  },
+  {
+    stage: 3,
+    id: 'sunset',
+    name: 'SUNSET STRIP AMPHITHEATER',
+    trackId: 'chiptune',
+    diffId: 'tour',
+    goalScore: 26000,
+    skyColor: '#2b1206',
+    accent: '#ffd21f',
+    gearBadge: 'SH-101 KEYTAR',
+  },
+  {
+    stage: 4,
+    id: 'miami',
+    name: 'MIAMI VICE PIER BROADCAST',
+    trackId: 'industrial',
+    diffId: 'hyperdrive',
+    goalScore: 34000,
+    skyColor: '#052420',
+    accent: '#10b981',
+    gearBadge: 'TR-808 BOOM RIG',
+  },
+  {
+    stage: 5,
+    id: 'tokyo',
+    name: 'TOKYO DOME MIDNIGHT FINALE',
+    trackId: 'anthem',
+    diffId: 'encore',
+    goalScore: 48000,
+    skyColor: '#280640',
+    accent: '#e879f9',
+    gearBadge: 'GOLDEN FAIRLIGHT CMI',
+  },
+];
+
 export function judgeOffset(absOffsetMs, difficultyId) {
   const w = DIFFICULTY[difficultyId] || DIFFICULTY.tour;
   if (absOffsetMs <= w.perfect) return JUDGE.PERFECT;

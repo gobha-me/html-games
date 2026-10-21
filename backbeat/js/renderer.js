@@ -137,12 +137,13 @@ export class Renderer {
   drawStageBackdrop(ctx, W, H, t, beatFloat, beatPulse, spectrum, track, overdrive) {
     const horizonY = H * 0.33;
     const cx = W * 0.5;
-    const accent = overdrive ? '#ffd21f' : (track && track.accent) || '#00d4ff';
+    const venue = this.activeTourVenue || null;
+    const accent = overdrive ? '#ffd21f' : (venue && venue.accent) || (track && track.accent) || '#00d4ff';
 
-    // Deep Synthwave Night Sky Gradient
+    // Deep Synthwave Night Sky Gradient (parameterized per Tour Venue #39)
     const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
     skyGrad.addColorStop(0, overdrive ? '#160624' : '#04050d');
-    skyGrad.addColorStop(0.22, overdrive ? '#2e0b3d' : '#100724');
+    skyGrad.addColorStop(0.22, overdrive ? '#2e0b3d' : (venue && venue.skyColor) || '#100724');
     skyGrad.addColorStop(0.33, overdrive ? '#4c1152' : '#240c3b');
     skyGrad.addColorStop(0.34, '#070814');
     skyGrad.addColorStop(1, '#03040a');

@@ -4,6 +4,7 @@
 
 import {
   TRACK_ROSTER,
+  TOUR_VENUES,
   DIFFICULTY,
   LANE_KEYS,
   LANE_ALT_KEYS,
@@ -17,6 +18,7 @@ import { Renderer } from './renderer.js';
 const STORAGE_KEY_OFFSET = 'backbeat.offsetMs.v2';
 const STORAGE_KEY_SCORES = 'backbeat.scores.v2';
 const STORAGE_KEY_GRADES = 'backbeat.grades.v2';
+const STORAGE_KEY_TOUR = 'backbeat.tourStage.v1';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
@@ -24,6 +26,8 @@ const audio = new AudioEngine();
 
 let selectedTrackIdx = 0;
 let selectedDiffId = 'tour';
+let playMode = 'jukebox'; // 'jukebox' | 'tour'
+let tourStageIdx = Math.min(TOUR_VENUES.length - 1, Math.max(0, Number(localStorage.getItem(STORAGE_KEY_TOUR)) || 0));
 let audioOffsetMs = Number(localStorage.getItem(STORAGE_KEY_OFFSET)) || 0;
 let highScores = {};
 let bestGrades = {};
@@ -303,6 +307,39 @@ function onNoteJudged(lane, judgement, _offsetMs, note) {
   }
 }
 
+function syncTourBanner() {
+  const banner = document.getElementById('tour-banner');
+  if (!banner) return;
+  banner.style.display = playMode === 'tour' ? 'flex' : 'none';
+  const venue = TOUR_VENUES[tourStageIdx] || TOUR_VENUES[0];
+  renderer.activeTourVenue = playMode === 'tour' ? venue : null;
+  if (playMode === 'tour') {
+    document.getElementById('tour-venue-name').textContent = `STAGE ${venue.stage}/5 · ${venue.name}`;
+    document.getElementById('tour-goal-score').textContent = `GOAL: ${venue.goalScore.toLocaleString()}`;
+    const unlocked = TOUR_VENUES.slice(0, tourStageIdx).map((v) => v.gearBadge);
+    document.getElementById('tour-gear-unlocked').textContent =
+      unlocked.length > 0 ? `GEAR: ${unlocked.join(' · ')}` : `CLEAR GOAL TO UNLOCK: ${venue.gearBadge}`;
+  }
+}
+
+document.getElementById('mode-row')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.mode-pill');
+  if (!btn) return;
+  document.querySelectorAll('.mode-pill').forEach((b) => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  playMode = btn.dataset.mode;
+  if (playMode === 'tour') {
+    const venue = TOUR_VENUES[tourStageIdx] || TOUR_VENUES[0];
+    selectedDiffId = venue.diffId;
+    document.querySelectorAll('.diff-btn').forEach((b) => {
+      b.classList.toggle('selected', b.dataset.diff === selectedDiffId);
+    });
+    const tIdx = TRACK_ROSTER.findIndex((t) => t.id === venue.trackId);
+    if (tIdx >= 0) selectTrack(tIdx, false);
+  }
+  syncTourBanner();
+});
+
 // Difficulty buttons
 document.getElementById('diff-row').addEventListener('click', (e) => {
   const btn = e.target.closest('.diff-btn');
@@ -517,6 +554,16 @@ function loop() {
       audio.pause();
       const res = game.results();
       saveBestScore(currentTrack.id, selectedDiffId, res.score, res.grade);
+      if (playMode === 'tour') {
+        const venue = TOUR_VENUES[tourStageIdx] || TOUR_VENUES[0];
+        if (res.score >= venue.goalScore && tourStageIdx < TOUR_VENUES.length - 1) {
+          tourStageIdx++;
+          try {
+            localStorage.setItem(STORAGE_KEY_TOUR, String(tourStageIdx));
+          } catch (_) {}
+          syncTourBanner();
+        }
+      }
       renderTrackCrate();
       updateOverlay('complete', res);
     }
