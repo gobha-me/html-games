@@ -139,6 +139,20 @@ function toggleWorkbench(forceState) {
   }
 }
 
+function toggleLightingQuality() {
+  renderer.autoQualityEnabled = false;
+  renderer.lightingQuality = renderer.lightingQuality === 'ultra' ? 'balanced' : 'ultra';
+  const el = document.getElementById('hud-quality-txt');
+  if (el) el.textContent = `LIGHTS: ${renderer.lightingQuality.toUpperCase()}`;
+  sim.setBanner(
+    `LIGHTING TIER: ${renderer.lightingQuality.toUpperCase()}`,
+    renderer.lightingQuality === 'ultra'
+      ? '3-PASS FEATHERED VOLUMETRIC CONES & 56 DUST MOTES'
+      : 'SINGLE-PASS CACHED RAYCAST CONES FOR HIGH FPS',
+    2.2
+  );
+}
+
 function toggleSitrep(forceHide = false) {
   const card = document.getElementById('sitrep-card');
   if (!card) return;
@@ -207,6 +221,8 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     const { mx, my } = getMoveAxes();
     sim.triggerDash(mx, my);
+  } else if (k === 'Q') {
+    toggleLightingQuality();
   } else if (k === 'P') {
     sim.paused = !sim.paused;
     syncHud();
@@ -269,6 +285,7 @@ document.getElementById('btn-workbench')?.addEventListener('click', () => toggle
 document.getElementById('btn-close-workbench')?.addEventListener('click', () => toggleWorkbench(false));
 document.getElementById('wb-backdrop')?.addEventListener('click', () => toggleWorkbench(false));
 document.getElementById('btn-dossier')?.addEventListener('click', () => toggleSitrep());
+document.getElementById('btn-quality')?.addEventListener('click', () => toggleLightingQuality());
 document.getElementById('btn-dismiss-sitrep')?.addEventListener('click', () => {
   sim.awaitingFirstInput = false;
   toggleSitrep(true);
@@ -619,8 +636,22 @@ let lastTime = performance.now();
 let hudAccum = 0;
 
 function frame(now) {
-  const dt = Math.min(0.04, (now - lastTime) / 1000);
+  const rawDt = (now - lastTime) / 1000;
+  const dt = Math.min(0.04, rawDt);
   lastTime = now;
+
+  if (renderer.autoQualityEnabled && renderer.lightingQuality === 'ultra' && !sim.paused && !sim.awaitingFirstInput) {
+    if (rawDt > 0.032) {
+      renderer._slowFrameCount++;
+      if (renderer._slowFrameCount >= 28) {
+        renderer.lightingQuality = 'balanced';
+        const el = document.getElementById('hud-quality-txt');
+        if (el) el.textContent = 'LIGHTS: BALANCED';
+      }
+    } else {
+      renderer._slowFrameCount = Math.max(0, renderer._slowFrameCount - 1);
+    }
+  }
 
   const { mx, my } = getMoveAxes();
   sim.step(dt, {

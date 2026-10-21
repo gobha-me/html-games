@@ -21,6 +21,9 @@ export class DeadDistrictRenderer {
     this.camX = 160;
     this.camY = 200;
     this._cachedVehicleCones = [];
+    this.lightingQuality = 'ultra'; // 'ultra' | 'balanced'
+    this.autoQualityEnabled = true;
+    this._slowFrameCount = 0;
 
     // Top-down pixel art sprites (generated via Venice gpt-image-2-5-flare, hide_watermark: true)
     this.sprites = {};
@@ -872,6 +875,73 @@ export class DeadDistrictRenderer {
     return { sx, sy, maxRange, poly };
   }
 
+  // Return cached world-space raycast cone translated to screen space for stationary street vehicles (#31)
+  getCachedVehicleConeScreenPoly(sim, wall, hl, spMult = 1.0, rMult = 1.0, rays = 26) {
+    if (!wall._coneCache || wall._coneCacheRev !== (sim._mapRev || 0)) {
+      wall._coneCache = new Map();
+      wall._coneCacheRev = sim._mapRev || 0;
+    }
+    const key = `${hl.side}_${spMult.toFixed(2)}_${rMult.toFixed(2)}_${rays}`;
+    let worldPoly = wall._coneCache.get(key);
+    const spread = hl.spread * spMult;
+    const maxRange = hl.range * rMult;
+    if (!worldPoly) {
+      worldPoly = [{ x: hl.wx, y: hl.wy }];
+      for (let i = 0; i <= rays; i++) {
+        const ang = hl.beamAngle - spread + (i / rays) * (spread * 2);
+        const hitDist = this.castLightRay(sim, hl.wx, hl.wy, ang, maxRange, wall);
+        worldPoly.push({
+          x: hl.wx + Math.cos(ang) * hitDist,
+          y: hl.wy + Math.sin(ang) * hitDist,
+        });
+      }
+      wall._coneCache.set(key, worldPoly);
+    }
+    const sx = hl.wx - this.camX;
+    const sy = hl.wy - this.camY;
+    const poly = worldPoly.map((pt) => ({
+      x: pt.x - this.camX,
+      y: pt.y - this.camY,
+    }));
+    return { sx, sy, maxRange, poly };
+  }
+
+  // Fast raycast-free illumination lookup for atmospheric dust motes (#31)
+  computeFastMoteIlluminationAt(sim, wx, wy) {
+    const p = sim.player;
+    let level = 0.04;
+    const distToPlayer = Math.hypot(wx - p.x, wy - p.y);
+    if (distToPlayer < 130) {
+      level = Math.max(level, 0.45 * (1 - distToPlayer / 130));
+    }
+    if (p.flashlightOn) {
+      const coneSpread = (p.wideBeam ? 0.62 : 0.42) * (1 + sim.perks.xenonBeam * 0.16);
+      const coneMaxRange = (p.wideBeam ? 395 : 535) * (1 + sim.perks.xenonBeam * 0.16);
+      if (distToPlayer < coneMaxRange) {
+        const ang = Math.atan2(wy - p.y, wx - p.x);
+        const diff = Math.abs(Math.atan2(Math.sin(ang - p.angle), Math.cos(ang - p.angle)));
+        if (diff < coneSpread) {
+          level += 0.85 * (1 - distToPlayer / coneMaxRange);
+        }
+      }
+    }
+    for (const w of sim.walls) {
+      if (w.type !== 'vehicle' || !w._vState) continue;
+      for (const hl of w._vState.headlights) {
+        if (hl.intensity <= 0.05) continue;
+        const d = Math.hypot(wx - hl.wx, wy - hl.wy);
+        if (d < hl.range) {
+          const ang = Math.atan2(wy - hl.wy, wx - hl.wx);
+          const diff = Math.abs(Math.atan2(Math.sin(ang - hl.beamAngle), Math.cos(ang - hl.beamAngle)));
+          if (diff <= hl.spread) {
+            level += 0.8 * hl.intensity * (1 - d / hl.range);
+          }
+        }
+      }
+    }
+    return level;
+  }
+
   // True 2D Raycast Flashlight + Aligned Vehicle Headlights + Emergency Lightbars Shadow Layer
   renderLightingLayer(mainCtx, sim) {
     const lctx = this.lightCtx;
@@ -927,19 +997,10 @@ export class DeadDistrictRenderer {
       if (wall.type !== 'vehicle') continue;
       const vState = wall._vState || this.getVehicleLightingState(wall, sim.time);
 
-      // Carve out each working/flickering headlight cone from its exact front socket
+      // Carve out each working/flickering headlight cone from its exact front socket (using cached world raycast polygon!)
       for (const hl of vState.headlights) {
         if (hl.intensity <= 0.03 || hl.range <= 10) continue;
-        const cone = this.buildRaycastConeScreenPoly(
-          sim,
-          hl.wx,
-          hl.wy,
-          hl.beamAngle,
-          hl.spread,
-          hl.range,
-          26,
-          wall
-        );
+        const cone = this.getCachedVehicleConeScreenPoly(sim, wall, hl, 1.0, 1.0, 26);
         vehicleCones.push({ ...cone, hl, wall });
 
         const g = lctx.createRadialGradient(cone.sx, cone.sy, 4, cone.sx, cone.sy, hl.range);
@@ -1028,24 +1089,29 @@ export class DeadDistrictRenderer {
     mainCtx.save();
     mainCtx.globalCompositeOperation = 'lighter';
 
-    // Helper for 3-pass feathered volumetric light cone (eliminates hard geometric polygon edges)
-    const drawFeatheredCone = (sx, sy, baseAng, spread, maxRange, worldX, worldY, coreCol, midCol, ignoreWall = null) => {
-      const passes = [
-        { spMult: 1.26, rMult: 0.94, alphaMult: 0.32 }, // Soft outer penumbra feather
-        { spMult: 1.0,  rMult: 1.0,  alphaMult: 0.65 }, // Main beam
-        { spMult: 0.46, rMult: 0.90, alphaMult: 0.85 }, // Bright inner hot-spot core
-      ];
+    // Helper for feathered volumetric light cone (3-pass in 'ultra', 1-pass in 'balanced'; uses cached world polys for vehicles)
+    const isBalanced = this.lightingQuality === 'balanced';
+    const passes = isBalanced
+      ? [{ spMult: 1.04, rMult: 1.0, alphaMult: 0.92 }]
+      : [
+          { spMult: 1.26, rMult: 0.94, alphaMult: 0.32 }, // Soft outer penumbra feather
+          { spMult: 1.0,  rMult: 1.0,  alphaMult: 0.65 }, // Main beam
+          { spMult: 0.46, rMult: 0.90, alphaMult: 0.85 }, // Bright inner hot-spot core
+        ];
+    const drawFeatheredCone = (sx, sy, baseAng, spread, maxRange, worldX, worldY, coreCol, midCol, ignoreWall = null, cachedHl = null) => {
       for (const pass of passes) {
-        const cPoly = this.buildRaycastConeScreenPoly(
-          sim,
-          worldX,
-          worldY,
-          baseAng,
-          spread * pass.spMult,
-          maxRange * pass.rMult,
-          24,
-          ignoreWall
-        );
+        const cPoly = cachedHl && ignoreWall
+          ? this.getCachedVehicleConeScreenPoly(sim, ignoreWall, cachedHl, pass.spMult, pass.rMult, 24)
+          : this.buildRaycastConeScreenPoly(
+              sim,
+              worldX,
+              worldY,
+              baseAng,
+              spread * pass.spMult,
+              maxRange * pass.rMult,
+              isBalanced ? 20 : 24,
+              ignoreWall
+            );
         const g = mainCtx.createRadialGradient(sx, sy, 3, sx, sy, maxRange * pass.rMult);
         g.addColorStop(0, coreCol(pass.alphaMult));
         g.addColorStop(0.52, midCol(pass.alphaMult * 0.45));
@@ -1088,7 +1154,8 @@ export class DeadDistrictRenderer {
         hl.wy,
         (a) => `rgba(${baseRgb}, ${(0.22 * hl.intensity * a).toFixed(3)})`,
         (a) => `rgba(${baseRgb}, ${(0.11 * hl.intensity * a).toFixed(3)})`,
-        wall
+        wall,
+        hl
       );
 
       // Multi-stage emitter bloom corona at the headlight lens
@@ -1103,13 +1170,14 @@ export class DeadDistrictRenderer {
     }
 
     // B2. Atmospheric Quarantine Dust / Ash Motes Floating Inside Light Beams
-    for (let i = 0; i < 56; i++) {
+    const moteCount = isBalanced ? 24 : 56;
+    for (let i = 0; i < moteCount; i++) {
       const wx = ((i * 197 + Math.sin(sim.time * 0.35 + i) * 45 + sim.time * 14) % (WORLD_W - 160)) + 80;
       const wy = ((i * 131 + Math.cos(sim.time * 0.28 + i * 1.7) * 40 + sim.time * 9) % (WORLD_H - 160)) + 80;
       const sx = wx - this.camX;
       const sy = wy - this.camY;
       if (sx < 0 || sx > w || sy < 0 || sy > h) continue;
-      const illum = this.computeIlluminationAt(sim, wx, wy);
+      const illum = this.computeFastMoteIlluminationAt(sim, wx, wy);
       if (illum > 0.28) {
         const moteAlpha = Math.min(0.65, (illum - 0.25) * 0.75 * (0.6 + 0.4 * Math.sin(sim.time * 3 + i)));
         const r = 1.1 + (i % 3) * 0.55;
