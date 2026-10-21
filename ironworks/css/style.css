@@ -237,15 +237,35 @@ html, body {
 
 .panel-title {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.13em;
   color: var(--text-muted);
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+details.accordion-box > summary.panel-title {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+  user-select: none;
+}
+
+details.accordion-box > summary.panel-title::-webkit-details-marker {
+  display: none;
+}
+
+details.accordion-box[open] > summary.panel-title {
+  margin-bottom: 6px;
+}
+
+.accordion-meta {
+  color: var(--accent-amber);
+  font-size: 9px;
 }
 
 /* Stock Grid */
@@ -295,14 +315,14 @@ html, body {
 #build-palette {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: 5px;
 }
 
 .build-card {
   background: #0d131e;
   border: 1.5px solid #222d40;
   border-radius: 5px;
-  padding: 4px 6px;
+  padding: 5px 8px;
   text-align: left;
   color: var(--text-main);
   cursor: pointer;
@@ -339,8 +359,8 @@ html, body {
 }
 
 .bc-swatch {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border: 1.5px solid #fff;
   border-radius: 2px;
   flex: none;
@@ -348,7 +368,7 @@ html, body {
 
 .bc-name {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 700;
   letter-spacing: 0.025em;
   text-transform: uppercase;
@@ -361,7 +381,7 @@ html, body {
 
 .bc-key {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--accent-amber);
   flex: none;
@@ -369,9 +389,9 @@ html, body {
 
 .bc-cost {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--text-muted);
-  margin-top: 1.5px;
+  margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -484,6 +504,33 @@ html, body {
   display: block;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.minimap-legend {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid #1e293b;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #cbd5e1;
+}
+
+.minimap-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.minimap-legend i {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 /* Top-Docked Field Guide Ribbon (never occludes upper-left ore veins) */

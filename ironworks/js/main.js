@@ -444,7 +444,9 @@ function syncHud() {
   }
 
   // Mission Objectives checklist
+  let doneCount = 0;
   const setObj = (id, done, text) => {
+    if (done) doneCount++;
     const el = document.getElementById(id);
     if (!el) return;
     el.className = 'obj-row' + (done ? ' done' : '');
@@ -455,6 +457,8 @@ function syncHud() {
   setObj('obj-3', sim.stats.smelted >= 25, `Smelt & Fabricate Ordnance (${sim.stats.smelted}/25)`);
   setObj('obj-4', sim.stats.wavesCleared >= 5, `Repel Siege Crawler Waves (${sim.stats.wavesCleared}/5)`);
   setObj('obj-5', sim.stats.spireProgress >= 100, `Charge Orbital Ascension Spire (${sim.stats.spireProgress}%)`);
+  const dirCountEl = document.getElementById('directives-count');
+  if (dirCountEl) dirCountEl.textContent = `${doneCount}/5 DONE ▾`;
 
   if (sim.over) {
     const modal = document.getElementById('modal-gameover');
