@@ -83,6 +83,7 @@ export class IronwakeRenderer {
     this._drawHarpoonTethers(ctx, sim);
     this._drawAegisShieldDome(ctx, sim);
     this._drawArmoredTrain25D(ctx, sim, dt);
+    this._drawTrackBarricadesAndOverpass(ctx, sim);
     this._drawEnemies(ctx, sim);
     this._drawProjectilesAndExplosions(ctx, sim);
     this._drawCalloutsAndVignette(ctx, sim);
@@ -575,6 +576,83 @@ export class IronwakeRenderer {
     }
 
     ctx.restore();
+  }
+
+  _drawTrackBarricadesAndOverpass(ctx, sim) {
+    // 1. Render Destructible Raider Rail Barricades ahead on TRACK_Y
+    if (sim.barricades && sim.barricades.length > 0) {
+      const loco = sim.cars[0];
+      const locoFront = loco.x + loco.width * 0.5 + 32;
+      const canRam = sim.steam.thrusters >= 4 || sim.overdriveTimer > 0;
+
+      for (const b of sim.barricades) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+
+        // Crossed scrap-steel I-beams & explosive barrel cluster
+        ctx.fillStyle = b.hitFlash > 0 ? '#fef08a' : '#291d16';
+        ctx.strokeStyle = canRam ? '#10b981' : '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.fillRect(-24, -40, 48, 80);
+        ctx.strokeRect(-24, -40, 48, 80);
+
+        // Hazard diagonal chevrons
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(-20, -34);
+        ctx.lineTo(20, 34);
+        ctx.moveTo(20, -34);
+        ctx.lineTo(-20, 34);
+        ctx.stroke();
+
+        // HP bar above barricade
+        const bw = 72;
+        ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
+        ctx.fillRect(-bw * 0.5, -56, bw, 7);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(-bw * 0.5, -56, bw * Math.max(0, b.hp / b.maxHp), 7);
+
+        // Distance & counter-play tag
+        const distMeters = Math.max(0, Math.round((b.x - locoFront) * 0.45));
+        const tag = canRam
+          ? `🔥 RAM READY (${distMeters}M)`
+          : `⚠️ BARRICADE ${distMeters}M [THR≥4 OR SHOOT]`;
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        const tw = ctx.measureText(tag).width + 12;
+        ctx.fillStyle = 'rgba(15, 10, 8, 0.94)';
+        ctx.strokeStyle = canRam ? '#10b981' : '#f59e0b';
+        ctx.lineWidth = 1.4;
+        ctx.fillRect(-tw * 0.5, -77, tw, 17);
+        ctx.strokeRect(-tw * 0.5, -77, tw, 17);
+        ctx.fillStyle = canRam ? '#6ee7b7' : '#fde047';
+        ctx.fillText(tag, 0, -65);
+
+        ctx.restore();
+      }
+    }
+
+    // 2. Render scrolling Canyon Overpass arch when active
+    if (sim.canyonOverpass && sim.canyonOverpass.active) {
+      const ov = sim.canyonOverpass;
+      ctx.save();
+      ctx.fillStyle = 'rgba(24, 16, 11, 0.55)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+      ctx.lineWidth = 2.5;
+      ctx.fillRect(ov.x - ov.width * 0.5, TRACK_Y - 76, ov.width, 152);
+      ctx.strokeRect(ov.x - ov.width * 0.5, TRACK_Y - 76, ov.width, 152);
+
+      ctx.font = '800 10px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#fde68a';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        '⛰️ CANYON OVERPASS // AIR-COVER ROOF',
+        ov.x,
+        TRACK_Y - 82
+      );
+      ctx.restore();
+    }
   }
 
   _drawEnemies(ctx, sim) {

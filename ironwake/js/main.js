@@ -78,6 +78,7 @@ class IronwakeApp {
     for (let i = 0; i < 12; i++) {
       this.sim.step(0.06);
     }
+    this.sim.spawnRailBarricade(1235);
     this.sim.callouts = [];
     this.sim.explosions.push({
       x: 940,
@@ -130,6 +131,18 @@ class IronwakeApp {
           this.sim.userLockedTarget = true;
           this.audio.playClick();
           this.sim.addCallout(en.x, en.y - 30, '🎯 TARGET LOCKED', '#fde047');
+          this._syncFullUI();
+          return;
+        }
+      }
+
+      // Check rail barricade click -> focus fire on track barricade
+      for (const b of this.sim.barricades || []) {
+        if (Math.hypot(b.x - pt.x, b.y - pt.y) <= b.radius + 22) {
+          this.sim.selectedEnemyId = b.id;
+          this.sim.userLockedTarget = true;
+          this.audio.playClick();
+          this.sim.addCallout(b.x, b.y - 42, '🎯 BARRICADE TARGETED', '#fde047');
           this._syncFullUI();
           return;
         }

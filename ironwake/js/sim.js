@@ -84,11 +84,14 @@ export class IronwakeSim {
     this.enemies = [];
     this.projectiles = [];
     this.harpoons = []; // { id, enemyId, carId, tension, hp }
+    this.barricades = []; // { id, x, y, hp, maxHp, scrapReward }
+    this.canyonOverpass = { active: false, x: 0, width: 320, timer: 14.0 };
     this.explosions = []; // { x, y, r, maxR, color, alpha }
     this.callouts = []; // { x, y, text, color, life }
     this.combatLog = [];
 
     this.spawnTimer = 1.5;
+    this.barricadeTimer = 8.5;
     this.overdriveTimer = 0;
     this.bossSpawnedForNode = false;
 
@@ -242,6 +245,26 @@ export class IronwakeSim {
     return enemy;
   }
 
+  spawnRailBarricade(customX = null) {
+    if (this.barricades.length >= 1) return null;
+    const bar = {
+      id: `bar_${Date.now()}_${Math.floor(Math.random() * 999)}`,
+      x: customX !== null ? customX : WORLD_W - 60,
+      y: TRACK_Y,
+      hp: 120 + this.nodeIndex * 25,
+      maxHp: 120 + this.nodeIndex * 25,
+      scrapReward: 42,
+      radius: 34,
+      hitFlash: 0,
+    };
+    this.barricades.push(bar);
+    this.logEvent(
+      '⚠️ RAIL BARRICADE AHEAD — Focus fire or set Locomotive Thrust ≥4 to Cowcatcher-ram!',
+      'danger'
+    );
+    return bar;
+  }
+
   // Tactical Commander Orders
   triggerSeverHarpoons() {
     if (this.scrap < 35 && this.harpoons.length === 0) return false;
@@ -393,6 +416,9 @@ export class IronwakeSim {
     this.harpoons = [];
     this.enemies = [];
     this.projectiles = [];
+    this.barricades = [];
+    this.barricadeTimer = 7.5;
+    this.canyonOverpass = { active: false, x: 0, width: 320, timer: 12.0 };
     this.shieldHp = this.maxShieldHp;
 
     const branchCfg = TRACK_BRANCHES[this.trackBranch] || TRACK_BRANCHES.upper;
@@ -479,7 +505,7 @@ export class IronwakeSim {
     const heatGen = (this.steam.weapons - 2.2) * 1.4 - this.steam.repair * 1.2;
     this.boilerHeat = Math.max(0, Math.min(100, this.boilerHeat + heatGen * dt));
 
-    // 3. Spawn Raider Waves
+    // 3. Spawn Raider Waves & Track Hazards
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = Math.max(2.6, 5.2 - this.nodeIndex * 0.55);
@@ -491,6 +517,81 @@ export class IronwakeSim {
       }
     }
 
+    this.barricadeTimer -= dt;
+    if (this.barricadeTimer <= 0 && this.barricades.length === 0) {
+      this.barricadeTimer = 15.0;
+      this.spawnRailBarricade();
+    }
+
+    // Update scrolling Canyon Overpass arch
+    if (this.canyonOverpass.active) {
+      this.canyonOverpass.x -= mph * 3.8 * dt;
+      if (this.canyonOverpass.x < -this.canyonOverpass.width) {
+        this.canyonOverpass.active = false;
+        this.canyonOverpass.timer = 16.0;
+      }
+    } else {
+      this.canyonOverpass.timer -= dt;
+      if (this.canyonOverpass.timer <= 0) {
+        this.canyonOverpass.active = true;
+        this.canyonOverpass.x = WORLD_W + 180;
+        this.logEvent(
+          'CANYON OVERPASS AHEAD — Rock arch shields cars beneath from Gyrocopter fire!',
+          'ops'
+        );
+      }
+    }
+
+    // Update Rail Barricades scrolling toward Locomotive Cowcatcher
+    const loco = this.cars[0];
+    const locoFrontX = loco.x + loco.width * 0.5 + 32;
+    for (let i = this.barricades.length - 1; i >= 0; i--) {
+      const b = this.barricades[i];
+      if (b.hitFlash > 0) b.hitFlash = Math.max(0, b.hitFlash - dt * 3);
+      b.x -= mph * 1.35 * dt;
+
+      if (b.x <= locoFrontX) {
+        // Impact with Locomotive Cowcatcher!
+        if (this.steam.thrusters >= 4 || this.overdriveTimer > 0) {
+          this.scrap += 50;
+          this.score += 240;
+          this.explosions.push({
+            x: b.x,
+            y: b.y,
+            r: 14,
+            maxR: 78,
+            color: '#f59e0b',
+            alpha: 1.0,
+          });
+          if (this.audio) this.audio.playExplosion(false);
+          this.addCallout(
+            b.x,
+            b.y - 36,
+            '🔥 COWCATCHER RAM! +50 ⚙',
+            '#fde047'
+          );
+          this.logEvent(
+            'COWCATCHER RAM: High-thrust locomotive shattered rail barricade (+50 Scrap, 0 Hull DMG)!',
+            'scoop'
+          );
+        } else {
+          this._applyEnemyHitToCar(loco, 34, b.x, b.y);
+          if (this.audio) this.audio.playExplosion(false);
+          this.addCallout(
+            b.x,
+            b.y - 36,
+            '💥 BARRICADE IMPACT! (-34 HULL)',
+            '#ef4444'
+          );
+          this.logEvent(
+            'BARRICADE IMPACT: Insufficient locomotive thrust (<4 Bars) — cowcatcher took 34 damage!',
+            'danger'
+          );
+        }
+        this.barricades.splice(i, 1);
+      }
+    }
+
     // 4. Update Railcar Turrets & Fire at Target
     const weapMul =
       (0.65 + this.steam.weapons * 0.24) * (this.overdriveTimer > 0 ? 1.55 : 1.0);
@@ -499,18 +600,27 @@ export class IronwakeSim {
       if (car.hitFlash > 0) car.hitFlash = Math.max(0, car.hitFlash - dt * 3);
       if (car.hp <= 0) continue;
 
-      // Pick primary target or nearest enemy
+      // Pick primary target, or if CAR-01 CIWS and a barricade is close ahead, engage barricade
+      const urgentBarricade =
+        car.id === 'loco' &&
+        this.barricades[0] &&
+        this.barricades[0].x - car.x < 420
+          ? this.barricades[0]
+          : this.barricades.find((b) => b.id === this.selectedEnemyId);
+
       let target =
+        urgentBarricade ||
         this.enemies.find((e) => e.id === this.selectedEnemyId) ||
         this.enemies[0] ||
+        this.barricades[0] ||
         null;
 
       if (target) {
         // Lead target position slightly
         const dist = Math.hypot(target.x - car.x, target.y - car.y);
         const tFlight = dist / Math.max(300, car.projSpeed);
-        const aimX = target.x + target.vx * tFlight;
-        const aimY = target.y + target.vy * tFlight;
+        const aimX = target.x + (target.vx || 0) * tFlight;
+        const aimY = target.y + (target.vy || 0) * tFlight;
         car.turretAngle = Math.atan2(aimY - car.y, aimX - car.x);
 
         car.reloadTimer -= dt * weapMul;
@@ -609,6 +719,7 @@ export class IronwakeSim {
         const spd = 430;
         this.projectiles.push({
           fromPlayer: false,
+          fromAir: Boolean(en.isAir),
           x: en.x + Math.cos(ang) * 24,
           y: en.y + Math.sin(ang) * 24,
           vx: Math.cos(ang) * spd,
@@ -658,6 +769,45 @@ export class IronwakeSim {
             break;
           }
         }
+        if (!hit) {
+          for (let j = this.barricades.length - 1; j >= 0; j--) {
+            const b = this.barricades[j];
+            if (Math.hypot(p.x - b.x, p.y - b.y) <= b.radius) {
+              hit = true;
+              b.hp -= p.damage;
+              b.hitFlash = 0.2;
+              this.explosions.push({
+                x: p.x,
+                y: p.y,
+                r: 6,
+                maxR: 26,
+                color: p.color,
+                alpha: 0.85,
+              });
+              if (b.hp <= 0) {
+                this.scrap += b.scrapReward;
+                this.score += 180;
+                this.explosions.push({
+                  x: b.x,
+                  y: b.y,
+                  r: 14,
+                  maxR: 64,
+                  color: '#f59e0b',
+                  alpha: 1.0,
+                });
+                if (this.audio) this.audio.playExplosion(false);
+                this.addCallout(
+                  b.x,
+                  b.y - 28,
+                  `💥 BARRICADE CLEARED (+${b.scrapReward} ⚙)`,
+                  '#fde68a'
+                );
+                this.barricades.splice(j, 1);
+              }
+              break;
+            }
+          }
+        }
         if (hit) {
           this.projectiles.splice(i, 1);
         }
@@ -669,6 +819,24 @@ export class IronwakeSim {
             Math.abs(p.x - car.x) <= car.width * 0.52 &&
             Math.abs(p.y - car.y) <= car.height * 0.58
           ) {
+            // Check if Canyon Overpass rock roof shields this car from Gyrocopter air rockets
+            if (
+              p.fromAir &&
+              this.canyonOverpass.active &&
+              Math.abs(car.x - this.canyonOverpass.x) <=
+                this.canyonOverpass.width * 0.5
+            ) {
+              this.explosions.push({
+                x: p.x,
+                y: p.y,
+                r: 5,
+                maxR: 20,
+                color: '#94a3b8',
+                alpha: 0.75,
+              });
+              this.projectiles.splice(i, 1);
+              break;
+            }
             this._applyEnemyHitToCar(car, p.damage, p.x, p.y);
             this.projectiles.splice(i, 1);
             break;
