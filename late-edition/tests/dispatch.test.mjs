@@ -4,7 +4,7 @@ import { WORLD_W, WORLD_H } from '../js/config.js';
 import { makeSim, arrive, rival } from './helpers.mjs';
 
 test('nonexistent and expired leads reject dispatch without effects', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   const expired = sim.leads[0];
   expired.timeLeft = 0.01;
   sim.step(0.05);
@@ -19,7 +19,7 @@ test('nonexistent and expired leads reject dispatch without effects', () => {
 });
 
 test('unknown operative id uses the existing first-operative fallback', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   assert.equal(sim.dispatchOperativeToLead('unknown', sim.leads[0].uid), true);
   assert.equal(sim.operatives[0].targetLeadId, sim.leads[0].uid);
   assert.ok(sim.operatives.slice(1).every((op) => op.targetLeadId === null));
@@ -29,7 +29,7 @@ test('unknown operative id uses the existing first-operative fallback', () => {
 });
 
 test('all operatives busy: explicit and auto dispatch retarget instead of queuing', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   for (const op of sim.operatives) sim.dispatchOperativeToLead(op.id, sim.leads[0].uid);
   sim.selectedOpId = 'fixer_1';
   sim.autoDispatchBestForLead(sim.leads[1].uid);
@@ -44,7 +44,7 @@ test('all operatives busy: explicit and auto dispatch retarget instead of queuin
 });
 
 test('auto dispatch prefers an idle reporter when the fixer is selected', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.selectedOpId = 'fixer_1';
   sim.dispatchOperativeToLead('rep_1', sim.leads[0].uid);
   sim.autoDispatchBestForLead(sim.leads[1].uid);
@@ -52,7 +52,7 @@ test('auto dispatch prefers an idle reporter when the fixer is selected', () => 
 });
 
 test('point dispatch prioritizes leads, then rivals, then bounded street coordinates', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   const op = sim.operatives[0];
   const lead = sim.leads[0];
   sim.rivals.push(rival({ x: lead.x, y: lead.y }));
@@ -73,7 +73,7 @@ test('point dispatch prioritizes leads, then rivals, then bounded street coordin
 });
 
 test('nonfinite or nonnumeric point coordinates cannot poison movement', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   const before = sim.getStateHash();
   for (const bad of [NaN, Infinity, -Infinity, undefined, null, '10']) {
     sim.dispatchOperativeToPoint('rep_1', bad, 50);
@@ -83,7 +83,7 @@ test('nonfinite or nonnumeric point coordinates cannot poison movement', () => {
 });
 
 test('a lead disappearing in transit clears the target on arrival', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.dispatchOperativeToLead('rep_1', sim.leads[0].uid);
   sim.leads.shift();
   const op = sim.operatives[0];

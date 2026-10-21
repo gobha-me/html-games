@@ -247,6 +247,40 @@
     </div>
   </div>
 
+  <section id="title-screen" class="opening-screen" aria-labelledby="title-masthead">
+    <canvas id="title-city" width="1400" height="1000" aria-hidden="true"></canvas>
+    <div class="title-paper">
+      <p class="opening-kicker">METROPOLIS · OCTOBER 1947 · LATE FINAL</p>
+      <h1 id="title-masthead">THE EVENING STAR</h1>
+      <p>All the news that survives the night.</p>
+      <p id="title-best">Best circulation: 0</p>
+      <button type="button" id="btn-start-shift">Start the night shift</button>
+      <p class="opening-kicker">ENTER TO TAKE THE DESK</p>
+    </div>
+  </section>
+
+  <section id="cold-open" class="opening-screen" aria-labelledby="cold-open-title" hidden>
+    <div class="call-paper">
+      <span class="opening-phone" aria-hidden="true">☎</span>
+      <p class="opening-kicker">INCOMING CALL · MANAGING EDITOR</p>
+      <h2 id="cold-open-title">Lou Vance on the line</h2>
+      <div id="lou-lines" role="group" aria-label="Lou’s assignment"></div>
+      <p>Your clock starts with your first dispatch.</p>
+      <button type="button" id="btn-skip-intro">Skip [Esc]</button>
+    </div>
+  </section>
+
+  <section id="desk-too-small" class="opening-screen" aria-labelledby="desk-small-title" hidden>
+    <div class="call-paper">
+      <p class="opening-kicker">NOTE FROM THE COMPOSING ROOM</p>
+      <h2 id="desk-small-title">The desk is too small</h2>
+      <p>The desk is too small — widen the window to at least 1280x720</p>
+      <p>The night will wait. Your place is held.</p>
+    </div>
+  </section>
+
+  <a href="../" id="opening-arcade" class="back-to-arcade opening-arcade">← Back to Arcade</a>
+
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

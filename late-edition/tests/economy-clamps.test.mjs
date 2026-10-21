@@ -3,7 +3,7 @@ import test from 'node:test';
 import { makeSim, story } from './helpers.mjs';
 
 test('hush-money bribe at zero funds pays the player and clamps trust/heat at zero', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.cash = 0;
   sim.credibility = 5;
   sim.syndicateHeat = 8;
@@ -14,7 +14,7 @@ test('hush-money bribe at zero funds pays the player and clamps trust/heat at ze
 });
 
 test('buying the tipster vouchers without enough funds floors cash at zero', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.cash = 10;
   sim.dilemmaIdx = 2;
   sim.triggerRotaryDilemma();
@@ -27,7 +27,7 @@ test('buying the tipster vouchers without enough funds floors cash at zero', () 
 
 for (const [method, cost] of [['triggerWiretap', 65], ['fortifyPressRoom', 75]]) {
   test(`${method} rejects insufficient funds without any mutation`, () => {
-    const sim = makeSim();
+    const sim = makeSim({ night: 4 });
     sim.cash = cost - 1;
     const hash = sim.getStateHash();
     const wire = structuredClone(sim.wireLog);
@@ -41,7 +41,7 @@ for (const [method, cost] of [['triggerWiretap', 65], ['fortifyPressRoom', 75]])
 }
 
 test('publication clamps heat above 100 and trust below zero; circulation has a floor', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.syndicateHeat = 99;
   sim.credibility = 5;
   sim.frontPage.banner = story('bad', { credibility: -30, heat: 25 });
@@ -51,14 +51,14 @@ test('publication clamps heat above 100 and trust below zero; circulation has a 
   sim.step(0.05);
   assert.equal(sim.gameOver, true);
   assert.equal(sim.gameOverReason, 'PUBLIC TRUST COLLAPSED — READERS ABANDONED THE EVENING STAR');
-  const blank = makeSim();
+  const blank = makeSim({ night: 4 });
   blank.circulation = 2100;
   blank.publishEdition();
   assert.equal(blank.circulation, 2000);
 });
 
 test('publication and dilemma effects also enforce the opposite bounds', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.credibility = 99;
   sim.syndicateHeat = 1;
   sim.frontPage.editorial = story('good', { heat: -30 });

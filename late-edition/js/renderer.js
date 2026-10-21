@@ -10,7 +10,8 @@ import {
 } from './config.js';
 
 export class NoirCityRenderer {
-  constructor(canvas) {
+  constructor(canvas, { reducedMotion = false } = {}) {
+    this.reducedMotion = reducedMotion;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.sprites = {};
@@ -62,6 +63,7 @@ export class NoirCityRenderer {
   }
 
   render(sim, dt = 0.016) {
+    if (this.reducedMotion) dt = 0;
     const ctx = this.ctx;
     const cw = this.canvas.width;
     const ch = this.canvas.height;
@@ -83,6 +85,27 @@ export class NoirCityRenderer {
     this._drawRainAndVignette(ctx, dt);
     this._drawBannerOverlay(ctx, sim);
 
+    ctx.restore();
+  }
+
+  renderTitle(dt = 0.016) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
+    ctx.fillStyle = '#0e0d0c';
+    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+    // Silhouette-only skyline for the masthead; no legacy sprites or neon labels.
+    for (let i = 0; i < 18; i++) {
+      const height = 160 + ((i * 173) % 310);
+      const x = i * 84 - 30;
+      ctx.fillStyle = i % 3 === 0 ? '#2a1710' : '#0e0d0c';
+      ctx.fillRect(x, 810 - height, 78, height + 190);
+      ctx.fillStyle = '#b5893f';
+      for (let row = 0; row < 4; row++) {
+        if ((i + row) % 3 === 0) ctx.fillRect(x + 16, 840 - height + row * 42, 9, 14);
+      }
+    }
+    this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt, '#6b655c');
     ctx.restore();
   }
 
@@ -432,6 +455,7 @@ export class NoirCityRenderer {
   _drawDispatchVectors(ctx, sim) {
     ctx.save();
     for (const op of sim.operatives) {
+      if (!sim.operativeAvailable(op)) continue;
       const dist = Math.hypot(op.targetX - op.x, op.targetY - op.y);
       if (dist < 10) continue;
 
@@ -673,6 +697,7 @@ export class NoirCityRenderer {
   _drawOperatives(ctx, sim) {
     for (let i = 0; i < sim.operatives.length; i++) {
       const op = sim.operatives[i];
+      if (!sim.operativeAvailable(op)) continue;
       const isSelected = op.id === sim.selectedOpId;
       const isHovered = op.id === this.hoverOperativeId;
       const sprite = this.sprites[op.sprite];
@@ -779,9 +804,9 @@ export class NoirCityRenderer {
     ctx.restore();
   }
 
-  _drawRainAndVignette(ctx, dt) {
+  _drawRainAndVignette(ctx, dt, ink = 'rgba(186, 218, 255, 0.24)') {
     ctx.save();
-    ctx.strokeStyle = 'rgba(186, 218, 255, 0.24)';
+    ctx.strokeStyle = ink;
     ctx.lineWidth = 1.3;
     ctx.beginPath();
     for (const drop of this.rain) {

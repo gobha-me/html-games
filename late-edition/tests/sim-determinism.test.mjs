@@ -5,21 +5,23 @@ import { ESLint } from 'eslint';
 import { LateEditionSim, MAX_SUBSTEP_SEC, MAX_CATCHUP_SEC } from '../js/sim.js';
 import { mulberry32 } from '../js/rng.js';
 import { createAudioAdapter, createStorageAdapter, resolveSeed } from '../js/adapters.js';
+import { makeSim, enterDesk } from './helpers.mjs';
+import { isUnlocked, EDITION_DURATION_SEC } from '../js/config.js';
 import { presentation } from '../js/presentation.js';
 
 function playFiveEditions(options = {}) {
-  const sim = new LateEditionSim({ seed: 81, ...options });
+  const sim = makeSim({ seed: 81, ...options });
   const hashes = [];
   for (let edition = 0; edition < 5; edition++) {
-    for (let tick = 0; tick < 1200; tick++) {
+    for (let tick = 0; tick < 4200; tick++) {
       if (tick % 160 === 0) {
         for (const [index, id] of ['rep_1', 'rep_2', 'photog_1'].entries()) {
           const lead = sim.leads[index % sim.leads.length];
-          if (lead) assert.equal(sim.dispatchOperativeToLead(id, lead.uid), true);
+          if (lead && isUnlocked(id === 'photog_1' ? 'photographer' : 'reporter', sim.edition)) assert.equal(sim.dispatchOperativeToLead(id, lead.uid), true);
         }
       }
       if (tick % 400 === 0) sim.fortifyPressRoom();
-      if (tick === 800) sim.resolveDilemma(edition % 2 === 0);
+      if (tick === 1900) sim.resolveDilemma(edition % 2 === 0);
       sim.step(MAX_SUBSTEP_SEC);
       assert.equal(sim.gameOver, false, sim.gameOverReason);
     }
@@ -30,6 +32,8 @@ function playFiveEditions(options = {}) {
   assert.equal(sim.edition, 6);
   assert.ok(sim.scoopsTotal > 5, 'Replay must exercise investigation and plating');
   assert.ok(sim.nextRivalUid > 5, 'Replay must exercise rivals');
+  assert.equal(sim.dilemmaIdx, 2, 'Only nights four and five place automatic calls');
+  assert.equal(sim.editionSummary.edition, 5);
   return { sim, hashes };
 }
 
@@ -37,8 +41,9 @@ test('five-edition scripted replay matches the golden gameplay hashes', () => {
   const first = playFiveEditions();
   assert.deepEqual(first.hashes, playFiveEditions().hashes);
   assert.deepEqual(first.hashes, [
-    // #82 adds the publish guard to canonical state; gameplay snapshots still match #81.
-    '6ee85415', 'af4a596c', 'eee947c2', 'ede73b0e', 'c9f4b6b3',
+    // #84: 210-second editions, stretched expiry/rival windows, staged payroll,
+    // no early saboteurs, and opening gates now belong to canonical gameplay.
+    '8d3cd5b3', 'd4a0bb1b', '680b7880', 'b061d89e', '17cbd09c',
   ]);
   assert.notEqual(first.sim.getStateHash(), playFiveEditions({ seed: 82 }).sim.getStateHash());
 });
@@ -63,7 +68,7 @@ test('production ESLint rejects forbidden globals and properties in sim only', a
 
 for (const dt of [NaN, -1, 0, Infinity, -Infinity, undefined, '1']) {
   test(`dt ${String(dt)} changes no state and consumes no random values`, () => {
-    const sim = new LateEditionSim({ seed: 3 });
+    const sim = makeSim({ seed: 3 });
     sim.dispatchOperativeToLead('rep_1', sim.leads[0].uid);
     sim.triggerRotaryDilemma();
     const before = sim.getStateHash();
@@ -76,20 +81,23 @@ for (const dt of [NaN, -1, 0, Infinity, -Infinity, undefined, '1']) {
 }
 
 test('10 seconds subdivides identically to 200 ticks without teleporting', () => {
-  const big = new LateEditionSim({ seed: 42 });
-  const small = new LateEditionSim({ seed: 42 });
+  const big = makeSim({ seed: 42 });
+  const small = makeSim({ seed: 42 });
   for (const sim of [big, small]) sim.dispatchOperativeToLead('rep_1', sim.leads[0].uid);
   big.step(10);
   for (let i = 0; i < 200; i++) small.step(0.05);
   assert.equal(big.getStateHash(), small.getStateHash());
   assert.ok(Math.abs(big.time - 10) < 1e-10);
-  assert.equal(big.nextRivalUid, 2, 'Rival spawn at 9 seconds is processed');
+  assert.equal(big.nextRivalUid, 1, 'Rebalanced first rival arrives at 21 seconds');
+  big.step(10);
+  big.step(1.05);
+  assert.equal(big.nextRivalUid, 2, 'First rival spawns after the scaled interval');
   assert.ok(big.scoopsTotal > 0, 'Travel and investigation both advance');
 });
 
 test('huge finite dt is bounded and fractional remainder is retained', () => {
-  const sim = new LateEditionSim();
-  const bounded = new LateEditionSim();
+  const sim = makeSim();
+  const bounded = makeSim();
   sim.step(Number.MAX_VALUE);
   bounded.step(MAX_CATCHUP_SEC);
   assert.equal(sim.getStateHash(), bounded.getStateHash());
@@ -102,7 +110,7 @@ test('huge finite dt is bounded and fractional remainder is retained', () => {
 
 for (const flag of ['paused', 'gameOver']) {
   test(`${flag} blocks every substep`, () => {
-    const sim = new LateEditionSim();
+    const sim = makeSim();
     sim[flag] = true;
     const hash = sim.getStateHash();
     sim.step(10);
@@ -115,9 +123,9 @@ for (const value of [null, undefined, '', '  ', 'garbage', '{broken', 'NaN',
   test(`corrupt or absent stored score ${String(value)} becomes zero`, () => {
     const storage = createStorageAdapter(() => ({ getItem: () => value }));
     assert.equal(storage.readBest(), 0);
-    const sim = new LateEditionSim({ storage });
+    const sim = makeSim({ storage });
     assert.equal(sim.highCirculation, 0);
-    const custom = new LateEditionSim({ storage: { readBest: () => value } });
+    const custom = makeSim({ storage: { readBest: () => value } });
     assert.equal(custom.highCirculation, 0, 'Custom ports must be sanitized too');
     assert.doesNotThrow(() => sim.publishEdition());
     assert.equal(sim.highCirculation, sim.circulation);
@@ -133,7 +141,7 @@ test('valid stored score is retained and writes keep the existing key', () => {
     },
     setItem: (...args) => writes.push(args),
   }));
-  const sim = new LateEditionSim({ storage });
+  const sim = makeSim({ storage });
   sim.publishEdition();
   assert.equal(sim.highCirculation, 20000);
   assert.equal(writes.length, 0, 'Lower scores must not overwrite a best');
@@ -157,7 +165,7 @@ test('throwing storage access, reads and quota-exceeded writes cannot stop play'
     { readBest() { throw new Error('read failed'); }, writeBest() { writes++; throw quota; } },
   ];
   for (const storage of ports) {
-    const sim = new LateEditionSim({ storage });
+    const sim = makeSim({ storage });
     assert.equal(sim.highCirculation, 0);
     assert.doesNotThrow(() => sim.publishEdition());
     assert.equal(sim.editionsPrinted, 1);
@@ -193,7 +201,7 @@ test('adapters, saved records, clocks and cosmetics do not change gameplay', () 
 });
 
 test('canonical hashing ignores object key order but detects RNG advancement', () => {
-  const sim = new LateEditionSim({ seed: 12 });
+  const sim = makeSim({ seed: 12 });
   const hash = sim.getStateHash();
   sim.frontPage = Object.fromEntries(Object.entries(sim.frontPage).reverse());
   assert.equal(sim.getStateHash(), hash);
@@ -202,7 +210,7 @@ test('canonical hashing ignores object key order but detects RNG advancement', (
 });
 
 test('dilemma effect copy is cosmetic but effect values affect the hash', () => {
-  const sim = new LateEditionSim();
+  const sim = makeSim({ night: 4 });
   sim.triggerRotaryDilemma();
   // Clone nested config effects so this adversarial mutation stays run-local.
   sim.activeDilemma = structuredClone(sim.activeDilemma);
@@ -216,11 +224,12 @@ test('dilemma effect copy is cosmetic but effect values affect the hash', () => 
 
 test('injected RNG is used and seeded reset restarts the default stream', () => {
   const rng = mulberry32(24);
-  const sim = new LateEditionSim({ seed: 1, rng });
+  const sim = makeSim({ seed: 1, rng });
   assert.equal(sim.rng, rng);
   assert.equal(sim.nextFloat(), mulberry32(24).nextFloat());
   const seeded = new LateEditionSim({ seed: 2 });
   const hash = seeded.getStateHash();
+  enterDesk(seeded);
   seeded.step(10);
   seeded.reset();
   assert.equal(seeded.getStateHash(), hash);
@@ -232,7 +241,7 @@ test('missing/partial audio is a no-op and methods retain their receiver', () =>
   adapter.dispatch();
   adapter.phoneRing();
   assert.equal(audio.count, 1);
-  const sim = new LateEditionSim();
+  const sim = makeSim();
   assert.doesNotThrow(() => {
     sim.dispatchOperativeToLead('rep_1', sim.leads[0].uid);
     sim.triggerWiretap();
@@ -256,9 +265,9 @@ test('URL seed parsing retains zero and rejects malformed/nonfinite seeds', () =
 
 test('presentation preserves newsroom clock and grouped numbers', () => {
   assert.equal(presentation.clock(0), '06:00 PM');
-  assert.equal(presentation.clock(45), '09:00 PM');
-  assert.equal(presentation.clock(90), '12:00 AM');
-  assert.equal(presentation.clock(100), '12:00 AM');
+  assert.equal(presentation.clock(EDITION_DURATION_SEC / 2), '09:00 PM');
+  assert.equal(presentation.clock(EDITION_DURATION_SEC), '12:00 AM');
+  assert.equal(presentation.clock(EDITION_DURATION_SEC + 10), '12:00 AM');
   assert.equal(presentation.editionPrinted(1, -1800, 110),
     'EDITION #1 PRINTED: -1,800 readers, +$110 revenue.');
 });

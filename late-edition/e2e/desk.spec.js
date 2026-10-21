@@ -1,24 +1,6 @@
-import { test as base, expect } from '@playwright/test';
+import { test, expect, startDesk, skipColdOpen } from './helpers.js';
 
-// Check both uncaught exceptions and browser console errors in every scenario.
-const test = base.extend({
-  page: async ({ page }, use) => {
-    const errors = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    page.on('console', (message) => {
-      if (message.type() === 'error') errors.push(message.text());
-    });
-    // Legacy remote fonts are outside this issue's art pass. Supply an empty
-    // stylesheet so offline CI exercises the real fallback fonts without noise.
-    await page.route('https://fonts.googleapis.com/**', (route) => route.fulfill({
-      contentType: 'text/css', body: '',
-    }));
-    await page.goto('/late-edition/?seed=83');
-    await expect(page.locator('#lead-list button').first()).toBeVisible();
-    await use(page);
-    expect(errors, 'No console errors or uncaught exceptions').toEqual([]);
-  },
-});
+test.beforeEach(async ({ page }) => startDesk(page));
 
 async function fold(page) {
   await page.evaluate(() => { window.lateEditionApp.sim.credibility = 0; });
@@ -36,6 +18,8 @@ async function expectFreshRun(page, oldSeed) {
   expect(state.seed).not.toBe(oldSeed);
   expect(state).toMatchObject({ edition: 1, printed: 0, trust: 74, gameOver: false,
     peak: 18400, selectedStoryUid: null, lastPage: null });
+  await expect(page.locator('#cold-open')).toBeVisible();
+  await skipColdOpen(page);
   await page.locator('#lead-list button').first().click();
   await expect.poll(() => page.evaluate(() => window.lateEditionApp.sim.operatives[0].targetLeadId)).not.toBeNull();
 }

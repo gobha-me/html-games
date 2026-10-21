@@ -5,7 +5,30 @@
 export const WORLD_W = 1400;
 export const WORLD_H = 1000;
 
-export const EDITION_DURATION_SEC = 90; // 6:00 PM -> 12:00 AM Midnight Print Run
+export const EDITION_DURATION_SEC = 210; // 6:00 PM -> midnight, about 3½ minutes.
+// Stretch deadline-relative pressure windows; keep lead replenishment at 0.65/s
+// so dispatch throughput per real minute still follows the original work rates.
+export const EDITION_TIME_SCALE = EDITION_DURATION_SEC / 90;
+export const LEAD_LIFETIME_SEC = 48 * EDITION_TIME_SCALE;
+export const COLD_OPEN_DURATION_SEC = 30;
+export const MIN_DESK_WIDTH = 1280;
+export const MIN_DESK_HEIGHT = 720;
+
+const UNLOCK_NIGHTS = Object.freeze({
+  reporter: 1, photographer: 2, fixer: 3, fortify: 3,
+  wiretap: 4, bribe: 4, phone: 4,
+});
+
+// Fail closed for malformed nights and unknown features, including prototype keys.
+export function isUnlocked(feature, night) {
+  return Object.hasOwn(UNLOCK_NIGHTS, feature) && Number.isInteger(night) &&
+    night >= UNLOCK_NIGHTS[feature];
+}
+
+export function deskFits(width, height) {
+  return Number.isFinite(width) && Number.isFinite(height) &&
+    width >= MIN_DESK_WIDTH && height >= MIN_DESK_HEIGHT;
+}
 
 export const DISTRICTS = [
   {

@@ -1,8 +1,23 @@
 import { LateEditionSim } from '../js/sim.js';
 import { STORY_CATALOG } from '../js/config.js';
 
-export function makeSim(options = {}) {
-  return new LateEditionSim({ seed: 82, now: () => 0, ...options });
+// Gameplay fixtures explicitly pass onboarding through its public commands.
+// Opening gates are exercised separately in onboarding.test.mjs.
+export function enterDesk(sim) {
+  sim.startNightShift();
+  sim.finishColdOpen();
+  sim.dispatchOperativeToLead('rep_1', sim.leads[0].uid);
+  const op = sim.operatives[0];
+  op.targetLeadId = null;
+  op.targetX = op.x;
+  op.targetY = op.y;
+  return sim;
+}
+
+export function makeSim({ night = 1, ...options } = {}) {
+  const sim = enterDesk(new LateEditionSim({ seed: 82, now: () => 0, ...options }));
+  sim.edition = night;
+  return sim;
 }
 
 export function story(uid = 'story_1', overrides = {}) {
