@@ -243,6 +243,70 @@ export const ENEMY_ARCHETYPES = {
   },
 };
 
+export const CAR_REFIT_MODULES = [
+  {
+    key: 'tesla',
+    name: 'TESLA ARC CAR',
+    role: 'HIGH-VOLTAGE CHAIN COIL',
+    weaponType: 'tesla',
+    weaponLabel: 'High-Voltage Chain Arc',
+    reloadSec: 0.54,
+    damage: 30,
+    projSpeed: 780,
+    splashRadius: 56,
+    color: '#38bdf8',
+    accent: '#bae6fd',
+    desc: 'Discharges chain-lightning bolts that shock adjacent raiders & engines.',
+  },
+  {
+    key: 'cryo',
+    name: 'CRYO-STEAM MORTAR',
+    role: 'THERMAL-CHILL ARTILLERY',
+    weaponType: 'cryo',
+    weaponLabel: 'Cryo-Steam Shell Mortar',
+    reloadSec: 0.96,
+    damage: 48,
+    projSpeed: 540,
+    splashRadius: 84,
+    color: '#06b6d4',
+    accent: '#cffafe',
+    desc: 'Chills enemy war-rigs (-35% speed) & vents boiler heat on each salvo.',
+  },
+  {
+    key: 'railgun',
+    name: 'HEAVY RAILGUN CAR',
+    role: 'HYPER-VELOCITY LANCE',
+    weaponType: 'railgun',
+    weaponLabel: 'Hyper-Velocity Rail Lance',
+    reloadSec: 1.02,
+    damage: 64,
+    projSpeed: 960,
+    splashRadius: 0,
+    color: '#10b981',
+    accent: '#a7f3d0',
+    desc: 'Fires tungsten rail slugs that inflict 1.5× subsystem damage.',
+  },
+];
+
+export const TRACK_BRANCHES = {
+  upper: {
+    id: 'upper',
+    label: 'UPPER TRESTLE',
+    short: 'TRESTLE (+35% ⚙)',
+    scrapMul: 1.35,
+    repairBonus: 0,
+    desc: 'High-elevation trestle: +35% Salvage Scrap, heavier air patrols.',
+  },
+  lower: {
+    id: 'lower',
+    label: 'LOWER BASIN',
+    short: 'BASIN (+HULL ✚)',
+    scrapMul: 1.0,
+    repairBonus: 65,
+    desc: 'Sheltered alkali basin: +65 Hull repair at depot & fewer aircraft.',
+  },
+};
+
 export const SECTOR_NODES = [
   {
     id: 1,

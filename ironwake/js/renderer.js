@@ -83,6 +83,7 @@ export class IronwakeRenderer {
     this._drawHarpoonTethers(ctx, sim);
     this._drawAegisShieldDome(ctx, sim);
     this._drawArmoredTrain25D(ctx, sim, dt);
+    this._drawTrackBarricadesAndOverpass(ctx, sim);
     this._drawEnemies(ctx, sim);
     this._drawProjectilesAndExplosions(ctx, sim);
     this._drawCalloutsAndVignette(ctx, sim);
@@ -507,11 +508,19 @@ export class IronwakeRenderer {
         ctx.fillRect(5, -4, 24, 3);
         ctx.fillRect(5, 1, 24, 3);
         ctx.fillRect(5, 6, 21, 3);
-      } else if (car.weaponType === 'plasma') {
-        // Heavy siege mortar barrel
+      } else if (car.weaponType === 'plasma' || car.weaponType === 'cryo') {
+        // Heavy siege / cryo mortar barrel
         ctx.fillRect(4, -6, 22, 12);
-        ctx.fillStyle = '#ef4444';
+        ctx.fillStyle = car.weaponType === 'cryo' ? '#06b6d4' : '#ef4444';
         ctx.fillRect(22, -4, 5, 8);
+      } else if (car.weaponType === 'tesla') {
+        // High-voltage Tesla arc prongs
+        ctx.fillRect(5, -7, 22, 3);
+        ctx.fillRect(5, 4, 22, 3);
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(27, 0, 4.5, 0, Math.PI * 2);
+        ctx.fill();
       } else {
         // Twin high-velocity rotary barrels
         ctx.fillRect(6, -6, 24, 4);
@@ -567,6 +576,83 @@ export class IronwakeRenderer {
     }
 
     ctx.restore();
+  }
+
+  _drawTrackBarricadesAndOverpass(ctx, sim) {
+    // 1. Render Destructible Raider Rail Barricades ahead on TRACK_Y
+    if (sim.barricades && sim.barricades.length > 0) {
+      const loco = sim.cars[0];
+      const locoFront = loco.x + loco.width * 0.5 + 32;
+      const canRam = sim.steam.thrusters >= 4 || sim.overdriveTimer > 0;
+
+      for (const b of sim.barricades) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+
+        // Crossed scrap-steel I-beams & explosive barrel cluster
+        ctx.fillStyle = b.hitFlash > 0 ? '#fef08a' : '#291d16';
+        ctx.strokeStyle = canRam ? '#10b981' : '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.fillRect(-24, -40, 48, 80);
+        ctx.strokeRect(-24, -40, 48, 80);
+
+        // Hazard diagonal chevrons
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(-20, -34);
+        ctx.lineTo(20, 34);
+        ctx.moveTo(20, -34);
+        ctx.lineTo(-20, 34);
+        ctx.stroke();
+
+        // HP bar above barricade
+        const bw = 72;
+        ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
+        ctx.fillRect(-bw * 0.5, -56, bw, 7);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(-bw * 0.5, -56, bw * Math.max(0, b.hp / b.maxHp), 7);
+
+        // Distance & counter-play tag
+        const distMeters = Math.max(0, Math.round((b.x - locoFront) * 0.45));
+        const tag = canRam
+          ? `🔥 RAM READY (${distMeters}M)`
+          : `⚠️ BARRICADE ${distMeters}M [THR≥4 OR SHOOT]`;
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        const tw = ctx.measureText(tag).width + 12;
+        ctx.fillStyle = 'rgba(15, 10, 8, 0.94)';
+        ctx.strokeStyle = canRam ? '#10b981' : '#f59e0b';
+        ctx.lineWidth = 1.4;
+        ctx.fillRect(-tw * 0.5, -77, tw, 17);
+        ctx.strokeRect(-tw * 0.5, -77, tw, 17);
+        ctx.fillStyle = canRam ? '#6ee7b7' : '#fde047';
+        ctx.fillText(tag, 0, -65);
+
+        ctx.restore();
+      }
+    }
+
+    // 2. Render scrolling Canyon Overpass arch when active
+    if (sim.canyonOverpass && sim.canyonOverpass.active) {
+      const ov = sim.canyonOverpass;
+      ctx.save();
+      ctx.fillStyle = 'rgba(24, 16, 11, 0.55)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+      ctx.lineWidth = 2.5;
+      ctx.fillRect(ov.x - ov.width * 0.5, TRACK_Y - 76, ov.width, 152);
+      ctx.strokeRect(ov.x - ov.width * 0.5, TRACK_Y - 76, ov.width, 152);
+
+      ctx.font = '800 10px "JetBrains Mono", monospace';
+      ctx.fillStyle = '#fde68a';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        '⛰️ CANYON OVERPASS // AIR-COVER ROOF',
+        ov.x,
+        TRACK_Y - 82
+      );
+      ctx.restore();
+    }
   }
 
   _drawEnemies(ctx, sim) {
@@ -662,6 +748,29 @@ export class IronwakeRenderer {
         barY - 6
       );
 
+      if (en.isBoss && en.bossPhase) {
+        const phaseLabel =
+          en.bossPhase === 3
+            ? '🔥 PHASE 3/3 // FURNACE CORE EXPOSED (1.75× CRIT)'
+            : en.bossPhase === 2
+              ? '⚠️ PHASE 2/3 // BROADSIDE SIEGE MORTARS'
+              : '⚔️ PHASE 1/3 // HARPOON & SKIFF ESCORT';
+        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        const pw = ctx.measureText(phaseLabel).width + 14;
+        ctx.fillStyle =
+          en.bossPhase === 3
+            ? '#7c2d12'
+            : en.bossPhase === 2
+              ? '#7f1d1d'
+              : '#1e293b';
+        ctx.strokeStyle = '#fde68a';
+        ctx.lineWidth = 1.3;
+        ctx.fillRect(-pw * 0.5, barY - 38, pw, 16);
+        ctx.strokeRect(-pw * 0.5, barY - 38, pw, 16);
+        ctx.fillStyle = '#fef08a';
+        ctx.fillText(phaseLabel, 0, barY - 27);
+      }
+
       // Starting-state onboarding prompt above the primary target War-Rig
       if (isSelected && !sim.userLockedTarget) {
         const promptText = '▼ CLICK ANY WAR-RIG TO FOCUS TURRETS';
@@ -710,6 +819,36 @@ export class IronwakeRenderer {
   _drawProjectilesAndExplosions(ctx, sim) {
     ctx.save();
     for (const p of sim.projectiles) {
+      if (p.isMortarShell && p.targetX !== undefined) {
+        // Draw red target reticle on targeted railcar
+        ctx.save();
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.arc(p.targetX, p.targetY, 34, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Dashed trajectory arc from mortar shell to target car
+        ctx.strokeStyle = 'rgba(249, 115, 22, 0.45)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.targetX, p.targetY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Intercept ring around mortar shell
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 14, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.save();
       ctx.translate(p.x, p.y);
       const ang = Math.atan2(p.vy, p.vx);

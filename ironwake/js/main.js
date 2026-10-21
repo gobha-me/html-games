@@ -6,6 +6,7 @@ import {
   STEAM_SYSTEMS,
   TOTAL_STEAM_BARS,
   SUBSYSTEM_TYPES,
+  TRACK_BRANCHES,
   SECTOR_NODES,
 } from './config.js';
 import { IronwakeSim } from './sim.js';
@@ -56,7 +57,8 @@ class IronwakeApp {
     this.sim.spawnEnemy('skiff', 1110, 735);
 
     if (boss) {
-      boss.hp = 640;
+      boss.hp = 460;
+      boss.bossPhase = 2;
       this.sim.selectedEnemyId = boss.id;
     }
     if (harp) {
@@ -77,6 +79,24 @@ class IronwakeApp {
     for (let i = 0; i < 12; i++) {
       this.sim.step(0.06);
     }
+    this.sim.spawnRailBarricade(1235);
+    this.sim.projectiles.push({
+      id: 'mortar_showcase',
+      fromPlayer: false,
+      isMortarShell: true,
+      hp: 16,
+      targetCarId: this.sim.cars[2].id,
+      targetX: this.sim.cars[2].x,
+      targetY: this.sim.cars[2].y,
+      x: 840,
+      y: 285,
+      vx: -95,
+      vy: 120,
+      damage: 32,
+      color: '#f97316',
+      radius: 9,
+      life: 2.5,
+    });
     this.sim.callouts = [];
     this.sim.explosions.push({
       x: 940,
@@ -129,6 +149,18 @@ class IronwakeApp {
           this.sim.userLockedTarget = true;
           this.audio.playClick();
           this.sim.addCallout(en.x, en.y - 30, '🎯 TARGET LOCKED', '#fde047');
+          this._syncFullUI();
+          return;
+        }
+      }
+
+      // Check rail barricade click -> focus fire on track barricade
+      for (const b of this.sim.barricades || []) {
+        if (Math.hypot(b.x - pt.x, b.y - pt.y) <= b.radius + 22) {
+          this.sim.selectedEnemyId = b.id;
+          this.sim.userLockedTarget = true;
+          this.audio.playClick();
+          this.sim.addCallout(b.x, b.y - 42, '🎯 BARRICADE TARGETED', '#fde047');
           this._syncFullUI();
           return;
         }
@@ -203,6 +235,22 @@ class IronwakeApp {
       this._syncFullUI();
     });
 
+    const btnRefit = document.getElementById('btn-refit-car');
+    if (btnRefit) {
+      btnRefit.addEventListener('click', () => {
+        this.sim.refitSelectedCar();
+        this._syncFullUI();
+      });
+    }
+
+    const btnBranch = document.getElementById('btn-branch-switch');
+    if (btnBranch) {
+      btnBranch.addEventListener('click', () => {
+        this.sim.toggleTrackBranch();
+        this._syncFullUI();
+      });
+    }
+
     // Jump to Next Sector Node
     document.getElementById('btn-next-sector').addEventListener('click', () => {
       this.sim.advanceToNextNode();
@@ -247,6 +295,12 @@ class IronwakeApp {
         this._syncFullUI();
       } else if (k === 'u') {
         this.sim.upgradeSelectedCar();
+        this._syncFullUI();
+      } else if (k === 'r') {
+        this.sim.refitSelectedCar();
+        this._syncFullUI();
+      } else if (k === 'b') {
+        this.sim.toggleTrackBranch();
         this._syncFullUI();
       } else if (k === 'n') {
         this.sim.advanceToNextNode();
@@ -299,6 +353,13 @@ class IronwakeApp {
 
     const hBadge = document.getElementById('harpoon-badge');
     hBadge.textContent = `⚓ TETHERS: ${this.sim.harpoons.length} ACTIVE`;
+
+    const bSwitch = document.getElementById('btn-branch-switch');
+    if (bSwitch) {
+      const bCfg =
+        TRACK_BRANCHES[this.sim.trackBranch] || TRACK_BRANCHES.upper;
+      bSwitch.textContent = `[B] ${bCfg.short}`;
+    }
   }
 
   _renderSteamManifold() {
@@ -413,7 +474,9 @@ class IronwakeApp {
       autocannon: '╬ 37MM ROTARY',
       flak: '╩ 88MM FLAK',
       plasma: '◉ PLASMA MORTAR',
-      railgun: '◈ AEGIS DOME',
+      railgun: '◈ RAILGUN LANCE',
+      tesla: '⚡ TESLA ARC COIL',
+      cryo: '❄ CRYO MORTAR',
     };
 
     const shortCarTitles = {
@@ -450,7 +513,7 @@ class IronwakeApp {
               <span class="car-dmg-tag">${car.damage} DMG</span>
             </div>
             <div class="car-item-title">
-              <span>${shortCarTitles[car.id] || car.name}</span>
+              <span>${car.name.length <= 18 ? car.name : shortCarTitles[car.id] || car.name}</span>
               <span class="car-hp-num">${Math.round(car.hp)}/${car.maxHp}</span>
             </div>
             <div class="car-item-sub">${car.weaponLabel}</div>
@@ -477,10 +540,8 @@ class IronwakeApp {
       const cost = 60 + (selCar.weaponLevel - 1) * 35;
       document.getElementById('inspected-car-code').textContent =
         `[${selCar.index + 1}] ${selCar.code.split('//')[0].trim()} // MK-${selCar.weaponLevel}`;
-      document.getElementById('inspected-car-name').textContent =
-        shortCarTitles[selCar.id] || selCar.name;
-      document.getElementById('inspected-car-desc').textContent =
-        shortCarDescs[selCar.id] || selCar.desc;
+      document.getElementById('inspected-car-name').textContent = selCar.name;
+      document.getElementById('inspected-car-desc').textContent = selCar.desc;
       document.getElementById('btn-upgrade-car').textContent =
         `[U] UPGRADE ${selCar.name.split(' ')[0]} (${cost} ⚙) — +22% DMG & +40 HULL`;
     }

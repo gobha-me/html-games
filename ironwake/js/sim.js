@@ -10,6 +10,8 @@ import {
   STEAM_SYSTEMS,
   TOTAL_STEAM_BARS,
   ENEMY_ARCHETYPES,
+  CAR_REFIT_MODULES,
+  TRACK_BRANCHES,
   SECTOR_NODES,
 } from './config.js';
 
@@ -36,6 +38,8 @@ export class IronwakeSim {
     this.nodeIndex = 0;
     this.currentNode = { ...SECTOR_NODES[0] };
     this.distanceTraveledKm = 0;
+    this.trackBranch = 'upper'; // 'upper' | 'lower'
+    this.refitCursor = 0;
 
     this.scrap = 185;
     this.score = 0;
@@ -80,11 +84,14 @@ export class IronwakeSim {
     this.enemies = [];
     this.projectiles = [];
     this.harpoons = []; // { id, enemyId, carId, tension, hp }
+    this.barricades = []; // { id, x, y, hp, maxHp, scrapReward }
+    this.canyonOverpass = { active: false, x: 0, width: 320, timer: 14.0 };
     this.explosions = []; // { x, y, r, maxR, color, alpha }
     this.callouts = []; // { x, y, text, color, life }
     this.combatLog = [];
 
     this.spawnTimer = 1.5;
+    this.barricadeTimer = 8.5;
     this.overdriveTimer = 0;
     this.bossSpawnedForNode = false;
 
@@ -223,6 +230,8 @@ export class IronwakeSim {
       canHarpoon: arch.canHarpoon,
       isAir: arch.isAir,
       isBoss: Boolean(arch.isBoss),
+      bossPhase: arch.isBoss ? 1 : 0,
+      mortarTimer: 3.2,
       hitFlash: 0,
       subsystems: {
         weapons: { hp: 100, maxHp: 100, destroyed: false },
@@ -236,6 +245,26 @@ export class IronwakeSim {
       this.selectedEnemyId = enemy.id;
     }
     return enemy;
+  }
+
+  spawnRailBarricade(customX = null) {
+    if (this.barricades.length >= 1) return null;
+    const bar = {
+      id: `bar_${Date.now()}_${Math.floor(Math.random() * 999)}`,
+      x: customX !== null ? customX : WORLD_W - 60,
+      y: TRACK_Y,
+      hp: 120 + this.nodeIndex * 25,
+      maxHp: 120 + this.nodeIndex * 25,
+      scrapReward: 42,
+      radius: 34,
+      hitFlash: 0,
+    };
+    this.barricades.push(bar);
+    this.logEvent(
+      '⚠️ RAIL BARRICADE AHEAD — Focus fire or set Locomotive Thrust ≥4 to Cowcatcher-ram!',
+      'danger'
+    );
+    return bar;
   }
 
   // Tactical Commander Orders
@@ -324,6 +353,57 @@ export class IronwakeSim {
     return true;
   }
 
+  refitSelectedCar() {
+    let car = this.cars.find((c) => c.id === this.selectedCarId) || this.cars[1];
+    if (car.id === 'loco') {
+      car = this.cars[1];
+      this.selectedCarId = car.id;
+    }
+    const cost = 45;
+    if (this.scrap < cost) return false;
+    this.scrap -= cost;
+
+    const mod =
+      CAR_REFIT_MODULES[this.refitCursor % CAR_REFIT_MODULES.length];
+    this.refitCursor += 1;
+
+    car.name = mod.name;
+    car.role = mod.role;
+    car.weaponType = mod.weaponType;
+    car.weaponLabel = mod.weaponLabel;
+    car.reloadSec = mod.reloadSec;
+    car.damage = Math.round(mod.damage * Math.pow(1.22, car.weaponLevel - 1));
+    car.projSpeed = mod.projSpeed;
+    car.splashRadius = mod.splashRadius || 0;
+    car.color = mod.color;
+    car.accent = mod.accent;
+    car.desc = mod.desc;
+    car.hp = Math.min(car.maxHp, car.hp + 45);
+
+    if (this.audio) this.audio.playClick();
+    this.logEvent(
+      `DEPOT REFIT: Installed ${mod.name} (${mod.weaponLabel}) on CAR-0${car.index + 1}.`,
+      'scoop'
+    );
+    this.addCallout(car.x, car.y - 42, `🔧 REFIT: ${mod.name}`, mod.color);
+    return true;
+  }
+
+  toggleTrackBranch(branchId = null) {
+    this.trackBranch =
+      branchId || (this.trackBranch === 'upper' ? 'lower' : 'upper');
+    const b = TRACK_BRANCHES[this.trackBranch] || TRACK_BRANCHES.upper;
+    if (this.audio) this.audio.playClick();
+    this.logEvent(`RAIL SWITCH SET → ${b.label}: ${b.desc}`, 'ops');
+    this.addCallout(
+      WORLD_W * 0.5,
+      TRACK_Y - 52,
+      `🛤️ SWITCH: ${b.short}`,
+      '#fde68a'
+    );
+    return this.trackBranch;
+  }
+
   advanceToNextNode() {
     if (this.nodeIndex + 1 >= SECTOR_NODES.length) {
       this.victory = true;
@@ -338,10 +418,15 @@ export class IronwakeSim {
     this.harpoons = [];
     this.enemies = [];
     this.projectiles = [];
+    this.barricades = [];
+    this.barricadeTimer = 7.5;
+    this.canyonOverpass = { active: false, x: 0, width: 320, timer: 12.0 };
     this.shieldHp = this.maxShieldHp;
 
+    const branchCfg = TRACK_BRANCHES[this.trackBranch] || TRACK_BRANCHES.upper;
+    const repairAmt = 60 + (branchCfg.repairBonus || 0);
     for (const c of this.cars) {
-      c.hp = Math.min(c.maxHp, c.hp + 60);
+      c.hp = Math.min(c.maxHp, c.hp + repairAmt);
     }
 
     if (this.currentNode.isBossNode) {
@@ -422,7 +507,7 @@ export class IronwakeSim {
     const heatGen = (this.steam.weapons - 2.2) * 1.4 - this.steam.repair * 1.2;
     this.boilerHeat = Math.max(0, Math.min(100, this.boilerHeat + heatGen * dt));
 
-    // 3. Spawn Raider Waves
+    // 3. Spawn Raider Waves & Track Hazards
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = Math.max(2.6, 5.2 - this.nodeIndex * 0.55);
@@ -434,6 +519,81 @@ export class IronwakeSim {
       }
     }
 
+    this.barricadeTimer -= dt;
+    if (this.barricadeTimer <= 0 && this.barricades.length === 0) {
+      this.barricadeTimer = 15.0;
+      this.spawnRailBarricade();
+    }
+
+    // Update scrolling Canyon Overpass arch
+    if (this.canyonOverpass.active) {
+      this.canyonOverpass.x -= mph * 3.8 * dt;
+      if (this.canyonOverpass.x < -this.canyonOverpass.width) {
+        this.canyonOverpass.active = false;
+        this.canyonOverpass.timer = 16.0;
+      }
+    } else {
+      this.canyonOverpass.timer -= dt;
+      if (this.canyonOverpass.timer <= 0) {
+        this.canyonOverpass.active = true;
+        this.canyonOverpass.x = WORLD_W + 180;
+        this.logEvent(
+          'CANYON OVERPASS AHEAD — Rock arch shields cars beneath from Gyrocopter fire!',
+          'ops'
+        );
+      }
+    }
+
+    // Update Rail Barricades scrolling toward Locomotive Cowcatcher
+    const loco = this.cars[0];
+    const locoFrontX = loco.x + loco.width * 0.5 + 32;
+    for (let i = this.barricades.length - 1; i >= 0; i--) {
+      const b = this.barricades[i];
+      if (b.hitFlash > 0) b.hitFlash = Math.max(0, b.hitFlash - dt * 3);
+      b.x -= mph * 1.35 * dt;
+
+      if (b.x <= locoFrontX) {
+        // Impact with Locomotive Cowcatcher!
+        if (this.steam.thrusters >= 4 || this.overdriveTimer > 0) {
+          this.scrap += 50;
+          this.score += 240;
+          this.explosions.push({
+            x: b.x,
+            y: b.y,
+            r: 14,
+            maxR: 78,
+            color: '#f59e0b',
+            alpha: 1.0,
+          });
+          if (this.audio) this.audio.playExplosion(false);
+          this.addCallout(
+            b.x,
+            b.y - 36,
+            '🔥 COWCATCHER RAM! +50 ⚙',
+            '#fde047'
+          );
+          this.logEvent(
+            'COWCATCHER RAM: High-thrust locomotive shattered rail barricade (+50 Scrap, 0 Hull DMG)!',
+            'scoop'
+          );
+        } else {
+          this._applyEnemyHitToCar(loco, 34, b.x, b.y);
+          if (this.audio) this.audio.playExplosion(false);
+          this.addCallout(
+            b.x,
+            b.y - 36,
+            '💥 BARRICADE IMPACT! (-34 HULL)',
+            '#ef4444'
+          );
+          this.logEvent(
+            'BARRICADE IMPACT: Insufficient locomotive thrust (<4 Bars) — cowcatcher took 34 damage!',
+            'danger'
+          );
+        }
+        this.barricades.splice(i, 1);
+      }
+    }
+
     // 4. Update Railcar Turrets & Fire at Target
     const weapMul =
       (0.65 + this.steam.weapons * 0.24) * (this.overdriveTimer > 0 ? 1.55 : 1.0);
@@ -442,18 +602,33 @@ export class IronwakeSim {
       if (car.hitFlash > 0) car.hitFlash = Math.max(0, car.hitFlash - dt * 3);
       if (car.hp <= 0) continue;
 
-      // Pick primary target or nearest enemy
+      // Pick primary target, or if CIWS/Flak and a Siege Mortar Shell is incoming, intercept the shell!
+      const incomingMortar =
+        car.weaponType === 'ciws' || car.weaponType === 'flak'
+          ? this.projectiles.find((p) => !p.fromPlayer && p.isMortarShell)
+          : null;
+
+      const urgentBarricade =
+        car.id === 'loco' &&
+        this.barricades[0] &&
+        this.barricades[0].x - car.x < 420
+          ? this.barricades[0]
+          : this.barricades.find((b) => b.id === this.selectedEnemyId);
+
       let target =
+        incomingMortar ||
+        urgentBarricade ||
         this.enemies.find((e) => e.id === this.selectedEnemyId) ||
         this.enemies[0] ||
+        this.barricades[0] ||
         null;
 
       if (target) {
         // Lead target position slightly
         const dist = Math.hypot(target.x - car.x, target.y - car.y);
         const tFlight = dist / Math.max(300, car.projSpeed);
-        const aimX = target.x + target.vx * tFlight;
-        const aimY = target.y + target.vy * tFlight;
+        const aimX = target.x + (target.vx || 0) * tFlight;
+        const aimY = target.y + (target.vy || 0) * tFlight;
         car.turretAngle = Math.atan2(aimY - car.y, aimX - car.x);
 
         car.reloadTimer -= dt * weapMul;
@@ -473,6 +648,49 @@ export class IronwakeSim {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const en = this.enemies[i];
       if (en.hitFlash > 0) en.hitFlash = Math.max(0, en.hitFlash - dt * 3);
+
+      // 3-Phase Boss Transitions (Phase 1: 100-65%, Phase 2: 65-30%, Phase 3: <30%)
+      if (en.isBoss) {
+        const hpRatio = en.hp / Math.max(1, en.maxHp);
+        if (hpRatio <= 0.3 && en.bossPhase < 3) {
+          en.bossPhase = 3;
+          if (this.audio && this.audio.playBossSiren) this.audio.playBossSiren();
+          this.addCallout(
+            en.x,
+            en.y - 64,
+            '🔥 PHASE 3: FURNACE CORE EXPOSED (1.75× CRIT)!',
+            '#f97316'
+          );
+          this.logEvent(
+            'CDR. KAEL: Goliath Furnace Core exposed! All subsystem hits deal 1.75× critical damage!',
+            'danger'
+          );
+        } else if (hpRatio <= 0.65 && en.bossPhase < 2) {
+          en.bossPhase = 2;
+          if (this.audio && this.audio.playBossSiren) this.audio.playBossSiren();
+          this.addCallout(
+            en.x,
+            en.y - 64,
+            '⚠️ PHASE 2: BROADSIDE SIEGE MORTARS!',
+            '#ef4444'
+          );
+          this.logEvent(
+            'CDR. KAEL: Goliath entered Phase 2 — Broadside Siege Mortars launching! CIWS & Flak intercept incoming shells!',
+            'danger'
+          );
+        }
+
+        if (en.bossPhase === 3 && Math.random() < dt * 2.2) {
+          this.explosions.push({
+            x: en.x,
+            y: en.y,
+            r: 22,
+            maxR: 112,
+            color: '#f97316',
+            alpha: 0.48,
+          });
+        }
+      }
 
       const engFactor = en.subsystems.engine.destroyed ? 0.45 : 1.0;
       const wpnFactor = en.subsystems.weapons.destroyed ? 0.45 : 1.0;
@@ -544,6 +762,33 @@ export class IronwakeSim {
         }
       }
 
+      // Boss Phase 2/3 Broadside Siege Mortar Salvos (slow, high-damage, interceptable by CIWS/Flak)
+      if (en.isBoss && en.bossPhase >= 2 && nearestCar) {
+        en.mortarTimer -= dt;
+        if (en.mortarTimer <= 0) {
+          en.mortarTimer = en.bossPhase === 3 ? 3.2 : 4.2;
+          const mAng = Math.atan2(nearestCar.y - en.y, nearestCar.x - en.x);
+          const mSpd = 185;
+          this.projectiles.push({
+            id: `mortar_${Date.now()}`,
+            fromPlayer: false,
+            isMortarShell: true,
+            hp: 16,
+            targetCarId: nearestCar.id,
+            targetX: nearestCar.x,
+            targetY: nearestCar.y,
+            x: en.x + Math.cos(mAng) * 28,
+            y: en.y + Math.sin(mAng) * 28,
+            vx: Math.cos(mAng) * mSpd,
+            vy: Math.sin(mAng) * mSpd,
+            damage: 32,
+            color: '#f97316',
+            radius: 9,
+            life: 3.4,
+          });
+        }
+      }
+
       // Fire ballistic rounds at nearest railcar
       en.fireTimer -= dt * wpnFactor;
       if (en.fireTimer <= 0 && nearestCar) {
@@ -552,6 +797,7 @@ export class IronwakeSim {
         const spd = 430;
         this.projectiles.push({
           fromPlayer: false,
+          fromAir: Boolean(en.isAir),
           x: en.x + Math.cos(ang) * 24,
           y: en.y + Math.sin(ang) * 24,
           vx: Math.cos(ang) * spd,
@@ -589,6 +835,40 @@ export class IronwakeSim {
 
       if (p.fromPlayer) {
         let hit = false;
+        // Check mid-air interception of Boss Siege Mortar Shells!
+        for (let j = this.projectiles.length - 1; j >= 0; j--) {
+          const mp = this.projectiles[j];
+          if (!mp || mp.fromPlayer || !mp.isMortarShell) continue;
+          if (Math.hypot(p.x - mp.x, p.y - mp.y) <= 26) {
+            hit = true;
+            mp.hp -= p.damage;
+            this.explosions.push({
+              x: mp.x,
+              y: mp.y,
+              r: 6,
+              maxR: 32,
+              color: '#f97316',
+              alpha: 0.9,
+            });
+            if (mp.hp <= 0) {
+              this.scrap += 12;
+              this.score += 95;
+              this.addCallout(
+                mp.x,
+                mp.y - 16,
+                '💥 MORTAR INTERCEPTED (+12 ⚙)',
+                '#38bdf8'
+              );
+              this.projectiles.splice(j, 1);
+              if (j < i) i -= 1;
+            }
+            break;
+          }
+        }
+        if (hit) {
+          this.projectiles.splice(i, 1);
+          continue;
+        }
         for (let j = this.enemies.length - 1; j >= 0; j--) {
           const en = this.enemies[j];
           const d = Math.hypot(p.x - en.x, p.y - en.y);
@@ -599,6 +879,45 @@ export class IronwakeSim {
             hit = true;
             this._applyPlayerProjectileHit(p, en);
             break;
+          }
+        }
+        if (!hit) {
+          for (let j = this.barricades.length - 1; j >= 0; j--) {
+            const b = this.barricades[j];
+            if (Math.hypot(p.x - b.x, p.y - b.y) <= b.radius) {
+              hit = true;
+              b.hp -= p.damage;
+              b.hitFlash = 0.2;
+              this.explosions.push({
+                x: p.x,
+                y: p.y,
+                r: 6,
+                maxR: 26,
+                color: p.color,
+                alpha: 0.85,
+              });
+              if (b.hp <= 0) {
+                this.scrap += b.scrapReward;
+                this.score += 180;
+                this.explosions.push({
+                  x: b.x,
+                  y: b.y,
+                  r: 14,
+                  maxR: 64,
+                  color: '#f59e0b',
+                  alpha: 1.0,
+                });
+                if (this.audio) this.audio.playExplosion(false);
+                this.addCallout(
+                  b.x,
+                  b.y - 28,
+                  `💥 BARRICADE CLEARED (+${b.scrapReward} ⚙)`,
+                  '#fde68a'
+                );
+                this.barricades.splice(j, 1);
+              }
+              break;
+            }
           }
         }
         if (hit) {
@@ -612,6 +931,24 @@ export class IronwakeSim {
             Math.abs(p.x - car.x) <= car.width * 0.52 &&
             Math.abs(p.y - car.y) <= car.height * 0.58
           ) {
+            // Check if Canyon Overpass rock roof shields this car from Gyrocopter air rockets
+            if (
+              p.fromAir &&
+              this.canyonOverpass.active &&
+              Math.abs(car.x - this.canyonOverpass.x) <=
+                this.canyonOverpass.width * 0.5
+            ) {
+              this.explosions.push({
+                x: p.x,
+                y: p.y,
+                r: 5,
+                maxR: 20,
+                color: '#94a3b8',
+                alpha: 0.75,
+              });
+              this.projectiles.splice(i, 1);
+              break;
+            }
             this._applyEnemyHitToCar(car, p.damage, p.x, p.y);
             this.projectiles.splice(i, 1);
             break;
@@ -693,20 +1030,38 @@ export class IronwakeSim {
     if (p.weaponType === 'flak' && en.isAir) {
       dmg = Math.round(dmg * 1.6);
     }
+    if (en.isBoss && en.bossPhase === 3) {
+      dmg = Math.round(dmg * 1.75);
+    }
 
     en.hp -= dmg;
     en.hitFlash = 0.22;
+
+    if (p.weaponType === 'cryo') {
+      this.boilerHeat = Math.max(0, this.boilerHeat - 2.5);
+      en.speed = Math.max(55, en.speed * 0.94);
+    } else if (p.weaponType === 'tesla') {
+      const other = this.enemies.find(
+        (o) => o.id !== en.id && Math.hypot(o.x - en.x, o.y - en.y) <= 210
+      );
+      if (other) {
+        other.hp -= Math.round(dmg * 0.45);
+        other.hitFlash = 0.18;
+        if (other.hp <= 0) this._handleEnemyDestroyed(other);
+      }
+    }
 
     // Apply subsystem damage if this enemy is focused
     const subKey = this.targetSubsystem || 'weapons';
     const sub = en.subsystems[subKey];
     if (sub && !sub.destroyed) {
-      sub.hp = Math.max(0, sub.hp - dmg * 0.85);
+      const subMul = p.weaponType === 'railgun' ? 1.35 : 0.85;
+      sub.hp = Math.max(0, sub.hp - dmg * subMul);
       if (sub.hp <= 0) {
         sub.destroyed = true;
         this.addCallout(
           en.x,
-          en.y - en.radius - 46,
+          en.y - en.radius - 68,
           `🎯 ${subKey.toUpperCase()} CRIPPLED!`,
           '#38bdf8'
         );
@@ -741,7 +1096,12 @@ export class IronwakeSim {
     this.enemies = this.enemies.filter((e) => e.id !== en.id);
     this.harpoons = this.harpoons.filter((h) => h.enemyId !== en.id);
     this.kills += 1;
-    this.scrap += en.scrapReward;
+    const branchMul =
+      (TRACK_BRANCHES[this.trackBranch] &&
+        TRACK_BRANCHES[this.trackBranch].scrapMul) ||
+      1.0;
+    const scrapGain = Math.round(en.scrapReward * branchMul);
+    this.scrap += scrapGain;
     this.score += en.scoreReward;
 
     if (this.score > this.bestScore) {
@@ -764,11 +1124,11 @@ export class IronwakeSim {
     this.addCallout(
       en.x,
       en.y - 20,
-      `💥 +${en.scrapReward} SCRAP`,
+      `💥 +${scrapGain} SCRAP`,
       '#fde68a'
     );
     this.logEvent(
-      `DESTROYED ${en.name} (+${en.scrapReward} Scrap, +${en.scoreReward} Score).`,
+      `DESTROYED ${en.name} (+${scrapGain} Scrap, +${en.scoreReward} Score).`,
       'scoop'
     );
 
