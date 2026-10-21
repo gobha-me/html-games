@@ -177,6 +177,8 @@ npm run lint
 npm run test:coverage
 npx playwright install chromium
 npm run test:e2e
+# Repeat the desk input regressions, including the permanent 4x CPU case:
+npm run test:e2e -- e2e/desk.spec.js --repeat-each=5
 ```
 
 Playwright starts Python's static HTTP server at the repository root on port 8123.
@@ -189,16 +191,24 @@ Each browser test checks console errors and uncaught exceptions. Tests use the
 existing `window.lateEditionApp` inspection handle to force trust collapse and
 hostile copy. The click contract is **100 actual pointer clicks on currently live
 lead buttons = exactly 100 calls returning true from `dispatchOperativeToLead`**,
-with simulation time advancing throughout. Separate cases hold a pointer down
-across changing renders, verify keyed node/focus/hover retention, remove stale
+with simulation time advancing throughout, at both normal speed and 4× CPU
+slowdown through Chromium's CDP. Every pointerdown must target a live lead;
+no failed clicks are excluded or retried. Same-frame regressions force a scoop
+(with immediate replacement) and expiry between display ticks, asserting that
+obsolete buttons disappear while surviving keyed buttons stay attached.
+Separate cases hold a pointer down across changing renders, verify keyed
+node/focus/hover retention, remove stale
 leads, inject HTML-shaped text, hold restart keys and resize during keyboard-only
 play through one published edition. The tests replace the legacy remote font
 stylesheet with empty CSS so offline runs exercise local fallback fonts; the
 remote typography migration belongs to the planned art pass.
 
 The six lists reconcile keyed nodes; unchanged subtrees stay attached between
-250 ms display ticks. Container event delegation is bound once. Runtime DOM copy
-uses `createElement`/`textContent`, with no `innerHTML` templates. Sim history
+250 ms display ticks. Lead membership also reconciles immediately after each
+simulation frame that changes IDs/order, so scooped or expired leads cannot
+remain clickable until the next display tick. Container event delegation is bound
+once. Runtime DOM copy uses `createElement`/`textContent`, with no `innerHTML`
+templates. Sim history
 (`peakCirculation`, `lastPrintedFrontPage`) is display-only and excluded from
 canonical gameplay hashes; deterministic replay behavior remains unchanged.
 

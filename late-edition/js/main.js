@@ -482,6 +482,7 @@ class LateEditionApp {
   }
 
   _renderLeadsList() {
+    this.renderedLeadIds = this.sim.leads.map((lead) => lead.uid);
     document.getElementById('leads-count').textContent = `${this.sim.leads.length} ACTIVE`;
     reconcile(document.getElementById('lead-list'), this.sim.leads.map((lead) =>
       h('button', `lead-item ${lead.uid === this.sim.selectedLeadId ? 'selected' : ''}`, [
@@ -784,6 +785,15 @@ class LateEditionApp {
       else this._renderOpening();
     }
     this.sim.step(dt);
+    // Scoops replace a lead immediately, often without changing the list length.
+    // Reconcile membership in this frame so the next pointer event cannot hit
+    // a stale button during the 250 ms display-refresh gap. Countdown/progress
+    // updates keep their normal cadence; surviving keyed buttons stay attached.
+    const rendered = this.renderedLeadIds ?? [];
+    if (this.sim.leads.length !== rendered.length ||
+        this.sim.leads.some((lead, i) => lead.uid !== rendered[i])) {
+      this._renderLeadsList();
+    }
     if (this.sim.phase === 'title' && !this.sim.deskTooSmall) this.titleRenderer.renderTitle(rawDt);
     else this.renderer.render(this.sim, this.sim.deskTooSmall ? 0 : rawDt);
 

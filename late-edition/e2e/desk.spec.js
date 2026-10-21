@@ -96,25 +96,84 @@ for (const key of ['Space', 'Enter']) {
   });
 }
 
-test('100 live lead clicks produce exactly 100 successful dispatches', async ({ page }) => {
-  await page.evaluate(() => {
-    const { sim } = window.lateEditionApp;
-    const dispatch = sim.dispatchOperativeToLead.bind(sim);
-    window.dispatchAudit = { attempts: 0, successes: 0, started: sim.time };
-    sim.dispatchOperativeToLead = (...args) => {
-      window.dispatchAudit.attempts++;
-      const result = dispatch(...args);
-      if (result) window.dispatchAudit.successes++;
-      return result;
-    };
+for (const cpuRate of [1, 4]) {
+  test(`100 live lead clicks produce exactly 100 successful dispatches (CPU ${cpuRate}x)`, async ({ page }) => {
+    // Real rendering/input at 4x slowdown exposes the stale-button window seen
+    // on CI. Allow wall time for slower frames without changing gameplay time.
+    test.setTimeout(120000);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
+    await page.evaluate(() => {
+      const { sim } = window.lateEditionApp;
+      const dispatch = sim.dispatchOperativeToLead.bind(sim);
+      window.dispatchAudit = { attempts: 0, successes: 0, started: sim.time,
+        presses: [], failures: [] };
+      document.getElementById('lead-list').addEventListener('pointerdown', (event) => {
+        const uid = event.target.closest('[data-lead-id]')?.dataset.leadId;
+        const lead = sim.leads.find((item) => item.uid === uid);
+        window.dispatchAudit.presses.push({ uid, live: Boolean(lead && lead.timeLeft > 0) });
+      }, true);
+      sim.dispatchOperativeToLead = (...args) => {
+        window.dispatchAudit.attempts++;
+        const result = dispatch(...args);
+        if (result) window.dispatchAudit.successes++;
+        else window.dispatchAudit.failures.push({ args, time: sim.time,
+          selected: sim.selectedOpId, canDispatch: sim.canDispatch(),
+          awaitingFirstDispatch: sim.awaitingFirstDispatch,
+          leads: sim.leads.map(({ uid, timeLeft }) => ({ uid, timeLeft })) });
+        return result;
+      };
+    });
+    // No retries, synthetic clicks, frozen time or discarded failures: every
+    // pointer press must hit a live lead and produce one successful dispatch.
+    for (let i = 0; i < 100; i++) await page.locator('#lead-list button').first().click();
+    const audit = await page.evaluate(() => ({ ...window.dispatchAudit,
+      ended: window.lateEditionApp.sim.time, over: window.lateEditionApp.sim.gameOver }));
+    expect(audit).toMatchObject({ attempts: 100, successes: 100, over: false, failures: [] });
+    expect(audit.presses).toHaveLength(100);
+    expect(audit.presses.filter((press) => !press.live)).toEqual([]);
+    expect(audit.ended).toBeGreaterThan(audit.started);
   });
-  // Real pointer input, not DOM click(): each iteration uses a current live lead.
-  for (let i = 0; i < 100; i++) await page.locator('#lead-list button').first().click();
-  const audit = await page.evaluate(() => ({ ...window.dispatchAudit,
-    ended: window.lateEditionApp.sim.time, over: window.lateEditionApp.sim.gameOver }));
-  expect(audit).toMatchObject({ attempts: 100, successes: 100, over: false });
-  expect(audit.ended).toBeGreaterThan(audit.started);
-});
+}
+
+for (const removal of ['scoop', 'expiry']) {
+  test(`${removal} removes the lead button in the same frame, before the next display tick`, async ({ page }) => {
+    const snapshot = await page.evaluate((removal) => new Promise((resolve) => {
+      const app = window.lateEditionApp;
+      const { sim } = app;
+      const lead = sim.leads[0];
+      const button = document.querySelector(`[data-lead-id="${lead.uid}"]`);
+      const survivor = document.querySelectorAll('#lead-list button')[1];
+      if (removal === 'expiry') lead.timeLeft = 0.000001;
+      else {
+        const op = sim.operatives[0];
+        op.x = op.targetX;
+        op.y = op.targetY;
+        lead.progress = 99.999;
+      }
+      // Force removal on the very next real frame, far from the 250 ms refresh.
+      app.uiTickAccum = 0;
+      const step = sim.step.bind(sim);
+      sim.step = (dt) => {
+        step(dt);
+        sim.step = step;
+        queueMicrotask(() => resolve({
+          live: sim.leads.some((item) => item.uid === lead.uid),
+          attached: button.isConnected,
+          survivorRetained: survivor.isConnected,
+          uiTickAccum: app.uiTickAccum,
+          scoops: sim.scoopsTotal,
+        }));
+      };
+    }), removal);
+    expect(snapshot).toMatchObject({ live: false, attached: false, survivorRetained: true,
+      scoops: removal === 'scoop' ? 1 : 0 });
+    expect(snapshot.uiTickAccum).toBeLessThan(0.25);
+    await page.locator('#lead-list button').first().click();
+    expect(await page.evaluate(() => window.lateEditionApp.sim.operatives[0].targetLeadId))
+      .toBe(await page.locator('#lead-list button').first().getAttribute('data-lead-id'));
+  });
+}
 
 test('pointer held across changed ticks retains its node, focus, hover and dispatch', async ({ page }) => {
   const lead = page.locator('#lead-list button').first();

@@ -2,6 +2,16 @@
 
 ## [2.5.0] — 2026-10-21 (#84 — Taking the night desk)
 
+### Fixed
+- Scooped/expired lead buttons reconcile in the same simulation frame, closing
+  the 250 ms stale-button window that caused CI's 99/100 dispatch failure.
+  A 6× CPU reproduction caught a click on an already scooped lead with 81.8 s
+  lifetime remaining; the reporter and first-dispatch gate were valid.
+  Surviving keyed buttons keep their identity; countdown/progress retain their
+  existing display cadence. Permanent 4× CPU coverage still requires exactly
+  100 successful dispatches from 100 live pointer presses, with no exclusions,
+  plus forced same-frame scoop replacement and expiry regressions.
+
 ### Added
 - **THE EVENING STAR** title over a rainy silhouette skyline, saved best circulation,
   Start the night shift and Enter activation, reusing the city canvas renderer.
