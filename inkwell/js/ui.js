@@ -152,16 +152,18 @@ export function renderSlots(state) {
   if (!_els) return;
   const slots = (state && state.player && state.player.slots) || [null, null, null];
   const ink = state && state.player ? state.player.ink : 0;
-  _els.slotsStrip.innerHTML = slots
-    .map((sp, i) => {
-      const key = `<span class="key">${i + 1}</span>`;
-      if (!sp) return `<span class="slot empty">${key} —</span>`;
-      const cost = SPELLS[sp].cost;
-      const name = spellLabel(sp);
-      const dim = ink < cost ? ' dim' : '';
-      return `<span class="slot bound${dim}">${key} ${escape(name)}<span style="opacity:0.7"> (${cost})</span></span>`;
-    })
-    .join('');
+  _els.slotsStrip.innerHTML =
+    '<span class="slots-title">Bound Spells:</span>' +
+    slots
+      .map((sp, i) => {
+        const key = `<span class="key">[${i + 1}]</span>`;
+        if (!sp) return `<span class="slot empty">${key} Unbound Slot</span>`;
+        const cost = SPELLS[sp].cost;
+        const name = spellLabel(sp);
+        const dim = ink < cost ? ' dim' : '';
+        return `<span class="slot bound${dim}">${key} ${escape(name)}<span style="opacity:0.7"> (${cost})</span></span>`;
+      })
+      .join('');
 }
 
 function spellLabel(spellId) {
