@@ -3,16 +3,13 @@
 // ============================================================================
 
 import { h, reconcile } from './dom.js';
-import { FRONT_PAGE_SLOTS, isUnlocked, deskFits } from './config.js';
+import { FILE_DRAWER, FRONT_PAGE_SLOTS, isUnlocked, deskFits } from './config.js';
 import { LateEditionSim } from './sim.js';
 import { NoirCityRenderer } from './renderer.js';
 import { ColdOpen } from './opening.js';
 import { NoirAudio } from './audio.js';
 import { createAudioAdapter, createStorageAdapter, resolveSeed } from './adapters.js';
-
-const LAYOUT_KEYS = { '1': 'banner', b: 'banner', '2': 'above_fold', f: 'above_fold',
-  '3': 'photo_expose', p: 'photo_expose', '4': 'editorial', e: 'editorial',
-  '5': 'inside', i: 'inside', '6': 'spike', s: 'spike' };
+import { hotkeyAction } from './hotkeys.js';
 
 const EDITOR_QUOTES = [
   '"Rain\'s washing the blood off Pier 14, kid. Get Vance and Reyes on the street before the Herald steals our banner."',
@@ -45,6 +42,8 @@ class LateEditionApp {
       this.titleRenderer.reducedMotion = event.matches;
       this._renderOpening();
     });
+    this.drawerOpen = false;
+    this.pendingSpike = null;
     this.selectedStoryUid = null;
     this.lastFrameTime = performance.now();
     this.uiTickAccum = 0;
@@ -188,10 +187,34 @@ class LateEditionApp {
     });
     delegate('inside-stories', '[data-story-uid]', (target) => { this.selectedStoryUid = target.dataset.storyUid; });
     delegate('layout-destinations', '[data-slot-id]', (target) => this._assignStory(target.dataset.slotId));
+    delegate('drawer-files', '[data-file-action]', (button) => {
+      const uid = button.dataset.fileUid;
+      const action = button.dataset.fileAction;
+      const result = action === 'shred' ? this.sim.shredFile(uid) :
+        this.sim.useFile(uid, action, button.dataset.fileTarget);
+      if (result.ok && action === 'shred' && this.pendingSpike) {
+        const pending = this.pendingSpike;
+        this.pendingSpike = null;
+        this._layoutResult(this.sim.spike(pending.uid));
+      }
+      document.getElementById('drawer-status').textContent = result.ok ? 'The file has done its work.' : `Cannot use file: ${result.reason}.`;
+      // Consumed cards disappear. Keep keyboard focus inside the drawer.
+      this._syncFullUI();
+      if (!button.isConnected) document.querySelector('#drawer-files button')?.focus();
+      if (!button.isConnected && !this.sim.spikedStories.length) document.getElementById('btn-close-drawer').focus();
+    });
     this._bindPointerLayout();
   }
 
   _bindEvents() {
+    document.getElementById('btn-drawer').addEventListener('click', () => this._toggleDrawer());
+    document.getElementById('btn-close-drawer').addEventListener('click', () => this._toggleDrawer(false));
+    document.getElementById('btn-cancel-burn').addEventListener('click', () => {
+      this.pendingSpike = null;
+      document.getElementById('drawer-status').textContent = 'Copy stays on the desk.';
+      this._syncFullUI();
+      document.getElementById('btn-close-drawer').focus();
+    });
     document.getElementById('btn-start-shift').addEventListener('click', () => this._startShift());
     document.getElementById('btn-skip-intro').addEventListener('click', () => this._skipIntro());
     window.addEventListener('resize', () => this._updateDeskSize());
@@ -356,11 +379,14 @@ class LateEditionApp {
         e.preventDefault();
         return;
       }
+      const phase = this.sim.gameOver || this.sim.editionSummary ? 'modal' :
+        this.drawerOpen ? 'drawer-open' : this.sim.phase;
+      const action = hotkeyAction(phase, e.code === 'Space' ? ' ' : e.key);
       if (!['desk', 'paste-up'].includes(this.sim.phase)) {
-        if (this.sim.phase === 'title' && e.key === 'Enter' && !e.target?.closest('a')) {
+        if (action === 'start-shift' && !e.target?.closest('a')) {
           e.preventDefault();
           if (!e.repeat) this._startShift();
-        } else if (this.sim.phase === 'cold-open' && e.key === 'Escape') {
+        } else if (action === 'skip-intro') {
           e.preventDefault();
           this._skipIntro();
         }
@@ -368,10 +394,10 @@ class LateEditionApp {
       }
       const modalButton = document.getElementById('btn-modal-continue');
       if (this.sim.gameOver || this.sim.editionSummary) {
-        if (e.key === 'Tab') {
+        if (action === 'focus-modal') {
           e.preventDefault();
           modalButton.focus();
-        } else if (e.code === 'Space' || e.key === 'Enter') {
+        } else if (action === 'activate-modal') {
           // Consume the activation before resetting: the same Space must never
           // fall through to the new run's press lever (including held repeats).
           e.preventDefault();
@@ -382,68 +408,76 @@ class LateEditionApp {
       if (e.target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       // Let native controls own Space/Enter so keyboard dispatch cannot print.
       if (e.code === 'Space' && e.target?.closest('button, a, [role="button"]')) return;
-      const k = e.key.toLowerCase();
+      if (action === 'toggle-drawer') {
+        e.preventDefault();
+        if (!e.repeat) this._toggleDrawer();
+        return;
+      }
+      if (this.drawerOpen) {
+        if (action === 'close-drawer') { e.preventDefault(); this._toggleDrawer(false); }
+        return; // Native Tab/Enter/Space operate the dossier's small buttons.
+      }
       if (this.sim.phase === 'paste-up') {
-        if (e.key === 'Escape') { this._cancelDrag(); return; }
-        if (['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) {
+        if (action === 'cancel-drag') { this._cancelDrag(); return; }
+        if (action === 'next-story' || action === 'previous-story') {
           e.preventDefault();
           const stories = [...this.sim.scoopedStories, ...Object.values(this.sim.frontPage).filter(Boolean), ...this.sim.insideStories];
           const index = stories.findIndex((story) => story.uid === this.selectedStoryUid);
-          const direction = ['ArrowDown', 'ArrowRight'].includes(e.key) ? 1 : -1;
+          const direction = action === 'next-story' ? 1 : -1;
           const nextIndex = index < 0 ? (direction > 0 ? 0 : stories.length - 1) : (index + direction + stories.length) % stories.length;
           this.selectedStoryUid = stories[nextIndex]?.uid ?? null;
           this._syncFullUI();
           document.querySelector(`[data-story-uid="${this.selectedStoryUid}"]`)?.focus();
           return;
         }
-        if (LAYOUT_KEYS[k]) {
+        if (action?.startsWith('place:')) {
           e.preventDefault();
-          this._assignStory(LAYOUT_KEYS[k]);
+          this._assignStory(action.slice('place:'.length));
           return;
         }
-        if (k === 'u' || e.key === 'Delete') {
+        if (action === 'unplace') {
           e.preventDefault();
           this._layoutResult(this.sim.unplace(this.selectedStoryUid));
           return;
         }
       }
-      if (k === 'l') {
+      if (action === 'lock-up') {
         this.sim.lockUp();
         this._syncFullUI();
-      } else if (['1', '2', '3', '4'].includes(k)) {
-        const idx = Number(k) - 1;
+      } else if (action?.startsWith('select-operative:')) {
+        const idx = Number(action.slice('select-operative:'.length));
         if (this.sim.selectOperative(this.sim.operatives[idx]?.id)) {
           this.audio.typewriter();
           this._syncFullUI();
         }
-      } else if (k === 'a') {
+      } else if (action === 'assist') {
         this._autoLayoutBestStories();
         this._syncFullUI();
-      } else if (k === 'q') {
+      } else if (action === 'wiretap') {
         this.sim.triggerWiretap();
         this._syncFullUI();
-      } else if (k === 'w') {
+      } else if (action === 'bribe') {
         this.sim.acceptSyndicateBribe();
         this._syncFullUI();
-      } else if (k === 'e') {
+      } else if (action === 'fortify') {
         this.sim.fortifyPressRoom();
         this._syncFullUI();
-      } else if (k === 't') {
+      } else if (action === 'phone') {
         this.sim.triggerRotaryDilemma();
         this._syncFullUI();
-      } else if (k === 'y' && this.sim.activeDilemma) {
+      } else if (action === 'accept-dilemma' && this.sim.activeDilemma) {
         this.sim.resolveDilemma(true);
         this._syncFullUI();
-      } else if (k === 'n' && this.sim.activeDilemma) {
+      } else if (action === 'reject-dilemma' && this.sim.activeDilemma) {
         this.sim.resolveDilemma(false);
         this._syncFullUI();
-      } else if (k === 'p') {
+      } else if (action === 'pause') {
         this.sim.paused = !this.sim.paused;
         this._syncSpeedButtons();
-      } else if (k === 'm') {
+      } else if (action === 'mute') {
         const muted = this.audio.toggleMute();
         btnAudio.textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
-      } else if (e.code === 'Space') {
+      } else if (action === 'publish') {
         e.preventDefault();
         if (this.sim.editionSummary) {
           this.sim.editionSummary = null;
@@ -461,7 +495,51 @@ class LateEditionApp {
   }
 
   _assignStory(slotId, uid = this.selectedStoryUid) {
-    this._layoutResult(slotId === 'spike' ? this.sim.spike(uid) : this.sim.placeStory(uid, slotId));
+    const result = slotId === 'spike' ? this.sim.spike(uid) : this.sim.placeStory(uid, slotId);
+    this._layoutResult(result);
+    if (result.reason === 'drawer-full') {
+      this.pendingSpike = { uid, edition: this.sim.edition };
+      document.getElementById('drawer-status').textContent = 'DRAWER FULL. Choose a file to shred before spiking this story.';
+      this._toggleDrawer(true);
+      document.querySelector('#drawer-files [data-file-action="shred"]')?.focus();
+    }
+  }
+
+  _toggleDrawer(open = !this.drawerOpen) {
+    if (!this.sim.canUseDrawer()) return;
+    this.drawerOpen = open;
+    if (!open) this.pendingSpike = null;
+    this._syncFullUI();
+    if (open) (document.querySelector('#drawer-files button') || document.getElementById('btn-close-drawer')).focus();
+    else document.getElementById('btn-drawer').focus();
+  }
+
+  _renderDrawer() {
+    const available = this.sim.canUseDrawer();
+    if (!available) { this.drawerOpen = false; this.pendingSpike = null; }
+    if (this.pendingSpike && (!this.sim.canLayout() || this.pendingSpike.edition !== this.sim.edition)) this.pendingSpike = null;
+    document.getElementById('file-drawer').inert = !available;
+    const handle = document.getElementById('btn-drawer');
+    handle.textContent = `FILE DRAWER [D] · ${this.sim.spikedStories.length}/${FILE_DRAWER.capacity}`;
+    handle.setAttribute('aria-expanded', String(this.drawerOpen));
+    document.getElementById('drawer-body').hidden = !this.drawerOpen;
+    document.getElementById('btn-cancel-burn').hidden = !this.pendingSpike;
+    const actions = [['favor', 'tip', 'Favor: police tip'], ['favor', 'stop', 'Favor: stop goon / raid'],
+      ['favor', 'kill', 'Favor: kill rival story'], ['squeeze', 'cash', 'Squeeze: cash'],
+      ['squeeze', 'protection', 'Squeeze: protection'], ['print-later', null, 'Print later'], ['shred', null, 'Shred']];
+    reconcile(document.getElementById('drawer-files'), this.sim.spikedStories.map((file) =>
+      h('article', `dossier${file.freshness <= 0 ? ' expired' : ''}`, [
+        h('h3', '', file.subject),
+        h('p', 'file-tags', file.tags.join(' · ')),
+        h('p', '', `WEIGHT ${file.weight} · $${FILE_DRAWER.cashPerWeightNight * file.weight * file.freshness} / −${FILE_DRAWER.protectionPerWeight * file.weight} HEAT`),
+        h('p', '', `NEXT SQUEEZE: ${Math.min(100, Math.round((FILE_DRAWER.burnBase + FILE_DRAWER.burnPerExposure * (file.exposure + 1)) * 100))}% BURN RISK`),
+        h('p', 'carbon-dots', '●'.repeat(Math.max(0, file.freshness)) + '○'.repeat(Math.max(0, FILE_DRAWER.freshness - file.freshness)),
+          { 'aria-label': `${file.freshness} nights fresh` }),
+        h('p', 'exposure-holes', '•'.repeat(file.exposure), { 'aria-label': `${file.exposure} exposure pinholes` }),
+        h('div', 'file-actions', actions.map(([action, target, label]) => h('button', 'file-button', label,
+          { type: 'button', 'data-file-uid': file.uid, 'data-file-action': action,
+            ...(target ? { 'data-file-target': target } : {}) }, `${action}-${target}`))),
+      ], { 'data-file-uid': file.uid }, file.uid)));
   }
 
   _autoLayoutBestStories() {
@@ -849,6 +927,7 @@ class LateEditionApp {
     this._renderScoopTrayAndWire();
     this._renderBroadsheetAndPress();
     this._renderRotaryPhone();
+    this._renderDrawer();
     this._renderModal();
     if (enterLayout) document.querySelector('#scoop-tray button')?.focus();
 

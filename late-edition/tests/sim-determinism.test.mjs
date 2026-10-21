@@ -48,9 +48,9 @@ test('five-edition scripted replay matches the golden gameplay hashes', () => {
   const first = playFiveEditions();
   assert.deepEqual(first.hashes, playFiveEditions().hashes);
   assert.deepEqual(first.hashes, [
-    // #85: manual placement at paste-up, accusation/empty-banner scoring,
-    // Inside/Spike collections and per-edition assist state are canonical.
-    '4b769688', '904e5ddf', 'ca634604', 'f74fc4d2', '1a4f538c',
+    // #86: subjects, their publication status/progress, pending burns and raid
+    // protection join canonical state. Replay inputs remain unchanged.
+    '6d444dc1', 'cfe9d143', 'e6043995', '72c219ce', 'f250819d',
   ]);
   assert.notEqual(first.sim.getStateHash(), playFiveEditions({ seed: 82 }).sim.getStateHash());
 });

@@ -2,8 +2,7 @@
 
 Read [the repo rules](../AGENTS.md), [README.md](README.md), and
 [docs/DIRECTION.md](docs/DIRECTION.md) before changing this game.
-The direction document is the creative direction and art bible; its locked
-decisions describe the target, not necessarily today's implementation.
+The direction document is the art bible; locked decisions describe the target, not necessarily today’s implementation.
 Keep work inside this game unless the task explicitly permits shared files.
 
 ## Current module map
@@ -13,9 +12,10 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | --- | --- |
 | `index.html` | Desk shell, map canvas, broadsheet, controls, rotary-phone card, edition modal; loads `js/main.js`. |
 | `css/style.css` | Mahogany desk, leather blotter, brass rail, newsprint slots, passes, phone and modal styling. |
-| `js/config.js` | Paste-up timing/penalties, 210-second editions, scaled pressure windows, pure payroll unlock/desk-size rules, world, roster, slots, stories, arcs and dilemmas. |
-| `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, explicit layout/Inside/Spike, projections, publishing, arc progression and dilemmas. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
+| `js/config.js` | Paste-up timing/penalties, 210-second editions, scaled pressure windows, pure payroll unlock/desk-size rules, world, roster, slots, stories, arcs, dilemmas and `FILE_DRAWER` balance. |
+| `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, explicit layout/Inside/Spike, projections, publishing, arc progression, dossier economy and delayed calls. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
 | `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup and modal focus handling. |
+| `js/hotkeys.js` | Shared `HOTKEYS` action/key/phase table and lookup. Keep all application shortcuts here; Node tests reject duplicate keys per phase, including injected collisions. |
 | `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
 | `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
 | `js/adapters.js` | Safe best-score persistence, optional audio ports and URL seed parsing. |
@@ -32,11 +32,9 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 
 - Today `main.js` passes audio into the sim, calls its methods, and also
   mutates speed, pause, summary and operative targets directly.
-  It scales frame delta by speed, calls `sim.step(dt)`, draws each frame,
-  and reconciles keyed DOM lists every 250 ms with delegated input handlers.
+  It scales delta by speed, calls `sim.step(dt)`, draws each frame and reconciles keyed DOM every 250 ms.
 - `sim.js` imports config and pure helper/adapter modules; no DOM or browser APIs.
-  Gameplay randomness uses the injected RNG; IDs use counters. It owns visual
-  effect/traffic data for compatibility, excluded from gameplay hashes.
+  Gameplay randomness uses the injected RNG; IDs use counters. Visual effects/traffic are excluded from hashes.
 - The canvas renderer reads sim state and maintains its own decorative
   rain/ripples and hover state. DOM updates and input binding belong in
   `main.js`; Canvas2D drawing belongs in `renderer.js`.
@@ -46,9 +44,13 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   formatting lives in `presentation.js`. Keep browser APIs out of sim logic.
 - Scoops stay in the tray. `lockUp()` or 11 PM enters `paste-up`; `placeStory`,
   `unplace`, `spike` return `{ok, reason}`. Occupied/duplicate placements reject.
-  `insideStories` scores at ¼ weight; `spikedStories` persists until reset (#86).
+  `insideStories` scores at ¼ weight; `spikedStories` holds six aging dossiers (#86).
   `editionLayout.assisted` flags A's −500 readers; empty Banner costs 6 trust.
   Sim owns phases/gates/scoring; UI owns pointer capture, selection and stale-drag cancellation.
+- Drawer: `useFile(uid, favor|squeeze|print-later, target?)`, `shredFile(uid)` return
+  `{ok, reason, effects}`. D toggles it in desk/paste-up; Fold uses F/2. Re-filing preserves age/exposure
+  and original value. `subjectStates`, `subjectProgress`, `pendingBurns`,
+  `raidBlocked` and dossiers are hashed run state; disk saves remain #87.
 
 ## Determinism rules
 
@@ -90,7 +92,6 @@ Current bright accents, Google Fonts and pixel sprites predate that target;
 replace them in the dedicated art pass, not during unrelated documentation work.
 
 ## Verification
-
 From the repository root, run the checks available now:
 
 ```bash
@@ -110,9 +111,8 @@ Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`
 from this directory. Bad fixtures are excluded from normal lint discovery;
 tests feed their contents through the production configurations deliberately.
 
-The docs checker skips vendor `node_modules` and exempts direction/changelog history. Its optional directory argument is for isolated fixtures.
-Both shell checks and the `late-edition` lint/unit/Chromium job run in GitHub CI.
-Area suites and 50-seed, three-edition invariant fuzzing cover gameplay (#82). Run all tests/linters before finishing;
+The docs checker skips `node_modules`, exempts direction/changelog history and accepts a fixture directory. Shell/lint/unit/Chromium checks run in GitHub CI.
+Area suites, 50-seed fuzzing and 20-seed × 20-night greedy/ink bots cover gameplay. Run all tests/linters before finishing;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 

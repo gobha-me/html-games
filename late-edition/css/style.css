@@ -57,6 +57,97 @@ body {
   gap: 8px;
 }
 
+/* #86: manila dossiers, carbon blue confined to the drawer's fresh-copy dots. */
+.file-drawer {
+  position: fixed;
+  z-index: 40;
+  bottom: 0;
+  left: 20px;
+  width: min(760px, calc(100vw - 40px));
+  color: #0e0d0c;
+  background: #2a1710;
+  border: 3px solid #b5893f;
+  box-shadow: 4px 6px 12px #0e0d0c;
+  font-family: 'Courier New', monospace;
+}
+
+.file-button {
+  padding: 6px 10px;
+  color: #0e0d0c;
+  background: #d9cba8;
+  border: 1px solid #6b655c;
+  cursor: pointer;
+  font: inherit;
+}
+
+.file-button:focus-visible {
+  outline: 3px solid #e8a23a;
+  outline-offset: 1px;
+}
+
+#btn-drawer {
+  width: 100%;
+  border: 2px solid #b5893f;
+  font-weight: bold;
+}
+
+#drawer-body {
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 12px;
+  background: #d9cba8;
+}
+
+#drawer-files {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.dossier {
+  padding: 12px;
+  background: #ede4ce;
+  border-top: 8px solid #b5893f;
+  box-shadow: 3px 4px 6px #6b655c;
+}
+
+.dossier h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.dossier p {
+  margin: 5px 0;
+}
+
+.file-tags {
+  border: 1px solid currentcolor;
+  font-size: 12px;
+}
+
+.carbon-dots {
+  color: #3e5a78;
+  letter-spacing: 5px;
+}
+
+.exposure-holes {
+  min-height: 1em;
+  color: #a3221b;
+  letter-spacing: 4px;
+}
+
+.dossier.expired {
+  background: #ead58a;
+}
+
+.file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 12px;
+}
+
 /* ── TOP ART-DECO BRASS & BAKELITE NIGHT-DESK RAIL ── */
 .brass-rail {
   display: flex;

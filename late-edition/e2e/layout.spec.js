@@ -51,8 +51,9 @@ test('Tab and arrows select stories; all six destinations and unplace work witho
   const banner = page.locator('#layout-slots [data-slot-id="banner"]');
   await expect(banner).not.toHaveClass(/empty/);
   await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('2');
+  await page.keyboard.press('f');
   await expect(page.locator('#layout-slots [data-slot-id="above_fold"]')).not.toHaveClass(/empty/);
+  await expect(page.locator('#drawer-body')).toBeHidden();
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('p');
   await expect(page.locator('#layout-slots [data-slot-id="photo_expose"]')).not.toHaveClass(/empty/);
@@ -106,7 +107,7 @@ test('keyboard assignment at expired deadline cannot alter the published page', 
   // Cross the deadline inside this keyboard event, before the app's handler.
   await page.evaluate(() => {
     window.addEventListener('keydown', (event) => {
-      if (event.key === 'f') {
+      if (event.key === '2') {
         const { sim } = window.lateEditionApp;
         sim.paused = false;
         sim.clockSec = 209.99;
@@ -114,7 +115,7 @@ test('keyboard assignment at expired deadline cannot alter the published page', 
       }
     }, { once: true, capture: true });
   });
-  await page.keyboard.press('f');
+  await page.keyboard.press('2');
   await expect(page.getByRole('dialog')).toBeVisible();
   expect(await page.evaluate(() => ({ fold: window.lateEditionApp.sim.lastPrintedFrontPage.above_fold,
     printed: window.lateEditionApp.sim.editionsPrinted }))).toEqual({ fold: null, printed: 1 });
@@ -122,7 +123,7 @@ test('keyboard assignment at expired deadline cannot alter the published page', 
 
 test('empty-banner print shows wire stand-in and trust penalty; assist is visibly scored', async ({ page }) => {
   await copyDesk(page);
-  await page.keyboard.press('f');
+  await page.keyboard.press('2');
   const projection = await page.evaluate(() => window.lateEditionApp.sim.calculateEditionProjection());
   await page.locator('#btn-roll-press').click();
   await expect(page.getByRole('dialog')).toContainText('WIRE STAND-IN: −6 trust.');

@@ -1,5 +1,47 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.7.0] — 2026-10-21 (#86 — The file drawer)
+
+### Added
+- Six-card manila drawer; spiking converts copy into a named-subject dossier with
+  tags, weight, three-night freshness and exposure. Full capacity rejects atomically
+  and asks the editor which file to shred. Every publish ages files; expiry shreds
+  with a wire notice. Dossiers, subject state, pending calls and raid protection
+  persist across editions and are included in the gameplay hash; disk saves are #87.
+- Pure `useFile(uid, action, target?)` and `shredFile(uid)` commands. Favors call a
+  valuable district tip, stop one goon/bank one raid block, or kill a rival's target
+  story while preserving player access. Squeezes trade evidence for cash/protection,
+  growing exposure and seeded burn risk; a burn destroys evidence and schedules a
+  private-line payoff/trust-and-heat dilemma 1–2 editions later.
+- Print later produces EXCLUSIVE — HELD copy: +50% when the subject's arc/publication
+  advanced, −25% otherwise. Original value, age and exposure survive re-filing;
+  held tray copy and live contact tips age too. Tips retain source exposure to
+  prevent tip/scoop/re-file cash loops. Dead/exposed subjects reject blackmail. Unaffordable
+  payoffs reject; timeout/printing cannot evade a burned-source consequence.
+- Drawer handle and D shortcut, native keyboard actions with stable keyed focus,
+  carbon-blue freshness dots and red exposure pinholes. Fold retains F/2.
+  Full-drawer pending spikes support explicit cancellation
+  and invalidate at the deadline. New styling uses only the period palette.
+- Adversarial Node tests for capacity, shredding/expiry, duplicate/expired/burned UID
+  use, all targets and gates, exposure/burn boundaries, delayed calls and both
+  outcomes, insufficient payoff funds, held-copy bonuses and re-file loop attacks.
+  Twenty seeded 20-night greedy and never-spike bots must remain viable under the
+  documented $100,000 total cash ceiling; each fresh weight-5 file yields at most
+  $900 even against an adversarial never-burning RNG.
+- Chromium scenarios for spike → tip → visible lead, keyboard squeeze, full-drawer
+  shred/cancel and deadline invalidation. Fuzz invariants enforce capacity and
+  drawer/tray uniqueness. Five-edition golden hashes repinned for new subject and
+  drawer consequence state; replay inputs unchanged. README and agent guide updated.
+
+### Fixed
+- Resolved the drawer/Fold shortcut collision found during manual review: D
+  (desk drawer) toggles the drawer in desk and paste-up; F assigns selected copy
+  to Fold. Button labels and help match. All application shortcuts share a
+  phase-specific `HOTKEYS` table; Node tests reject duplicate bindings and injected
+  collisions, including the original F regression. Chromium verifies F placement,
+  occupied-Fold rejection, D toggling in both phases, repeat-key suppression and
+  drawer/modal isolation.
+
 ## [2.6.0] — 2026-10-21 (#85 — Hand layout)
 
 ### Added
