@@ -206,6 +206,17 @@ export class AetheriumRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(`${sim.multiplier}×`, 0, 48);
+
+    // Diegetic Magnetkinesis Keycap Badge inside Sanctum Ring
+    this.drawKeycapBadge(
+      ctx,
+      0,
+      90,
+      'W',
+      magOn ? 'MAGNET ON' : `MAGNET ${Math.round(sim.magnetCharge)}%`,
+      '#38bdf8',
+      magOn
+    );
     ctx.restore();
 
     // 5 Radial Shot-Guide Chevrons above Flippers
@@ -279,10 +290,15 @@ export class AetheriumRenderer {
     ctx.textAlign = 'right';
     ctx.fillText('COAGULA // OPUS II', 442, 878);
 
+    // Diegetic Flipper & Nudge Keycap Badges on Lower Cabinet Apron
+    this.drawKeycapBadge(ctx, 76, 860, 'Z / ←', 'LEFT FLIP', '#f59e0b', sim.leftFlipperDown);
+    this.drawKeycapBadge(ctx, 408, 860, 'M / →', 'RIGHT FLIP', '#f59e0b', sim.rightFlipperDown);
+    this.drawKeycapBadge(ctx, 242, 864, 'A·X·D', 'NUDGE', '#94a3b8', false);
+
     ctx.fillStyle = 'rgba(212, 168, 83, 0.34)';
     ctx.font = '700 8.5px "Cinzel", serif';
     ctx.textAlign = 'center';
-    ctx.fillText('THE GRAND ATHANOR · 1618', 242, 884);
+    ctx.fillText('THE GRAND ATHANOR · 1618', 242, 886);
     ctx.restore();
 
     // Left Outlane Kickback Indicator Arrow
@@ -578,6 +594,24 @@ export class AetheriumRenderer {
     ctx.arc(0, 0, b.r - 5, -Math.PI / 2, -Math.PI / 2 + hpRatio * Math.PI * 2);
     ctx.stroke();
 
+    // On-Table Boss Ritual Callout & Shield Gap Prompt (below Homunculi orbit)
+    ctx.fillStyle = 'rgba(12, 9, 20, 0.88)';
+    ctx.strokeStyle = 'rgba(212, 168, 83, 0.55)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(-80, b.r + 42, 160, 17, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = b.hitFlash > 0 ? '#ffffff' : '#fde047';
+    ctx.font = '700 8.5px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const bossPrompt = b.hitFlash > 0
+      ? '✦ DIRECT CORE STRIKE! ✦'
+      : `⚡ AIM PAST SHIELDS (${Math.ceil(b.hp)} HP)`;
+    ctx.fillText(bossPrompt, 0, b.r + 50.5);
+
     ctx.restore();
 
     // 4. Clockwork Homunculi Sentries
@@ -656,6 +690,26 @@ export class AetheriumRenderer {
     ctx.lineWidth = 1.2;
     ctx.fillRect(px - 10, topY, 20, 5);
     ctx.strokeRect(px - 10, topY, 20, 5);
+
+    // Diegetic Plunger Keycap Prompt in Shooter Lane
+    const shooterWaiting = sim.balls.some(b => b.inShooter);
+    if (shooterWaiting || sim.plungerCharging) {
+      ctx.fillStyle = 'rgba(12, 9, 20, 0.92)';
+      ctx.strokeStyle = sim.plungerCharging ? '#fde047' : '#d4a853';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.roundRect(px - 15, 718, 30, 32, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#fde047';
+      ctx.font = '700 7.5px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('SPACE', px, 730);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '700 7px "IBM Plex Mono", monospace';
+      ctx.fillText('LAUNCH', px, 742);
+    }
     ctx.restore();
 
     // Center Aegis Drain Save Post (between main flippers at (241, 828))
@@ -799,5 +853,41 @@ export class AetheriumRenderer {
     ctx.fillStyle = '#fde047';
     ctx.font = '600 9.5px "IBM Plex Mono", monospace';
     ctx.fillText(subText, W / 2, 46);
+  }
+
+  drawKeycapBadge(ctx, x, y, keyText, labelText, accent, active = false) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.font = '700 8px "IBM Plex Mono", monospace';
+    const keyW = Math.max(22, ctx.measureText(keyText).width + 10);
+    const labelW = labelText ? ctx.measureText(labelText).width + 8 : 0;
+    const totalW = keyW + labelW;
+    const h = 16;
+
+    // Outer pill
+    ctx.fillStyle = active ? 'rgba(251, 191, 36, 0.25)' : 'rgba(12, 9, 20, 0.88)';
+    ctx.strokeStyle = active ? '#fde047' : accent;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(-totalW / 2, -h / 2, totalW, h, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    // Keycap box on left
+    ctx.fillStyle = active ? '#fde047' : 'rgba(212, 168, 83, 0.22)';
+    ctx.beginPath();
+    ctx.roundRect(-totalW / 2 + 1.5, -h / 2 + 1.5, keyW - 2, h - 3, 3);
+    ctx.fill();
+
+    ctx.fillStyle = active ? '#09070f' : '#fef08a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(keyText, -totalW / 2 + keyW / 2, 0.5);
+
+    if (labelText) {
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText(labelText, -totalW / 2 + keyW + labelW / 2 - 1, 0.5);
+    }
+    ctx.restore();
   }
 }
