@@ -8,6 +8,10 @@ import {
   EDITION_DURATION_SEC,
   EDITION_TIME_SCALE,
   LEAD_LIFETIME_SEC,
+  PASTE_UP_START_SEC,
+  INSIDE_SLOT,
+  ASSIST_READER_PENALTY,
+  EMPTY_BANNER_TRUST_PENALTY,
   isUnlocked,
   DISTRICTS,
   OPERATIVE_ROSTER,
@@ -130,6 +134,10 @@ export class LateEditionSim {
 
     // Scooped Stories & 4 Front-Page Broadsheet Slots
     this.scoopedStories = [];
+    this.insideStories = [];
+    this.spikedStories = [];
+    // edition remains the numeric night counter; layout owns per-edition scoring flags.
+    this.editionLayout = { assisted: false };
     this.frontPage = {
       banner: null,
       above_fold: null,
@@ -210,53 +218,118 @@ export class LateEditionSim {
     if (this.wireLog.length > 24) this.wireLog.length = 24;
   }
 
+  _placedEntries() {
+    return [
+      ...FRONT_PAGE_SLOTS.flatMap((slot) => this.frontPage[slot.id] ? [[slot, this.frontPage[slot.id]]] : []),
+      ...this.insideStories.map((story) => [INSIDE_SLOT, story]),
+    ];
+  }
+
   calculateEditionProjection() {
     let cashDelta = 110;
     let circDelta = 0;
     let credDelta = 0;
     let heatDelta = 0;
-    let platedCount = 0;
     let seriesBonusReaders = 0;
-
-    for (const slot of FRONT_PAGE_SLOTS) {
-      const st = this.frontPage[slot.id];
-      if (!st) continue;
-      platedCount++;
-      const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
-      const rivalMul = st.scoopedByRival && !st.photoVerified ? 0.5 : 1.0;
+    const entries = this._placedEntries();
+    for (const [slot, st] of entries) {
+      const buried = slot.id === 'inside';
+      const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1;
+      const rivalMul = st.scoopedByRival && !st.photoVerified ? 0.5 : 1;
       const storyCash = Math.round(st.baseValue * slot.mul * photoMul * rivalMul);
       cashDelta += storyCash;
       circDelta += Math.round(storyCash * 14);
-      credDelta += st.credibility + slot.credBonus;
-      heatDelta += st.heat + slot.heatDelta;
-
-      if (st.arcPart) {
-        const arcReaderBonus =
-          st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200;
-        const arcCashBonus =
-          st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60;
-        seriesBonusReaders += arcReaderBonus;
-        circDelta += arcReaderBonus;
-        cashDelta += arcCashBonus;
-        if (st.arcPart === 3) {
-          heatDelta -= 12;
-        }
+      credDelta += buried ? Math.round(st.credibility * 0.25) : st.credibility + slot.credBonus;
+      const tags = [st.beat, ...(Array.isArray(st.tags) ? st.tags : [])];
+      const accusation = tags.some((tag) => /^(crime|graft|syndicate)$/i.test(tag));
+      heatDelta += buried ? Math.round(st.heat * 0.25) :
+        st.heat + slot.heatDelta + (slot.id === 'banner' && accusation ? 8 : 0);
+      if (st.arcId && st.arcPart) {
+        // Burial reduces series value too; otherwise Inside would bypass its low-value tradeoff.
+        const weight = buried ? 0.25 : 1;
+        const readers = Math.round((st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200) * weight);
+        seriesBonusReaders += readers;
+        circDelta += readers;
+        cashDelta += Math.round((st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60) * weight);
+        if (st.arcPart === 3) heatDelta -= Math.round(12 * weight);
       }
     }
-
-    if (platedCount === 0) {
+    if (entries.length === 0) {
       credDelta -= 12;
       circDelta -= 1800;
     }
+    if (!this.frontPage.banner) credDelta -= EMPTY_BANNER_TRUST_PENALTY;
+    if (this.editionLayout.assisted) circDelta -= ASSIST_READER_PENALTY;
+    return { cashDelta, circDelta, credDelta, heatDelta,
+      platedCount: entries.length, seriesBonusReaders };
+  }
 
-    return {
-      cashDelta,
-      circDelta,
-      credDelta,
-      heatDelta,
-      platedCount,
-      seriesBonusReaders,
-    };
+  lockUp() {
+    if (!this.canDispatch() || this.awaitingFirstDispatch || this.editionSummary) return { ok: false, reason: 'desk-unavailable' };
+    this.phase = 'paste-up';
+    this.setBanner('PASTE-UP // LOCK UP THE PAGE', 'SELECT COPY. BANNER, FOLD, PHOTO, EDITORIAL, INSIDE OR SPIKE.', 5);
+    return { ok: true, reason: null };
+  }
+
+  canLayout() {
+    return this.phase === 'paste-up' && !this.deskTooSmall && !this.gameOver &&
+      !this.editionSummary && this.clockSec < EDITION_DURATION_SEC;
+  }
+
+  placeStory(uid, slotId) {
+    if (!this.canLayout()) return { ok: false, reason: 'layout-closed' };
+    if (slotId !== 'inside' && !FRONT_PAGE_SLOTS.some((slot) => slot.id === slotId)) return { ok: false, reason: 'unknown-slot' };
+    if (this._placedEntries().some(([, story]) => story.uid === uid)) return { ok: false, reason: 'already-placed' };
+    const index = this.scoopedStories.findIndex((story) => story.uid === uid);
+    if (index < 0) return { ok: false, reason: 'unknown-story' };
+    // Reject occupied slots: never silently swap or displace the player's copy.
+    if (slotId !== 'inside' && this.frontPage[slotId]) return { ok: false, reason: 'slot-occupied' };
+    const [story] = this.scoopedStories.splice(index, 1);
+    if (slotId === 'inside') this.insideStories.push(story);
+    else this.frontPage[slotId] = story;
+    this.audio.typewriter();
+    return { ok: true, reason: null };
+  }
+
+  unplace(uid) {
+    if (!this.canLayout()) return { ok: false, reason: 'layout-closed' };
+    const entry = this._placedEntries().find(([, story]) => story.uid === uid);
+    if (!entry) return { ok: false, reason: 'not-placed' };
+    this._removePlaced(uid);
+    this.scoopedStories.push(entry[1]);
+    return { ok: true, reason: null };
+  }
+
+  _removePlaced(uid) {
+    for (const slot of FRONT_PAGE_SLOTS) {
+      if (this.frontPage[slot.id]?.uid === uid) this.frontPage[slot.id] = null;
+    }
+    this.insideStories = this.insideStories.filter((story) => story.uid !== uid);
+  }
+
+  spike(uid) {
+    if (!this.canLayout()) return { ok: false, reason: 'layout-closed' };
+    const story = this.scoopedStories.find((story) => story.uid === uid) ??
+      this._placedEntries().find(([, story]) => story.uid === uid)?.[1];
+    if (!story) return { ok: false, reason: 'unknown-story' };
+    this._removePlaced(uid);
+    this.scoopedStories = this.scoopedStories.filter((story) => story.uid !== uid);
+    this.spikedStories.push(story);
+    return { ok: true, reason: null };
+  }
+
+  assistLayout() {
+    if (!this.canLayout()) return { ok: false, reason: 'layout-closed' };
+    // Charge once per edition, even on an empty tray, so repeated assist cannot evade scoring.
+    this.editionLayout.assisted = true;
+    const sorted = [...this.scoopedStories].sort((a, b) => b.baseValue - a.baseValue);
+    for (const slot of FRONT_PAGE_SLOTS) {
+      if (this.frontPage[slot.id]) continue;
+      const story = (slot.prefersPhoto && sorted.find((story) => story.photoVerified)) || sorted[0];
+      if (!story) break;
+      if (this.placeStory(story.uid, slot.id).ok) sorted.splice(sorted.indexOf(story), 1);
+    }
+    return { ok: true, reason: null };
   }
 
   setBanner(title, sub, timer = 3.5) {
@@ -283,12 +356,12 @@ export class LateEditionSim {
     for (const key of ['phase', 'awaitingFirstDispatch', 'deskTooSmall', 'time', 'edition', 'maxEditions', 'clockSec', 'speed', 'paused',
       'gameOver', 'victory', 'cash', 'circulation', 'credibility', 'syndicateHeat',
       'pressHp', 'editionsPrinted', 'lastPublishedTime', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
-      'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
+      'editionLayout', 'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
       'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws']) {
       state[key] = this[key];
     }
     state.rng = this.rng.getState?.() ?? null;
-    for (const key of ['operatives', 'leads', 'scoopedStories', 'rivals', 'rivalStandings', 'districts']) {
+    for (const key of ['operatives', 'leads', 'scoopedStories', 'insideStories', 'spikedStories', 'rivals', 'rivalStandings', 'districts']) {
       state[key] = this[key].map(withoutCosmetics);
     }
     state.frontPage = Object.fromEntries(Object.entries(this.frontPage)
@@ -319,7 +392,7 @@ export class LateEditionSim {
 
         const alreadyPresent =
           this.leads.some((l) => l.arcId === arc.id) ||
-          this.scoopedStories.some((s) => s.arcId === arc.id) ||
+          [...this.scoopedStories, ...this.insideStories, ...this.spikedStories].some((s) => s.arcId === arc.id) ||
           Object.values(this.frontPage).some(
             (s) => s && s.arcId === arc.id && s.arcPart === nextPartNum
           );
@@ -469,36 +542,6 @@ export class LateEditionSim {
     this.dispatchOperativeToLead(rep.id, lead.uid);
   }
 
-  plateStoryToFrontPage(storyUid, preferredSlotId = null) {
-    // A misspelled slot must not remove a story into an unprintable property.
-    if (preferredSlotId !== null && !FRONT_PAGE_SLOTS.some((slot) => slot.id === preferredSlotId)) {
-      return false;
-    }
-    const idx = this.scoopedStories.findIndex((s) => s.uid === storyUid);
-    const story = idx >= 0 ? this.scoopedStories[idx] : null;
-    if (!story) return false;
-
-    let slotId = preferredSlotId;
-    if (!slotId) {
-      if (story.photoVerified && !this.frontPage.photo_expose) {
-        slotId = 'photo_expose';
-      } else {
-        const order = ['banner', 'above_fold', 'photo_expose', 'editorial'];
-        slotId = order.find((k) => !this.frontPage[k]) || 'banner';
-      }
-    }
-
-    // If slot already had a story, return it to queue
-    if (this.frontPage[slotId]) {
-      this.scoopedStories.push(this.frontPage[slotId]);
-    }
-
-    this.scoopedStories.splice(idx, 1);
-    this.frontPage[slotId] = story;
-    this.audio.typewriter();
-    return true;
-  }
-
   spawnRivalAgent() {
     if (this.rivals.length >= 3) return;
     // No unavoidable press attacks before the fixer and repairs join the payroll.
@@ -632,60 +675,16 @@ export class LateEditionSim {
   }
 
   publishEdition() {
-    if (!this.canDispatch() || this.awaitingFirstDispatch) return false;
+    if (!['desk', 'paste-up'].includes(this.phase) || this.deskTooSmall || this.awaitingFirstDispatch) return false;
     if (this.gameOver || this.pressHp <= 0 || this.lastPublishedTime === this.time) return false;
     // Claim this tick before calling ports: repeated/reentrant inputs print once.
     this.lastPublishedTime = this.time;
-    let editionCash = 110; // Base newsstand sales
-    let circDelta = 0;
-    let credDelta = 0;
-    let heatDelta = 0;
-    let platedCount = 0;
-
-    for (const slot of FRONT_PAGE_SLOTS) {
-      const st = this.frontPage[slot.id];
-      if (!st) continue;
-      platedCount++;
-      const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
-      const rivalMul = st.scoopedByRival && !st.photoVerified ? 0.5 : 1.0;
-      const storyCash = Math.round(st.baseValue * slot.mul * photoMul * rivalMul);
-      editionCash += storyCash;
-      circDelta += Math.round(storyCash * 14);
-      credDelta += st.credibility + slot.credBonus;
-      heatDelta += st.heat + slot.heatDelta;
-
-      if (st.arcId && st.arcPart) {
-        const arcReaderBonus =
-          st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200;
-        const arcCashBonus =
-          st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60;
-        circDelta += arcReaderBonus;
-        editionCash += arcCashBonus;
-        if (st.arcPart === 3) {
-          heatDelta -= 12;
-        }
-        this.arcProgress[st.arcId] = Math.max(
-          this.arcProgress[st.arcId] || 0,
-          st.arcPart
-        );
-        if (st.arcPart < 3) {
-          this.logWire(
-            presentation.arcPublished(st, arcReaderBonus),
-            'scoop'
-          );
-        } else {
-          this.logWire(
-            presentation.arcFinale(st),
-            'scoop'
-          );
-        }
-      }
-    }
-
-    if (platedCount === 0) {
-      // Blank front page penalty
-      credDelta -= 12;
-      circDelta -= 1800;
+    const { cashDelta: editionCash, circDelta, credDelta, heatDelta, platedCount } = this.calculateEditionProjection();
+    for (const [slot, st] of this._placedEntries()) {
+      if (!st.arcId || !st.arcPart) continue;
+      this.arcProgress[st.arcId] = Math.max(this.arcProgress[st.arcId] || 0, st.arcPart);
+      const readers = Math.round((st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200) * (slot.id === 'inside' ? 0.25 : 1));
+      this.logWire(st.arcPart === 3 ? presentation.arcFinale(st) : presentation.arcPublished(st, readers), 'scoop');
     }
 
     this.cash += editionCash;
@@ -712,6 +711,9 @@ export class LateEditionSim {
     this.editionSummary = {
       edition: printedEditionNum,
       reason: 'PRESS RUN COMPLETE',
+      assisted: this.editionLayout.assisted,
+      emptyBanner: !this.frontPage.banner,
+      insideCount: this.insideStories.length,
       slottedCount: platedCount,
       circDelta,
       cashDelta: editionCash,
@@ -739,6 +741,9 @@ export class LateEditionSim {
       photo_expose: null,
       editorial: null,
     };
+    this.insideStories = [];
+    this.editionLayout = { assisted: false };
+    this.phase = 'desk';
     this.clockSec = 0;
     this.edition++;
     this.dilemmaTriggeredThisEdition = false;
@@ -767,7 +772,7 @@ export class LateEditionSim {
   }
 
   step(dt) {
-    if (!Number.isFinite(dt) || dt <= 0 || this.paused || this.gameOver || this.phase !== 'desk' ||
+    if (!Number.isFinite(dt) || dt <= 0 || this.paused || this.gameOver || !['desk', 'paste-up'].includes(this.phase) ||
       this.deskTooSmall || (this.edition === 1 && this.awaitingFirstDispatch)) return;
     // Consume up to 10 seconds in <=50 ms slices, never a teleport-sized tick.
     // The catch-up cap prevents hostile finite deltas from monopolizing the loop.
@@ -805,6 +810,8 @@ export class LateEditionSim {
         this.resolveDilemma(false);
       }
     }
+
+    if (this.phase === 'desk' && this.clockSec >= PASTE_UP_START_SEC) this.lockUp();
 
     // Midnight print deadline reached!
     if (this.clockSec >= EDITION_DURATION_SEC) {
@@ -1086,16 +1093,7 @@ export class LateEditionSim {
     };
 
     this.scoopedStories.push(story);
-    // Auto-plate into the first open front-page slot so players immediately see their broadsheet fill up!
-    const openOrder = story.photoVerified
-      ? ['photo_expose', 'banner', 'above_fold', 'editorial']
-      : ['banner', 'above_fold', 'editorial', 'photo_expose'];
-    const openSlot = openOrder.find((k) => !this.frontPage[k]);
-    if (openSlot) {
-      this.plateStoryToFrontPage(story.uid, openSlot);
-    } else {
-      this.audio.wireBell();
-    }
+    this.audio.wireBell();
 
     this.addCallout(
       lead.x,

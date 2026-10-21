@@ -14,8 +14,8 @@ test('simultaneous completion gives the player the scoop before rival processing
   const rivalCirculation = sim.rivalStandings[0].circulation;
   sim.step(0.05);
   assert.equal(sim.scoopsTotal, 1);
-  assert.equal(sim.frontPage.banner.uid, lead.uid);
-  assert.equal(sim.frontPage.banner.scoopedByRival, false);
+  assert.equal(sim.scoopedStories[0].uid, lead.uid);
+  assert.equal(sim.scoopedStories[0].scoopedByRival, false);
   assert.equal(sim.rivalStandings[0].circulation, rivalCirculation);
   assert.ok(!sim.leads.some((l) => l.uid === lead.uid));
   assert.equal(sim.rivals[0].targetLeadId, sim.leads[0].uid, 'Rival retargets a remaining lead');
@@ -36,7 +36,9 @@ test('rival-first contested lead remains available with a half-value flag', () =
   assert.equal(sim.rivalStandings[0].circulation, circulation + 1400);
   assert.equal(sim.rivals.length, 0);
   sim.completeLeadScoop(lead);
-  assert.equal(sim.frontPage.banner.scoopedByRival, true);
+  assert.equal(sim.scoopedStories[0].scoopedByRival, true);
+  sim.lockUp();
+  sim.placeStory(lead.uid, 'banner');
   assert.equal(sim.calculateEditionProjection().cashDelta, 110 + Math.round(lead.baseValue) + 60,
     'The rival halves story sales; the part-one arc bonus is still $60');
 });

@@ -14,7 +14,7 @@ function playFiveEditions(options = {}) {
   const hashes = [];
   for (let edition = 0; edition < 5; edition++) {
     for (let tick = 0; tick < 4200; tick++) {
-      if (tick % 160 === 0) {
+      if (tick % 160 === 0 && sim.phase === 'desk') {
         for (const [index, id] of ['rep_1', 'rep_2', 'photog_1'].entries()) {
           const lead = sim.leads[index % sim.leads.length];
           if (lead && isUnlocked(id === 'photog_1' ? 'photographer' : 'reporter', sim.edition)) assert.equal(sim.dispatchOperativeToLead(id, lead.uid), true);
@@ -22,11 +22,18 @@ function playFiveEditions(options = {}) {
       }
       if (tick % 400 === 0) sim.fortifyPressRoom();
       if (tick === 1900) sim.resolveDilemma(edition % 2 === 0);
+      if (sim.phase === 'paste-up') {
+        for (const slot of ['banner', 'above_fold', 'photo_expose', 'editorial']) {
+          const story = sim.scoopedStories[0];
+          if (story && !sim.frontPage[slot]) assert.equal(sim.placeStory(story.uid, slot).ok, true);
+        }
+      }
       sim.step(MAX_SUBSTEP_SEC);
       assert.equal(sim.gameOver, false, sim.gameOverReason);
     }
     sim.publishEdition();
     hashes.push(sim.getStateHash());
+    if (edition < 4) sim.editionSummary = null;
   }
   assert.equal(sim.editionsPrinted, 5);
   assert.equal(sim.edition, 6);
@@ -41,9 +48,9 @@ test('five-edition scripted replay matches the golden gameplay hashes', () => {
   const first = playFiveEditions();
   assert.deepEqual(first.hashes, playFiveEditions().hashes);
   assert.deepEqual(first.hashes, [
-    // #84: 210-second editions, stretched expiry/rival windows, staged payroll,
-    // no early saboteurs, and opening gates now belong to canonical gameplay.
-    '8d3cd5b3', 'd4a0bb1b', '680b7880', 'b061d89e', '17cbd09c',
+    // #85: manual placement at paste-up, accusation/empty-banner scoring,
+    // Inside/Spike collections and per-edition assist state are canonical.
+    '4b769688', '904e5ddf', 'ca634604', 'f74fc4d2', '1a4f538c',
   ]);
   assert.notEqual(first.sim.getStateHash(), playFiveEditions({ seed: 82 }).sim.getStateHash());
 });
@@ -145,7 +152,10 @@ test('valid stored score is retained and writes keep the existing key', () => {
   sim.publishEdition();
   assert.equal(sim.highCirculation, 20000);
   assert.equal(writes.length, 0, 'Lower scores must not overwrite a best');
+  sim.editionSummary = null;
   sim.completeLeadScoop(sim.leads[0]);
+  sim.lockUp();
+  sim.placeStory(sim.scoopedStories[0].uid, 'banner');
   sim.step(MAX_SUBSTEP_SEC);
   sim.publishEdition();
   assert.equal(writes.length, 1);

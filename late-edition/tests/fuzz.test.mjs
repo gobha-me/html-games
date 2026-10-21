@@ -17,7 +17,8 @@ function assertInvariants(sim, wasGameOver) {
   assert.ok(sim.cash >= 0, 'No action may create debt');
   const plated = Object.values(sim.frontPage).filter(Boolean).map((s) => s.uid);
   assert.equal(new Set(plated).size, plated.length, 'One story per slot at most');
-  const allStories = [...plated, ...sim.scoopedStories.map((s) => s.uid)];
+  const allStories = [...plated, ...sim.scoopedStories.map((s) => s.uid),
+    ...sim.insideStories.map((s) => s.uid), ...sim.spikedStories.map((s) => s.uid)];
   assert.equal(new Set(allStories).size, allStories.length, 'Plated stories cannot remain queued');
   if (wasGameOver) assert.equal(sim.gameOver, true, 'Game over is sticky until explicit reset');
 }
@@ -37,8 +38,12 @@ for (let seed = 0; seed < 50; seed++) {
       () => sim.autoDispatchBestForLead(leadId()),
       () => sim.dispatchOperativeToPoint(opId(), commands.nextInt(-500, 2000), commands.nextInt(-500, 2000)),
       () => sim.dispatchOperativeToPoint(opId(), pick([NaN, Infinity, -Infinity, '50', null]), 50),
-      () => sim.plateStoryToFrontPage(pick([...sim.scoopedStories.map((s) => s.uid), 'missing_story']),
-        pick([null, 'banner', 'above_fold', 'photo_expose', 'editorial', 'missing_slot', '__proto__'])),
+      () => sim.placeStory(pick([...sim.scoopedStories.map((s) => s.uid), 'missing_story']),
+        pick(['inside', 'banner', 'above_fold', 'photo_expose', 'editorial', 'missing_slot', '__proto__'])),
+      () => sim.lockUp(),
+      () => sim.assistLayout(),
+      () => sim.unplace(pick([...sim.scoopedStories, ...Object.values(sim.frontPage).filter(Boolean), ...sim.insideStories, { uid: 'missing' }]).uid),
+      () => sim.spike(pick([...sim.scoopedStories, ...Object.values(sim.frontPage).filter(Boolean), ...sim.insideStories, { uid: 'missing' }]).uid),
       () => sim.triggerWiretap(),
       () => sim.fortifyPressRoom(),
       () => { if (sim.credibility >= 70 || sim.gameOver) sim.acceptSyndicateBribe(); },
@@ -66,6 +71,7 @@ for (let seed = 0; seed < 50; seed++) {
     while (sim.editionsPrinted < 3 && steps < 1200) {
       assert.equal(sim.gameOver, false, `Unexpected early loss: ${sim.gameOverReason}, action ${steps}`);
       pick(actions)();
+      sim.editionSummary = null;
       assertInvariants(sim, false);
       sim.step(pick([0.05, 0.25, 1, 3]));
       assertInvariants(sim, false);
@@ -75,6 +81,8 @@ for (let seed = 0; seed < 50; seed++) {
 
     // Force both real terminal paths, then attack them with every command type.
     sim.paused = false;
+    sim.phase = 'desk';
+    sim.editionSummary = null;
     if (seed % 2 === 0) {
       parkOperatives(sim);
       sim.pressHp = 0.1;

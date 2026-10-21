@@ -42,10 +42,32 @@ is saved; continuing a saved run belongs to the later save/load feature.
    - **[4] "Knuckles" Malone (`ENFORCE-1` Street Fixer)** — Intercepts *Daily Herald* rival reporters and *Observer Syndicate* saboteurs (+$35 bounty per neutralization).
 2. **② Click a Breaking Lead on the Map (or Pinned Yellow Telegram Wire Slip):**
    - Dispatches your selected operative along street avenues to investigate the lead before rival *Daily Herald* reporters scoop it.
-3. **③ Plate Exclusive Scoops on the Broadsheet & Roll the Presses (`[SPACE]`):**
-   - At the start of each night shift, the 4 front-page columns (`Banner Headline 2.0×`, `Above-the-Fold Lead 1.5×`, `Darkroom Photo Exposé 1.6×`, `Editorial Column 1.2×`) hold faded sepia municipal **Wire Stand-In** stories.
-   - Verified scoops automatically rip off the wire stand-in and plate bold black-ink headlines, datelines, multi-column justified newspaper copy, and halftone darkroom plates onto the front page!
-   - Press **`[SPACE]`** (or pull the **🖨️ ROLL PRESSES** lever) at any time, or let the engraved brass flip-clock reach `12:00 AM` midnight to print the edition.
+3. **③ Lock up, lay out the page, then roll the presses:**
+   - Scoops arrive **unplaced** in the copy tray. At **11:00 PM** (175 seconds),
+     the desk shifts to paste-up and focuses the first story. Press **L** or click
+     **Lock up the page** after the first dispatch to start earlier. Dispatch orders
+     close during paste-up; assignments already in the field keep working.
+   - Select a story with **Tab**, **arrow keys**, or a click. Drag its galley proof
+     onto a slot, or assign with **1/B Banner (2.0×)**, **2/F Fold (1.5×)**,
+     **3/P Photo (1.6×)**, **4/E Editorial (1.2×)**, **5/I Inside**, **6/S Spike**.
+     These keys take precedence over operative/repair/pause keys during paste-up;
+     the pause button still works. Enter/Space activates focused controls.
+   - Occupied slots reject new copy. Select placed copy and press **U** or **Delete**
+     (or Return to tray) before moving it; one story can never occupy two slots.
+     **Inside** takes any count, at **¼ value, series bonuses, trust and heat**,
+     rounded per story. Spike removes tray, front-page or Inside copy from scoring
+     and keeps it in the sim's spiked list across editions; the file drawer comes in #86.
+   - A CRIME/GRAFT/SYNDICATE accusation in the Banner adds **8 extra heat**.
+     An empty Banner prints its **wire stand-in and costs 6 trust**, including when
+     other copy is placed. A wholly empty paper also retains its −12 trust and
+     −1,800-reader penalty (−18 trust total).
+   - **A** is an optional assist: fills only empty front-page slots from the tray,
+     preserves manual placements, flags the edition **ASSISTED**, and subtracts
+     **500 readers once per edition**, even if invoked on an empty tray. The flag
+     and penalty appear in the projection and press report. Manual layout is the default.
+   - Press **Space** away from controls or pull **ROLL PRESSES** to publish early.
+     At midnight the paper prints **only what is placed**; pending drags are canceled,
+     with unplaced stories retained in the tray. Escape cancels a drag without moving copy.
 
 When trust reaches zero or saboteurs destroy the presses, the **PAPER FOLDED**
 telegram shows the reason, edition reached, this run's peak circulation, and final
@@ -54,7 +76,7 @@ front page (the current paste-up if it has copy, otherwise the last printed page
 the saved all-time record remains. Space on the telegram never rolls presses.
 
 Keyboard-only: use **Tab/Shift+Tab** to reach passes, wire leads, scoops and page
-slots; **Enter/Space** activates the focused control. **[1]–[4]** selects a pass.
+slots; **Enter/Space** activates the focused control. **[1]–[4]** selects a pass before paste-up.
 Space away from controls rolls presses; on an edition report it continues.
 Reports move focus to their action and restore the previous control on dismissal.
 
@@ -92,7 +114,7 @@ equal gameplay hashes. Browser storage, audio and clocks are injected ports.
 See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint, stylelint and HTML validation are
 enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
 for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
-and art bible; its manual layout, file drawer and visual overhaul are targets.
+and art bible; manual layout is playable, while the file drawer and visual overhaul remain targets.
 
 ## Deterministic runs
 
@@ -122,9 +144,10 @@ only; gameplay time always comes from `step()`. Renderer rain/ripples may use
 `Math.random()` independently without advancing the gameplay generator.
 
 The golden test runs five full 210-second editions with progressive payroll,
-dispatches, investigation, auto-plating, rivals, fortification and night-four/five
-phone choices, asserting a pinned hash after each print. Issue #84 repins the
-hashes for the longer timings, gated mechanics and canonical opening/viewport gates.
+dispatches, investigation, manual placement during paste-up, rivals, fortification
+and night-four/five phone choices, asserting a pinned hash after each print.
+Issue #85 repins the hashes for explicit layout, accusation/empty-banner scoring,
+Inside/Spike collections and the per-edition assist flag.
 Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
 zero. Blocked reads and quota-exceeded writes never interrupt play; the current
 run's best is retained in memory.
@@ -133,6 +156,15 @@ New simulations and `reset()` begin at `phase: "title"`. Call `startNightShift()
 then `finishColdOpen()` to enter the desk; a successful dispatch releases the
 first-night clock. The UI drives the separate `ColdOpen` presentation clock.
 `deskTooSmall` stops simulation without changing `paused` or the opening phase.
+`lockUp()` enters `phase: "paste-up"`; `placeStory(uid, slotId)`, `unplace(uid)` and
+`spike(uid)` return `{ok, reason}` and reject atomically outside active paste-up,
+including at/after the deadline, behind reports, on a folded run or a small desk.
+Slot IDs are `banner`, `above_fold`, `photo_expose`, `editorial`, `inside`.
+`spike(uid)` is the SPIKE command, separate from placement; `spikedStories` persists
+until reset. `insideStories` is cleared on print. `assistLayout()` owns assist scoring.
+The numeric `edition` counter is retained for compatibility; its scoring flag lives
+in `editionLayout.assisted` and is captured as `editionSummary.assisted` before reset.
+Projection and publishing use the same scoring function.
 
 Publishing returns `true` on success and `false` for a duplicate in the same sim
 tick, a destroyed press or a finished run. The first print can happen at time zero after dispatch;
@@ -167,7 +199,7 @@ The root `.dockerignore` excludes `late-edition/node_modules/` and
 `late-edition/tests/` because the Dockerfile copies the repository into the static
 server image. Tests and their deliberately invalid fixtures are never game assets.
 
-## Browser verification (#83, #84)
+## Browser verification (#83–#85)
 
 Use the supported Node version in `package.json` (22.22+ in 22.x, or 24.8+):
 
@@ -203,7 +235,7 @@ play through one published edition. The tests replace the legacy remote font
 stylesheet with empty CSS so offline runs exercise local fallback fonts; the
 remote typography migration belongs to the planned art pass.
 
-The six lists reconcile keyed nodes; unchanged subtrees stay attached between
+Gameplay lists, including Inside copy, reconcile keyed nodes; unchanged subtrees stay attached between
 250 ms display ticks. Lead membership also reconciles immediately after each
 simulation frame that changes IDs/order, so scooped or expired leads cannot
 remain clickable until the next display tick. Container event delegation is bound
@@ -217,3 +249,9 @@ first dispatch. Opening tests separately force a mid-line skip, reload, a missin
 selection, locked keys, every payroll unlock, the full 30-second call, exact
 1279×720 / 1280×719 rejection and 1280×720 acceptance, resize recovery during play
 and the call, retained user pause, and live reduced-motion preference changes.
+
+Paste-up browser cases exercise pointer drags, occupied-slot rejection, plated
+spiking, all six keyboard destinations, Tab/arrow selection and unplacing, canceled
+drags, deadline expiry during both pointer and keyboard input, empty-banner trust,
+and visibly scored assist. Run browser suites sequentially: concurrent Playwright
+runs share and clear the same report/artifact directories.

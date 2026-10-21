@@ -1,5 +1,38 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.6.0] — 2026-10-21 (#85 — Hand layout)
+
+### Added
+- Paste-up phase at 11 PM (175 seconds) or L / Lock up the page after dispatch.
+  Scoops stay in the tray until placed. Banner, Fold, Photo and Editorial retain
+  their weights; unlimited Inside copy earns ¼ value, trust and heat, including
+  reduced series bonuses. Spiked copy is removed from scoring and retained in
+  `spikedStories` across editions for #86.
+- Pure `placeStory(uid, slotId)`, `unplace(uid)`, `spike(uid)` commands return
+  `{ok, reason}`. Occupied slots reject without displacement; placed copy must
+  return to tray before moving. Unknown/prototype slots and stale UIDs reject atomically.
+- Pointer capture dragging with drop highlighting, cancellation and edition guards;
+  keyboard Tab/arrows selection, 1–6 or B/F/P/E/I/S assignment, U/Delete unplace.
+  The broadsheet takes focus during paste-up; new styling uses the period palette.
+- Accusatory Banner copy adds 8 heat. An empty Banner prints a wire stand-in and
+  costs 6 trust, alongside existing empty-paper penalties. Midnight publishes only
+  placed copy; pending drags cannot alter either the printed page or the next edition.
+- A optional assist fills only empty front-page slots, marks `editionLayout.assisted`
+  and the edition report, and costs 500 readers once per edition. Projection and
+  publishing share scoring, so penalties cannot drift between preview and print.
+- Adversarial Node coverage for layout gates, duplicate/occupied slots, malformed
+  inputs, plated/buried/queued spikes, repeated spikes/assist, burial, accusation,
+  empty Banner, and deadline mid-drag. Chromium covers real pointer and keyboard
+  layout, cancellation, expiry during input, wire stand-ins and visible assist scoring.
+
+### Changed
+- Five-edition replay explicitly lays out stories and repins golden hashes for
+  the new layout state, Inside/Spike collections, assist flag and placement scoring.
+  Existing scoop/rival/photo tests now assert unplaced tray copy. Fuzzing exercises
+  layout/unplace/spike/assist with story uniqueness across every collection.
+- Updated play instructions and agent guide; kept the numeric `edition` counter
+  for compatibility, with per-edition scoring state in `editionLayout`.
+
 ## [2.5.0] — 2026-10-21 (#84 — Taking the night desk)
 
 ### Fixed

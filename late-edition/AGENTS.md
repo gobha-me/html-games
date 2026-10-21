@@ -7,15 +7,14 @@ decisions describe the target, not necessarily today's implementation.
 Keep work inside this game unless the task explicitly permits shared files.
 
 ## Current module map
-
 Static HTML/CSS with native ES modules, no bundler or external runtime dependencies. Serve over HTTP.
 
 | File | Responsibility today |
 | --- | --- |
 | `index.html` | Desk shell, map canvas, broadsheet, controls, rotary-phone card, edition modal; loads `js/main.js`. |
 | `css/style.css` | Mahogany desk, leather blotter, brass rail, newsprint slots, passes, phone and modal styling. |
-| `js/config.js` | 210-second editions, scaled pressure windows, pure payroll unlock/desk-size rules, world, roster, slots, stories, arcs and dilemmas. |
-| `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, plating, projections, publishing, arc progression and dilemmas. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
+| `js/config.js` | Paste-up timing/penalties, 210-second editions, scaled pressure windows, pure payroll unlock/desk-size rules, world, roster, slots, stories, arcs and dilemmas. |
+| `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, explicit layout/Inside/Spike, projections, publishing, arc progression and dilemmas. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
 | `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup and modal focus handling. |
 | `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
 | `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
@@ -45,10 +44,11 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   browser adapters and parses `?seed=N`, falling back to a wall-clock seed.
   Storage uses `readBest`/`writeBest`; audio has optional named cues. Display
   formatting lives in `presentation.js`. Keep browser APIs out of sim logic.
-- Current scoops auto-plate; arc progress advances on publishing; unanswered
-  phone calls take the reject effect. The art bible's manual print/bury/spike
-  workflow and persistent file drawer are future work. Title/cold-open/desk phases,
-  first-dispatch and undersized-desk gates live in sim; UI owns intro time and motion.
+- Scoops stay in the tray. `lockUp()` or 11 PM enters `paste-up`; `placeStory`,
+  `unplace`, `spike` return `{ok, reason}`. Occupied/duplicate placements reject.
+  `insideStories` scores at ¼ weight; `spikedStories` persists until reset (#86).
+  `editionLayout.assisted` flags A's −500 readers; empty Banner costs 6 trust.
+  Sim owns phases/gates/scoring; UI owns pointer capture, selection and stale-drag cancellation.
 
 ## Determinism rules
 
@@ -78,9 +78,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | Photographer | Clara Reyes | `photog_1`. |
 | Street fixer | "Knuckles" Malone | `fixer_1`. |
 
-The legacy `gazette` standings ID labels a Herald (Midtown) circulation row
-to preserve behavior in this string-only naming pass; it is not another paper.
-Do not rename internal IDs or change standings mechanics in a copy-only task.
+Legacy `gazette` labels a Herald (Midtown) row, not another paper.
 
 ## Art and audio direction
 
@@ -132,6 +130,8 @@ and simultaneous rival/player completion, rather than only successful play.
   and textContent/createElement; never interpolate dynamic content into HTML.
 - Run peak and last-printed page are display history, excluded from gameplay hashes.
   Restart chooses fresh browser entropy; sim.reset() itself remains deterministic.
+- `edition` stays numeric; its assist flag is `editionLayout.assisted`, captured in
+  `editionSummary.assisted`. Pointer drags never move sim copy until a valid drop.
 - Audio fetch/resume failures are currently swallowed so missing cues or
   browser autoplay restrictions cannot stop play; fallback tones are intentional.
 - Audit exception (2026-10-21, #80): stylelint 17.16.0's transitive `braces@3.0.3`
