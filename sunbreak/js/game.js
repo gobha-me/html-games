@@ -211,12 +211,12 @@
       container.innerHTML = '';
 
       const ctrlOptions = [
-        { val: 'kb1', label: 'P1 (WASD + J/K/L + Shift Turbo)' },
-        { val: 'kb2', label: 'P2 (Arrows + M/,/. or Num1-3)' },
-        { val: 'gp0', label: 'Gamepad 1 (Controller 0)' },
-        { val: 'gp1', label: 'Gamepad 2 (Controller 1)' },
-        { val: 'gp2', label: 'Gamepad 3 (Controller 2)' },
-        { val: 'gp3', label: 'Gamepad 4 (Controller 3)' },
+        { val: 'kb1', label: 'P1: WASD + J/K/L' },
+        { val: 'kb2', label: 'P2: Arrows + M/,/.' },
+        { val: 'gp0', label: 'Gamepad 1 (Pad 0)' },
+        { val: 'gp1', label: 'Gamepad 2 (Pad 1)' },
+        { val: 'gp2', label: 'Gamepad 3 (Pad 2)' },
+        { val: 'gp3', label: 'Gamepad 4 (Pad 3)' },
         { val: 'ai', label: 'CPU Partner / Boss AI' }
       ];
 
@@ -235,7 +235,7 @@
           <select data-slot="${idx}" class="select-athlete">
             ${ROSTER.map(
               (r, rIdx) =>
-                `<option value="${rIdx}" ${rIdx === cfg.rosterIdx ? 'selected' : ''}>${r.name} — ${r.archetype}</option>`
+                `<option value="${rIdx}" ${rIdx === cfg.rosterIdx ? 'selected' : ''}>${r.name} — ${r.epithet}</option>`
             ).join('')}
           </select>
           <select data-slot="${idx}" class="select-controller">
@@ -247,6 +247,7 @@
               .join('')}
           </select>
           <div class="slot-stats">
+            <div class="slot-archetype">${prof.archetype}</div>
             PWR ${Math.round(prof.power * 100)} • SPD ${Math.round(prof.speed * 100)} • JMP ${Math.round(prof.jump * 100)}<br/>
             Overdrive: <strong style="color:${prof.signatureColor}">${prof.signatureMove}</strong>
           </div>
