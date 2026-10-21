@@ -32,9 +32,11 @@ any agent-authored change must carry structured attribution:
 1. **Commit trailer** — every agent-authored commit ends with:
 
    ```
-   Co-authored-by: <Model Name> (<agent harness>) <noreply@venice.ai>
+   Co-authored-by: <Model Name> (<agent harness>) <noreply@agent.invalid>
    Agent: <harness> / <model id>
    ```
+
+   *(Always use the RFC 2606 reserved `.invalid` TLD `<noreply@agent.invalid>` so GitHub never associates agent trailers with unrelated public accounts that claimed a corporate `noreply@` address.)*
 
    (Commit *authorship* reflects the local git config and says nothing
    about who wrote the change — the trailer is the source of truth.)
@@ -246,7 +248,7 @@ can navigate back to the launcher without using the browser back button.
 
 ## When you're stuck
 
-- Issue tracker is at <https://git.gobha.me/xcaliber/HTML-Games/issues>.
+- Issue tracker is at <https://github.com/gobha-me/html-games/issues>.
 - The repo's pre-flight cleanup PR (#80), this `AGENTS.md`, and
   [`SPEC.md`](SPEC.md) are the current best on-ramp.
 - If you're working in a game subdir and need context the codebase
