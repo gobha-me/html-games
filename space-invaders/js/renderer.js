@@ -30,8 +30,6 @@ const Renderer = {
         this.renderProjectiles();
         this.renderUFO();
     },
-        this.renderUFO();
-    },
 
     renderStars() {
         // Simple starfield background
