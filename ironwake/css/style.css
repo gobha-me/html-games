@@ -1,723 +1,1140 @@
-/* IRONWAKE // CONVOY — Dieselpunk Armored-Train & Steam Manifold Styling */
-:root {
-  --bg-obsidian: #090706;
-  --bg-panel: #14100e;
-  --bg-card: #1c1613;
-  --border-copper: rgba(245, 158, 11, 0.36);
-  --border-muted: rgba(148, 163, 184, 0.2);
-  --amber: #f59e0b;
-  --amber-bright: #fde047;
-  --cyan: #38bdf8;
-  --emerald: #10b981;
-  --crimson: #ef4444;
-  --purple: #a855f7;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
+/* ==========================================================================
+   IRONWAKE // CONVOY — Panoramic Dreadnought Bridge & 5-Car Consist Schematic
+   Weathered Gunmetal Steel, Riveted Brass Gauges & Phosphor Fire-Control UI
+   ========================================================================== */
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+:root {
+  --bg-abyss: #0c0907;
+  --bg-steel: #15110e;
+  --bg-plate: #1e1814;
+  --bg-plate-hi: #29201a;
+  --bg-crt: #0a1310;
+
+  --brass-border: #6b4c2b;
+  --brass-bright: #d97706;
+  --brass-gold: #f59e0b;
+  --brass-glow: #fde68a;
+
+  --steel-border: #3d322a;
+  --steel-rivet: #786657;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #d6cec2;
+  --text-muted: #9a8d7e;
+
+  --accent-amber: #f59e0b;
+  --accent-cyan: #38bdf8;
+  --accent-emerald: #10b981;
+  --accent-crimson: #ef4444;
+  --accent-violet: #a855f7;
+
+  --font-display: 'Rajdhani', 'Bahnschrift', 'Impact', 'Arial Narrow', sans-serif;
+  --font-sans: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
 html,
 body {
-  width: 100%;
+  width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 25%, #231812 0%, #090706 78%);
-  color: var(--text-main);
+  background: var(--bg-abyss);
+  color: var(--text-primary);
   font-family: var(--font-sans);
   user-select: none;
-}
-
-.convoy-shell {
-  display: grid;
-  grid-template-rows: 58px minmax(0, 1fr);
-  width: 100%;
-  height: 100vh;
-  padding: 8px 10px;
-  gap: 8px;
-}
-
-/* TOP BRIDGE BAR */
-.bridge-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(180deg, #211813 0%, #120d0a 100%);
-  border: 1px solid var(--border-copper);
-  border-radius: 6px;
-  padding: 6px 14px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
-}
-
-.bridge-brand .bridge-kicker {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  color: var(--amber);
-}
-
-.bridge-brand h1 {
-  font-family: var(--font-mono);
-  font-size: 19px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  color: #ffffff;
+  -webkit-font-smoothing: antialiased;
 }
 
 .accent-amber {
-  color: var(--amber-bright);
+  color: var(--accent-amber) !important;
 }
 .accent-cyan {
-  color: var(--cyan);
+  color: var(--accent-cyan) !important;
 }
 .accent-emerald {
-  color: var(--emerald);
+  color: var(--accent-emerald) !important;
 }
 .accent-crimson {
-  color: var(--crimson);
+  color: var(--accent-crimson) !important;
 }
 
-.bridge-telemetry {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.telemetry-pill {
-  background: rgba(9, 7, 6, 0.82);
-  border: 1px solid var(--border-muted);
-  border-radius: 5px;
-  padding: 4px 8px;
-  min-width: 74px;
-  text-align: center;
-}
-
-.telemetry-pill.speed-pill {
-  border-color: var(--border-copper);
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.t-label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.09em;
-  color: var(--text-muted);
-}
-
-.telemetry-pill strong {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: 800;
-}
-
-.bridge-controls {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.speed-group {
-  display: flex;
-  gap: 3px;
-}
-
-.btn-chip {
-  background: #1c1512;
-  color: var(--text-main);
-  border: 1px solid var(--border-muted);
-  border-radius: 4px;
-  padding: 6px 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.btn-chip:hover,
-.btn-chip.active {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: var(--amber);
-  color: var(--amber-bright);
-}
-
-.btn-amber-cta {
-  background: linear-gradient(180deg, #f59e0b 0%, #c2410c 100%);
-  color: #090706;
-  border: 1px solid #fde047;
-  border-radius: 5px;
-  padding: 7px 12px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
-}
-
-.btn-amber-cta:hover {
-  filter: brightness(1.1);
-}
-
-/* 3-COLUMN WORKSPACE */
-.workspace-grid {
+/* ==========================================================================
+   3-DECK VERTICAL PANORAMIC LOCOMOTIVE BRIDGE SHELL
+   ========================================================================== */
+.convoy-shell {
   display: grid;
-  grid-template-columns: 310px minmax(0, 1fr) 324px;
-  gap: 8px;
-  min-height: 0;
-}
-
-.wing-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-}
-
-.panel-card {
-  background: linear-gradient(180deg, #1b1411 0%, #110d0b 100%);
-  border: 1px solid var(--border-muted);
-  border-radius: 6px;
-  padding: 8px 10px;
-  display: flex;
-  flex-direction: column;
+  grid-template-rows: 62px minmax(0, 1fr) 244px;
+  width: 100vw;
+  height: 100vh;
+  padding: 6px 8px;
   gap: 6px;
-  min-height: 0;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(245, 158, 11, 0.08), transparent 65%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.012) 0px,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 32px
+    ),
+    linear-gradient(180deg, #120d0a 0%, #090705 100%);
 }
 
-.section-header {
+/* ==========================================================================
+   DECK 1: TOP RIVETED STEEL & BRASS BRIDGE CANOPY
+   ========================================================================== */
+.bridge-canopy {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1.15fr) minmax(360px, 1.45fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background:
+    linear-gradient(180deg, #271f19 0%, #17120e 100%);
+  border: 1.5px solid var(--brass-border);
+  border-top: 2px solid #9a6b38;
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(253, 230, 138, 0.16),
+    0 4px 14px rgba(0, 0, 0, 0.65);
+  min-width: 0;
+}
+
+.canopy-brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--amber);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-  padding-bottom: 4px;
+  gap: 8px;
+  padding-right: 8px;
+  border-right: 1px solid var(--steel-border);
+  min-width: 0;
 }
 
-.hint-tag {
-  font-size: 9px;
-  color: var(--text-muted);
-}
-
-/* LEFT WING: COMMANDER & ORDERS */
-.commander-header {
-  display: flex;
-  gap: 9px;
-  align-items: center;
-}
-
-.commander-portrait {
-  width: 58px;
-  height: 58px;
+.canopy-emblem {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
   border-radius: 5px;
-  border: 1px solid var(--amber);
-  image-rendering: pixelated;
+  border: 1px solid var(--brass-bright);
+  background: #0d0a08;
+  padding: 2px;
   flex-shrink: 0;
 }
 
-.card-kicker {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: var(--amber);
-  margin-bottom: 2px;
-}
-
-.commander-quote {
-  font-size: 11px;
-  line-height: 1.3;
-  color: #fed7aa;
-  font-style: italic;
-}
-
-.tactical-orders {
+.canopy-title-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  min-width: 0;
 }
 
-.btn-order {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(28, 21, 18, 0.92);
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: 4px;
-  padding: 5px 8px;
-  color: var(--text-main);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.btn-order:hover {
-  border-color: var(--amber-bright);
-  background: rgba(245, 158, 11, 0.16);
-}
-
-.ord-cost {
-  color: var(--amber-bright);
-  font-weight: 800;
-}
-
-/* STEAM REACTOR MANIFOLD */
-.preset-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-}
-
-.btn-preset {
-  background: #1c1512;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  color: var(--text-muted);
+.bridge-kicker {
   font-family: var(--font-mono);
   font-size: 8.5px;
-  font-weight: 800;
-  padding: 4px 2px;
-  border-radius: 3px;
-  cursor: pointer;
+  letter-spacing: 0.12em;
+  color: var(--brass-glow);
+  opacity: 0.85;
+  white-space: nowrap;
 }
 
-.btn-preset:hover {
-  color: var(--amber-bright);
-  border-color: var(--amber);
+.canopy-title-block h1 {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  color: #ffffff;
+  white-space: nowrap;
 }
 
-.steam-manifold {
+/* Integrated Trans-Wasteland Route Visor */
+.canopy-route-visor {
   display: flex;
   flex-direction: column;
+  gap: 3px;
+  background: #0e0b09;
+  border: 1px solid #4a3723;
+  border-radius: 5px;
+  padding: 3px 7px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.visor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 6px;
 }
 
-.steam-row {
-  background: rgba(15, 12, 10, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+.visor-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visor-label strong {
+  color: var(--brass-glow);
+}
+
+.btn-visor-jump {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  color: var(--brass-glow);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-visor-jump:hover {
+  background: rgba(245, 158, 11, 0.3);
+}
+
+.sector-route-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  min-width: 0;
+}
+
+.route-node-card {
+  position: relative;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: rgba(28, 22, 18, 0.9);
+  border: 1px solid #3a2e25;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.route-node-card.active {
+  border-color: var(--brass-gold);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.25), rgba(28, 22, 18, 0.95));
+  box-shadow: inset 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
+.route-node-card.done {
+  border-color: rgba(16, 185, 129, 0.55);
+  background: rgba(6, 48, 35, 0.45);
+}
+
+.rn-kicker {
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.route-node-card.active .rn-kicker {
+  color: var(--brass-glow);
+  font-weight: 800;
+}
+
+.rn-title {
+  font-size: 8.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Recessed Brass Instrument Gauge Cluster */
+.brass-gauge-cluster {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  background: #0d0a08;
+  border: 1.5px solid #5c4024;
+  border-radius: 5px;
+  padding: 3px 5px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.85);
+  min-width: 0;
+}
+
+.gauge-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 3px;
+  background: linear-gradient(180deg, #1b1510 0%, #120e0b 100%);
+  border: 1px solid #35281d;
+  border-radius: 3px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.g-label {
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gauge-cell strong {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* Bridge Master Controls & Hazard Overdrive Lever */
+.canopy-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.speed-group {
+  display: inline-flex;
+  background: #0d0a08;
+  border: 1px solid var(--steel-border);
   border-radius: 4px;
+  overflow: hidden;
+}
+
+.btn-chip {
+  background: #17120e;
+  color: var(--text-secondary);
+  border: 1px solid var(--steel-border);
   padding: 5px 7px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  white-space: nowrap;
+}
+
+.speed-group .btn-chip {
+  border: none;
+  border-right: 1px solid var(--steel-border);
+}
+.speed-group .btn-chip:last-child {
+  border-right: none;
+}
+
+.btn-chip:hover {
+  color: #ffffff;
+  background: #271f19;
+}
+
+.btn-chip.active {
+  background: rgba(245, 158, 11, 0.24);
+  color: var(--brass-glow);
+  border-color: var(--brass-gold);
+}
+
+.btn-hazard-overdrive {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      #f59e0b 0px,
+      #f59e0b 10px,
+      #b45309 10px,
+      #b45309 20px
+    );
+  color: #090604;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  border: 1.5px solid var(--brass-glow);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+  white-space: nowrap;
+}
+
+.btn-hazard-overdrive:hover {
+  filter: brightness(1.12);
+}
+
+/* ==========================================================================
+   DECK 2: FULL-WIDTH PANORAMIC 2.5D SALT-FLAT BATTLEFIELD VIEWPORT
+   ========================================================================== */
+.panoramic-viewport {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: #120e0b;
+  border: 2px solid #594128;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 24px rgba(0, 0, 0, 0.8),
+    0 4px 16px rgba(0, 0, 0, 0.65);
+}
+
+.viewport-tactical-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 12px;
+  background: linear-gradient(90deg, #1f1711 0%, #2b1f14 50%, #1f1711 100%);
+  border-bottom: 1.5px solid var(--brass-border);
+  flex-shrink: 0;
+}
+
+.tactical-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.t-step {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.t-step strong {
+  color: var(--brass-glow);
+}
+
+.t-step.step-hot {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: #ffffff;
+}
+
+.t-step kbd {
+  display: inline-block;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--brass-glow);
+  background: #120d09;
+  border: 1px solid #6b4c2b;
+  border-radius: 3px;
+}
+
+.t-sep {
+  color: var(--brass-gold);
+  font-size: 11px;
+}
+
+.viewport-alerts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sr-status {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--accent-emerald);
+  white-space: nowrap;
+}
+
+.harpoon-alert-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  color: #fecaca;
+  white-space: nowrap;
+}
+
+.canvas-armor-bezel {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background: #140e0a;
+  overflow: hidden;
+}
+
+#convoy-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+/* ==========================================================================
+   DECK 3: BOTTOM RIVETED STEEL ENGINEERING & 5-CAR CONSIST DECK
+   ========================================================================== */
+.engineering-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 276px) minmax(0, 1fr) minmax(0, 304px);
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.deck-bay {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 9px;
+  background: linear-gradient(180deg, #211a15 0%, #14100d 100%);
+  border: 1.5px solid var(--brass-border);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(253, 230, 138, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.6);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--steel-border);
+  flex-shrink: 0;
+}
+
+.bay-title {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--brass-glow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brass-tag {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #0e0b08;
+  border: 1px solid #4d3924;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* LEFT BAY: STEAM REACTOR MANIFOLD & TACTICAL VALVES */
+.preset-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.btn-preset {
+  padding: 3px 2px;
+  background: #120e0b;
+  border: 1px solid var(--steel-border);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 800;
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-preset:hover {
+  border-color: var(--brass-gold);
+  color: var(--brass-glow);
+}
+
+.steam-manifold {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+}
+
+.steam-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3px;
+  padding: 4px 5px;
+  background: #0f0c09;
+  border: 1px solid #35291e;
+  border-radius: 4px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .steam-row-top {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: 8.5px;
   font-weight: 800;
-  margin-bottom: 4px;
+  gap: 4px;
+}
+
+.steam-row-top span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .steam-controls {
-  display: grid;
-  grid-template-columns: 24px 1fr 24px;
-  gap: 6px;
+  display: flex;
   align-items: center;
+  gap: 3px;
 }
 
 .btn-steam-step {
-  background: #271e19;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  color: #ffffff;
+  width: 18px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #523d28;
+  background: #1f1812;
+  color: var(--brass-glow);
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 900;
-  height: 20px;
-  border-radius: 3px;
+  line-height: 1;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .btn-steam-step:hover {
-  border-color: var(--amber-bright);
-  color: var(--amber-bright);
+  border-color: var(--brass-gold);
+  background: #2f2318;
 }
 
 .steam-pips {
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
-  height: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 0;
 }
 
 .steam-pip {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  height: 9px;
   border-radius: 2px;
+  background: #1b1612;
+  border: 1px solid #382d23;
 }
 
-/* SUBSYSTEM SCANNER */
-.scanner-card {
+.tactical-orders {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-order {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px 3px;
+  background: linear-gradient(180deg, #281e16 0%, #17120d 100%);
+  border: 1px solid #574027;
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.btn-order:hover {
+  border-color: var(--brass-gold);
+  background: #33251a;
+}
+
+.ord-label {
+  font-size: 8px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.ord-label kbd {
+  color: var(--brass-glow);
+}
+
+.ord-cost {
+  font-size: 8.5px;
+  font-weight: 900;
+  color: var(--brass-gold);
+}
+
+/* ==========================================================================
+   CENTER BAY: HORIZONTAL 5-CAR CONNECTED DREADNOUGHT CONSIST SCHEMATIC
+   ========================================================================== */
+.bay-consist {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.1), transparent 70%),
+    linear-gradient(180deg, #221b15 0%, #120e0b 100%);
+}
+
+.railcar-horizontal-consist {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
   flex: 1;
   min-height: 0;
+  align-items: stretch;
+  padding: 4px 2px 10px 2px;
 }
 
+/* Steel railroad track line running under the 5 horizontal railcars */
+.railcar-horizontal-consist::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 3px;
+  height: 4px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #78716c 0px,
+      #78716c 10px,
+      #292524 10px,
+      #292524 16px
+    );
+  border-top: 1.5px solid #cbd5e1;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.car-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px 7px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #26201b 0%, #15110e 100%);
+  border: 1.5px solid #47382b;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  min-width: 0;
+  overflow: hidden;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.65);
+}
+
+.car-item:hover {
+  border-color: #9a7b56;
+  transform: translateY(-1px);
+}
+
+.car-item.selected {
+  border-color: var(--brass-glow);
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, 0.22) 0%, rgba(25, 19, 14, 0.96) 100%);
+  box-shadow:
+    inset 0 0 12px rgba(245, 158, 11, 0.22),
+    0 0 10px rgba(245, 158, 11, 0.35);
+}
+
+.car-item.loco-front {
+  border-right: 4px solid var(--brass-gold);
+}
+
+.car-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 800;
+}
+
+.car-hotkey-badge {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #0d0a08;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.car-mk-badge {
+  color: var(--brass-glow);
+  white-space: nowrap;
+}
+
+.car-schematic-silhouette {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin: 3px 0;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: rgba(9, 7, 5, 0.72);
+  border: 1px dashed rgba(148, 163, 184, 0.25);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-secondary);
+}
+
+.car-turret-glyph {
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.car-dmg-tag {
+  color: var(--brass-glow);
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.car-item-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.car-item-title span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.car-hp-num {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.car-item-sub {
+  font-size: 8.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hp-track {
+  width: 100%;
+  height: 6px;
+  background: #090705;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid #30261d;
+}
+
+.hp-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+/* Integrated Upgrade Bar below the 5-Car Horizontal Consist */
+.consist-upgrade-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  background: #0e0b08;
+  border: 1px solid #543d25;
+  border-radius: 5px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.inspected-car-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.inspected-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--brass-glow);
+  padding: 2px 6px;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.inspected-title {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.inspected-desc {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-upgrade-consist {
+  padding: 6px 11px;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.28), rgba(5, 150, 105, 0.18));
+  border: 1.5px solid #10b981;
+  border-radius: 4px;
+  color: #d1fae5;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.btn-upgrade-consist:hover {
+  background: rgba(16, 185, 129, 0.38);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   RIGHT BAY: CRT TARGET SUBSYSTEM SCANNER & COMMANDER COMMS
+   ========================================================================== */
 .subsystem-scanner {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
+  padding: 5px 6px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(16, 185, 129, 0.03) 0px,
+      rgba(16, 185, 129, 0.03) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
+    var(--bg-crt);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 5px;
+  flex-shrink: 0;
 }
 
 .target-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(15, 12, 10, 0.9);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: 4px;
-  padding: 5px 7px;
+  min-width: 0;
 }
 
 .target-sprite {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
   image-rendering: pixelated;
+  background: #060b09;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 4px;
+  padding: 2px;
   flex-shrink: 0;
+}
+
+.target-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .target-title {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
-  color: #fecaca;
-}
-
-.sub-btn-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.btn-subsystem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(24, 19, 16, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 4px;
-  padding: 5px 8px;
-  color: var(--text-main);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.btn-subsystem.active {
-  border-color: var(--amber-bright);
-  background: rgba(245, 158, 11, 0.16);
-  color: var(--amber-bright);
-}
-
-/* CENTER STAGE */
-.center-stage {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 144px;
-  gap: 8px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.battlefield-frame {
-  background: #120d0a;
-  border: 1px solid var(--border-copper);
-  border-radius: 6px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-
-.battlefield-hud-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 10px;
-  background: rgba(18, 13, 10, 0.95);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.28);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-}
-
-.battlefield-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--amber-bright);
-  font-weight: 700;
-}
-
-.dot-live {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--emerald);
-  box-shadow: 0 0 8px var(--emerald);
-}
-
-.harpoon-alert-badge {
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 3px;
-  background: rgba(239, 68, 68, 0.16);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #fca5a5;
-}
-
-#convoy-canvas {
-  width: 100%;
-  height: 100%;
-  flex: 1;
-  min-height: 0;
-  display: block;
-  cursor: crosshair;
-}
-
-.bottom-convoy-strip {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 8px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.route-map-panel,
-.combat-log-panel {
-  background: linear-gradient(180deg, #1b1411 0%, #110d0b 100%);
-  border: 1px solid var(--border-muted);
-  border-radius: 6px;
-  padding: 7px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.btn-mini-amber {
-  background: rgba(245, 158, 11, 0.16);
-  border: 1px solid var(--amber);
-  color: var(--amber-bright);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 800;
-  padding: 2px 7px;
-  border-radius: 3px;
-  cursor: pointer;
-}
-
-.btn-mini-amber:hover {
-  background: var(--amber);
-  color: #090706;
-}
-
-.sector-route-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
-  min-width: 0;
-  min-height: 0;
-}
-
-.route-node-card {
-  background: rgba(15, 12, 10, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 4px;
-  padding: 5px 6px;
-  font-family: var(--font-mono);
-  min-width: 0;
-  overflow: hidden;
-}
-
-.route-node-card.active {
-  border-color: var(--amber-bright);
-  background: rgba(245, 158, 11, 0.15);
-}
-
-.route-node-card.done {
-  border-color: var(--emerald);
-  opacity: 0.72;
-}
-
-.rn-kicker {
-  font-size: 8px;
-  color: var(--amber);
-  font-weight: 800;
-}
-
-.rn-title {
-  font-size: 9.5px;
-  font-weight: 800;
-  color: #ffffff;
-  margin: 2px 0;
+  color: var(--brass-glow);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.rn-sub {
+.sub-btn-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.btn-subsystem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 4px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.btn-subsystem span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.btn-subsystem.active {
+  border-color: var(--brass-gold);
+  background: rgba(245, 158, 11, 0.22);
+  color: var(--brass-glow);
+}
+
+/* Commander Comms & Live Fire Ticker */
+.commander-comms-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 7px;
+  flex: 1;
+  min-height: 0;
+  padding: 5px 6px;
+  background: #0e0b09;
+  border: 1px solid #3f3022;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.commander-portrait {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  object-fit: cover;
+  border: 1.5px solid var(--brass-gold);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.commander-comms-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.comms-kicker {
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--brass-gold);
+}
+
+.commander-quote {
   font-size: 8.5px;
-  color: var(--text-muted);
+  line-height: 1.25;
+  color: var(--text-secondary);
+  font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .combat-log {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  overflow-y: auto;
+  gap: 1px;
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  line-height: 1.28;
-}
-
-.log-entry {
-  border-left: 2px solid var(--amber);
-  padding-left: 6px;
-  color: #e2e8f0;
-}
-.log-entry.scoop {
-  border-left-color: var(--emerald);
-  color: #d1fae5;
-}
-.log-entry.danger {
-  border-left-color: var(--crimson);
-  color: #ffe4e6;
-}
-.log-entry.ops {
-  border-left-color: var(--cyan);
-  color: #e0f2fe;
-}
-
-/* RIGHT WING: MODULAR 5-CAR CONSIST & UPGRADE BAY */
-.consist-card {
-  flex: 1;
-  min-height: 0;
-}
-
-.railcar-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  overflow-y: auto;
-}
-
-.car-item {
-  background: rgba(15, 12, 10, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 5px;
-  padding: 6px 8px;
-  cursor: pointer;
-}
-
-.car-item.selected {
-  border-color: var(--amber-bright);
-  background: rgba(245, 158, 11, 0.14);
-}
-
-.car-item-top {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 800;
-  margin-bottom: 2px;
-}
-
-.car-item-title {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  font-weight: 800;
-  color: #ffffff;
-  margin-bottom: 3px;
-}
-
-.car-item-sub {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.hp-track {
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  font-size: 8px;
+  line-height: 1.25;
   overflow: hidden;
 }
 
-.hp-fill {
-  height: 100%;
-  background: var(--emerald);
+.log-entry {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-entry.scoop {
+  color: var(--brass-glow);
+}
+.log-entry.danger {
+  color: #fca5a5;
+}
+.log-entry.ops {
+  color: #7dd3fc;
 }
 
-.emblem-row {
-  display: flex;
-  gap: 9px;
-  align-items: center;
-}
-
-.loco-emblem {
-  width: 64px;
-  height: 64px;
-  border-radius: 5px;
-  border: 1px solid var(--border-copper);
-  image-rendering: pixelated;
-  flex-shrink: 0;
-}
-
-.upgrade-car-title {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  font-weight: 900;
-  color: #ffffff;
-  margin-bottom: 2px;
-}
-
-.upgrade-car-desc {
-  font-size: 10px;
-  color: #cbd5e1;
-  line-height: 1.25;
-}
-
-.btn-upgrade-full {
-  width: 100%;
-  background: linear-gradient(180deg, #10b981 0%, #047857 100%);
-  color: #051b14;
-  border: 1px solid #6ee7b7;
-  border-radius: 4px;
-  padding: 7px 10px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 900;
-  cursor: pointer;
-}
-
-.btn-upgrade-full:hover {
-  filter: brightness(1.08);
-}
-
-/* MODAL */
+/* ==========================================================================
+   MODAL DIALOG
+   ========================================================================== */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(8, 6, 5, 0.84);
-  backdrop-filter: blur(4px);
+  background: rgba(8, 6, 4, 0.84);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 60;
+  z-index: 100;
 }
 
 .modal-backdrop.hidden {
@@ -726,56 +1143,58 @@ body {
 
 .modal-dialog {
   width: min(500px, 92vw);
-  background: linear-gradient(180deg, #211813 0%, #120d0a 100%);
-  border: 2px solid var(--amber);
+  background: linear-gradient(180deg, #241c15 0%, #140f0c 100%);
+  border: 2px solid var(--brass-gold);
   border-radius: 8px;
-  padding: 20px 22px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+  padding: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
 }
 
 .modal-kicker {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--amber);
-  letter-spacing: 0.14em;
-  margin-bottom: 4px;
+  letter-spacing: 0.12em;
+  color: var(--brass-gold);
 }
 
 .modal-dialog h2 {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin: 4px 0 6px;
 }
 
 .modal-subtitle {
-  font-size: 12.5px;
-  color: #cbd5e1;
+  font-size: 12px;
+  color: var(--text-secondary);
   margin-bottom: 14px;
 }
 
 .modal-metrics {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 16px;
 }
 
 .modal-metric-box {
-  background: rgba(9, 7, 6, 0.85);
-  border: 1px solid var(--border-muted);
+  padding: 9px 11px;
+  background: #0d0a08;
+  border: 1px solid var(--brass-border);
   border-radius: 5px;
-  padding: 8px 10px;
-  font-family: var(--font-mono);
 }
 
 .modal-metric-box span {
   display: block;
+  font-family: var(--font-mono);
   font-size: 9px;
   color: var(--text-muted);
 }
 
 .modal-metric-box strong {
+  font-family: var(--font-mono);
   font-size: 15px;
+  margin-top: 2px;
+  display: block;
 }
 
 .modal-actions {
@@ -783,23 +1202,27 @@ body {
   justify-content: flex-end;
 }
 
-/* BACK TO ARCADE */
+/* ==========================================================================
+   BACK TO ARCADE LINK
+   ========================================================================== */
 .back-to-arcade {
   position: fixed;
-  bottom: 8px;
-  left: 12px;
+  bottom: 258px;
+  left: 16px;
   z-index: 50;
-  background: rgba(15, 11, 9, 0.9);
-  border: 1px solid rgba(245, 158, 11, 0.36);
-  color: var(--text-muted);
-  text-decoration: none;
   font-family: var(--font-mono);
   font-size: 10px;
-  padding: 4px 9px;
+  font-weight: 700;
+  color: rgba(253, 230, 138, 0.78);
+  text-decoration: none;
+  padding: 3px 8px;
   border-radius: 4px;
+  background: rgba(15, 11, 8, 0.88);
+  border: 1px solid rgba(180, 83, 9, 0.55);
+  transition: all 0.15s ease;
 }
 
 .back-to-arcade:hover {
-  color: var(--amber-bright);
-  border-color: var(--amber);
+  color: var(--brass-glow);
+  border-color: var(--brass-gold);
 }
