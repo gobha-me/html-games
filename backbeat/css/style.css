@@ -1,243 +1,325 @@
-/* ============================================================================
-   BACKBEAT // OVERDRIVE — 3-Column Cyber-Studio & Neon Highway Styles
-   ============================================================================ */
-
 :root {
-  --bg-deep: #05060d;
-  --panel-bg: rgba(11, 14, 27, 0.94);
-  --panel-border: #232c4b;
+  --bg: #04020a;
   --cyan: #00d4ff;
   --magenta: #ff2ec4;
   --gold: #ffd21f;
   --emerald: #00ffcc;
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
+  --crimson: #ff3b5c;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --font-display: 'Orbitron', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 }
 
-*, *::before, *::after {
+* {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body {
+html,
+body {
   width: 100%;
   height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
   overflow: hidden;
-  background: var(--bg-deep);
-  color: var(--text-main);
-  font-family: 'IBM Plex Mono', monospace;
   user-select: none;
 }
 
-#studio-shell {
-  display: grid;
-  grid-template-columns: 306px minmax(0, 1fr) 306px;
-  grid-template-rows: 52px minmax(0, 1fr);
+#studio-shell,
+#stage-viewport {
+  position: relative;
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
+  background: #04020a;
 }
 
-/* ── Top Telemetry Bar ── */
-#top-bar {
-  grid-column: 1 / -1;
+#game-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Top Neon Progress Ribbon ── */
+#stage-progress-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  z-index: 40;
+}
+
+#stage-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--gold), var(--emerald));
+  box-shadow: 0 0 16px var(--cyan), 0 0 28px var(--magenta);
+  transition: width 0.08s linear;
+}
+
+/* ── TOP-LEFT: Spinning Vinyl Platter & Unified 1-2-3 Jukebox Console ── */
+#deck-top-left {
+  position: absolute;
+  top: 14px;
+  left: 18px;
+  width: 356px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.jukebox-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: linear-gradient(180deg, #0e1326 0%, #080b18 100%);
-  border-bottom: 1px solid var(--panel-border);
-  gap: 12px;
+  gap: 10px;
 }
 
-.brand-block {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  white-space: nowrap;
+.back-to-arcade {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: rgba(8, 5, 20, 0.82);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+}
+
+.back-to-arcade:hover {
+  border-color: var(--cyan);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.35);
 }
 
 .brand-title {
-  font-family: 'Orbitron', monospace;
-  font-size: 15.5px;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
   font-weight: 900;
-  letter-spacing: 0.06em;
-  color: #ffffff;
+  letter-spacing: 0.1em;
+  color: #fff;
+  text-shadow: 0 0 14px rgba(0, 212, 255, 0.6);
   white-space: nowrap;
 }
 
-.brand-title span {
+.brand-title em {
+  font-style: normal;
   color: var(--magenta);
+  margin: 0 2px;
+  text-shadow: 0 0 12px var(--magenta);
 }
 
-.brand-sub {
-  font-size: 9px;
+.brand-title span {
   color: var(--cyan);
-  text-transform: uppercase;
+}
+
+.bpm-chip {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 46, 196, 0.18);
+  border: 1px solid rgba(255, 46, 196, 0.65);
+  color: #ff85df;
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  font-weight: 800;
   letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
-@media (max-width: 1420px) {
-  .brand-sub {
-    display: none;
-  }
+/* Spinning Vinyl Now-Playing Card */
+.turntable-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(10, 6, 26, 0.88), rgba(22, 10, 44, 0.76));
+  border: 1px solid rgba(0, 212, 255, 0.38);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(0, 212, 255, 0.08);
+  backdrop-filter: blur(8px);
 }
 
-.header-telemetry {
+.vinyl-platter {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  padding: 5px;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, #13111c 0px, #13111c 2px, #252136 3px, #13111c 4px);
+  border: 2px solid var(--cyan);
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.5);
+  animation: vinylSpin 5.5s linear infinite;
+}
+
+@keyframes vinylSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.vinyl-sleeve {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.vinyl-spindle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #05030c;
+  border: 2px solid var(--magenta);
+}
+
+.now-playing-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.np-eyebrow {
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--magenta);
+  text-transform: uppercase;
+}
+
+.np-title {
+  font-family: var(--font-display);
+  font-size: 0.94rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 2px 0;
+}
+
+.np-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  white-space: nowrap;
+  font-size: 0.65rem;
+  color: #cbd5e1;
 }
 
-.stat-pill {
-  background: #0c1122;
-  border: 1px solid #263154;
-  border-radius: 5px;
-  padding: 3px 7px;
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  white-space: nowrap;
-}
-
-.stat-pill .sp-label {
-  font-size: 8.5px;
-  color: var(--text-muted);
-  letter-spacing: 0.06em;
-}
-
-.stat-pill strong {
-  font-family: 'Orbitron', monospace;
-  font-size: 11px;
-  color: #ffffff;
-}
-
-.top-actions {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-}
-
-.top-btn {
-  background: #121830;
-  color: var(--text-main);
-  border: 1px solid #2c3963;
-  border-radius: 5px;
-  padding: 5px 8px;
-  font-family: 'Orbitron', monospace;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.top-btn:hover {
-  border-color: var(--cyan);
-  background: #192344;
-}
-
-.top-btn.primary {
-  background: linear-gradient(135deg, #d91b9c 0%, #7e22ce 100%);
-  border-color: #ff55d4;
-  color: #ffffff;
-}
-
-.top-btn.primary:hover {
-  filter: brightness(1.12);
-}
-
-/* ── Studio Side Wings ── */
-.studio-wing {
-  background: var(--panel-bg);
-  padding: 10px;
+/* Unified 1-2-3 Pre-Play Jukebox Console */
+.jukebox-drawer {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  overflow-y: auto;
+  gap: 7px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: linear-gradient(165deg, rgba(8, 5, 22, 0.9), rgba(16, 8, 34, 0.84));
+  border: 1px solid rgba(255, 46, 196, 0.35);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(10px);
 }
 
-#wing-left {
-  border-right: 1px solid var(--panel-border);
+body.playing .jukebox-drawer {
+  display: none;
 }
 
-#wing-right {
-  border-left: 1px solid var(--panel-border);
-}
-
-.panel-box {
-  background: rgba(15, 20, 38, 0.9);
-  border: 1px solid #232e52;
-  border-radius: 7px;
-  padding: 9px 10px;
-}
-
-.panel-title {
+.step-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-family: 'Orbitron', monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 7px;
+  margin-top: 2px;
 }
 
-/* Track Crate Cards with Pixel-Art Album Covers */
-.track-list {
-  display: flex;
-  flex-direction: column;
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0, 212, 255, 0.2);
+  border: 1px solid var(--cyan);
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  font-weight: 900;
+  color: var(--cyan);
+}
+
+.step-lbl {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #e2e8f0;
+}
+
+/* 4-Track Cartridge Selector Strip */
+.track-crate-strip {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
 
 .track-card {
-  display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
-  gap: 9px;
+  display: flex;
   align-items: center;
-  padding: 6px 8px;
-  background: #0b0f1f;
-  border: 1px solid #232e52;
-  border-radius: 6px;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: rgba(14, 10, 32, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.24);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.14s ease;
 }
 
 .track-card:hover {
   border-color: var(--cyan);
-  background: #121933;
+  transform: translateY(-1px);
+  background: rgba(20, 14, 46, 0.92);
 }
 
 .track-card.selected {
+  background: linear-gradient(135deg, rgba(255, 46, 196, 0.24), rgba(0, 212, 255, 0.18));
   border-color: var(--magenta);
-  background: linear-gradient(90deg, rgba(255, 46, 196, 0.16), rgba(0, 212, 255, 0.08));
-  box-shadow: inset 0 0 12px rgba(255, 46, 196, 0.18);
+  box-shadow: 0 0 16px rgba(255, 46, 196, 0.35);
 }
 
 .track-cover {
-  width: 46px;
-  height: 46px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  image-rendering: pixelated;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  flex-shrink: 0;
 }
 
 .tc-info {
   min-width: 0;
+  flex: 1;
 }
 
 .tc-title {
-  font-family: 'Orbitron', monospace;
-  font-size: 11.5px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 0.63rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
   color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
@@ -245,99 +327,229 @@ html, body {
 }
 
 .tc-sub {
-  font-size: 9.5px;
-  color: var(--text-muted);
-  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.53rem;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
 }
 
 .tc-badges {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 3px;
-  font-size: 8.5px;
+  gap: 4px;
+  font-size: 0.55rem;
   font-weight: 700;
-  white-space: nowrap;
+  margin-top: 2px;
 }
 
-.panel-title span {
-  white-space: nowrap;
-}
-
-/* Difficulty Grid */
-.diff-grid {
+/* Difficulty Strip */
+.diff-strip {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
 }
 
 .diff-btn {
-  background: #0b0f1f;
-  border: 1px solid #253159;
-  border-radius: 5px;
-  padding: 6px 8px;
-  text-align: left;
-  color: var(--text-main);
+  padding: 6px 4px;
+  border-radius: 7px;
+  background: rgba(15, 11, 34, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  color: #cbd5e1;
   cursor: pointer;
-  transition: 0.15s;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.diff-btn strong {
-  font-family: 'Orbitron', monospace;
-  font-size: 10.5px;
-  color: #ffffff;
-}
-
-.diff-btn span {
-  font-size: 9px;
-  color: var(--text-muted);
+  text-align: center;
+  transition: all 0.14s ease;
 }
 
 .diff-btn:hover {
   border-color: var(--cyan);
+  color: #fff;
+}
+
+.diff-btn strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+}
+
+.diff-btn span {
+  font-size: 0.54rem;
+  color: var(--muted);
 }
 
 .diff-btn.selected {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.32), rgba(255, 46, 196, 0.24));
   border-color: var(--cyan);
-  background: rgba(0, 212, 255, 0.14);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.42);
 }
 
-.diff-btn.selected strong {
+.diff-btn.selected span {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.jukebox-cta-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.cta-big {
+  flex: 1.45;
+  justify-content: center;
+  padding: 9px 12px !important;
+  font-size: 0.72rem !important;
+}
+
+.cta-demo {
+  flex: 1;
+  justify-content: center;
+  padding: 9px 8px !important;
+}
+
+.jukebox-howto {
+  padding-top: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.howto-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.56rem;
+  color: #cbd5e1;
+  flex-wrap: wrap;
+}
+
+.howto-keys kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 4px;
+  background: rgba(5, 3, 14, 0.9);
+  border: 1px solid;
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 900;
+}
+
+.howto-keys span {
+  margin-left: 3px;
+}
+
+.howto-keys b {
+  color: var(--gold);
+}
+
+/* ── TOP-RIGHT: Angled Synth Transport Deck & Compact Sync Pill ── */
+#deck-top-right {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 30;
+}
+
+.transport-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.skew-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  background: rgba(10, 6, 26, 0.84);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transform: skewX(-10deg);
+  backdrop-filter: blur(6px);
+  transition: all 0.14s ease;
+}
+
+.skew-btn.change-track-btn {
+  display: none;
+}
+
+body.playing .skew-btn.change-track-btn {
+  display: inline-flex;
+}
+
+.skew-btn span {
+  display: inline-block;
+  transform: skewX(10deg);
+}
+
+.skew-btn:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.35);
+}
+
+.skew-btn.primary {
+  background: linear-gradient(135deg, #ff2ec4, #7c3aed);
+  border-color: #ff7ce5;
+  color: #fff;
+  box-shadow: 0 0 18px rgba(255, 46, 196, 0.45);
+}
+
+.skew-btn.fever {
+  background: linear-gradient(135deg, rgba(255, 210, 31, 0.22), rgba(255, 46, 196, 0.22));
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Compact Audio Sync Bar */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: rgba(8, 5, 20, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  font-size: 0.58rem;
+}
+
+.sb-lbl {
+  color: var(--muted);
+}
+
+.sb-lbl strong {
   color: var(--cyan);
 }
 
-/* Audio Calibration */
-.cal-desc {
-  font-size: 10px;
-  color: var(--text-muted);
-  line-height: 1.35;
-}
-
-.cal-controls {
-  display: grid;
-  grid-template-columns: 1fr 1.3fr 1fr;
-  gap: 6px;
-  margin-top: 7px;
+.sb-btns {
+  display: flex;
+  gap: 4px;
 }
 
 .cal-btn {
-  background: #10162b;
-  border: 1px solid #2b3863;
-  color: #e2e8f0;
+  padding: 2px 6px;
   border-radius: 4px;
-  padding: 5px 6px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
   font-weight: 700;
   cursor: pointer;
-}
-
-.cal-btn:hover {
-  border-color: var(--cyan);
-  color: #ffffff;
 }
 
 .cal-btn.pulse {
@@ -345,185 +557,321 @@ html, body {
   color: var(--emerald);
 }
 
-/* ── Center 3D Highway Stage ── */
-#stage-viewport {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #04050c;
-}
-
-#game-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-#stage-progress-wrap {
+/* ── LEFT STAGE TELEMETRY: Borderless 3D-Angled Neon Stage Projection Hugging Left Highway Rail ── */
+#stage-wing-left {
   position: absolute;
-  top: 0;
+  left: max(16px, calc(50% - 632px));
+  bottom: 52px;
+  width: 228px;
+  display: none;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  gap: 12px;
+  z-index: 25;
+  pointer-events: none;
+  padding-right: 14px;
+  border-right: 3px solid var(--cyan);
+  transform: perspective(600px) rotateY(16deg) skewY(-3deg);
+  transform-origin: right bottom;
+}
+
+body.playing #stage-wing-left {
+  display: flex;
+}
+
+.holo-grade-projection {
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 14px;
+}
+
+.grade-badge {
+  font-family: var(--font-display);
+  font-size: 2.85rem;
+  font-weight: 900;
+  line-height: 0.95;
+  color: var(--emerald);
+  text-shadow: 0 0 24px currentColor, 0 0 44px currentColor;
+}
+
+.combo-hero {
+  display: flex;
+  flex-direction: column;
+}
+
+.ch-lbl {
+  font-family: var(--font-display);
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+}
+
+.ch-val {
+  font-family: var(--font-display);
+  font-size: 2.15rem;
+  font-weight: 900;
+  line-height: 1.02;
+  color: var(--gold);
+  text-shadow: 0 0 22px rgba(255, 210, 31, 0.75);
+}
+
+.ch-max {
+  font-size: 0.62rem;
+  color: #cbd5e1;
+}
+
+.ch-max b {
+  color: #fff;
+}
+
+.tally-strip {
+  display: flex;
+  gap: 10px;
+}
+
+.tally-pill {
+  display: flex;
+  flex-direction: column;
+}
+
+.tally-pill span {
+  font-family: var(--font-display);
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.tally-pill strong {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+/* Timing Meter Needle */
+.timing-meter-box {
+  width: 214px;
+}
+
+.tm-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #e2e8f0;
+  margin-bottom: 5px;
+}
+
+.tm-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff3b5c 0%, #ffd21f 28%, #00ffcc 50%, #ffd21f 72%, #ff3b5c 100%);
+  box-shadow: 0 0 14px rgba(0, 255, 204, 0.45);
+}
+
+.tm-center-tick {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: #fff;
+  transform: translateX(-50%);
+}
+
+.tm-needle {
+  position: absolute;
+  top: -5px;
+  width: 7px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--emerald);
+  box-shadow: 0 0 12px var(--emerald);
+  transform: translateX(-50%);
+  transition: left 0.08s ease-out;
+}
+
+/* ── RIGHT STAGE TELEMETRY: Borderless Kinetic Score & Vertical Plasma Overdrive Rail Hugging Right Highway Rail ── */
+#stage-wing-right {
+  position: absolute;
+  right: max(16px, calc(50% - 632px));
+  bottom: 52px;
+  width: 228px;
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 14px;
+  z-index: 25;
+  pointer-events: none;
+  padding-left: 14px;
+  border-left: 3px solid var(--magenta);
+  transform: perspective(600px) rotateY(-16deg) skewY(3deg);
+  transform-origin: left bottom;
+}
+
+body.playing #stage-wing-right {
+  display: flex;
+}
+
+.score-projection {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.sm-lbl {
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--cyan);
+}
+
+.sm-score {
+  font-family: var(--font-display);
+  font-size: 2.35rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.03em;
+  line-height: 1.02;
+  text-shadow: 0 0 22px rgba(0, 212, 255, 0.75), 0 0 40px rgba(255, 46, 196, 0.45);
+}
+
+.sm-subrow {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 0.62rem;
+  color: #cbd5e1;
+}
+
+/* Vertical Overdrive Plasma Tube */
+.cap-rail-wrap {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.cap-tube {
+  position: relative;
+  width: 20px;
+  height: 124px;
+  border-radius: 999px;
+  background: rgba(6, 4, 18, 0.85);
+  border: 2px solid rgba(255, 210, 31, 0.65);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  box-shadow: 0 0 18px rgba(255, 210, 31, 0.35), inset 0 0 10px rgba(0, 0, 0, 0.9);
+}
+
+.cap-threshold-line {
+  position: absolute;
   left: 0;
   right: 0;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  z-index: 4;
+  bottom: 50%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 3;
 }
 
-#stage-progress-bar {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--gold));
-  transition: width 0.1s linear;
+.cap-fill {
+  width: 100%;
+  height: 0%;
+  background: linear-gradient(0deg, #00d4ff, #ff2ec4, #ffd21f);
+  box-shadow: 0 0 18px #ff2ec4;
+  transition: height 0.1s ease-out;
 }
 
+.cap-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.cap-title {
+  font-family: var(--font-display);
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #cbd5e1;
+}
+
+#hud-od-status {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-shadow: 0 0 14px currentColor;
+}
+
+.cap-hint {
+  font-size: 0.58rem;
+  color: #94a3b8;
+}
+
+.cap-hint b {
+  color: var(--gold);
+}
+
+/* ── Pause / Track Complete Modal Overlay ── */
 .stage-overlay {
   position: absolute;
   left: 50%;
-  bottom: 146px;
+  bottom: 138px;
   transform: translateX(-50%);
-  z-index: 6;
-  width: min(440px, 88%);
+  z-index: 35;
+  width: min(460px, 88vw);
   pointer-events: auto;
 }
 
 .overlay-card {
-  background: rgba(9, 12, 26, 0.92);
-  border: 1px solid rgba(0, 212, 255, 0.48);
-  border-radius: 9px;
-  padding: 14px 18px;
+  padding: 16px 22px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(10, 6, 28, 0.94), rgba(22, 9, 44, 0.92));
+  border: 1px solid rgba(255, 46, 196, 0.6);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.82), 0 0 28px rgba(0, 212, 255, 0.25);
   text-align: center;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.78), 0 0 24px rgba(0, 212, 255, 0.15);
+  backdrop-filter: blur(10px);
 }
 
 .ov-eyebrow {
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   color: var(--cyan);
-  margin-bottom: 4px;
+  text-transform: uppercase;
 }
 
 .overlay-card h2 {
-  font-family: 'Orbitron', monospace;
-  font-size: 20px;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
   font-weight: 900;
-  color: #ffffff;
-  margin-bottom: 5px;
+  letter-spacing: 0.08em;
+  color: #fff;
+  margin: 4px 0 6px;
+  text-shadow: 0 0 16px rgba(255, 46, 196, 0.6);
 }
 
 .overlay-card p {
-  font-size: 11px;
+  font-size: 0.72rem;
+  line-height: 1.45;
   color: #cbd5e1;
-  line-height: 1.4;
-  margin-bottom: 11px;
+  margin-bottom: 12px;
+}
+
+.overlay-card p b {
+  color: var(--gold);
 }
 
 .ov-actions {
   display: flex;
   justify-content: center;
-  gap: 8px;
-}
-
-/* ── Right Wing: Grade Hero & Overdrive ── */
-.grade-hero {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr);
   gap: 10px;
-  align-items: center;
-  margin-bottom: 9px;
-}
-
-.grade-badge {
-  height: 74px;
-  border-radius: 8px;
-  background: #0a0e1d;
-  border: 2px solid var(--emerald);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Orbitron', monospace;
-  font-size: 28px;
-  font-weight: 900;
-  color: var(--emerald);
-  text-shadow: 0 0 14px rgba(0, 255, 204, 0.45);
-}
-
-.grade-metrics {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.gm-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.gm-row strong {
-  font-weight: 700;
-}
-
-.tally-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.tally-row {
-  background: #0b0f1f;
-  border: 1px solid #222d52;
-  border-radius: 4px;
-  padding: 4px 7px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-}
-
-.od-bar-wrap {
-  width: 100%;
-  height: 10px;
-  background: #080b16;
-  border: 1px solid #28345e;
-  border-radius: 5px;
-  overflow: hidden;
-}
-
-#hud-od-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #00d4ff, #ff2ec4, #ffd21f);
-  transition: width 0.12s ease;
-}
-
-.archetype-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 10.5px;
-  color: #cbd5e1;
-  line-height: 1.32;
-}
-
-.lane-keymap {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
-}
-
-.k-chip {
-  background: #0b0f1f;
-  border: 1px solid;
-  border-radius: 4px;
-  padding: 5px 0;
-  text-align: center;
-  font-family: 'Orbitron', monospace;
-  font-size: 10.5px;
-  font-weight: 800;
-}
-
-@media (max-width: 1320px) {
-  #studio-shell {
-    grid-template-columns: 282px minmax(0, 1fr) 282px;
-  }
 }

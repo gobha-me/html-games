@@ -1,5 +1,6 @@
 // ============================================================================
-// BACKBEAT // OVERDRIVE — 3D Perspective Highway, FFT Stage & Cyber-DJ Renderer
+// BACKBEAT // OVERDRIVE — Full-Bleed 3D Perspective Neon Highway, Outrun
+// Wireframe Mountains, Pumping Stage Subwoofers & 3D Synth Keycap Renderer
 // ============================================================================
 
 import { LANES, LANE_COLORS, LANE_LABELS, JUDGE } from './config.js';
@@ -8,13 +9,13 @@ export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.W = 800;
-    this.H = 760;
+    this.W = 1440;
+    this.H = 900;
     this.dpr = 1;
 
     this.flashes = []; // { lane, color, judge, at }
     this.particles = []; // { x, y, vx, vy, color, alpha, size }
-    this.shockwaves = []; // { lane, color, radius, alpha }
+    this.shockwaves = []; // { x, y, color, r, alpha }
 
     // Preload pixel-art Cyber-DJ sprite
     this.djSprite = new Image();
@@ -26,11 +27,11 @@ export class Renderer {
     };
     this.djSprite.src = 'assets/art/cyber_dj.png';
 
-    // Deterministic starfield
-    this.stars = Array.from({ length: 56 }, (_, i) => ({
-      u: ((i * 73) % 100) / 100,
-      v: ((i * 41) % 100) / 100,
-      r: (i % 3) * 0.6 + 0.8,
+    // Deterministic starfield across the upper sky
+    this.stars = Array.from({ length: 76 }, (_, i) => ({
+      u: ((i * 73 + 17) % 100) / 100,
+      v: ((i * 41 + 29) % 100) / 100,
+      r: (i % 3) * 0.6 + 0.7,
       phase: i * 0.7,
     }));
   }
@@ -40,7 +41,7 @@ export class Renderer {
     if (!parent) return;
     const rect = parent.getBoundingClientRect();
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
-    this.W = Math.max(460, Math.floor(rect.width));
+    this.W = Math.max(640, Math.floor(rect.width));
     this.H = Math.max(520, Math.floor(rect.height));
 
     this.canvas.style.width = `${this.W}px`;
@@ -52,20 +53,20 @@ export class Renderer {
   // Perspective highway geometry helpers
   // u = 0 at horizonY, u = 1 at hitLineY
   project(laneFloat, u) {
-    const horizonY = this.H * 0.31;
+    const horizonY = this.H * 0.33;
     const hitLineY = this.H * 0.855;
-    const topHalfW = this.W * 0.125;
-    const botHalfW = this.W * 0.39;
+    // Full-bleed stage proportions: highway commands center 46% at bottom, tapering to 11% at horizon
+    const topHalfW = Math.min(105, this.W * 0.068);
+    const botHalfW = Math.min(350, this.W * 0.245);
 
-    // Non-linear perspective foreshortening for authentic 3D depth
-    const p = u >= 0 ? Math.pow(u, 1.55) : -Math.pow(-u, 1.3);
+    const p = u >= 0 ? Math.pow(u, 1.58) : -Math.pow(-u, 1.3);
     const y = horizonY + p * (hitLineY - horizonY);
     const halfW = topHalfW + p * (botHalfW - topHalfW);
     const cx = this.W * 0.5;
     const normLane = (laneFloat / LANES) * 2 - 1; // -1 .. +1
     const x = cx + normLane * halfW;
     const laneWidthAtDepth = (halfW * 2) / LANES;
-    const scale = 0.32 + 0.68 * Math.max(0.1, p);
+    const scale = 0.30 + 0.70 * Math.max(0.08, p);
     return { x, y, laneW: laneWidthAtDepth, scale, p };
   }
 
@@ -74,8 +75,8 @@ export class Renderer {
       judgement === JUDGE.PERFECT
         ? '#00ffcc'
         : judgement === JUDGE.GOOD
-        ? '#ffd21f'
-        : '#ff3b5c';
+          ? '#ffd21f'
+          : '#ff3b5c';
     this.flashes.push({ lane, color, judge: judgement, at: performance.now() });
 
     const pos = this.project(lane + 0.5, 1.0);
@@ -84,20 +85,20 @@ export class Renderer {
         x: pos.x,
         y: pos.y,
         color: LANE_COLORS[lane],
-        r: 10,
-        alpha: 0.95,
+        r: 12,
+        alpha: 0.98,
       });
-      for (let i = 0; i < 14; i++) {
-        const ang = (Math.PI * 2 * i) / 14 + (Math.random() - 0.5) * 0.3;
-        const spd = 2.2 + Math.random() * 4.5;
+      for (let i = 0; i < 16; i++) {
+        const ang = (Math.PI * 2 * i) / 16 + (Math.random() - 0.5) * 0.3;
+        const spd = 2.4 + Math.random() * 5.0;
         this.particles.push({
           x: pos.x,
           y: pos.y,
           vx: Math.cos(ang) * spd,
-          vy: Math.sin(ang) * spd - 1.4,
+          vy: Math.sin(ang) * spd - 1.6,
           color: i % 2 === 0 ? LANE_COLORS[lane] : '#ffffff',
           alpha: 1,
-          size: 2.5 + Math.random() * 2.5,
+          size: 2.5 + Math.random() * 2.8,
         });
       }
     }
@@ -109,66 +110,69 @@ export class Renderer {
     const t = game.now(audioTimeSec);
     const bpm = (game.chart && game.chart.bpm) || (track && track.bpm) || 120;
     const beatFloat = (Math.max(0, t) * bpm) / 60;
-    const beatPulse = Math.pow(Math.max(0, 1 - (beatFloat % 1)), 2.2);
+    const beatPulse = Math.pow(Math.max(0, 1 - (beatFloat % 1)), 2.1);
 
     ctx.save();
     ctx.scale(this.dpr, this.dpr);
 
-    // 1. Studio Stage Backdrop & Synthwave Horizon
-    this.drawStageBackdrop(ctx, W, H, t, beatPulse, spectrum, track, game.overdriveActive);
+    // 1. Full-Bleed Synthwave Concert Stage Backdrop, Outrun Sun, Mountains & Speaker Stacks
+    this.drawStageBackdrop(ctx, W, H, t, beatFloat, beatPulse, spectrum, track, game.overdriveActive);
 
-    // 2. 3D Perspective 4-Lane Highway
-    this.drawPerspectiveHighway(ctx, W, H, game, t, beatFloat, beatPulse);
+    // 2. 3D Perspective 4-Lane Highway & Scrolling Synthwave Grid Floor
+    this.drawPerspectiveHighway(ctx, W, H, game, t, beatFloat, beatPulse, track);
 
-    // 3. Falling Notes, Chords & Hold/Sustain Ribbons
+    // 3. Falling 3D Beveled Notes, Chords & Hold/Sustain Ribbons
     this.drawNotesAndRibbons(ctx, game, t);
 
-    // 4. Receptor Docks, Hit Shockwaves & Particle Sparks
+    // 4. 3D Molded Receptor Keycaps, Hit Shockwaves & Particle Sparks
     this.drawReceptorsAndFX(ctx, game, t);
 
-    // 5. Center Stage Judgement & Millisecond Offset Callout
+    // 5. Center Stage Judgement & Millisecond Timing Bar
     this.drawCenterJudgement(ctx, W, H, game);
 
     ctx.restore();
   }
 
-  drawStageBackdrop(ctx, W, H, t, beatPulse, spectrum, track, overdrive) {
-    const horizonY = H * 0.31;
+  drawStageBackdrop(ctx, W, H, t, beatFloat, beatPulse, spectrum, track, overdrive) {
+    const horizonY = H * 0.33;
     const cx = W * 0.5;
     const accent = overdrive ? '#ffd21f' : (track && track.accent) || '#00d4ff';
 
-    // Sky gradient
+    // Deep Synthwave Night Sky Gradient
     const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-    skyGrad.addColorStop(0, overdrive ? '#1a0926' : '#05060f');
-    skyGrad.addColorStop(0.31, overdrive ? '#320d3e' : '#120924');
-    skyGrad.addColorStop(1, '#04050a');
+    skyGrad.addColorStop(0, overdrive ? '#160624' : '#04050d');
+    skyGrad.addColorStop(0.22, overdrive ? '#2e0b3d' : '#100724');
+    skyGrad.addColorStop(0.33, overdrive ? '#4c1152' : '#240c3b');
+    skyGrad.addColorStop(0.34, '#070814');
+    skyGrad.addColorStop(1, '#03040a');
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // Twinkling stars
+    // Twinkling Starfield
     for (const st of this.stars) {
-      const a = 0.3 + 0.6 * (0.5 + 0.5 * Math.sin(t * 2.5 + st.phase));
-      ctx.fillStyle = `rgba(210, 230, 255, ${a.toFixed(2)})`;
+      const a = 0.25 + 0.65 * (0.5 + 0.5 * Math.sin(t * 2.5 + st.phase));
+      ctx.fillStyle = `rgba(216, 236, 255, ${a.toFixed(2)})`;
       ctx.beginPath();
-      ctx.arc(st.u * W, st.v * (horizonY - 12), st.r, 0, Math.PI * 2);
+      ctx.arc(st.u * W, st.v * (horizonY - 24), st.r, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Sweeping Stage Lasers
-    const laserCount = overdrive ? 8 : 4;
+    // Sweeping Concert Truss Lasers
+    const laserCount = overdrive ? 10 : 6;
     ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < laserCount; i++) {
       const side = i % 2 === 0 ? -1 : 1;
-      const baseX = cx + side * (W * 0.16 + (i >> 1) * 45);
-      const sway = Math.sin(t * 2.4 + i * 1.1) * 0.42;
-      const topX = baseX + Math.sin(sway) * 240;
+      const baseX = cx + side * (110 + (i >> 1) * 85);
+      const sway = Math.sin(t * 2.3 + i * 1.05) * 0.48;
+      const topX = baseX + Math.sin(sway) * 320;
       const col = LANE_COLORS[i % LANES];
       const grad = ctx.createLinearGradient(baseX, horizonY, topX, 0);
       grad.addColorStop(0, col);
       grad.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.strokeStyle = grad;
-      ctx.globalAlpha = overdrive ? 0.42 : 0.22;
-      ctx.lineWidth = overdrive ? 3.2 : 1.8;
+      ctx.globalAlpha = overdrive ? 0.44 : 0.24;
+      ctx.lineWidth = overdrive ? 3.4 : 2.0;
       ctx.beginPath();
       ctx.moveTo(baseX, horizonY);
       ctx.lineTo(topX, 0);
@@ -176,54 +180,89 @@ export class Renderer {
     }
     ctx.restore();
 
-    // Retro-Synthwave Sun Halo behind Cyber-DJ
-    const sunR = 66 + beatPulse * 7;
-    const sunGrad = ctx.createLinearGradient(cx, horizonY - sunR * 1.7, cx, horizonY);
-    sunGrad.addColorStop(0, overdrive ? '#fffbeb' : '#ff2ec4');
-    sunGrad.addColorStop(0.55, accent);
-    sunGrad.addColorStop(1, 'rgba(18, 9, 36, 0.1)');
+    // Classic 1989 Outrun Sliced Sunset Disk behind the Cyber-DJ
+    const sunR = 92 + beatPulse * 8;
+    const sunCy = horizonY - 8;
+    ctx.save();
+    ctx.beginPath();
+    // Clip out horizontal retro scanline slices in the lower half of the sun
+    ctx.rect(cx - sunR - 10, sunCy - sunR - 10, (sunR + 10) * 2, sunR * 0.42);
+    for (let s = 0; s < 6; s++) {
+      const sliceY = sunCy - sunR * 0.58 + s * (sunR * 0.11);
+      const sliceH = Math.max(2, sunR * 0.075 - s * 1.1);
+      ctx.rect(cx - sunR - 10, sliceY, (sunR + 10) * 2, sliceH);
+    }
+    ctx.clip();
+
+    const sunGrad = ctx.createLinearGradient(cx, sunCy - sunR, cx, horizonY);
+    sunGrad.addColorStop(0, overdrive ? '#fffbeb' : '#fde047');
+    sunGrad.addColorStop(0.45, '#ff2ec4');
+    sunGrad.addColorStop(1, accent);
     ctx.fillStyle = sunGrad;
     ctx.beginPath();
-    ctx.arc(cx, horizonY - 14, sunR, Math.PI, 0, false);
+    ctx.arc(cx, sunCy, sunR, Math.PI, 0, false);
     ctx.fill();
+    ctx.restore();
 
-    // Dual-Wing 28-Band Real-Time FFT Spectrum Bars flanking the DJ Stage
+    // Synthwave Wireframe Horizon Mountains (Left & Right of Center Stage)
+    this.drawWireframeMountains(ctx, W, horizonY, cx, accent, beatPulse);
+
+    // Dual-Wing 28-Band FFT Spectrum Equalizer (Uses live WebAudio spectrum OR BPM-synced synth wave in preview mode!)
+    const bins = 26;
+    const startXLeft = cx - 155;
+    const startXRight = cx + 155;
+    const wingW = Math.min(360, Math.max(120, cx - 180));
+    const barStep = wingW / bins;
+    const barW = Math.max(3.5, barStep - 3);
+
+    // Check if WebAudio analyser has active signal; if in pre-play attract mode, generate BPM-synced spectrum!
+    let hasSignal = false;
     if (spectrum && spectrum.length > 0) {
-      const bins = 26;
-      const startXLeft = cx - 96;
-      const startXRight = cx + 96;
-      const wingW = Math.max(90, cx - 114);
-      const barStep = wingW / bins;
-      const barW = Math.max(3, barStep - 2.5);
-
-      for (let i = 0; i < bins; i++) {
-        const val = spectrum[i] / 255;
-        const barH = Math.max(4, val * (horizonY * 0.72));
-        const col = i < 8 ? '#00d4ff' : i < 17 ? '#ff2ec4' : '#ffd21f';
-
-        ctx.fillStyle = col;
-        ctx.globalAlpha = 0.82;
-        // Left wing (mirrored outward)
-        const lx = startXLeft - (i + 1) * barStep;
-        ctx.fillRect(lx, horizonY - barH, barW, barH);
-        // Peak cap
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(lx, horizonY - barH - 3, barW, 2);
-
-        // Right wing
-        ctx.fillStyle = col;
-        const rx = startXRight + i * barStep;
-        ctx.fillRect(rx, horizonY - barH, barW, barH);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(rx, horizonY - barH - 3, barW, 2);
+      for (let i = 0; i < 12; i++) {
+        if (spectrum[i] > 4) {
+          hasSignal = true;
+          break;
+        }
       }
-      ctx.globalAlpha = 1;
     }
+
+    for (let i = 0; i < bins; i++) {
+      let val = 0;
+      if (hasSignal && spectrum) {
+        val = spectrum[i] / 255;
+      } else {
+        // Procedural BPM-locked equalizer curve so the stage is alive even before clicking Play
+        const freqCurve = Math.exp(-i * 0.065);
+        const wave1 = 0.5 + 0.5 * Math.sin(t * 6.5 - i * 0.35);
+        const wave2 = 0.5 + 0.5 * Math.cos(t * 11.2 + i * 0.55);
+        val = Math.min(1, (0.22 + beatPulse * 0.52 * freqCurve + 0.28 * wave1 * wave2) * (0.45 + 0.55 * freqCurve));
+      }
+      const barH = Math.max(5, val * (horizonY * 0.52));
+      const col = i < 8 ? '#00d4ff' : i < 17 ? '#ff2ec4' : '#ffd21f';
+
+      ctx.fillStyle = col;
+      ctx.globalAlpha = 0.84;
+      const lx = startXLeft - (i + 1) * barStep;
+      ctx.fillRect(lx, horizonY - barH, barW, barH);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(lx, horizonY - barH - 3, barW, 2);
+
+      ctx.fillStyle = col;
+      const rx = startXRight + i * barStep;
+      ctx.fillRect(rx, horizonY - barH, barW, barH);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(rx, horizonY - barH - 3, barW, 2);
+    }
+    ctx.globalAlpha = 1;
+
+    // Dual Pumping Stage Subwoofer Stacks flanking the Cyber-DJ Booth
+    this.drawSubwooferStack(ctx, cx - 122, horizonY - 72, 42, 70, accent, beatPulse);
+    this.drawSubwooferStack(ctx, cx + 80, horizonY - 72, 42, 70, accent, beatPulse);
 
     // Pixel-Art Cyber-DJ Deck Sprite at Center Horizon
     if (this.djSprite && this.djSprite.complete && this.djSprite.naturalWidth > 0) {
-      const djW = 176;
-      const djH = 132;
+      const djW = 184;
+      const djH = 138;
       const bounce = beatPulse * 5;
       ctx.save();
       ctx.imageSmoothingEnabled = false;
@@ -240,38 +279,129 @@ export class Renderer {
     // Horizon Neon Divider Line
     ctx.fillStyle = accent;
     ctx.shadowColor = accent;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
     ctx.fillRect(0, horizonY - 1.5, W, 3);
     ctx.shadowBlur = 0;
   }
 
-  drawPerspectiveHighway(ctx, W, H, game, t, beatFloat, beatPulse) {
-    const horizonY = H * 0.31;
-    // Ambient outer perspective grid wings
-    ctx.strokeStyle = game.overdriveActive
-      ? 'rgba(255, 210, 31, 0.16)'
-      : 'rgba(168, 85, 247, 0.13)';
+  drawWireframeMountains(ctx, W, horizonY, cx, accent, beatPulse) {
+    ctx.save();
+    const peaks = [
+      { x: 0, h: 48 },
+      { x: W * 0.08, h: 96 },
+      { x: W * 0.16, h: 62 },
+      { x: W * 0.25, h: 112 },
+      { x: W * 0.34, h: 44 },
+      { x: cx - 100, h: 10 },
+      { x: cx + 100, h: 10 },
+      { x: W * 0.66, h: 48 },
+      { x: W * 0.75, h: 116 },
+      { x: W * 0.84, h: 64 },
+      { x: W * 0.92, h: 92 },
+      { x: W, h: 52 },
+    ];
+
+    ctx.fillStyle = '#090616';
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.4;
+    ctx.globalAlpha = 0.55 + beatPulse * 0.2;
+    ctx.beginPath();
+    ctx.moveTo(0, horizonY);
+    for (const pt of peaks) {
+      ctx.lineTo(pt.x, horizonY - pt.h);
+    }
+    ctx.lineTo(W, horizonY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Vertical wireframe facets from peaks to horizon
+    ctx.strokeStyle = 'rgba(255, 46, 196, 0.25)';
     ctx.lineWidth = 1;
-    for (let g = -8; g <= 12; g++) {
+    for (const pt of peaks) {
+      if (pt.h > 20) {
+        ctx.beginPath();
+        ctx.moveTo(pt.x, horizonY - pt.h);
+        ctx.lineTo(pt.x - 24, horizonY);
+        ctx.moveTo(pt.x, horizonY - pt.h);
+        ctx.lineTo(pt.x + 24, horizonY);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  drawSubwooferStack(ctx, x, y, w, h, accent, beatPulse) {
+    ctx.save();
+    ctx.fillStyle = '#0b0e1d';
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.6;
+    this.roundRect(x, y, w, h, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    const cx = x + w * 0.5;
+    for (const cy of [y + h * 0.28, y + h * 0.72]) {
+      const r = 11 + beatPulse * 3.2;
+      ctx.strokeStyle = '#ff2ec4';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4 + beatPulse * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  drawPerspectiveHighway(ctx, W, H, game, t, beatFloat, beatPulse, track) {
+    const horizonY = H * 0.33;
+    const accent = game.overdriveActive ? '#ffd21f' : (track && track.accent) || '#00d4ff';
+
+    // 1. Outrun Scrolling Perspective Floor Grid outside the Highway
+    ctx.save();
+    ctx.strokeStyle = game.overdriveActive
+      ? 'rgba(255, 210, 31, 0.18)'
+      : 'rgba(255, 46, 196, 0.15)';
+    ctx.lineWidth = 1;
+    // Radial vanishing lines
+    for (let g = -12; g <= 16; g++) {
       if (g >= 0 && g <= LANES) continue;
       const pTop = this.project(g, 0);
-      const pBot = this.project(g, 1.15);
+      const pBot = this.project(g, 1.18);
       ctx.beginPath();
       ctx.moveTo(pTop.x, pTop.y);
       ctx.lineTo(pBot.x, pBot.y);
       ctx.stroke();
     }
+    // Scrolling horizontal floor scanlines
+    const gridOffset = (beatFloat * 0.5) % 1;
+    for (let s = 0; s < 10; s++) {
+      const u = (s + gridOffset) / 10;
+      const pt = this.project(0, u);
+      const pR = this.project(LANES, u);
+      ctx.strokeStyle = `rgba(0, 212, 255, ${(0.04 + u * 0.12).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(0, pt.y);
+      ctx.lineTo(pt.x, pt.y);
+      ctx.moveTo(pR.x, pt.y);
+      ctx.lineTo(W, pt.y);
+      ctx.stroke();
+    }
+    ctx.restore();
 
-    // 4-Lane Highway Surface Trapezoid
+    // 2. 4-Lane Highway Surface Trapezoid with Neon Side Bumper Bump-Rails
     const topL = this.project(0, 0);
     const topR = this.project(LANES, 0);
-    const botL = this.project(0, 1.16);
-    const botR = this.project(LANES, 1.16);
+    const botL = this.project(0, 1.18);
+    const botR = this.project(LANES, 1.18);
 
     const hwGrad = ctx.createLinearGradient(0, horizonY, 0, H);
-    hwGrad.addColorStop(0, game.overdriveActive ? 'rgba(42, 16, 58, 0.92)' : 'rgba(10, 14, 28, 0.92)');
-    hwGrad.addColorStop(0.85, 'rgba(7, 10, 20, 0.97)');
-    hwGrad.addColorStop(1, 'rgba(4, 6, 14, 0.99)');
+    hwGrad.addColorStop(0, game.overdriveActive ? 'rgba(46, 16, 62, 0.94)' : 'rgba(9, 13, 28, 0.94)');
+    hwGrad.addColorStop(0.85, 'rgba(6, 9, 20, 0.98)');
+    hwGrad.addColorStop(1, 'rgba(3, 5, 12, 0.99)');
 
     ctx.fillStyle = hwGrad;
     ctx.beginPath();
@@ -282,17 +412,17 @@ export class Renderer {
     ctx.closePath();
     ctx.fill();
 
-    // Active Key-Hold Lane Laser Beams
+    // 3. Active Key-Hold Lane Laser Beams
     for (let lane = 0; lane < LANES; lane++) {
       if (game.laneHeld[lane]) {
         const lTop = this.project(lane, 0);
         const rTop = this.project(lane + 1, 0);
-        const lBot = this.project(lane, 1.12);
-        const rBot = this.project(lane + 1, 1.12);
+        const lBot = this.project(lane, 1.14);
+        const rBot = this.project(lane + 1, 1.14);
 
         const beamGrad = ctx.createLinearGradient(0, horizonY, 0, H * 0.86);
         beamGrad.addColorStop(0, 'rgba(0,0,0,0)');
-        beamGrad.addColorStop(1, LANE_COLORS[lane] + '38');
+        beamGrad.addColorStop(1, LANE_COLORS[lane] + '44');
         ctx.fillStyle = beamGrad;
         ctx.beginPath();
         ctx.moveTo(lTop.x, lTop.y);
@@ -304,7 +434,7 @@ export class Renderer {
       }
     }
 
-    // Scrolling Beat / Measure Lines down the highway
+    // 4. Scrolling Beat / Measure Lines down the highway
     const leadSec = game.diff.leadSec;
     const bpm = (game.chart && game.chart.bpm) || 120;
     const beatSec = 60 / bpm;
@@ -318,30 +448,55 @@ export class Renderer {
       const rightPt = this.project(LANES, u);
       const isBar = b % 4 === 0;
       ctx.strokeStyle = isBar
-        ? 'rgba(255, 255, 255, 0.24)'
-        : 'rgba(148, 163, 184, 0.1)';
-      ctx.lineWidth = isBar ? 1.8 : 1;
+        ? 'rgba(255, 255, 255, 0.28)'
+        : 'rgba(148, 163, 184, 0.11)';
+      ctx.lineWidth = isBar ? 2.0 : 1;
       ctx.beginPath();
       ctx.moveTo(leftPt.x, leftPt.y);
       ctx.lineTo(rightPt.x, rightPt.y);
       ctx.stroke();
     }
 
-    // Lane Divider Rails
+    // 5. Outer Glowing Metallic Chassis Rails, Scrolling Rail Chevrons & Inner Lane Dividers
+    const railScroll = (beatFloat * 0.5) % 1;
+    for (let c = 0; c < 8; c++) {
+      const u = (c + railScroll) / 8;
+      const pLOut = this.project(-0.18, u);
+      const pLIn = this.project(0, u);
+      const pRIn = this.project(LANES, u);
+      const pROut = this.project(LANES + 0.18, u);
+      ctx.save();
+      ctx.strokeStyle = accent;
+      ctx.globalAlpha = 0.25 + u * 0.55;
+      ctx.lineWidth = Math.max(1.5, 3.2 * pLIn.scale);
+      ctx.beginPath();
+      ctx.moveTo(pLOut.x, pLOut.y - 6 * pLIn.scale);
+      ctx.lineTo(pLIn.x, pLIn.y);
+      ctx.moveTo(pROut.x, pROut.y - 6 * pRIn.scale);
+      ctx.lineTo(pRIn.x, pRIn.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     for (let i = 0; i <= LANES; i++) {
       const p0 = this.project(i, 0);
-      const p1 = this.project(i, 1.16);
+      const p1 = this.project(i, 1.18);
       const isOuter = i === 0 || i === LANES;
-      ctx.strokeStyle = isOuter
-        ? game.overdriveActive
-          ? '#ffd21f'
-          : '#00d4ff'
-        : 'rgba(148, 163, 184, 0.22)';
-      ctx.lineWidth = isOuter ? 2.6 : 1.2;
+      ctx.save();
+      if (isOuter) {
+        ctx.strokeStyle = accent;
+        ctx.shadowColor = accent;
+        ctx.shadowBlur = 12;
+        ctx.lineWidth = 3.5;
+      } else {
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.26)';
+        ctx.lineWidth = 1.3;
+      }
       ctx.beginPath();
       ctx.moveTo(p0.x, p0.y);
       ctx.lineTo(p1.x, p1.y);
       ctx.stroke();
+      ctx.restore();
     }
   }
 
@@ -356,10 +511,8 @@ export class Renderer {
       const headDt = note.time - t;
       const tailDt = note.time + (note.duration || 0) - t;
 
-      // Skip if completely past or not yet on highway
       if (tailDt < -0.12 || headDt > leadSec) continue;
 
-      // Draw Hold/Sustain Ribbon if duration > 0
       if (note.duration > 0 && !note.holdCompleted) {
         const uHead = note.holding
           ? 1.0
@@ -375,7 +528,7 @@ export class Renderer {
           const col = LANE_COLORS[note.lane];
           const ribGrad = ctx.createLinearGradient(0, pTailL.y, 0, pHeadL.y);
           ribGrad.addColorStop(0, col + '35');
-          ribGrad.addColorStop(1, note.holding ? '#ffffffcc' : col + 'aa');
+          ribGrad.addColorStop(1, note.holding ? '#ffffffdd' : col + 'bb');
 
           ctx.fillStyle = ribGrad;
           ctx.beginPath();
@@ -386,17 +539,15 @@ export class Renderer {
           ctx.closePath();
           ctx.fill();
 
-          // Center energy spine
           const pHeadC = this.project(note.lane + 0.5, uHead);
           const pTailC = this.project(note.lane + 0.5, uTail);
           ctx.strokeStyle = note.holding ? '#ffffff' : col;
-          ctx.lineWidth = Math.max(1.5, 3 * pHeadC.scale);
+          ctx.lineWidth = Math.max(1.5, 3.2 * pHeadC.scale);
           ctx.beginPath();
           ctx.moveTo(pTailC.x, pTailC.y);
           ctx.lineTo(pHeadC.x, pHeadC.y);
           ctx.stroke();
 
-          // Tail end-cap
           const capH = Math.max(4, 10 * pTailC.scale);
           ctx.fillStyle = col;
           ctx.fillRect(
@@ -408,7 +559,6 @@ export class Renderer {
         }
       }
 
-      // Draw Simultaneous Chord Tie-Bar between two unjudged notes at the same timestamp
       if (!note.judged && note.chord) {
         if (prevChordNote && Math.abs(prevChordNote.time - note.time) < 0.005) {
           const u = 1 - headDt / leadSec;
@@ -416,7 +566,7 @@ export class Renderer {
             const pA = this.project(prevChordNote.lane + 0.5, u);
             const pB = this.project(note.lane + 0.5, u);
             ctx.strokeStyle = '#fef08a';
-            ctx.lineWidth = Math.max(2, 5 * pA.scale);
+            ctx.lineWidth = Math.max(2.5, 5.5 * pA.scale);
             ctx.beginPath();
             ctx.moveTo(pA.x, pA.y);
             ctx.lineTo(pB.x, pB.y);
@@ -437,15 +587,22 @@ export class Renderer {
       const pL = this.project(note.lane + 0.08, u);
       const pR = this.project(note.lane + 0.92, u);
       const w = pR.x - pL.x;
-      const h = Math.max(6, 22 * pL.scale);
+      const h = Math.max(7, 24 * pL.scale);
+      const bevelH = Math.max(2, 6 * pL.scale);
       const x = pL.x;
       const y = pL.y - h * 0.5;
       const color = game.overdriveActive ? '#ffd21f' : LANE_COLORS[note.lane];
 
       ctx.save();
+      // Lower 3D bevel lip
+      ctx.fillStyle = '#090d1a';
+      this.roundRect(x, y + bevelH, w, h, Math.max(2, 6 * pL.scale));
+      ctx.fill();
+
+      // Main glowing note body
       ctx.fillStyle = color;
       ctx.shadowColor = color;
-      ctx.shadowBlur = 12 * pL.scale;
+      ctx.shadowBlur = 14 * pL.scale;
       this.roundRect(x, y, w, h, Math.max(2, 6 * pL.scale));
       ctx.fill();
       ctx.shadowBlur = 0;
@@ -454,15 +611,14 @@ export class Renderer {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(
         x + w * 0.14,
-        y + h * 0.28,
+        y + h * 0.26,
         w * 0.72,
         Math.max(2, h * 0.34)
       );
 
-      // Gold rim for simultaneous chord notes
       if (note.chord) {
         ctx.strokeStyle = '#fef08a';
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = 1.8;
         this.roundRect(x, y, w, h, Math.max(2, 6 * pL.scale));
         ctx.stroke();
       }
@@ -474,46 +630,63 @@ export class Renderer {
     const leftHit = this.project(0, 1.0);
     const rightHit = this.project(LANES, 1.0);
 
-    // Glowing Receptor Strike Bar
-    ctx.fillStyle = 'rgba(0, 212, 255, 0.22)';
-    ctx.fillRect(leftHit.x, leftHit.y - 5, rightHit.x - leftHit.x, 10);
+    // Glowing Receptor Strike Laser Bar
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.25)';
+    ctx.fillRect(leftHit.x - 8, leftHit.y - 5, rightHit.x - leftHit.x + 16, 10);
     ctx.fillStyle = game.overdriveActive ? '#ffd21f' : '#00ffcc';
-    ctx.fillRect(leftHit.x, leftHit.y - 1.5, rightHit.x - leftHit.x, 3);
+    ctx.fillRect(leftHit.x - 8, leftHit.y - 1.5, rightHit.x - leftHit.x + 16, 3);
 
-    // 4 Receptor Key Docks (D F J K)
+    // 4 Molded 3D Arcade Receptor Keycaps (D F J K)
     for (let i = 0; i < LANES; i++) {
-      const pL = this.project(i + 0.08, 1.0);
-      const pR = this.project(i + 0.92, 1.0);
+      const pL = this.project(i + 0.07, 1.0);
+      const pR = this.project(i + 0.93, 1.0);
       const pC = this.project(i + 0.5, 1.0);
       const w = pR.x - pL.x;
-      const h = 24;
+      const h = 28;
       const pressed = game.laneHeld[i];
       const col = LANE_COLORS[i];
+      const dy = pressed ? 3 : 0;
 
       ctx.save();
-      ctx.fillStyle = pressed ? col + '55' : 'rgba(12, 17, 32, 0.88)';
-      ctx.strokeStyle = col;
-      ctx.lineWidth = pressed ? 3 : 2;
-      this.roundRect(pL.x, pC.y - h * 0.5 + (pressed ? 2 : 0), w, h, 6);
+      // Key-well base shadow
+      ctx.fillStyle = '#050811';
+      this.roundRect(pL.x - 2, pC.y - h * 0.5 + 5, w + 4, h + 2, 7);
+      ctx.fill();
+
+      // Main 3D receptor cap
+      ctx.fillStyle = pressed ? col + '66' : 'rgba(12, 18, 36, 0.92)';
+      ctx.strokeStyle = pressed ? '#ffffff' : col;
+      ctx.lineWidth = pressed ? 3 : 2.2;
+      this.roundRect(pL.x, pC.y - h * 0.5 + dy, w, h, 6);
       ctx.fill();
       ctx.stroke();
 
-      // Key Label below receptor
+      // Inner target slot bar
+      ctx.fillStyle = pressed ? '#ffffff' : col + '88';
+      ctx.fillRect(pL.x + w * 0.2, pC.y - 2 + dy, w * 0.6, 4);
+
+      // Key Label Pill below receptor
+      ctx.fillStyle = 'rgba(8, 12, 24, 0.9)';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.4;
+      this.roundRect(pC.x - 18, pC.y + 20, 36, 20, 4);
+      ctx.fill();
+      ctx.stroke();
+
       ctx.fillStyle = pressed ? '#ffffff' : col;
-      ctx.font = '700 13px "Orbitron", monospace';
+      ctx.font = '800 12px "Orbitron", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(LANE_LABELS[i], pC.x, pC.y + 28);
+      ctx.fillText(LANE_LABELS[i], pC.x, pC.y + 30.5);
       ctx.restore();
 
-      // Continuous spark fountain while holding a sustain ribbon
       if (game.activeHolds[i] && game.laneHeld[i]) {
         ctx.save();
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = col;
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = 16;
         ctx.beginPath();
-        ctx.arc(pC.x, pC.y, 9 + Math.sin(t * 28) * 3, 0, Math.PI * 2);
+        ctx.arc(pC.x, pC.y, 10 + Math.sin(t * 28) * 3, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
@@ -524,17 +697,17 @@ export class Renderer {
     this.flashes = this.flashes.filter((f) => nowMs - f.at < 190);
     for (const f of this.flashes) {
       const a = 1 - (nowMs - f.at) / 190;
-      const pL = this.project(f.lane + 0.05, 0.72);
-      const pR = this.project(f.lane + 0.95, 0.72);
-      const bL = this.project(f.lane + 0.05, 1.04);
-      const bR = this.project(f.lane + 0.95, 1.04);
+      const pL = this.project(f.lane + 0.04, 0.68);
+      const pR = this.project(f.lane + 0.96, 0.68);
+      const bL = this.project(f.lane + 0.04, 1.04);
+      const bR = this.project(f.lane + 0.96, 1.04);
 
       const grad = ctx.createLinearGradient(0, pL.y, 0, bL.y);
       grad.addColorStop(0, 'rgba(0,0,0,0)');
       grad.addColorStop(1, f.color);
 
       ctx.save();
-      ctx.globalAlpha = a * 0.55;
+      ctx.globalAlpha = a * 0.58;
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.moveTo(pL.x, pL.y);
@@ -549,7 +722,7 @@ export class Renderer {
     // Shockwaves
     for (let i = this.shockwaves.length - 1; i >= 0; i--) {
       const sw = this.shockwaves[i];
-      sw.r += 2.8;
+      sw.r += 3.0;
       sw.alpha -= 0.055;
       if (sw.alpha <= 0) {
         this.shockwaves.splice(i, 1);
@@ -558,9 +731,9 @@ export class Renderer {
       ctx.save();
       ctx.strokeStyle = sw.color;
       ctx.globalAlpha = sw.alpha;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.6;
       ctx.beginPath();
-      ctx.ellipse(sw.x, sw.y, sw.r * 1.35, sw.r * 0.55, 0, 0, Math.PI * 2);
+      ctx.ellipse(sw.x, sw.y, sw.r * 1.4, sw.r * 0.55, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -586,46 +759,66 @@ export class Renderer {
 
   drawCenterJudgement(ctx, W, H, game) {
     const cx = W * 0.5;
-    const cy = H * 0.52;
+    const cy = H * 0.50;
 
     if (game.combo >= 2) {
       ctx.save();
       ctx.textAlign = 'center';
-      ctx.font = '900 32px "Orbitron", monospace';
-      ctx.fillStyle = game.overdriveActive ? '#ffd21f' : 'rgba(255, 255, 255, 0.88)';
-      ctx.fillText(`${game.combo}×`, cx, cy - 26);
+      ctx.font = '900 36px "Orbitron", monospace';
+      ctx.fillStyle = game.overdriveActive ? '#ffd21f' : 'rgba(255, 255, 255, 0.90)';
+      ctx.shadowColor = game.overdriveActive ? '#ffd21f' : '#00d4ff';
+      ctx.shadowBlur = 12;
+      ctx.fillText(`${game.combo}×`, cx, cy - 28);
+      ctx.shadowBlur = 0;
 
       ctx.font = '700 10px "Orbitron", monospace';
       ctx.fillStyle = game.overdriveActive ? '#fde047' : '#94a3b8';
-      ctx.fillText(game.overdriveActive ? '2× OVERDRIVE FEVER' : 'COMBO STREAK', cx, cy - 6);
+      ctx.fillText(game.overdriveActive ? '⚡ 2× OVERDRIVE FEVER ⚡' : 'COMBO STREAK', cx, cy - 8);
       ctx.restore();
+    }
+
+    if (game.combo === 0 && !game.lastJudgement) {
+      const promptY = H * 0.78;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = '800 12px "Orbitron", monospace';
+      ctx.fillStyle = '#00ffcc';
+      ctx.shadowColor = '#00ffcc';
+      ctx.shadowBlur = 12;
+      ctx.fillText('STRIKE [D] [F] [J] [K] OR [ENTER] TO DROP THE BEAT', cx, promptY);
+      ctx.shadowBlur = 0;
+      ctx.font = '600 10px "IBM Plex Mono", monospace';
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.78)';
+      ctx.fillText('LIVE HIGHWAY PREVIEW · HOLD RIBBONS · [SPACE] 2× OVERDRIVE', cx, promptY + 16);
+      ctx.restore();
+      return;
     }
 
     if (game.lastJudgement) {
       const age = performance.now() - game.lastJudgement.at;
-      if (age < 520) {
-        const a = Math.min(1, 1 - age / 520);
+      if (age < 560) {
+        const a = Math.min(1, 1 - age / 560);
         const j = game.lastJudgement;
         const label =
           j.type === JUDGE.PERFECT
             ? 'PERFECT!'
             : j.type === JUDGE.GOOD
-            ? 'GOOD'
-            : 'MISS';
+              ? 'GOOD'
+              : 'MISS';
         const color =
           j.type === JUDGE.PERFECT
             ? '#00ffcc'
             : j.type === JUDGE.GOOD
-            ? '#ffd21f'
-            : '#ff3b5c';
+              ? '#ffd21f'
+              : '#ff3b5c';
 
         ctx.save();
         ctx.globalAlpha = a;
         ctx.textAlign = 'center';
-        ctx.font = '900 22px "Orbitron", monospace';
+        ctx.font = '900 24px "Orbitron", monospace';
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 12;
         ctx.fillText(label, cx, cy + 24);
         ctx.shadowBlur = 0;
 
@@ -635,11 +828,28 @@ export class Renderer {
             Math.abs(j.offsetMs) <= 8
               ? 'DEAD-ON'
               : j.offsetMs < 0
-              ? 'EARLY'
-              : 'LATE';
-          ctx.font = '600 11px monospace';
+                ? 'EARLY'
+                : 'LATE';
+          ctx.font = '600 11px "IBM Plex Mono", monospace';
           ctx.fillStyle = '#e2e8f0';
-          ctx.fillText(`${sign}${j.offsetMs}ms ${tag}`, cx, cy + 42);
+          ctx.fillText(`${sign}${j.offsetMs}ms ${tag}`, cx, cy + 43);
+
+          // Center-Stage Early/Late Precision Tick Bar right on the highway
+          const barW = 136;
+          const barY = cy + 53;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+          ctx.fillRect(cx - barW * 0.5, barY, barW, 4);
+          ctx.fillStyle = '#00ffcc';
+          ctx.fillRect(cx - 20, barY, 40, 4);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(cx - 1, barY - 2, 2, 8);
+          const offClamped = Math.max(-55, Math.min(55, j.offsetMs));
+          const tickX = cx + (offClamped / 55) * (barW * 0.46);
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 8;
+          ctx.fillRect(tickX - 2, barY - 3, 4, 10);
+          ctx.shadowBlur = 0;
         }
         ctx.restore();
       }

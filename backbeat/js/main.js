@@ -1,5 +1,5 @@
 // ============================================================================
-// BACKBEAT // OVERDRIVE — Studio Deck Controller, Input & HUD Telemetry
+// BACKBEAT // OVERDRIVE — Studio Deck Controller, Input & Stage Telemetry
 // ============================================================================
 
 import {
@@ -39,6 +39,16 @@ let game = new Game(currentChart, selectedDiffId, audioOffsetMs);
 let idlePreviewSec = 2.15;
 let paused = false;
 let trackStarted = false;
+const previewParam = new URLSearchParams(window.location.search).get('preview');
+const isShowcasePreview = previewParam === 'showcase' || previewParam === 'combat';
+
+function setBtnLabel(id, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const span = el.querySelector('span');
+  if (span) span.textContent = text;
+  else el.textContent = text;
+}
 
 function getBestScore(trackId, diffId) {
   return Number(highScores[`${trackId}:${diffId}`]) || 0;
@@ -73,11 +83,10 @@ function renderTrackCrate() {
       <img src="${tr.cover}" alt="${tr.title}" class="track-cover">
       <div class="tc-info">
         <div class="tc-title">${tr.title}</div>
-        <div class="tc-sub">${tr.artist}</div>
+        <div class="tc-sub">${tr.genre}</div>
         <div class="tc-badges">
           <span style="color:${tr.accent}">${tr.bpm} BPM</span>
-          <span style="color:#94a3b8">· ${mins}:${secs}</span>
-          <span style="color:#ffd21f;margin-left:auto">${best > 0 ? best.toLocaleString() : tr.genre}</span>
+          <span style="color:#ffd21f;margin-left:auto">${best > 0 ? best.toLocaleString() : `${mins}:${secs}`}</span>
         </div>
       </div>
     `;
@@ -86,6 +95,12 @@ function renderTrackCrate() {
     });
     listEl.appendChild(card);
   });
+
+  const vinylCover = document.getElementById('vinyl-cover');
+  if (vinylCover && currentTrack) {
+    vinylCover.src = currentTrack.cover;
+    vinylCover.alt = currentTrack.title;
+  }
 }
 
 async function selectTrack(idx, autoStart = false) {
@@ -94,12 +109,14 @@ async function selectTrack(idx, autoStart = false) {
   audio.pause();
   trackStarted = false;
   paused = false;
+  document.body.classList.toggle('playing', isShowcasePreview);
+  const overlay = document.getElementById('stage-overlay');
+  if (overlay) overlay.style.display = 'none';
 
   // Immediately build procedural fallback chart so UI/canvas updates synchronously
   currentChart = generateProceduralChart(currentTrack, DIFFICULTY[selectedDiffId]);
   game = new Game(currentChart, selectedDiffId, audioOffsetMs);
   renderTrackCrate();
-  updateOverlay('ready');
   syncHud(idlePreviewSec);
 
   // Load JSON chart if external URL exists
@@ -130,42 +147,53 @@ async function startPlayback(enableAutoDj = false) {
 
   trackStarted = true;
   paused = false;
+  document.body.classList.add('playing');
   audio.play(0);
-  document.getElementById('btn-play').textContent = '↻ Restart Track';
+}
+
+function openTrackCrate() {
+  audio.pause();
+  trackStarted = false;
+  paused = false;
+  document.body.classList.remove('playing');
+  const overlay = document.getElementById('stage-overlay');
+  if (overlay) overlay.style.display = 'none';
+  syncHud(idlePreviewSec);
 }
 
 function updateOverlay(mode, results = null) {
   const overlay = document.getElementById('stage-overlay');
   if (!overlay) return;
+
+  if (mode === 'ready') {
+    overlay.style.display = 'none';
+    return;
+  }
   overlay.style.display = 'block';
 
   const eye = document.getElementById('ov-eyebrow');
   const title = document.getElementById('ov-title');
   const sub = document.getElementById('ov-sub');
-  const startBtn = document.getElementById('btn-ov-start');
 
   if (mode === 'complete' && results) {
     eye.textContent = `TRACK COMPLETE // GRADE ${results.grade}`;
     title.textContent = `${results.score.toLocaleString()} PTS (${results.accuracy}%)`;
     sub.innerHTML = `Max Combo: <b>${results.maxCombo}×</b> · Perfect: <b>${results.perfect}</b> · Good: <b>${results.good}</b> · Hold Ticks: <b>${results.holds}</b> · Miss: <b>${results.miss}</b>`;
-    startBtn.textContent = '↻ Play Again [Enter]';
+    setBtnLabel('btn-ov-start', '↻ Play Again [Enter]');
+    setBtnLabel('btn-ov-demo', '💿 Select Another Track');
   } else if (mode === 'paused') {
     eye.textContent = 'STUDIO DECK PAUSED';
     title.textContent = currentTrack.title;
     sub.innerHTML = 'Press <b>[P]</b> or click below to resume the highway.';
-    startBtn.textContent = '▶ Resume Track';
-  } else {
-    eye.textContent = `${currentTrack.genre} // ${currentTrack.bpm} BPM`;
-    title.textContent = currentTrack.title;
-    sub.innerHTML = `Select any track &amp; difficulty on the left, then press <b>▶ Drop The Beat</b> or strike <b>[D] [F] [J] [K]</b>.`;
-    startBtn.textContent = '▶ Drop The Beat [Enter]';
+    setBtnLabel('btn-ov-start', '▶ Resume Track');
+    setBtnLabel('btn-ov-demo', '💿 Change Track');
   }
 }
 
 function updateAutoBtn() {
   const btn = document.getElementById('btn-auto');
   if (!btn) return;
-  btn.textContent = game.autoPlay ? '🤖 Auto-DJ: ON' : '🤖 Auto-DJ: OFF';
+  setBtnLabel('btn-auto', game.autoPlay ? '🤖 AUTO-DJ: ON' : '🤖 AUTO-DJ [A]');
   btn.style.borderColor = game.autoPlay ? '#00ffcc' : '';
   btn.style.color = game.autoPlay ? '#00ffcc' : '';
 }
@@ -182,6 +210,11 @@ function syncHud(timeSec) {
   const { grade, color } = game.getGradeInfo();
   const dur = currentChart.duration || currentTrack.duration || 75;
 
+  const genreTag = document.getElementById('hud-genre-tag');
+  if (genreTag) {
+    genreTag.textContent = `${currentTrack.genre.toUpperCase()} // ${trackStarted || isShowcasePreview ? 'NOW SPINNING' : 'ATTRACT PREVIEW'}`;
+  }
+
   document.getElementById('hud-track-pill').textContent = currentTrack.title;
   document.getElementById('hud-track-pill').style.color = currentTrack.accent;
   document.getElementById('hud-bpm-tag').textContent = `${currentTrack.bpm} BPM`;
@@ -195,15 +228,33 @@ function syncHud(timeSec) {
   const badge = document.getElementById('hud-grade-badge');
   badge.textContent = grade;
   badge.style.color = color;
-  badge.style.borderColor = color;
 
-  document.getElementById('hud-acc-detail').textContent = `${acc.toFixed(1)}%`;
-  document.getElementById('hud-acc-detail').style.color = color;
+  const accDetail = document.getElementById('hud-acc-detail');
+  if (accDetail) {
+    accDetail.textContent = `${acc.toFixed(1)}%`;
+    accDetail.style.color = color;
+  }
   document.getElementById('hud-max-combo').textContent = `${game.maxCombo}×`;
 
   const meanMs = game.getMeanOffsetMs();
-  document.getElementById('hud-mean-offset').textContent =
-    `${meanMs > 0 ? '+' : ''}${meanMs} ms`;
+  const meanEl = document.getElementById('hud-mean-offset');
+  if (meanEl) {
+    meanEl.textContent = `${meanMs > 0 ? '+' : ''}${meanMs} ms`;
+  }
+
+  // Timing offset needle gauge (-60ms .. +60ms mapped to 10% .. 90%)
+  const needleEl = document.getElementById('tm-needle');
+  if (needleEl) {
+    const sampleMs = game.lastJudgement ? game.lastOffsetMs : meanMs;
+    const clamped = Math.max(-60, Math.min(60, sampleMs));
+    const pct = 50 + (clamped / 60) * 40;
+    needleEl.style.left = `${pct.toFixed(1)}%`;
+    const absMs = Math.abs(sampleMs);
+    const nCol = absMs <= 22 ? '#00ffcc' : absMs <= 45 ? '#ffd21f' : '#ff3b5c';
+    needleEl.style.background = nCol;
+    needleEl.style.boxShadow = `0 0 10px ${nCol}`;
+  }
+
   document.getElementById('hud-high-score').textContent =
     getBestScore(currentTrack.id, selectedDiffId).toLocaleString();
 
@@ -217,21 +268,20 @@ function syncHud(timeSec) {
   const progPct = Math.min(100, Math.max(0, (timeSec / dur) * 100));
   document.getElementById('stage-progress-bar').style.width = `${progPct.toFixed(1)}%`;
 
-  // Overdrive Core
+  // Vertical Plasma Overdrive Capacitor Tube
   const odBar = document.getElementById('hud-od-bar');
   const odStatus = document.getElementById('hud-od-status');
   if (game.overdriveActive) {
     const pct = Math.min(100, (game.overdriveTimer / 7.5) * 100);
-    odBar.style.width = `${pct}%`;
+    odBar.style.height = `${pct}%`;
     odStatus.textContent = `2× FEVER (${game.overdriveTimer.toFixed(1)}S)`;
     odStatus.style.color = '#00ffcc';
   } else {
-    odBar.style.width = `${Math.round(game.overdriveCharge)}%`;
+    const pct = Math.round(game.overdriveCharge);
+    odBar.style.height = `${pct}%`;
     odStatus.textContent =
-      game.overdriveCharge >= 50
-        ? `READY (${Math.round(game.overdriveCharge)}%) [SPC]`
-        : `${Math.round(game.overdriveCharge)}% CHARGE`;
-    odStatus.style.color = game.overdriveCharge >= 50 ? '#00ffcc' : '#ffd21f';
+      pct >= 50 ? `READY (${pct}%) [SPC]` : `${pct}% CHARGE`;
+    odStatus.style.color = pct >= 50 ? '#00ffcc' : '#ffd21f';
   }
 }
 
@@ -277,10 +327,11 @@ document.getElementById('cal-test').addEventListener('click', async () => {
   audio.pulse();
 });
 
-// Top bar & overlay buttons
+// Jukebox & Transport buttons
 document.getElementById('btn-play').addEventListener('click', () => {
-  startPlayback(game.autoPlay);
+  startPlayback(false);
 });
+document.getElementById('btn-tracks').addEventListener('click', openTrackCrate);
 document.getElementById('btn-ov-start').addEventListener('click', () => {
   if (paused && trackStarted) {
     togglePause();
@@ -288,9 +339,7 @@ document.getElementById('btn-ov-start').addEventListener('click', () => {
     startPlayback(false);
   }
 });
-document.getElementById('btn-ov-demo').addEventListener('click', () => {
-  startPlayback(true);
-});
+document.getElementById('btn-ov-demo').addEventListener('click', openTrackCrate);
 document.getElementById('btn-overdrive').addEventListener('click', () => {
   if (game.activateOverdrive()) {
     audio.overdriveSfx();
@@ -320,7 +369,7 @@ function togglePause() {
 document.getElementById('btn-pause').addEventListener('click', togglePause);
 document.getElementById('btn-mute').addEventListener('click', () => {
   const muted = audio.toggleMute();
-  document.getElementById('btn-mute').textContent = muted ? '🔇 Muted' : '🔊 Audio';
+  setBtnLabel('btn-mute', muted ? '🔇 Muted' : '🔊 Audio');
 });
 
 // Keyboard Controls (D F J K or Arrow Keys)
@@ -340,14 +389,18 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.code === 'KeyA') {
     e.preventDefault();
-    game.autoPlay = !game.autoPlay;
-    updateAutoBtn();
+    if (!trackStarted) {
+      startPlayback(true);
+    } else {
+      game.autoPlay = !game.autoPlay;
+      updateAutoBtn();
+    }
     return;
   }
   if (e.code === 'KeyM') {
     e.preventDefault();
     const muted = audio.toggleMute();
-    document.getElementById('btn-mute').textContent = muted ? '🔇 Muted' : '🔊 Audio';
+    setBtnLabel('btn-mute', muted ? '🔇 Muted' : '🔊 Audio');
     return;
   }
   if (e.code === 'Space') {
@@ -403,12 +456,16 @@ renderer.resize();
 renderTrackCrate();
 
 // Optional ?preview=showcase query hook for visual verification of mid-track Overdrive Fever, Hold Ribbons & Chords
-if (new URLSearchParams(window.location.search).get('preview') === 'showcase') {
+if (isShowcasePreview) {
+  document.body.classList.add('playing');
   selectedTrackIdx = 1; // NEON HORIZON (Outrun Synthwave)
   selectedDiffId = 'hard';
   currentTrack = TRACK_ROSTER[1];
   currentChart = generateProceduralChart(currentTrack, DIFFICULTY.hard);
   game = new Game(currentChart, 'hard', 0);
+  document.querySelectorAll('.diff-btn').forEach((b) => {
+    b.classList.toggle('selected', b.dataset.diff === 'hard');
+  });
   renderTrackCrate();
 
   // Simulate Perfect hits up to t = 14.2s
@@ -425,12 +482,21 @@ if (new URLSearchParams(window.location.search).get('preview') === 'showcase') {
   game.laneHeld[2] = true;
   renderer.addFlash(1, JUDGE.PERFECT);
   renderer.addFlash(2, JUDGE.PERFECT);
-  const ov = document.getElementById('stage-overlay');
-  if (ov) ov.style.display = 'none';
 }
 
 let hudTimer = 0;
 function loop() {
+  if (!trackStarted && !isShowcasePreview) {
+    idlePreviewSec += 0.012;
+    if (idlePreviewSec > 18.0) idlePreviewSec = 2.15;
+  }
+  if (isShowcasePreview && game.lastJudgement) {
+    game.lastJudgement.at = performance.now() - 80;
+    if (renderer.flashes.length === 0) {
+      renderer.addFlash(1, JUDGE.PERFECT);
+      renderer.addFlash(2, JUDGE.PERFECT);
+    }
+  }
   const tSec = trackStarted ? audio.getTime() : idlePreviewSec;
 
   if (trackStarted && !paused) {
