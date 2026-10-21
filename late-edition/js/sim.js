@@ -10,6 +10,8 @@ import {
   OPERATIVE_ROSTER,
   FRONT_PAGE_SLOTS,
   STORY_CATALOG,
+  INVESTIGATIVE_ARCS,
+  EDITORIAL_DILEMMAS,
 } from './config.js';
 
 const STORAGE_KEY_BEST = 'lateEdition.bestCirculation.v2';
@@ -68,6 +70,19 @@ export class LateEditionSim {
     this.nextLeadUid = 1;
     this.leads = [];
     this.catalogIdx = 0;
+
+    // Multi-Edition Investigative Story Arc Progress (0 = unstarted, 1..3 = highest plated part)
+    this.arcProgress = {
+      red_hook: 0,
+      transit_graft: 0,
+      tenement_torch: 0,
+    };
+    this.arcRotation = 0;
+
+    // Midnight Rotary-Phone Editorial Dilemmas
+    this.activeDilemma = null;
+    this.dilemmaIdx = 0;
+    this.dilemmaTriggeredThisEdition = false;
 
     // Scooped Stories & 4 Front-Page Broadsheet Slots
     this.scoopedStories = [];
@@ -128,17 +143,32 @@ export class LateEditionSim {
     let credDelta = 0;
     let heatDelta = 0;
     let platedCount = 0;
+    let seriesBonusReaders = 0;
 
     for (const slot of FRONT_PAGE_SLOTS) {
       const st = this.frontPage[slot.id];
       if (!st) continue;
       platedCount++;
       const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
-      const storyCash = Math.round(st.baseValue * slot.mul * photoMul);
+      const rivalMul = st.scoopedByRival && !st.photoVerified ? 0.5 : 1.0;
+      const storyCash = Math.round(st.baseValue * slot.mul * photoMul * rivalMul);
       cashDelta += storyCash;
       circDelta += Math.round(storyCash * 14);
       credDelta += st.credibility + slot.credBonus;
       heatDelta += st.heat + slot.heatDelta;
+
+      if (st.arcPart) {
+        const arcReaderBonus =
+          st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200;
+        const arcCashBonus =
+          st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60;
+        seriesBonusReaders += arcReaderBonus;
+        circDelta += arcReaderBonus;
+        cashDelta += arcCashBonus;
+        if (st.arcPart === 3) {
+          heatDelta -= 12;
+        }
+      }
     }
 
     if (platedCount === 0) {
@@ -146,7 +176,14 @@ export class LateEditionSim {
       circDelta -= 1800;
     }
 
-    return { cashDelta, circDelta, credDelta, heatDelta, platedCount };
+    return {
+      cashDelta,
+      circDelta,
+      credDelta,
+      heatDelta,
+      platedCount,
+      seriesBonusReaders,
+    };
   }
 
   setBanner(title, sub, timer = 3.5) {
@@ -170,8 +207,49 @@ export class LateEditionSim {
 
   spawnLead(preferredDistrictId = null) {
     if (this.leads.length >= 4) return null;
-    const template = STORY_CATALOG[this.catalogIdx % STORY_CATALOG.length];
-    this.catalogIdx++;
+
+    // Check if we can spawn an unlocked Investigative Story Arc part (max 2 active arc leads at once)
+    const activeArcLeads = this.leads.filter((l) => Boolean(l.arcId));
+    let arcChoice = null;
+    if (activeArcLeads.length < 2) {
+      for (let i = 0; i < INVESTIGATIVE_ARCS.length; i++) {
+        const arc =
+          INVESTIGATIVE_ARCS[(this.arcRotation + i) % INVESTIGATIVE_ARCS.length];
+        const currentDone = this.arcProgress[arc.id] || 0;
+        const nextPartNum = currentDone + 1;
+        if (nextPartNum > 3) continue;
+
+        const alreadyPresent =
+          this.leads.some((l) => l.arcId === arc.id) ||
+          this.scoopedStories.some((s) => s.arcId === arc.id) ||
+          Object.values(this.frontPage).some(
+            (s) => s && s.arcId === arc.id && s.arcPart === nextPartNum
+          );
+        if (!alreadyPresent) {
+          const partObj = arc.parts.find((p) => p.part === nextPartNum);
+          if (partObj) {
+            arcChoice = { arc, partObj };
+            this.arcRotation++;
+            break;
+          }
+        }
+      }
+    }
+
+    let template;
+    if (arcChoice) {
+      template = {
+        ...arcChoice.partObj,
+        arcId: arcChoice.arc.id,
+        arcCode: arcChoice.arc.shortCode,
+        arcTitle: arcChoice.arc.title,
+        arcPart: arcChoice.partObj.part,
+        seriesBadge: `${arcChoice.arc.shortCode} · ${arcChoice.partObj.badge}`,
+      };
+    } else {
+      template = STORY_CATALOG[this.catalogIdx % STORY_CATALOG.length];
+      this.catalogIdx++;
+    }
 
     const distId = preferredDistrictId || template.district;
     const dist =
@@ -197,16 +275,23 @@ export class LateEditionSim {
       baseValue: template.baseValue + (this.edition - 1) * 20,
       credibility: template.credibility,
       heat: template.heat,
+      arcId: template.arcId || null,
+      arcCode: template.arcCode || null,
+      arcTitle: template.arcTitle || null,
+      arcPart: template.arcPart || 0,
+      seriesBadge: template.seriesBadge || null,
       x,
       y,
       progress: 0, // 0..100
       photoVerified: false,
-      rivalProgress: 0, // Herald rival scoop progress 0..100
+      rivalProgress: 0, // Rival tabloid scoop progress 0..100
+      scoopedByRival: false,
       timeLeft: 48,
     };
 
     this.leads.push(lead);
-    this.logWire(`WIRE FLASH [${lead.beat}]: ${lead.headline}`, 'info');
+    const arcTag = lead.seriesBadge ? ` [${lead.seriesBadge}]` : '';
+    this.logWire(`WIRE FLASH [${lead.beat}]${arcTag}: ${lead.headline}`, 'info');
     return lead;
   }
 
@@ -325,19 +410,27 @@ export class LateEditionSim {
       });
     } else if (this.leads.length > 0) {
       const her = this.districts.find((d) => d.id === 'herald_hq');
-      const targetLead = this.leads[0];
+      // Target the highest-value unscooped lead on the map
+      const targetLead =
+        [...this.leads]
+          .filter((l) => !l.scoopedByRival)
+          .sort((a, b) => b.baseValue - a.baseValue)[0] || this.leads[0];
       this.rivals.push({
         id: `rv_${Date.now()}_${Math.random()}`,
         type: 'herald',
-        label: 'HERALD RIVAL REPORTER',
+        label: 'DAILY GRAPHIC SCOOPER',
         x: her.x + her.w - 10,
         y: her.y + her.h * 0.5,
         angle: 0,
-        speed: 88,
+        speed: 90,
         hp: 80,
         stunTimer: 0,
         targetLeadId: targetLead.uid,
       });
+      this.logWire(
+        `RIVAL ALERT: Daily Graphic press cruiser racing toward ${targetLead.districtName} ($${targetLead.baseValue} ${targetLead.beat})!`,
+        'danger'
+      );
     }
   }
 
@@ -384,23 +477,91 @@ export class LateEditionSim {
     return true;
   }
 
+  triggerRotaryDilemma() {
+    if (this.activeDilemma) return this.activeDilemma;
+    const template =
+      EDITORIAL_DILEMMAS[this.dilemmaIdx % EDITORIAL_DILEMMAS.length];
+    this.dilemmaIdx++;
+    this.activeDilemma = {
+      ...template,
+      timer: 26,
+    };
+    if (this.audio && this.audio.phoneRing) this.audio.phoneRing();
+    this.logWire(
+      `☎️ ROTARY PHONE RINGING: ${template.caller} on the night line!`,
+      'ops'
+    );
+    return this.activeDilemma;
+  }
+
+  resolveDilemma(accept = true) {
+    if (!this.activeDilemma) return false;
+    const eff = accept
+      ? this.activeDilemma.acceptEffect
+      : this.activeDilemma.rejectEffect;
+    this.cash = Math.max(0, this.cash + (eff.cash || 0));
+    this.circulation = Math.max(2000, this.circulation + (eff.circulation || 0));
+    this.credibility = Math.max(
+      0,
+      Math.min(100, this.credibility + (eff.credibility || 0))
+    );
+    this.syndicateHeat = Math.max(
+      0,
+      Math.min(100, this.syndicateHeat + (eff.heat || 0))
+    );
+    this.logWire(eff.wire, accept ? 'ops' : 'scoop');
+    this.activeDilemma = null;
+    if (this.audio) this.audio.typewriter();
+    return true;
+  }
+
   publishEdition() {
     let editionCash = 110; // Base newsstand sales
     let circDelta = 0;
     let credDelta = 0;
     let heatDelta = 0;
     let platedCount = 0;
+    let seriesBonusReaders = 0;
 
     for (const slot of FRONT_PAGE_SLOTS) {
       const st = this.frontPage[slot.id];
       if (!st) continue;
       platedCount++;
       const photoMul = st.photoVerified ? (slot.prefersPhoto ? 1.85 : 1.45) : 1.0;
-      const storyCash = Math.round(st.baseValue * slot.mul * photoMul);
+      const rivalMul = st.scoopedByRival && !st.photoVerified ? 0.5 : 1.0;
+      const storyCash = Math.round(st.baseValue * slot.mul * photoMul * rivalMul);
       editionCash += storyCash;
       circDelta += Math.round(storyCash * 14);
       credDelta += st.credibility + slot.credBonus;
       heatDelta += st.heat + slot.heatDelta;
+
+      if (st.arcId && st.arcPart) {
+        const arcReaderBonus =
+          st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200;
+        const arcCashBonus =
+          st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60;
+        seriesBonusReaders += arcReaderBonus;
+        circDelta += arcReaderBonus;
+        editionCash += arcCashBonus;
+        if (st.arcPart === 3) {
+          heatDelta -= 12;
+        }
+        this.arcProgress[st.arcId] = Math.max(
+          this.arcProgress[st.arcId] || 0,
+          st.arcPart
+        );
+        if (st.arcPart < 3) {
+          this.logWire(
+            `INVESTIGATIVE SERIES [${st.arcCode}]: ${st.arcTitle} Part ${st.arcPart}/3 printed (+${arcReaderBonus.toLocaleString()} readers) — PART ${st.arcPart + 1}/3 UNLOCKED!`,
+            'scoop'
+          );
+        } else {
+          this.logWire(
+            `PULITZER EXPOSÉ FINALE [${st.arcCode}]: ${st.arcTitle} Part 3/3 indicts Syndicate (+4,500 readers, -12% Heat)!`,
+            'scoop'
+          );
+        }
+      }
     }
 
     if (platedCount === 0) {
@@ -455,6 +616,8 @@ export class LateEditionSim {
     };
     this.clockSec = 0;
     this.edition++;
+    this.dilemmaTriggeredThisEdition = false;
+    this.activeDilemma = null;
 
     if (this.audio) this.audio.pressRun();
     this.flashes.push({
@@ -484,6 +647,23 @@ export class LateEditionSim {
 
     if (this.banner.timer > 0) {
       this.banner.timer = Math.max(0, this.banner.timer - dt);
+    }
+
+    // Midnight Rotary-Phone Editorial Dilemma around 09:00 PM (clockSec >= 36)
+    if (
+      this.clockSec >= 36 &&
+      !this.dilemmaTriggeredThisEdition &&
+      !this.activeDilemma
+    ) {
+      this.dilemmaTriggeredThisEdition = true;
+      this.triggerRotaryDilemma();
+    }
+
+    if (this.activeDilemma) {
+      this.activeDilemma.timer -= dt;
+      if (this.activeDilemma.timer <= 0) {
+        this.resolveDilemma(false);
+      }
     }
 
     // Midnight print deadline reached!
@@ -651,14 +831,41 @@ export class LateEditionSim {
         } else {
           lead.rivalProgress += dt * 15;
           if (lead.rivalProgress >= 100) {
-            this.addCallout(
-              lead.x,
-              lead.y - 16,
-              '⚠️ SCOOPED BY THE HERALD!',
-              '#eab308'
-            );
-            this.credibility = Math.max(0, this.credibility - 5);
-            this.leads = this.leads.filter((l) => l.uid !== lead.uid);
+            lead.rivalProgress = 100;
+            const playerContesting =
+              lead.progress >= 20 ||
+              this.operatives.some((op) => op.targetLeadId === lead.uid);
+
+            if (this.rivalStandings[0]) {
+              this.rivalStandings[0].circulation += 1400;
+            }
+
+            if (playerContesting) {
+              lead.scoopedByRival = true;
+              this.addCallout(
+                lead.x,
+                lead.y - 16,
+                '⚠️ RIVAL BEAT US (0.5× UNLESS PHOTO VERIFIED)',
+                '#eab308'
+              );
+              this.logWire(
+                `SCOOP CONTESTED: Daily Graphic beat us to ${lead.districtName}! Send Clara [3] for Speed Graphic photo proof to restore full value.`,
+                'danger'
+              );
+            } else {
+              this.addCallout(
+                lead.x,
+                lead.y - 16,
+                '⚠️ SCOOP STOLEN BY DAILY GRAPHIC!',
+                '#eab308'
+              );
+              this.credibility = Math.max(0, this.credibility - 5);
+              this.logWire(
+                `SCOOP STOLEN: Daily Graphic published the ${lead.districtName} exclusive first (-5% Credibility)!`,
+                'danger'
+              );
+              this.leads = this.leads.filter((l) => l.uid !== lead.uid);
+            }
             this.rivals.splice(i, 1);
           }
         }
@@ -727,6 +934,12 @@ export class LateEditionSim {
       credibility: lead.credibility,
       heat: lead.heat,
       photoVerified: lead.photoVerified,
+      scoopedByRival: Boolean(lead.scoopedByRival),
+      arcId: lead.arcId || null,
+      arcCode: lead.arcCode || null,
+      arcTitle: lead.arcTitle || null,
+      arcPart: lead.arcPart || 0,
+      seriesBadge: lead.seriesBadge || null,
     };
 
     this.scoopedStories.push(story);

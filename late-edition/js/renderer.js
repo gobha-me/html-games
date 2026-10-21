@@ -74,6 +74,7 @@ export class NoirCityRenderer {
     this._drawStreetlampPools(ctx);
     this._drawTrafficCabs(ctx, sim);
     this._drawDistrictBuildings25D(ctx, sim);
+    this._drawSyndicateStringBoard(ctx, sim);
     this._drawDispatchVectors(ctx, sim);
     this._drawStoryLeads(ctx, sim);
     this._drawRivals(ctx, sim);
@@ -398,6 +399,36 @@ export class NoirCityRenderer {
     }
   }
 
+  _drawSyndicateStringBoard(ctx, sim) {
+    const arcLeads = sim.leads.filter((l) => Boolean(l.arcId));
+    if (arcLeads.length === 0) return;
+
+    const hqX = sim.hq.x + sim.hq.w * 0.5;
+    const hqY = sim.hq.y + sim.hq.h * 0.5;
+
+    ctx.save();
+    for (const lead of arcLeads) {
+      // Crimson investigative string from Evening Star HQ to the active Arc Lead
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.52)';
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(hqX, hqY);
+      ctx.lineTo(lead.x, lead.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Brass pushpin at HQ & midpoint evidence tag
+      const mx = (hqX + lead.x) * 0.5;
+      const my = (hqY + lead.y) * 0.5;
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   _drawDispatchVectors(ctx, sim) {
     ctx.save();
     for (const op of sim.operatives) {
@@ -513,12 +544,30 @@ export class NoirCityRenderer {
       ctx.fillStyle = '#f8fafc';
       ctx.fillText(label, 0, -32.5);
 
+      if (lead.seriesBadge) {
+        ctx.font = '800 9.5px "IBM Plex Mono", monospace';
+        const sw = ctx.measureText(lead.seriesBadge).width + 14;
+        ctx.fillStyle = '#991b1b';
+        ctx.strokeStyle = '#fde68a';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(-sw / 2, -65, sw, 16);
+        ctx.strokeRect(-sw / 2, -65, sw, 16);
+        ctx.fillStyle = '#fef08a';
+        ctx.fillText(lead.seriesBadge, 0, -54);
+      }
+
       if (lead.photoVerified) {
         ctx.fillStyle = '#38bdf8';
         ctx.fillRect(16, -22, 26, 14);
         ctx.fillStyle = '#090d16';
         ctx.font = '800 9.5px "JetBrains Mono", monospace';
         ctx.fillText('1.8×', 29, -12);
+      } else if (lead.scoopedByRival) {
+        ctx.fillStyle = '#dc2626';
+        ctx.fillRect(-38, -22, 24, 14);
+        ctx.fillStyle = '#fef2f2';
+        ctx.font = '800 9px "JetBrains Mono", monospace';
+        ctx.fillText('0.5×', -26, -12);
       }
 
       // First-launch onboarding prompt on the selected lead when all units are idle at HQ
@@ -546,10 +595,42 @@ export class NoirCityRenderer {
   _drawRivals(ctx, sim) {
     const rivalImg = this.sprites.rival;
     for (const rv of sim.rivals) {
+      if (rv.type === 'herald' && rv.targetLeadId) {
+        const tgt = sim.leads.find((l) => l.uid === rv.targetLeadId);
+        if (tgt) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(234, 179, 8, 0.5)';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([7, 6]);
+          ctx.beginPath();
+          ctx.moveTo(rv.x, rv.y);
+          ctx.lineTo(tgt.x, tgt.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
       ctx.save();
       ctx.translate(rv.x, rv.y);
 
       const ringColor = rv.type === 'goon' ? '#f43f5e' : '#eab308';
+      // Press cruiser / saboteur searchlight cone
+      ctx.save();
+      ctx.rotate(rv.angle);
+      const beam = ctx.createLinearGradient(12, 0, 78, 0);
+      beam.addColorStop(0, ringColor + '44');
+      beam.addColorStop(1, ringColor + '00');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(10, -6);
+      ctx.lineTo(78, -26);
+      ctx.lineTo(78, 26);
+      ctx.lineTo(10, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
       ctx.fillStyle = 'rgba(244, 63, 94, 0.18)';
       ctx.strokeStyle = rv.stunTimer > 0 ? '#94a3b8' : ringColor;
       ctx.lineWidth = 2.4;
@@ -574,14 +655,14 @@ export class NoirCityRenderer {
       ctx.font = '700 10px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
-      ctx.fillRect(-44, 24, 88, 15);
+      ctx.fillRect(-48, 24, 96, 15);
       ctx.fillStyle = rv.stunTimer > 0 ? '#cbd5e1' : ringColor;
       ctx.fillText(
         rv.stunTimer > 0
           ? 'FLASH STUNNED'
           : rv.type === 'goon'
             ? 'MOB SABOTEUR'
-            : 'HERALD RIVAL',
+            : 'DAILY GRAPHIC',
         0,
         35
       );

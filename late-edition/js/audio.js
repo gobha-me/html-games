@@ -93,6 +93,12 @@ export class NoirAudio {
     this.tone(330, 220, 0.16, 'sawtooth', 0.16);
   }
 
+  phoneRing() {
+    if (this.muted || !this.ctx) return;
+    this.tone(1180, 1480, 0.08, 'square', 0.16);
+    setTimeout(() => this.tone(1180, 1480, 0.09, 'square', 0.16), 110);
+  }
+
   tone(f0, f1, dur, type = 'triangle', amp = 0.15) {
     if (this.muted || !this.ctx) return;
     const now = this.ctx.currentTime;

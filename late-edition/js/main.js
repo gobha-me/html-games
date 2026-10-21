@@ -62,12 +62,17 @@ class LateEditionApp {
         uid: 'demo_story_1',
         beat: 'SCANDAL',
         color: '#f43f5e',
-        headline: 'DA’S STAR WITNESS SPOTTED IN BLUE VELVET VIP BOOTH',
-        subdeck: 'Speed Graphic flashbulb catches grand-jury informant toasting Syndicate counsel.',
-        baseValue: 220,
-        credibility: 9,
-        heat: 12,
+        headline: 'TRANSIT COMMISSIONER CAUGHT AT BLUE VELVET WITH MOB PAYMASTER',
+        subdeck: 'Speed Graphic flashbulb captures leather satchel changing hands in velvet booth #4.',
+        baseValue: 230,
+        credibility: 11,
+        heat: 14,
         photoVerified: true,
+        arcId: 'transit_graft',
+        arcCode: 'ARC B',
+        arcTitle: 'CITY HALL TRANSIT KICKBACKS',
+        arcPart: 2,
+        seriesBadge: 'ARC B · SERIES PART II/III',
       },
       {
         uid: 'demo_story_2',
@@ -79,6 +84,11 @@ class LateEditionApp {
         credibility: 10,
         heat: 15,
         photoVerified: true,
+        arcId: 'red_hook',
+        arcCode: 'ARC A',
+        arcTitle: 'RED HOOK DOCKSIDE SYNDICATE',
+        arcPart: 1,
+        seriesBadge: 'ARC A · SERIES PART I/III',
       },
       {
         uid: 'demo_story_3',
@@ -96,6 +106,7 @@ class LateEditionApp {
     this.sim.plateStoryToFrontPage('demo_story_1', 'banner');
     this.sim.plateStoryToFrontPage('demo_story_2', 'photo_expose');
     this.sim.plateStoryToFrontPage('demo_story_3', 'above_fold');
+    this.sim.triggerRotaryDilemma();
     this.sim.banner.timer = 0;
     this.sim.flashes.push({
       x: this.sim.operatives[2].x,
@@ -217,6 +228,27 @@ class LateEditionApp {
       this.sim.fortifyPressRoom();
       this._syncFullUI();
     });
+    const actPhone = document.getElementById('act-phone');
+    if (actPhone) {
+      actPhone.addEventListener('click', () => {
+        this.sim.triggerRotaryDilemma();
+        this._syncFullUI();
+      });
+    }
+    const btnDilemmaAccept = document.getElementById('btn-dilemma-accept');
+    if (btnDilemmaAccept) {
+      btnDilemmaAccept.addEventListener('click', () => {
+        this.sim.resolveDilemma(true);
+        this._syncFullUI();
+      });
+    }
+    const btnDilemmaReject = document.getElementById('btn-dilemma-reject');
+    if (btnDilemmaReject) {
+      btnDilemmaReject.addEventListener('click', () => {
+        this.sim.resolveDilemma(false);
+        this._syncFullUI();
+      });
+    }
 
     document.getElementById('btn-modal-continue').addEventListener('click', () => {
       if (this.sim.gameOver) {
@@ -248,6 +280,15 @@ class LateEditionApp {
         this._syncFullUI();
       } else if (k === 'e') {
         this.sim.fortifyPressRoom();
+        this._syncFullUI();
+      } else if (k === 't') {
+        this.sim.triggerRotaryDilemma();
+        this._syncFullUI();
+      } else if (k === 'y' && this.sim.activeDilemma) {
+        this.sim.resolveDilemma(true);
+        this._syncFullUI();
+      } else if (k === 'n' && this.sim.activeDilemma) {
+        this.sim.resolveDilemma(false);
         this._syncFullUI();
       } else if (k === 'p') {
         this.sim.paused = !this.sim.paused;
@@ -380,7 +421,8 @@ class LateEditionApp {
           <div class="lead-item ${isSel ? 'selected' : ''}" data-lead-id="${lead.uid}">
             <div class="lead-top">
               <span class="lead-cat" style="color:${lead.color}">${lead.beat} · $${lead.baseValue}</span>
-              <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : ''}</span>
+              ${lead.arcCode ? `<span class="series-badge">${lead.arcCode}·P${lead.arcPart}/3</span>` : ''}
+              <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : lead.scoopedByRival ? '· ⚠️ 0.5×' : ''}</span>
             </div>
             <div class="lead-headline">${lead.headline}</div>
             <div class="lead-bars">
@@ -421,7 +463,7 @@ class LateEditionApp {
           return `
             <div class="scoop-chip" data-story-uid="${st.uid}">
               <div class="scoop-chip-top">
-                <span style="color:${st.color}">${st.beat} ${st.photoVerified ? '📸 1.8×' : ''}</span>
+                <span style="color:${st.color}">${st.beat} ${st.seriesBadge ? `· ${st.seriesBadge}` : ''} ${st.photoVerified ? '📸 1.8×' : ''}</span>
                 <span>+$${st.baseValue}</span>
               </div>
               <div class="scoop-chip-title">${st.headline}</div>
@@ -525,12 +567,16 @@ class LateEditionApp {
         `;
       }
       const bodyText = bodyCopyByBeat[st.beat] || bodyCopyByBeat.CRIME;
+      const seriesPill = st.seriesBadge
+        ? `<span class="series-stamp">${st.seriesBadge} (+${st.arcPart === 3 ? '4,500' : st.arcPart === 2 ? '2,500' : '1,200'} RDRS)</span>`
+        : '';
       return `
         <div class="paper-slot" data-slot-id="${slot.id}">
           <div class="slot-meta">
             <span>${slot.label} (${slot.mul}×)</span>
-            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? '· 📸 1.8× PHOTO' : ''}</span>
+            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? (st.scoopedByRival ? '· 📸 COUNTER-SCOOP 1.8×' : '· 📸 1.8× PHOTO') : st.scoopedByRival ? '· ⚠️ RIVAL 0.5×' : ''}</span>
           </div>
+          ${seriesPill}
           ${
             isPhotoSlot
               ? `<div class="halftone-photo-box">
@@ -641,6 +687,23 @@ class LateEditionApp {
     `;
   }
 
+  _renderRotaryPhone() {
+    const card = document.getElementById('rotary-phone-card');
+    if (!card) return;
+    const d = this.sim.activeDilemma;
+    if (!d) {
+      card.classList.add('hidden');
+      return;
+    }
+    card.classList.remove('hidden');
+    document.getElementById('rotary-caller').textContent = d.caller;
+    document.getElementById('rotary-timer').textContent =
+      `${Math.max(1, Math.ceil(d.timer))}s`;
+    document.getElementById('rotary-prompt').textContent = d.prompt;
+    document.getElementById('btn-dilemma-accept').textContent = d.acceptLabel;
+    document.getElementById('btn-dilemma-reject').textContent = d.rejectLabel;
+  }
+
   _syncFullUI() {
     this._syncTopBar();
     this._syncSpeedButtons();
@@ -648,6 +711,7 @@ class LateEditionApp {
     this._renderLeadsList();
     this._renderScoopTrayAndWire();
     this._renderBroadsheetAndPress();
+    this._renderRotaryPhone();
     this._renderModal();
 
     const quoteIdx =
@@ -672,6 +736,7 @@ class LateEditionApp {
       this._renderLeadsList();
       this._renderScoopTrayAndWire();
       this._renderBroadsheetAndPress();
+      this._renderRotaryPhone();
       this._renderModal();
     }
 
