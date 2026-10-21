@@ -3,9 +3,10 @@
 // ============================================================================
 
 import { h, reconcile } from './dom.js';
-import { FRONT_PAGE_SLOTS } from './config.js';
+import { FRONT_PAGE_SLOTS, isUnlocked, deskFits } from './config.js';
 import { LateEditionSim } from './sim.js';
 import { NoirCityRenderer } from './renderer.js';
+import { ColdOpen } from './opening.js';
 import { NoirAudio } from './audio.js';
 import { createAudioAdapter, createStorageAdapter, resolveSeed } from './adapters.js';
 
@@ -28,7 +29,18 @@ class LateEditionApp {
       now: () => performance.now(),
     });
     this.canvas = document.getElementById('city-canvas');
-    this.renderer = new NoirCityRenderer(this.canvas);
+    this.motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.coldOpen = new ColdOpen(this.motionPreference.matches);
+    this.renderer = new NoirCityRenderer(this.canvas, { reducedMotion: this.motionPreference.matches });
+    this.titleRenderer = new NoirCityRenderer(document.getElementById('title-city'), {
+      reducedMotion: this.motionPreference.matches,
+    });
+    this.motionPreference.addEventListener('change', (event) => {
+      this.coldOpen.reducedMotion = event.matches;
+      this.renderer.reducedMotion = event.matches;
+      this.titleRenderer.reducedMotion = event.matches;
+      this._renderOpening();
+    });
     this.selectedStoryUid = null;
     this.lastFrameTime = performance.now();
     this.uiTickAccum = 0;
@@ -36,6 +48,7 @@ class LateEditionApp {
     this.focusBeforeModal = null;
 
     this._bindEvents();
+    this._updateDeskSize();
 
     if (params.get('preview') === 'showcase' || params.get('preview') === 'combat') {
       this._setupShowcaseState();
@@ -47,6 +60,9 @@ class LateEditionApp {
   }
 
   _setupShowcaseState() {
+    this.sim.startNightShift();
+    this.sim.finishColdOpen();
+    this.sim.edition = 4;
     this.sim.spawnRivalAgent();
     if (this.sim.leads[0]) {
       this.sim.dispatchOperativeToLead('rep_1', this.sim.leads[0].uid);
@@ -131,7 +147,7 @@ class LateEditionApp {
       const container = document.getElementById(id);
       container.addEventListener('click', (event) => {
         const target = event.target.closest(selector);
-        if (!target || !container.contains(target) || this.sim.gameOver || this.modalMode) return;
+        if (!target || !container.contains(target) || this.sim.gameOver || this.modalMode || this.sim.phase !== 'desk' || this.sim.deskTooSmall) return;
         action(target);
         this._syncFullUI();
       });
@@ -150,7 +166,7 @@ class LateEditionApp {
     });
     delegate('operative-list', '[data-select-op], [data-dispatch-op], [data-op-id]', (target) => {
       const opId = target.dataset.selectOp ?? target.dataset.dispatchOp ?? target.dataset.opId;
-      this.sim.selectedOpId = opId;
+      if (!this.sim.selectOperative(opId)) return;
       if (target.dataset.dispatchOp) {
         const uid = this.sim.selectedLeadId || this.sim.leads[0]?.uid;
         if (uid) this.sim.dispatchOperativeToLead(opId, uid);
@@ -167,6 +183,9 @@ class LateEditionApp {
   }
 
   _bindEvents() {
+    document.getElementById('btn-start-shift').addEventListener('click', () => this._startShift());
+    document.getElementById('btn-skip-intro').addEventListener('click', () => this._skipIntro());
+    window.addEventListener('resize', () => this._updateDeskSize());
     this._bindListEvents();
     const unlockAudio = () => this.audio.resume();
     window.addEventListener('pointerdown', unlockAudio, { once: true });
@@ -178,6 +197,7 @@ class LateEditionApp {
 
       let hoveredOp = null;
       for (const op of this.sim.operatives) {
+        if (!this.sim.operativeAvailable(op)) continue;
         if (Math.hypot(op.x - pt.x, op.y - pt.y) <= 30) {
           hoveredOp = op.id;
           break;
@@ -196,12 +216,13 @@ class LateEditionApp {
     });
 
     this.canvas.addEventListener('click', (e) => {
-      if (this.sim.gameOver || this.modalMode) return;
+      if (this.sim.gameOver || this.modalMode || this.sim.phase !== 'desk' || this.sim.deskTooSmall) return;
       const pt = this.renderer.screenToWorld(e.clientX, e.clientY);
 
       for (const op of this.sim.operatives) {
+        if (!this.sim.operativeAvailable(op)) continue;
         if (Math.hypot(op.x - pt.x, op.y - pt.y) <= 30) {
-          this.sim.selectedOpId = op.id;
+          if (!this.sim.selectOperative(op.id)) return;
           this.audio.typewriter();
           this._syncFullUI();
           return;
@@ -223,7 +244,7 @@ class LateEditionApp {
 
     this.canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      if (this.sim.gameOver || this.modalMode) return;
+      if (this.sim.gameOver || this.modalMode || this.sim.phase !== 'desk' || this.sim.deskTooSmall) return;
       const op = this.sim.operatives.find((o) => o.id === this.sim.selectedOpId);
       if (op) {
         op.targetLeadId = null;
@@ -312,6 +333,22 @@ class LateEditionApp {
     });
 
     window.addEventListener('keydown', (e) => {
+      if (this.sim.deskTooSmall) return;
+      // Consume held activation keys even when restart has moved focus to Skip.
+      if ((e.code === 'Space' || e.key === 'Enter') && e.repeat) {
+        e.preventDefault();
+        return;
+      }
+      if (this.sim.phase !== 'desk') {
+        if (this.sim.phase === 'title' && e.key === 'Enter' && !e.target?.closest('a')) {
+          e.preventDefault();
+          if (!e.repeat) this._startShift();
+        } else if (this.sim.phase === 'cold-open' && e.key === 'Escape') {
+          e.preventDefault();
+          this._skipIntro();
+        }
+        return;
+      }
       const modalButton = document.getElementById('btn-modal-continue');
       if (this.sim.gameOver || this.sim.editionSummary) {
         if (e.key === 'Tab') {
@@ -325,18 +362,13 @@ class LateEditionApp {
         }
         return;
       }
-      if ((e.code === 'Space' || e.key === 'Enter') && e.repeat) {
-        e.preventDefault();
-        return;
-      }
       if (e.target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       // Let native controls own Space/Enter so keyboard dispatch cannot print.
       if (e.code === 'Space' && e.target?.closest('button, a, [role="button"]')) return;
       const k = e.key.toLowerCase();
       if (['1', '2', '3', '4'].includes(k)) {
         const idx = Number(k) - 1;
-        if (this.sim.operatives[idx]) {
-          this.sim.selectedOpId = this.sim.operatives[idx].id;
+        if (this.sim.selectOperative(this.sim.operatives[idx]?.id)) {
           this.audio.typewriter();
           this._syncFullUI();
         }
@@ -428,7 +460,7 @@ class LateEditionApp {
       photographer: 'assets/sprites/unit_photographer.png',
       fixer: 'assets/sprites/unit_fixer.png',
     };
-    reconcile(document.getElementById('operative-list'), this.sim.operatives.map((op, idx) =>
+    reconcile(document.getElementById('operative-list'), this.sim.operatives.flatMap((op, idx) => this.sim.operativeAvailable(op) ? [
       h('div', `op-card ${op.id === this.sim.selectedOpId ? 'selected' : ''}`, [
         h('button', 'op-pass-top op-select', [
           h('span', 'op-avatar-wrap', [
@@ -446,10 +478,11 @@ class LateEditionApp {
             'data-dispatch-op': op.id, 'aria-label': `Send ${op.name} to selected lead`,
           }),
         ]),
-      ], { 'data-op-id': op.id }, op.id)));
+      ], { 'data-op-id': op.id }, op.id)] : []));
   }
 
   _renderLeadsList() {
+    this.renderedLeadIds = this.sim.leads.map((lead) => lead.uid);
     document.getElementById('leads-count').textContent = `${this.sim.leads.length} ACTIVE`;
     reconcile(document.getElementById('lead-list'), this.sim.leads.map((lead) =>
       h('button', `lead-item ${lead.uid === this.sim.selectedLeadId ? 'selected' : ''}`, [
@@ -560,10 +593,14 @@ class LateEditionApp {
       },
     };
 
+    if (!isUnlocked('photographer', this.sim.edition)) {
+      standInBySlot.photo_expose.stamp = 'DARKROOM · NOT YET ON PAYROLL · NIGHT 2';
+      standInBySlot.photo_expose.deck = 'The darkroom opens on night two. Until then, fill this column with a reporter’s copy.';
+    }
     reconcile(slotsEl, FRONT_PAGE_SLOTS.map((slot) => {
       const st = page[slot.id];
       const filler = standInBySlot[slot.id] || standInBySlot.banner;
-      const photo = slot.id === 'photo_expose';
+      const photo = slot.id === 'photo_expose' && isUnlocked('photographer', this.sim.edition);
       const photoNote = st?.photoVerified ? (st.scoopedByRival ? ' · 📸 COUNTER-SCOOP 1.8×' : ' · 📸 1.8× PHOTO') : st?.scoopedByRival ? ' · ⚠️ RIVAL 0.5×' : '';
       return h('article', `paper-slot ${st ? '' : 'empty'}`, [
         h('div', 'slot-meta', [
@@ -600,12 +637,15 @@ class LateEditionApp {
     crypto.getRandomValues(entropy);
     this.sim.seed = entropy[0] === (this.sim.seed >>> 0) ? (entropy[0] + 1) >>> 0 : entropy[0];
     this.sim.reset();
+    this.sim.startNightShift();
+    this.coldOpen = new ColdOpen(this.motionPreference.matches);
     this.selectedStoryUid = null;
     this.renderer.hoverLeadId = null;
     this.renderer.hoverOperativeId = null;
     this.uiTickAccum = 0;
     this.lastFrameTime = performance.now();
     this._syncFullUI();
+    document.getElementById('btn-skip-intro').focus();
   }
 
   _renderModal() {
@@ -618,8 +658,9 @@ class LateEditionApp {
     modal.classList.toggle('hidden', !mode);
     modal.classList.toggle('paper-folded', folded);
     // Native inert removes the covered desk from pointer and keyboard navigation.
-    document.querySelector('.brass-rail').inert = Boolean(mode);
-    document.querySelector('.desk-workspace').inert = Boolean(mode);
+    const covered = Boolean(mode) || this.sim.phase !== 'desk' || this.sim.deskTooSmall;
+    document.querySelector('.brass-rail').inert = covered;
+    document.querySelector('.desk-workspace').inert = covered;
     this.modalMode = mode;
     if (!mode) {
       if (changed && this.focusBeforeModal?.isConnected) this.focusBeforeModal.focus();
@@ -651,7 +692,7 @@ class LateEditionApp {
     }
     const button = document.getElementById('btn-modal-continue');
     button.textContent = folded ? 'Start a new night shift' : 'START NEXT NIGHT SHIFT [SPACE]';
-    if (changed) button.focus();
+    if (changed && !this.sim.deskTooSmall) button.focus();
   }
 
   _renderRotaryPhone() {
@@ -672,6 +713,8 @@ class LateEditionApp {
   }
 
   _syncFullUI() {
+    this._renderOpening();
+    this._renderUnlocks();
     this._syncTopBar();
     this._syncSpeedButtons();
     this._renderOperativesRoster();
@@ -681,10 +724,55 @@ class LateEditionApp {
     this._renderRotaryPhone();
     this._renderModal();
 
-    const quoteIdx =
-      (this.sim.edition - 1 + this.sim.scoopsTotal) % EDITOR_QUOTES.length;
-    document.getElementById('editor-directive').textContent =
-      EDITOR_QUOTES[quoteIdx];
+    document.getElementById('editor-directive').textContent = this.sim.edition === 1 ?
+      'Pick a reporter’s pass. Click a wire slip. We need names before midnight.' :
+      EDITOR_QUOTES[(this.sim.edition - 1 + this.sim.scoopsTotal) % EDITOR_QUOTES.length];
+  }
+
+  _startShift() {
+    if (!this.sim.startNightShift()) return;
+    this.coldOpen = new ColdOpen(this.motionPreference.matches);
+    this._syncFullUI();
+    document.getElementById('btn-skip-intro').focus();
+  }
+
+  _skipIntro() {
+    if (!this.sim.finishColdOpen()) return;
+    this._syncFullUI();
+    document.querySelector('#operative-list .op-select')?.focus();
+  }
+
+  _updateDeskSize() {
+    const tooSmall = !deskFits(window.innerWidth, window.innerHeight);
+    if (tooSmall === this.sim.deskTooSmall) return;
+    if (tooSmall) this.focusBeforeResize = document.activeElement;
+    this.sim.deskTooSmall = tooSmall;
+    // Reset the frame origin: time spent behind the card is never caught up.
+    this.lastFrameTime = performance.now();
+    this._syncFullUI();
+    if (!tooSmall && this.focusBeforeResize?.isConnected) this.focusBeforeResize.focus();
+  }
+
+  _renderOpening() {
+    const { phase, deskTooSmall } = this.sim;
+    document.getElementById('title-screen').hidden = phase !== 'title' || deskTooSmall;
+    document.getElementById('cold-open').hidden = phase !== 'cold-open' || deskTooSmall;
+    document.getElementById('desk-too-small').hidden = !deskTooSmall;
+    document.getElementById('opening-arcade').hidden = phase === 'desk' && !deskTooSmall;
+    document.getElementById('edition-modal').inert = deskTooSmall;
+    document.getElementById('title-best').textContent = `Best circulation: ${this.sim.highCirculation.toLocaleString()}`;
+    if (phase === 'cold-open') {
+      reconcile(document.getElementById('lou-lines'), this.coldOpen.lines.map((line, i) =>
+        h('p', '', line, {}, i)));
+    }
+  }
+
+  _renderUnlocks() {
+    for (const [id, feature] of Object.entries({
+      'act-wiretap': 'wiretap', 'act-bribe': 'bribe',
+      'act-fortify': 'fortify', 'act-phone': 'phone',
+    })) document.getElementById(id).hidden = !isUnlocked(feature, this.sim.edition);
+    document.getElementById('btn-roll-press').disabled = this.sim.awaitingFirstDispatch;
   }
 
   _loop(now) {
@@ -692,8 +780,22 @@ class LateEditionApp {
     this.lastFrameTime = now;
     const dt = rawDt * (this.sim.speed || 1);
 
+    if (this.sim.phase === 'cold-open' && !this.sim.deskTooSmall) {
+      if (this.coldOpen.advance(rawDt)) this._skipIntro();
+      else this._renderOpening();
+    }
     this.sim.step(dt);
-    this.renderer.render(this.sim, rawDt);
+    // Scoops replace a lead immediately, often without changing the list length.
+    // Reconcile membership in this frame so the next pointer event cannot hit
+    // a stale button during the 250 ms display-refresh gap. Countdown/progress
+    // updates keep their normal cadence; surviving keyed buttons stay attached.
+    const rendered = this.renderedLeadIds ?? [];
+    if (this.sim.leads.length !== rendered.length ||
+        this.sim.leads.some((lead, i) => lead.uid !== rendered[i])) {
+      this._renderLeadsList();
+    }
+    if (this.sim.phase === 'title' && !this.sim.deskTooSmall) this.titleRenderer.renderTitle(rawDt);
+    else this.renderer.render(this.sim, this.sim.deskTooSmall ? 0 : rawDt);
 
     this.uiTickAccum += rawDt;
     if (this.uiTickAccum >= 0.25) {

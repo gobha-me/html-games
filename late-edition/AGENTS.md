@@ -8,20 +8,20 @@ Keep work inside this game unless the task explicitly permits shared files.
 
 ## Current module map
 
-This is a static HTML/CSS game with native ES modules, no bundler, and
-no external JavaScript runtime dependencies. Serve it over HTTP.
+Static HTML/CSS with native ES modules, no bundler or external runtime dependencies. Serve over HTTP.
 
 | File | Responsibility today |
 | --- | --- |
 | `index.html` | Desk shell, map canvas, broadsheet, controls, rotary-phone card, edition modal; loads `js/main.js`. |
 | `css/style.css` | Mahogany desk, leather blotter, brass rail, newsprint slots, passes, phone and modal styling. |
-| `js/config.js` | World dimensions, 90-second editions, districts, lamps, four operatives, slots, story catalog, three investigative arcs and phone dilemmas. |
+| `js/config.js` | 210-second editions, scaled pressure windows, pure payroll unlock/desk-size rules, world, roster, slots, stories, arcs and dilemmas. |
 | `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, plating, projections, publishing, arc progression and dilemmas. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
 | `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup and modal focus handling. |
 | `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
 | `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
 | `js/adapters.js` | Safe best-score persistence, optional audio ports and URL seed parsing. |
 | `js/dom.js` | Keyed recursive DOM reconciliation with text-only dynamic copy; preserves unchanged nodes and input. |
+| `js/opening.js` | Pure 30-second Lou Vance dialogue clock; reduced-motion text reveal. |
 | `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
 | `assets/` | Existing sprite PNGs and three MP3 effects, loaded with relative URLs. |
@@ -32,7 +32,7 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
 ## Sim/UI boundary
 
 - Today `main.js` passes audio into the sim, calls its methods, and also
-  mutates selection, speed, pause, summary and operative targets directly.
+  mutates speed, pause, summary and operative targets directly.
   It scales frame delta by speed, calls `sim.step(dt)`, draws each frame,
   and reconciles keyed DOM lists every 250 ms with delegated input handlers.
 - `sim.js` imports config and pure helper/adapter modules; no DOM or browser APIs.
@@ -47,7 +47,8 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
   formatting lives in `presentation.js`. Keep browser APIs out of sim logic.
 - Current scoops auto-plate; arc progress advances on publishing; unanswered
   phone calls take the reject effect. The art bible's manual print/bury/spike
-  workflow, persistent file drawer and 210-second editions are future work.
+  workflow and persistent file drawer are future work. Title/cold-open/desk phases,
+  first-dispatch and undersized-desk gates live in sim; UI owns intro time and motion.
 
 ## Determinism rules
 
@@ -61,7 +62,7 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
   substeps and caps catch-up at 10 s per call to bound work. `now()` only stamps
   wire events; steps drive gameplay time. Reset rewinds the built-in RNG only.
 - `getStateHash()` uses FNV-1a over UTF-8 canonical JSON, sorting object keys.
-  It includes gameplay, RNG/counters and edition summaries, excluding saved best,
+  It includes opening/viewport gates, gameplay, RNG/counters and summaries, excluding saved best,
   ports, wire/timestamps, traffic, banners, flashes, callouts and display fields.
   See README for the replay contract and injected RNG lifecycle.
 
@@ -142,9 +143,8 @@ and simultaneous rival/player completion, rather than only successful play.
   stylelint-config-standard 15.0.1. Retain current lint coverage: these are dev-only
   lint tools, not shipped (`late-edition/node_modules/` is excluded via the root
   `.dockerignore`). Re-run audit and upgrade when a compatible fix is released.
-- Keep new exceptions inline at the affected code with when/why and follow-up.
-  No blanket ESLint disables: only `eslint-disable-next-line <specific-rule>`
-  followed by `-- <reason>` when an exception is necessary.
+- Keep exceptions inline with when/why. No blanket ESLint disables: only
+  `eslint-disable-next-line <specific-rule> -- <reason>` when necessary.
 
 Update README/CHANGELOG when behavior or conventions change; do not turn this
 guide into a historical log. Keep it at **150 lines or fewer**.

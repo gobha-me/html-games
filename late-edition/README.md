@@ -4,6 +4,38 @@
 
 ## How to Play (1-2-3 Night Editor Workflow)
 
+Open on a desktop at **1280×720 or larger**. The masthead shows your saved best
+circulation. Click **Start the night shift** or press **Enter** to take the desk.
+Lou Vance rings with a 30-second assignment; **Skip [Esc]** or Escape dismisses it
+immediately, even mid-line. The title, call and idle first desk consume no edition
+time: **night one's clock starts only after a successful dispatch**. A lead click
+with no selected pass sends Jack Vance, the first reporter. Invalid or locked
+orders leave the clock waiting. Publishing is unavailable before that dispatch.
+
+The payroll opens gradually:
+
+| Night | New tools |
+| --- | --- |
+| 1 | Reporters Jack and Peggy, leads and the page |
+| 2 | Clara Reyes, photographer (`3`) |
+| 3 | Knuckles Malone, fixer (`4`), and Guard Press (`E`) |
+| 4 | Wiretap (`Q`), hush-money (`W`), night line (`T`) and automatic dilemmas (`Y`/`N`) |
+
+Unavailable passes/actions stay off the desk and their shortcuts do nothing.
+Saboteurs arrive no earlier than night three, when you can counter them.
+Each edition runs **210 seconds** at 1×, or about 105 seconds at 2×. Lead lifetime
+is 112 seconds; rival spawn intervals and the 40%-of-night phone window scale from
+the former 90-second edition. Lead replenishment remains 0.65/s when below three,
+with immediate replacement of scooped leads, preserving dispatch pace per minute.
+
+Below either minimum dimension, **The desk is too small** covers the desk and
+pauses both play and Lou's call. Resize back to resume the same state, including
+an intentional pause. Reduced-motion preferences freeze canvas rain/ripples,
+disable CSS animation and reveal Lou's dialogue immediately; Skip remains available.
+Reloading during the opening returns to an idle title. Only the best circulation
+is saved; continuing a saved run belongs to the later save/load feature.
+
+
 1. **① Pick a Manila Press Pass (`[1]`–`[4]` or Click Pass at Bottom-Left):**
    - **[1] Jack Vance (`BEAT-1` Reporter)** & **[2] Peggy Sullivan (`BEAT-2` Reporter)** — Investigate breaking city leads and file exclusive front-page scoops.
    - **[3] Clara Reyes (`FLASH-1` Photographer)** — Snaps Speed Graphic halftone photo proof on active leads (**1.8×** front-page circulation & revenue multiplier) and stuns rival operatives with her flashbulb.
@@ -18,7 +50,7 @@
 When trust reaches zero or saboteurs destroy the presses, the **PAPER FOLDED**
 telegram shows the reason, edition reached, this run's peak circulation, and final
 front page (the current paste-up if it has copy, otherwise the last printed page).
-**Start a new night shift**, Enter or Space starts a fresh seed and clears the run;
+**Start a new night shift**, Enter or Space starts a fresh seed and Lou’s opening call;
 the saved all-time record remains. Space on the telegram never rolls presses.
 
 Keyboard-only: use **Tab/Shift+Tab** to reach passes, wire leads, scoops and page
@@ -42,6 +74,7 @@ late-edition/
 │   ├── sim.js          # 1947 city-dispatch, rival AI & edition economy, injected ports & canonical state hash
 │   ├── rng.js          # Mulberry32 seeded PRNG, validated integer bounds & array selection
 │   ├── adapters.js     # Safe score persistence, audio ports & URL seed parsing
+│   ├── opening.js      # Pure 30-second cold-open text clock and reduced-motion reveal
 │   ├── presentation.js # Display-only clock, wire, banner & status formatting
 │   ├── renderer.js     # 2.5D extruded noir landmarks, wet streetlamp reflections & rain
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
@@ -88,15 +121,22 @@ they never drive gameplay. The injected `now()` supplies wire event timestamps
 only; gameplay time always comes from `step()`. Renderer rain/ripples may use
 `Math.random()` independently without advancing the gameplay generator.
 
-The golden test runs five editions with dispatches, investigation, auto-plating,
-rivals, fortification and phone choices, asserting a pinned hash after each print.
+The golden test runs five full 210-second editions with progressive payroll,
+dispatches, investigation, auto-plating, rivals, fortification and night-four/five
+phone choices, asserting a pinned hash after each print. Issue #84 repins the
+hashes for the longer timings, gated mechanics and canonical opening/viewport gates.
 Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
 zero. Blocked reads and quota-exceeded writes never interrupt play; the current
 run's best is retained in memory.
 
+New simulations and `reset()` begin at `phase: "title"`. Call `startNightShift()`,
+then `finishColdOpen()` to enter the desk; a successful dispatch releases the
+first-night clock. The UI drives the separate `ColdOpen` presentation clock.
+`deskTooSmall` stops simulation without changing `paused` or the opening phase.
+
 Publishing returns `true` on success and `false` for a duplicate in the same sim
-tick, a destroyed press or a finished run. The first print can happen at time zero;
-another requires simulated time to advance. A reset clears the guard.
+tick, a destroyed press or a finished run. The first print can happen at time zero after dispatch;
+another requires simulated time to advance. Reset clears the guard and returns to title.
 
 ## Development checks
 
@@ -127,7 +167,7 @@ The root `.dockerignore` excludes `late-edition/node_modules/` and
 `late-edition/tests/` because the Dockerfile copies the repository into the static
 server image. Tests and their deliberately invalid fixtures are never game assets.
 
-## Browser verification (#83)
+## Browser verification (#83, #84)
 
 Use the supported Node version in `package.json` (22.22+ in 22.x, or 24.8+):
 
@@ -137,6 +177,8 @@ npm run lint
 npm run test:coverage
 npx playwright install chromium
 npm run test:e2e
+# Repeat the desk input regressions, including the permanent 4x CPU case:
+npm run test:e2e -- e2e/desk.spec.js --repeat-each=5
 ```
 
 Playwright starts Python's static HTTP server at the repository root on port 8123.
@@ -149,15 +191,29 @@ Each browser test checks console errors and uncaught exceptions. Tests use the
 existing `window.lateEditionApp` inspection handle to force trust collapse and
 hostile copy. The click contract is **100 actual pointer clicks on currently live
 lead buttons = exactly 100 calls returning true from `dispatchOperativeToLead`**,
-with simulation time advancing throughout. Separate cases hold a pointer down
-across changing renders, verify keyed node/focus/hover retention, remove stale
+with simulation time advancing throughout, at both normal speed and 4× CPU
+slowdown through Chromium's CDP. Every pointerdown must target a live lead;
+no failed clicks are excluded or retried. Same-frame regressions force a scoop
+(with immediate replacement) and expiry between display ticks, asserting that
+obsolete buttons disappear while surviving keyed buttons stay attached.
+Separate cases hold a pointer down across changing renders, verify keyed
+node/focus/hover retention, remove stale
 leads, inject HTML-shaped text, hold restart keys and resize during keyboard-only
 play through one published edition. The tests replace the legacy remote font
 stylesheet with empty CSS so offline runs exercise local fallback fonts; the
 remote typography migration belongs to the planned art pass.
 
 The six lists reconcile keyed nodes; unchanged subtrees stay attached between
-250 ms display ticks. Container event delegation is bound once. Runtime DOM copy
-uses `createElement`/`textContent`, with no `innerHTML` templates. Sim history
+250 ms display ticks. Lead membership also reconciles immediately after each
+simulation frame that changes IDs/order, so scooped or expired leads cannot
+remain clickable until the next display tick. Container event delegation is bound
+once. Runtime DOM copy uses `createElement`/`textContent`, with no `innerHTML`
+templates. Sim history
 (`peakCirculation`, `lastPrintedFrontPage`) is display-only and excluded from
 canonical gameplay hashes; deterministic replay behavior remains unchanged.
+
+The shared browser helper takes existing desk scenarios through Start, Skip and
+first dispatch. Opening tests separately force a mid-line skip, reload, a missing
+selection, locked keys, every payroll unlock, the full 30-second call, exact
+1279×720 / 1280×719 rejection and 1280×720 acceptance, resize recovery during play
+and the call, retained user pause, and live reduced-motion preference changes.

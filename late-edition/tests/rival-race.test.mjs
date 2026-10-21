@@ -57,7 +57,7 @@ test('an assigned reporter contests even with no progress; an unassigned lead is
 });
 
 test('a rival without any remaining leads leaves; spawns honor type and population limits', () => {
-  const sim = makeSim({ rng: { nextFloat: () => 0.99 } });
+  const sim = makeSim({ night: 4, rng: { nextFloat: () => 0.99 } });
   parkOperatives(sim);
   sim.leads = [];
   sim.rivals.push(rival());

@@ -23,10 +23,12 @@ function assertInvariants(sim, wasGameOver) {
 }
 
 for (let seed = 0; seed < 50; seed++) {
-  test(`seed ${seed}: random legal/illegal commands through three editions and game over`, () => {
+  test(`seed ${seed}: full payroll: random legal/illegal commands through three editions and game over`, () => {
     // Keep command entropy separate: extra gameplay RNG draws must not change inputs.
     const commands = mulberry32(seed ^ 0x82f022);
-    const sim = makeSim({ seed });
+    // Start with the full payroll so the action fuzzer exercises every mechanic.
+    // Golden and onboarding suites separately cover progression from night one.
+    const sim = makeSim({ seed, night: 4 });
     const pick = (values) => commands.pick(values);
     const leadId = () => pick([...sim.leads.map((l) => l.uid), 'expired_lead', null]);
     const opId = () => pick([...sim.operatives.map((op) => op.id), 'unknown_op']);

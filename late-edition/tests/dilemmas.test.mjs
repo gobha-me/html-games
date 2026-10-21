@@ -5,10 +5,10 @@ import { makeSim } from './helpers.mjs';
 
 test('an unanswered call applies the reject outcome exactly once at timeout', () => {
   let rings = 0;
-  const sim = makeSim({ audio: { phoneRing: () => rings++ } });
+  const sim = makeSim({ night: 4, audio: { phoneRing: () => rings++ } });
   const dilemma = sim.triggerRotaryDilemma();
   assert.equal(sim.triggerRotaryDilemma(), dilemma, 'Ringing again does not reset the timer');
-  assert.equal(rings, 1);
+  assert.equal(rings, 2, 'Opening call and dilemma each ring once');
   assert.equal(sim.dilemmaIdx, 1);
   dilemma.timer = 0.1;
   sim.step(0.05);
@@ -27,8 +27,8 @@ test('an unanswered call applies the reject outcome exactly once at timeout', ()
 });
 
 test('clock triggers one call per edition; publishing clears an unanswered call', () => {
-  const sim = makeSim();
-  sim.clockSec = 35.99;
+  const sim = makeSim({ night: 4 });
+  sim.clockSec = 83.99;
   sim.step(0.05);
   assert.ok(sim.activeDilemma);
   assert.equal(sim.dilemmaTriggeredThisEdition, true);
@@ -45,7 +45,7 @@ test('clock triggers one call per edition; publishing clears an unanswered call'
 for (const [index, template] of EDITORIAL_DILEMMAS.entries()) {
   for (const accept of [false, true]) {
     test(`${template.id}: ${accept ? 'accept' : 'reject'} applies authored effects`, () => {
-      const sim = makeSim();
+      const sim = makeSim({ night: 4 });
       sim.dilemmaIdx = index;
       sim.triggerRotaryDilemma();
       const effect = accept ? template.acceptEffect : template.rejectEffect;
@@ -61,7 +61,7 @@ for (const [index, template] of EDITORIAL_DILEMMAS.entries()) {
 }
 
 test('call templates wrap after the last dilemma', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.dilemmaIdx = EDITORIAL_DILEMMAS.length;
   assert.equal(sim.triggerRotaryDilemma().id, EDITORIAL_DILEMMAS[0].id);
 });

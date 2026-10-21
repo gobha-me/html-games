@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { makeSim, story } from './helpers.mjs';
+import { makeSim, story, enterDesk } from './helpers.mjs';
 
 test('zero plated slots earn base sales and exact blank-page penalties', () => {
   const sim = makeSim();
@@ -44,12 +44,14 @@ test('double publish in one tick is a complete no-op, even if summary is dismiss
   assert.equal(sim.publishEdition(), true, 'Next tick can print normally');
   assert.equal(sim.editionsPrinted, 2);
   sim.reset();
-  assert.equal(sim.publishEdition(), true, 'Reset clears the guard');
+  assert.equal(sim.publishEdition(), false, 'Reset returns to title');
+  enterDesk(sim);
+  assert.equal(sim.publishEdition(), true, 'First dispatch after reset clears the guard');
 });
 
 test('deadline publish and a manual publish in the same tick count once', () => {
   const sim = makeSim();
-  sim.clockSec = 89.99;
+  sim.clockSec = 209.99;
   sim.step(0.05);
   const before = sim.getStateHash();
   assert.equal(sim.publishEdition(), false);

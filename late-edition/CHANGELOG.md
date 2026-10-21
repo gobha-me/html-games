@@ -1,5 +1,48 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.5.0] — 2026-10-21 (#84 — Taking the night desk)
+
+### Fixed
+- Scooped/expired lead buttons reconcile in the same simulation frame, closing
+  the 250 ms stale-button window that caused CI's 99/100 dispatch failure.
+  A 6× CPU reproduction caught a click on an already scooped lead with 81.8 s
+  lifetime remaining; the reporter and first-dispatch gate were valid.
+  Surviving keyed buttons keep their identity; countdown/progress retain their
+  existing display cadence. Permanent 4× CPU coverage still requires exactly
+  100 successful dispatches from 100 live pointer presses, with no exclusions,
+  plus forced same-frame scoop replacement and expiry regressions.
+
+### Added
+- **THE EVENING STAR** title over a rainy silhouette skyline, saved best circulation,
+  Start the night shift and Enter activation, reusing the city canvas renderer.
+- Thirty-second rotary-phone cold open with three clipped Lou Vance lines, typed
+  dialogue and immediate Skip/Escape. No simulation time or lead life passes on
+  the title, during the call, or before night one's first successful dispatch.
+- Pure payroll rules: reporters on night one, photographer on two, fixer and press
+  repairs on three, wiretap/hush-money/night line/dilemmas on four. Locked passes
+  and actions stay hidden, including canvas operatives; locked keys are inert.
+- Diegetic **The desk is too small** card below 1280×720. Simulation and intro
+  time pause behind it; returning restores the prior phase, focus and user pause.
+- Live reduced-motion support: stationary rain/ripples, immediate dialogue and
+  disabled CSS animations including the ringing phone.
+- Adversarial unit and Playwright coverage for each unlock, idle clocks, invalid
+  dispatches, no operative selection, skip mid-line, reload during the call,
+  natural 30-second completion, viewport boundaries and resize restoration.
+
+### Changed
+- Editions last 210 seconds. Lead life scales from 48 to 112 seconds; rival spawn
+  windows and automatic-call timing scale proportionally. Lead replacement and
+  work rates retain their per-second cadence. Saboteurs wait for night three so
+  there is a counter on the payroll. First print requires a successful dispatch.
+- Five-edition golden replay now runs full 210-second nights and exercises the
+  staged payroll and later phone calls. Repinned hashes reflect these deliberate
+  timing/rules changes and new canonical opening/viewport gates.
+- Existing browser scenarios enter through shared opening helpers. Full-payroll
+  unit fixtures keep affordability, sabotage and phone tests on their intended
+  unhappy paths; the action fuzzer starts on night four to reach every mechanic.
+- Restart starts a fresh cold open; reload returns to the title and retains only
+  the saved record. Updated play instructions and module ownership notes.
+
 ## [2.4.0] — 2026-10-21 (#83 — Paper folded and stable input)
 
 ### Added

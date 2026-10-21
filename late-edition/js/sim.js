@@ -6,6 +6,9 @@ import {
   WORLD_W,
   WORLD_H,
   EDITION_DURATION_SEC,
+  EDITION_TIME_SCALE,
+  LEAD_LIFETIME_SEC,
+  isUnlocked,
   DISTRICTS,
   OPERATIVE_ROSTER,
   FRONT_PAGE_SLOTS,
@@ -64,7 +67,10 @@ export class LateEditionSim {
     this.time = 0;
     this.edition = 1;
     this.maxEditions = 5;
-    this.clockSec = 0; // 0..90s -> 6:00 PM .. 12:00 AM Midnight
+    this.clockSec = 0;
+    this.phase = 'title';
+    this.awaitingFirstDispatch = true;
+    this.deskTooSmall = false;
     this.speed = 1;
     this.paused = false;
     this.gameOver = false;
@@ -133,7 +139,7 @@ export class LateEditionSim {
 
     // Rival Agents (Herald Scoopers & Observer Syndicate Goons)
     this.rivals = [];
-    this.rivalSpawnTimer = 9.0;
+    this.rivalSpawnTimer = 9 * EDITION_TIME_SCALE;
 
     // Visual Flashbulbs, Floating Callouts & Traffic Cabs
     this.flashes = []; // { x, y, r, alpha, color }
@@ -147,7 +153,7 @@ export class LateEditionSim {
 
     this.banner = {
       title: 'EDITION #1 // EVENING WIRE OPEN',
-      sub: 'DISPATCH REPORTERS & PHOTOGRAPHERS BEFORE THE 12:00 AM DEADLINE',
+      sub: 'SELECT A REPORTER. SEND THEM TO A WIRE SLIP. THE CLOCK CAN WAIT.',
       timer: 5.5,
     };
 
@@ -164,6 +170,34 @@ export class LateEditionSim {
     this.spawnLead('docks');
     this.spawnLead('redlight');
     this.selectedLeadId = this.leads[0] ? this.leads[0].uid : null;
+  }
+
+  startNightShift() {
+    if (this.phase !== 'title' || this.deskTooSmall) return false;
+    this.phase = 'cold-open';
+    this.audio.phoneRing();
+    return true;
+  }
+
+  finishColdOpen() {
+    if (this.phase !== 'cold-open') return false;
+    this.phase = 'desk';
+    return true;
+  }
+
+  operativeAvailable(op) {
+    return Boolean(op && isUnlocked(op.role, this.edition));
+  }
+
+  selectOperative(id) {
+    const op = this.operatives.find((candidate) => candidate.id === id);
+    if (this.phase !== 'desk' || this.deskTooSmall || !this.operativeAvailable(op)) return false;
+    this.selectedOpId = id;
+    return true;
+  }
+
+  canDispatch() {
+    return this.phase === 'desk' && !this.deskTooSmall && !this.gameOver;
   }
 
   logWire(text, tone = 'info') {
@@ -246,7 +280,7 @@ export class LateEditionSim {
     // Hash gameplay and future-driving counters, not adapters, saved records,
     // wire timestamps/messages, banners, traffic, flashes or display-only fields.
     const state = {};
-    for (const key of ['time', 'edition', 'maxEditions', 'clockSec', 'speed', 'paused',
+    for (const key of ['phase', 'awaitingFirstDispatch', 'deskTooSmall', 'time', 'edition', 'maxEditions', 'clockSec', 'speed', 'paused',
       'gameOver', 'victory', 'cash', 'circulation', 'credibility', 'syndicateHeat',
       'pressHp', 'editionsPrinted', 'lastPublishedTime', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
       'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
@@ -350,7 +384,7 @@ export class LateEditionSim {
       photoVerified: false,
       rivalProgress: 0, // Rival tabloid scoop progress 0..100
       scoopedByRival: false,
-      timeLeft: 48,
+      timeLeft: LEAD_LIFETIME_SEC,
     };
 
     this.leads.push(lead);
@@ -359,9 +393,13 @@ export class LateEditionSim {
   }
 
   dispatchOperativeToLead(opId, leadUid) {
+    if (!this.canDispatch()) return false;
     const op = this.operatives.find((o) => o.id === opId) || this.operatives[0];
     const lead = this.leads.find((l) => l.uid === leadUid);
-    if (!op || !lead) return false;
+    if (!this.operativeAvailable(op) || !lead || lead.timeLeft <= 0) return false;
+    // A missing selection deliberately falls back to the first reporter.
+    if (!this.operatives.some((candidate) => candidate.id === this.selectedOpId)) this.selectedOpId = op.id;
+    this.awaitingFirstDispatch = false;
 
     op.targetLeadId = lead.uid;
     op.targetRivalId = null;
@@ -376,10 +414,11 @@ export class LateEditionSim {
   }
 
   dispatchOperativeToPoint(opId, wx, wy) {
+    if (!this.canDispatch()) return false;
     // Reject malformed input before it can introduce nonfinite movement state.
     if (!Number.isFinite(wx) || !Number.isFinite(wy)) return;
     const op = this.operatives.find((o) => o.id === opId) || this.operatives[0];
-    if (!op) return;
+    if (!this.operativeAvailable(op)) return false;
 
     // 1. Check if clicked near an active Lead
     for (const lead of this.leads) {
@@ -392,6 +431,7 @@ export class LateEditionSim {
     // 2. Check if clicked near an active Rival Agent
     for (const rv of this.rivals) {
       if (Math.hypot(wx - rv.x, wy - rv.y) <= 42) {
+        this.awaitingFirstDispatch = false;
         op.targetRivalId = rv.id;
         op.targetLeadId = null;
         op.targetX = rv.x;
@@ -404,6 +444,7 @@ export class LateEditionSim {
     }
 
     // 3. Otherwise move operative to city street coordinate
+    this.awaitingFirstDispatch = false;
     op.targetLeadId = null;
     op.targetRivalId = null;
     op.targetX = Math.max(50, Math.min(WORLD_W - 50, wx));
@@ -460,8 +501,9 @@ export class LateEditionSim {
 
   spawnRivalAgent() {
     if (this.rivals.length >= 3) return;
-    const isGoon =
-      this.syndicateHeat >= 35 || this.nextFloat() < 0.45;
+    // No unavoidable press attacks before the fixer and repairs join the payroll.
+    const isGoon = isUnlocked('fixer', this.edition) &&
+      (this.syndicateHeat >= 35 || this.nextFloat() < 0.45);
 
     if (isGoon) {
       const obs = this.districts.find((d) => d.id === 'observer_hq');
@@ -505,6 +547,7 @@ export class LateEditionSim {
 
   // Newsroom Special Operations
   triggerWiretap() {
+    if (!isUnlocked('wiretap', this.edition) || this.phase !== 'desk' || this.deskTooSmall) return false;
     if (this.cash < 65) return false;
     this.cash -= 65;
     this.spawnLead();
@@ -519,6 +562,7 @@ export class LateEditionSim {
   }
 
   acceptSyndicateBribe() {
+    if (!isUnlocked('bribe', this.edition) || this.phase !== 'desk' || this.deskTooSmall) return false;
     this.cash += 160;
     this.credibility = Math.max(0, this.credibility - 10);
     this.syndicateHeat = Math.max(0, this.syndicateHeat - 16);
@@ -532,6 +576,7 @@ export class LateEditionSim {
   }
 
   fortifyPressRoom() {
+    if (!isUnlocked('fortify', this.edition) || this.phase !== 'desk' || this.deskTooSmall) return false;
     if (this.cash < 75) return false;
     this.cash -= 75;
     this.pressHp = 100;
@@ -547,6 +592,7 @@ export class LateEditionSim {
   }
 
   triggerRotaryDilemma() {
+    if (!isUnlocked('phone', this.edition) || this.phase !== 'desk' || this.deskTooSmall) return false;
     if (this.activeDilemma) return this.activeDilemma;
     const template =
       EDITORIAL_DILEMMAS[this.dilemmaIdx % EDITORIAL_DILEMMAS.length];
@@ -586,6 +632,7 @@ export class LateEditionSim {
   }
 
   publishEdition() {
+    if (!this.canDispatch() || this.awaitingFirstDispatch) return false;
     if (this.gameOver || this.pressHp <= 0 || this.lastPublishedTime === this.time) return false;
     // Claim this tick before calling ports: repeated/reentrant inputs print once.
     this.lastPublishedTime = this.time;
@@ -720,7 +767,8 @@ export class LateEditionSim {
   }
 
   step(dt) {
-    if (!Number.isFinite(dt) || dt <= 0 || this.paused || this.gameOver) return;
+    if (!Number.isFinite(dt) || dt <= 0 || this.paused || this.gameOver || this.phase !== 'desk' ||
+      this.deskTooSmall || (this.edition === 1 && this.awaitingFirstDispatch)) return;
     // Consume up to 10 seconds in <=50 ms slices, never a teleport-sized tick.
     // The catch-up cap prevents hostile finite deltas from monopolizing the loop.
     const elapsed = Math.min(dt, MAX_CATCHUP_SEC);
@@ -740,9 +788,10 @@ export class LateEditionSim {
       this.banner.timer = Math.max(0, this.banner.timer - dt);
     }
 
-    // Midnight Rotary-Phone Editorial Dilemma around 09:00 PM (clockSec >= 36)
+    // The night line comes onto the payroll on night four, at 40% of the edition.
     if (
-      this.clockSec >= 36 &&
+      isUnlocked('phone', this.edition) &&
+      this.clockSec >= EDITION_DURATION_SEC * 0.4 &&
       !this.dilemmaTriggeredThisEdition &&
       !this.activeDilemma
     ) {
@@ -770,7 +819,7 @@ export class LateEditionSim {
     // Spawn Rival Agents periodically
     this.rivalSpawnTimer -= dt;
     if (this.rivalSpawnTimer <= 0) {
-      this.rivalSpawnTimer = Math.max(6.5, 13.5 - this.edition * 0.9);
+      this.rivalSpawnTimer = Math.max(6.5, 13.5 - this.edition * 0.9) * EDITION_TIME_SCALE;
       this.spawnRivalAgent();
     }
 
@@ -786,13 +835,14 @@ export class LateEditionSim {
 
     // Update Operatives
     const fixer = this.operatives.find((o) => o.role === 'fixer');
-    if (fixer && !fixer.targetRivalId && this.rivals.length > 0) {
+    if (this.operativeAvailable(fixer) && !fixer.targetRivalId && this.rivals.length > 0) {
       // Fixer automatically moves to intercept nearest rival agent!
       const rv = this.rivals[0];
       fixer.targetRivalId = rv.id;
     }
 
     for (const op of this.operatives) {
+      if (!this.operativeAvailable(op)) continue;
       if (op.flashCooldown > 0) op.flashCooldown = Math.max(0, op.flashCooldown - dt);
 
       // Track target Rival if intercepting

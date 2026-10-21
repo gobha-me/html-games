@@ -3,9 +3,9 @@ import test from 'node:test';
 import { makeSim, rival, parkOperatives, arrive } from './helpers.mjs';
 
 test('press HP hitting zero on the deadline tick ends play after that tick\'s print', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   parkOperatives(sim);
-  sim.clockSec = 89.99;
+  sim.clockSec = 209.99;
   sim.pressHp = 0.1;
   sim.rivals.push(rival({ type: 'goon', x: sim.hq.x + sim.hq.w / 2,
     y: sim.hq.y + sim.hq.h / 2 }));
@@ -26,7 +26,7 @@ test('press HP hitting zero on the deadline tick ends play after that tick\'s pr
 });
 
 test('a press already at zero cannot publish even before game-over detection', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.pressHp = 0;
   const hash = sim.getStateHash();
   assert.equal(sim.publishEdition(), false);
@@ -34,7 +34,7 @@ test('a press already at zero cannot publish even before game-over detection', (
 });
 
 test('fortification at exact price repairs the press and clears only goons', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   sim.cash = 75;
   sim.pressHp = 1;
   sim.rivals.push(rival({ id: 'herald' }), rival({ id: 'goon', type: 'goon' }));
@@ -45,7 +45,7 @@ test('fortification at exact price repairs the press and clears only goons', () 
 });
 
 test('fixer intercept pays exactly one bounty and releases a removed rival target', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   parkOperatives(sim);
   const fixer = sim.operatives.find((o) => o.role === 'fixer');
   sim.rivals.push(rival({ type: 'goon', x: fixer.x, y: fixer.y }));
@@ -61,7 +61,7 @@ test('fixer intercept pays exactly one bounty and releases a removed rival targe
 });
 
 test('photographer stuns a rival but cannot stun again during cooldown', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   parkOperatives(sim);
   const photographer = sim.operatives.find((o) => o.role === 'photographer');
   photographer.x = photographer.targetX = 300;
@@ -80,7 +80,7 @@ test('photographer stuns a rival but cannot stun again during cooldown', () => {
 });
 
 test('photographer captures proof once, then assists an already verified lead', () => {
-  const sim = makeSim();
+  const sim = makeSim({ night: 4 });
   parkOperatives(sim);
   const lead = sim.leads[0];
   const photographer = sim.operatives.find((o) => o.role === 'photographer');
