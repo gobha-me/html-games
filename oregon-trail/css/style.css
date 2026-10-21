@@ -22,13 +22,14 @@
 body {
   font-family: 'Georgia', 'Times New Roman', serif;
   background: linear-gradient(180deg, var(--sky) 0%, var(--parchment) 40%, var(--parchment-deep) 100%);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   color: var(--text-primary);
-  padding: 2rem;
+  padding: 0.75rem 1.25rem 2.25rem;
 }
 
 .hello-container {
