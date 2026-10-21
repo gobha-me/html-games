@@ -42,8 +42,11 @@ jobs:
             console.log("Verified", gamesJson.games.length, "games in manifest.");
           '
 
-      - name: Syntax-check BREACH // 2099 and SUNBREAK // V'BALL scripts
+      - name: Syntax-check all JS & ES module scripts across the repo
         run: |
-          for f in breach/js/*.js sunbreak/js/*.js; do
-            node --check "$f"
-          done
+          count=0
+          while IFS= read -r -d '' f; do
+            node --input-type=module --check < "$f" || { echo "Syntax check failed: $f"; exit 1; }
+            count=$((count + 1))
+          done < <(find . -name '*.js' -not -path './.git/*' -not -path '*/node_modules/*' -not -path '*/dist/*' -print0)
+          echo "Verified syntax of $count JS files across all games."
