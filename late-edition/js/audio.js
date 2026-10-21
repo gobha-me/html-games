@@ -28,7 +28,9 @@ export class NoirAudio {
         .then((buf) => {
           if (buf) this.buffers[key] = buf;
         })
-        .catch(() => {});
+        .catch(() => {
+          // Missing or undecodable cues leave synthesized fallback tones available.
+        });
     }
   }
 
@@ -37,7 +39,9 @@ export class NoirAudio {
     if (this.ctx && this.ctx.state === 'suspended') {
       try {
         await this.ctx.resume();
-      } catch (_) {}
+      } catch {
+        // Autoplay restrictions must not prevent play; retry on the next gesture.
+      }
     }
   }
 

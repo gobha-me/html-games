@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <title>LATE EDITION // 1947 — Noir Newsroom Desk &amp; Broadsheet Paste-Up</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,600&family=IBM+Plex+Mono:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,700;0,6..72,800;1,6..72,500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,600&family=IBM+Plex+Mono:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,700;0,6..72,800;1,6..72,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div class="newsroom-desk">
@@ -26,7 +26,7 @@
           src="assets/sprites/portrait_editor.png"
           alt="Managing Editor Lou Vance"
           class="editor-portrait"
-        />
+        >
         <div class="editor-bubble">
           <span class="editor-tag">LOU VANCE // MANAGING EDITOR</span>
           <p id="editor-directive" class="editor-quote">
@@ -66,12 +66,12 @@
       <!-- Bakelite Speed Switches & Rotary Press Lever -->
       <div class="rail-controls">
         <div class="speed-group" role="group" aria-label="Simulation speed">
-          <button id="btn-pause" class="btn-chip" title="Pause simulation (P)">PAUSE</button>
-          <button id="btn-speed-1" class="btn-chip active" title="Normal speed">1×</button>
-          <button id="btn-speed-2" class="btn-chip" title="Fast speed">2×</button>
+          <button type="button" id="btn-pause" class="btn-chip" title="Pause simulation (P)">PAUSE</button>
+          <button type="button" id="btn-speed-1" class="btn-chip active" title="Normal speed">1×</button>
+          <button type="button" id="btn-speed-2" class="btn-chip" title="Fast speed">2×</button>
         </div>
-        <button id="btn-audio" class="btn-chip active" title="Toggle Noir Jazz &amp; SFX (M)">🔊 JAZZ</button>
-        <button id="btn-roll-press" class="btn-press-lever" title="Lock front page and roll the rotary presses [Space]">
+        <button type="button" id="btn-audio" class="btn-chip active" title="Toggle Noir Jazz &amp; SFX (M)">🔊 JAZZ</button>
+        <button type="button" id="btn-roll-press" class="btn-press-lever" title="Lock front page and roll the rotary presses [Space]">
           🖨️ ROLL PRESSES [SPC]
         </button>
       </div>
@@ -112,8 +112,8 @@
               </div>
               <p id="rotary-prompt" class="rotary-prompt"></p>
               <div class="rotary-actions">
-                <button id="btn-dilemma-accept" class="btn-rotary accept"></button>
-                <button id="btn-dilemma-reject" class="btn-rotary reject"></button>
+                <button type="button" id="btn-dilemma-accept" class="btn-rotary accept">Accept call</button>
+                <button type="button" id="btn-dilemma-reject" class="btn-rotary reject">Reject call</button>
               </div>
             </aside>
 
@@ -136,19 +136,19 @@
             <div class="rack-header">
               <span>PRESS CORPS CREDENTIALS — CLICK PASS OR PRESS [1–4], THEN CLICK ANY CITY LEAD</span>
               <div class="desk-actions">
-                <button id="act-wiretap" class="btn-action" title="Intercept 2 fresh police-band leads [Q]">
+                <button type="button" id="act-wiretap" class="btn-action" title="Intercept 2 fresh police-band leads [Q]">
                   <span>📞 [Q] Wiretap</span>
                   <b class="act-cost">$65</b>
                 </button>
-                <button id="act-bribe" class="btn-action" title="Take syndicate hush-money (-10% Cred, -16% Heat) [W]">
+                <button type="button" id="act-bribe" class="btn-action" title="Take syndicate hush-money (-10% Cred, -16% Heat) [W]">
                   <span>💼 [W] Hush-Money</span>
                   <b class="act-cost">+$160</b>
                 </button>
-                <button id="act-fortify" class="btn-action" title="Repair Rotary Press to 100% &amp; repel saboteurs [E]">
+                <button type="button" id="act-fortify" class="btn-action" title="Repair Rotary Press to 100% &amp; repel saboteurs [E]">
                   <span>🛡️ [E] Guard Press</span>
                   <b class="act-cost">$75</b>
                 </button>
-                <button id="act-phone" class="btn-action" title="Answer incoming Bakelite Rotary Phone call [T]">
+                <button type="button" id="act-phone" class="btn-action" title="Answer incoming Bakelite Rotary Phone call [T]">
                   <span>☎️ [T] Night Line</span>
                 </button>
               </div>
@@ -168,22 +168,22 @@
       </section>
 
       <!-- ZONE 2 (RIGHT 40%): FULL-HEIGHT 1947 CREAM NEWSPRINT FRONT-PAGE PASTE-UP SHEET -->
-      <aside class="broadsheet-pasteup">
+      <aside class="broadsheet-pasteup" aria-label="Front page paste-up">
         <div class="broadsheet-paper">
           <!-- Authentic 1947 Newspaper Masthead -->
           <div class="broadsheet-masthead">
             <div class="paper-ears">
-              <div class="ear-box">WEATHER<br /><strong>HEAVY RAIN</strong></div>
+              <div class="ear-box">WEATHER<br><strong>HEAVY RAIN</strong></div>
               <div class="masthead-title-block">
                 <span class="paper-motto">“ALL THE NEWS THAT SURVIVES THE NIGHT” · EST. 1889</span>
                 <h2>THE EVENING STAR</h2>
               </div>
-              <div class="ear-box">LATE FINAL<br /><strong>FIVE CENTS</strong></div>
+              <div class="ear-box">LATE FINAL<br><strong>FIVE CENTS</strong></div>
             </div>
             <div class="paper-subbar">
               <span id="paper-edition-label">VOL. LVIII · LATE NIGHT EDITION #1</span>
               <span>METROPOLIS, OCT. 1947</span>
-              <span id="paper-projected- readers" class="red-stamp-inline">EST. +0 READERS</span>
+              <span id="paper-projected-readers" class="red-stamp-inline">EST. +0 READERS</span>
             </div>
           </div>
 
@@ -194,7 +194,7 @@
           <div class="pasteup-scoop-strip">
             <div class="pasteup-strip-head">
               <span>COPY DESK SCOOP TRAY (CLICK TO PLATE ABOVE)</span>
-              <button id="btn-auto-layout" class="btn-ink-stamp" title="Auto-fill front page with highest value scoops [A]">
+              <button type="button" id="btn-auto-layout" class="btn-ink-stamp" title="Auto-fill front page with highest value scoops [A]">
                 [A] AUTO-PLATE BEST SCOOPS
               </button>
             </div>
@@ -208,7 +208,7 @@
                 src="assets/sprites/masthead_press.png"
                 alt="1947 Rotary Printing Press"
                 class="press-illustration"
-              />
+              >
               <div class="press-stats">
                 <div class="ledger-title">ROTARY PRESS RUN PROJECTION</div>
                 <div class="proj-grid">
@@ -237,7 +237,7 @@
         <p id="modal-subtitle" class="modal-subtitle"></p>
         <div id="modal-metrics" class="modal-metrics"></div>
         <div class="modal-actions">
-          <button id="btn-modal-continue" class="btn-press-lever">START NEXT NIGHT SHIFT [SPACE]</button>
+          <button type="button" id="btn-modal-continue" class="btn-press-lever">START NEXT NIGHT SHIFT [SPACE]</button>
         </div>
       </div>
     </div>

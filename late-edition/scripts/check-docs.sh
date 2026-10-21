@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reject obsolete references in every file, except the two historical sources.
+# Reject obsolete project references, except the two historical sources.
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -26,7 +26,10 @@ done
 # Materialize traversal first: a find/read error must fail, not look like no matches.
 file_list=$(mktemp)
 trap 'rm -f -- "$file_list"' EXIT
-find . -type f ! -path './docs/DIRECTION.md' ! -path './CHANGELOG.md' \
+# Third-party lint dependencies are not project documentation and contain their
+# own historical paths; prune them rather than scanning thousands of vendor files.
+find . -type d -name node_modules -prune -o \
+  -type f ! -path './docs/DIRECTION.md' ! -path './CHANGELOG.md' \
   -print0 > "$file_list"
 
 failed=0

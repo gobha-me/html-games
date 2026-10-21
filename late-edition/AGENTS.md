@@ -22,7 +22,8 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
 | `assets/` | Existing sprite PNGs and three MP3 effects, loaded with relative URLs. |
 | `scripts/` | Documentation-reference checker and its isolated adversarial shell tests. |
-| `package.json` | Marks JavaScript as ES modules; currently has no dependencies or npm scripts. |
+| `tests/` | Adversarial lint fixtures, CLI exit-code checks and real-source lint checks. |
+| `package.json` | Native ES modules; development-only lint/test tools and npm scripts. |
 
 ## Sim/UI boundary: current and intended
 
@@ -87,21 +88,25 @@ replace them in the dedicated art pass, not during unrelated documentation work.
 From the repository root, run the checks available now:
 
 ```bash
-for file in late-edition/js/*.js; do node --check "$file" || exit 1; done
+cd late-edition
+npm ci                    # Node 22.22+ (22.x) or 24.8+; lockfile is required
+npm run lint              # ESLint, stylelint standard, html-validate recommended
+npm test                  # node:test: bad fixtures must fail; real sources pass
+cd ..
 bash -n late-edition/scripts/check-docs.sh late-edition/scripts/check-docs.test.sh
 bash late-edition/scripts/check-docs.sh
 bash late-edition/scripts/check-docs.test.sh
 ```
 
-The checker rejects obsolete references outside the direction source and
-changelog history. Its optional directory argument is for isolated fixtures.
-Both scripts run in `.github/workflows/ci.yml`.
+Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`
+from this directory. Bad fixtures are excluded from normal lint discovery;
+tests feed their contents through the production configurations deliberately.
 
-ESLint, stylelint and HTML validation configuration/commands arrive in #80;
-the adversarial `node:test` sim suite and coverage command arrive in #82.
-There are no game lint or sim-test npm scripts yet. Use installed linters
-when available and report their exact configuration and any existing failures.
-Run all applicable tests/linters before finishing; never claim unrun CI is green.
+The docs checker skips vendor `node_modules` and exempts only direction/changelog
+history in project files. Its optional directory argument is for isolated fixtures.
+Both shell checks and the separate `late-edition` npm job run in GitHub CI.
+Sim tests and coverage arrive in #82. Run all tests/linters before finishing;
+never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 
 Tests must force unhappy paths, including checker rejection and clean acceptance.
@@ -120,6 +125,15 @@ and simultaneous rival/player completion, rather than only successful play.
   Never interpolate untrusted content into this path.
 - Audio fetch/resume failures are currently swallowed so missing cues or
   browser autoplay restrictions cannot stop play; fallback tones are intentional.
+- Audit exception (2026-10-21, #80): stylelint 17.16.0's transitive `braces@3.0.3`
+  has a stack-exhaustion denial-of-service advisory,
+  [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
+  `npm audit fix` leaves seven high-severity package entries from this one advisory
+  through micromatch, fast-glob, globby, stylelint and its configs. No non-breaking
+  fix is available; npm proposes breaking downgrades to stylelint 7.7.0 and
+  stylelint-config-standard 15.0.1. Retain current lint coverage: these are dev-only
+  lint tools, not shipped (`late-edition/node_modules/` is excluded via the root
+  `.dockerignore`). Re-run audit and upgrade when a compatible fix is released.
 - Keep new exceptions inline at the affected code with when/why and follow-up.
   No blanket ESLint disables: only `eslint-disable-next-line <specific-rule>`
   followed by `-- <reason>` when an exception is necessary.

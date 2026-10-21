@@ -36,6 +36,17 @@ expect_status() {
 }
 
 expect_status 0 "$fixture/clean"
+# Installed dependencies (also nested ones) must not pollute project checks.
+for dependency_path in node_modules/vendor nested/node_modules/vendor; do
+  mkdir -p "$fixture/clean/$dependency_path"
+  printf '%s\n' "${stale_references[@]}" > "$fixture/clean/$dependency_path/README.md"
+done
+expect_status 0 "$fixture/clean"
+# A similarly named project directory must still be checked.
+mkdir -p "$fixture/dirty/node_modules-not-vendor"
+printf '%s\n' "${stale_references[0]}" > "$fixture/dirty/node_modules-not-vendor/README.md"
+expect_status 1 "$fixture/dirty"
+rm -- "$fixture/dirty/node_modules-not-vendor/README.md"
 mkdir "$fixture/empty"
 expect_status 0 "$fixture/empty"
 

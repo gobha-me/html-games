@@ -9,6 +9,26 @@ on:
       - main
 
 jobs:
+  late-edition:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: late-edition
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: late-edition/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
   validate:
     runs-on: ubuntu-latest
     steps:

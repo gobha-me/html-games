@@ -1,5 +1,29 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.2.2] — 2026-10-21 (#80 — Lint tooling and CI)
+
+### Added
+- Locked development dependencies and npm commands for ESLint 10 flat recommended
+  rules plus `no-unused-vars`, `eqeqeq` and `no-implicit-globals`, stylelint standard,
+  and recommended HTML validation of `index.html`; no rule relaxations or disables.
+- Adversarial `node:test` fixtures for undefined/unused variables, loose equality,
+  implicit globals, invalid CSS hex, duplicate IDs and IDs containing whitespace.
+  Tests assert lint failure exit codes and that real sources pass all three tools.
+- A separate Node 22 `late-edition` GitHub CI job with lockfile-based npm caching.
+- Git/Docker exclusions for installed dependencies; Docker also excludes tests
+  and deliberately invalid fixtures from the static deployment image.
+
+### Fixed
+- Upgraded ESLint to 10.13.0 and `@eslint/js` to 10.0.1, regenerated the lockfile,
+  and ran non-breaking audit fixes. The remaining stylelint dependency advisory
+  (GHSA-vfj7-8cjw-p6xm) has no non-breaking fix; its development-only deployment
+  exclusion and follow-up are documented in `AGENTS.md`.
+- Corrected the malformed projected-readers ID and its JavaScript lookup.
+- Fixed existing HTML, CSS and JS lint findings, including button semantics,
+  landmark names, CSS notation/order and an unused publishing accumulator.
+- Documented intentional audio/storage fallback handlers inline and pruned
+  installed vendor dependencies from documentation checks, with regression tests.
+
 ## [2.2.1] — 2026-10-21 (#79 — Current architecture and canonical lore)
 
 ### Changed
