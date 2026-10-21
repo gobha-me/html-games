@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { FILE_DRAWER } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
 import { makeSim, rival, parkOperatives } from './helpers.mjs';
 
@@ -13,6 +14,11 @@ function assertInvariants(sim, wasGameOver) {
   visit(sim, 'sim');
   for (const key of ['credibility', 'syndicateHeat', 'pressHp']) {
     assert.ok(sim[key] >= 0 && sim[key] <= 100, `${key} outside 0..100: ${sim[key]}`);
+  }
+  assert.ok(sim.spikedStories.length <= FILE_DRAWER.capacity, 'Drawer capacity is a hard bound');
+  for (const file of sim.spikedStories) {
+    assert.ok(file.freshness > 0 && file.freshness <= FILE_DRAWER.freshness);
+    assert.ok(file.exposure >= 0 && file.exposure < 5);
   }
   assert.ok(sim.cash >= 0, 'No action may create debt');
   const plated = Object.values(sim.frontPage).filter(Boolean).map((s) => s.uid);
@@ -44,6 +50,10 @@ for (let seed = 0; seed < 50; seed++) {
       () => sim.assistLayout(),
       () => sim.unplace(pick([...sim.scoopedStories, ...Object.values(sim.frontPage).filter(Boolean), ...sim.insideStories, { uid: 'missing' }]).uid),
       () => sim.spike(pick([...sim.scoopedStories, ...Object.values(sim.frontPage).filter(Boolean), ...sim.insideStories, { uid: 'missing' }]).uid),
+      () => sim.useFile(pick([...sim.spikedStories.map((file) => file.uid), 'missing']),
+        pick(['favor', 'squeeze', 'print-later', '__proto__']),
+        pick(['tip', 'stop', 'kill', 'cash', 'protection', undefined, 'missing'])),
+      () => sim.shredFile(pick([...sim.spikedStories.map((file) => file.uid), 'missing'])),
       () => sim.triggerWiretap(),
       () => sim.fortifyPressRoom(),
       () => { if (sim.credibility >= 70 || sim.gameOver) sim.acceptSyndicateBribe(); },

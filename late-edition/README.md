@@ -56,7 +56,7 @@ is saved; continuing a saved run belongs to the later save/load feature.
      (or Return to tray) before moving it; one story can never occupy two slots.
      **Inside** takes any count, at **¼ value, series bonuses, trust and heat**,
      rounded per story. Spike removes tray, front-page or Inside copy from scoring
-     and keeps it in the sim's spiked list across editions; the file drawer comes in #86.
+     and files it as a dossier in the persistent drawer (see below).
    - A CRIME/GRAFT/SYNDICATE accusation in the Banner adds **8 extra heat**.
      An empty Banner prints its **wire stand-in and costs 6 trust**, including when
      other copy is placed. A wholly empty paper also retains its −12 trust and
@@ -80,6 +80,63 @@ slots; **Enter/Space** activates the focused control. **[1]–[4]** selects a pa
 Space away from controls rolls presses; on an edition report it continues.
 Reports move focus to their action and restore the previous control on dismissal.
 
+## The file drawer — ink or leverage (#86)
+
+Spike copy during paste-up to file its subject, tags and evidence. **D** (desk
+drawer) or the brass drawer handle opens the manila drawer at the bottom of the
+desk; **D / Esc** closes it. D works at the desk and during paste-up; **F / 2**
+assigns Fold during paste-up. An open drawer blocks page/desk shortcuts.
+Tab/Shift+Tab reach every action; Enter/Space uses the focused button. Carbon dots
+show nights remaining; red pinholes count exposure. The drawer holds **six files**.
+When full, spiking returns `drawer-full` without moving copy: choose **Shred** on a
+specific dossier to admit the pending story, or **Cancel spike**. A deadline or
+edition change cancels that pending choice. Shredding is permanent.
+
+Files start at **3 freshness** and age once on each successful publish, including
+that night's print. At zero they expire and are automatically shredded with a wire
+notice (zero-freshness cards use yellow if rendered before cleanup). Drawer state,
+subject status, pending calls and raid protection survive editions and participate
+in the canonical hash. Reset clears them. Disk save/load remains issue #87; this
+feature deliberately keeps run state in the sim, without introducing a save format.
+
+- **Favor: police tip** consumes the file and puts a high-value lead in its subject's
+  district immediately. A city with four active leads rejects without consuming it.
+  Tip copy carries source age/exposure through investigation and re-filing; calling
+  another contact cannot wash the same evidence into fresh cash payments.
+- **Favor: stop goon / raid** removes one Observer goon, or banks protection against
+  the next goon spawn. Protection persists across editions; duplicate protection rejects.
+- **Favor: kill rival story** denies the Herald's current target lead to rivals;
+  player investigation remains possible. No current rival assignment rejects.
+- **Squeeze: cash / protection** pays `12 × weight × freshness` dollars, or reduces
+  heat by `3 × weight`. It retains the file and increases exposure by one, then rolls
+  the seeded burn chance `0.15 + 0.2 × exposure`: 35%, 55%, 75%, 95%, then guaranteed.
+  Dead subjects and subjects exposed by publication or a prior burn reject blackmail.
+  Burning destroys the file and schedules a private-line call **1–2 editions later**,
+  even before the normal night-four phone unlock. Pay **$120**, or lose **12 trust**
+  and gain **18 heat**. An unaffordable payoff rejects; timeout or printing with the
+  call unanswered takes the trust/heat outcome. Due calls queue behind existing calls.
+- **Print later** consumes the dossier into tray copy stamped **EXCLUSIVE — HELD**.
+  It earns **+50% value** if its subject's arc/publication progressed since filing,
+  otherwise **−25%**. Re-filing carries the original value, age and exposure, so it
+  cannot refresh leverage or compound bonuses. Held tray copy also ages on publish.
+
+The pure API is `useFile(uid, action, target?) → {ok, reason, effects}`: actions are
+`favor` (`tip`, `stop`, `kill`), `squeeze` (`cash`, `protection`), and `print-later`
+(no target). `shredFile(uid)` has the same result shape. Rejections are atomic,
+including unknown IDs/actions/targets, expired evidence and closed-desk gates.
+The retained `spikedStories` collection contains dossiers, each with a source-story
+snapshot for printing later; `subjectStates` holds dead/exposed subjects.
+
+All balance numbers live in `FILE_DRAWER` in `js/config.js`. Weight is the story's
+value divided by 75, rounded up and clamped to 1–5. Even an adversarial RNG that
+always evades burns cannot extract more than **$900 per fresh weight-5 dossier**
+(five payments of $180). Re-filing cannot reset this bound. The economy regression
+plays **20 seeds × 20 full nights × 2 bots**, with no synthetic scoops or stat resets:
+a greedy bot squeezes every surplus file repeatedly for cash, and an ink-only bot
+never spikes. Both must survive and total funds must stay below **$100,000**,
+including print revenue. This ceiling is a test budget, not an in-game cash clamp.
+The dedicated tests also attack repeated same-tick payment and print/re-file loops.
+
 ## Tech Stack & File Layout
 
 - Zero external runtime dependencies — self-contained ES modules + HTML5 2D Canvas + WebAudio synthesizer + original `.mp3` SFX.
@@ -93,6 +150,7 @@ late-edition/
 ├── js/
 │   ├── dom.js          # Keyed DOM reconciliation; dynamic copy uses textContent
 │   ├── main.js         # UI controller, wire stand-in/paste-up renderer & input bindings
+│   ├── hotkeys.js      # Shared phase-specific shortcut table; collision-tested by Node
 │   ├── sim.js          # 1947 city-dispatch, rival AI & edition economy, injected ports & canonical state hash
 │   ├── rng.js          # Mulberry32 seeded PRNG, validated integer bounds & array selection
 │   ├── adapters.js     # Safe score persistence, audio ports & URL seed parsing
@@ -114,7 +172,7 @@ equal gameplay hashes. Browser storage, audio and clocks are injected ports.
 See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint, stylelint and HTML validation are
 enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
 for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
-and art bible; manual layout is playable, while the file drawer and visual overhaul remain targets.
+and art bible; manual layout and the file drawer are playable, while the visual overhaul remains a target.
 
 ## Deterministic runs
 
@@ -146,8 +204,8 @@ only; gameplay time always comes from `step()`. Renderer rain/ripples may use
 The golden test runs five full 210-second editions with progressive payroll,
 dispatches, investigation, manual placement during paste-up, rivals, fortification
 and night-four/five phone choices, asserting a pinned hash after each print.
-Issue #85 repins the hashes for explicit layout, accusation/empty-banner scoring,
-Inside/Spike collections and the per-edition assist flag.
+Issue #86 repins the hashes for story subjects, subject publication state/progress,
+pending burned-source calls and raid protection; replay inputs are unchanged.
 Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
 zero. Blocked reads and quota-exceeded writes never interrupt play; the current
 run's best is retained in memory.
@@ -161,7 +219,7 @@ first-night clock. The UI drives the separate `ColdOpen` presentation clock.
 including at/after the deadline, behind reports, on a folded run or a small desk.
 Slot IDs are `banner`, `above_fold`, `photo_expose`, `editorial`, `inside`.
 `spike(uid)` is the SPIKE command, separate from placement; `spikedStories` persists
-until reset. `insideStories` is cleared on print. `assistLayout()` owns assist scoring.
+as dossier cards until consumed, shredded or expired. `insideStories` is cleared on print. `assistLayout()` owns assist scoring.
 The numeric `edition` counter is retained for compatibility; its scoring flag lives
 in `editionLayout.assisted` and is captured as `editionSummary.assisted` before reset.
 Projection and publishing use the same scoring function.
@@ -193,13 +251,18 @@ checking numeric bounds, unique plates and sticky game over after every action.
 The classic-script fixture exercises `no-implicit-globals`, which
 cannot fire for module-scoped declarations. Documentation checks and their shell
 self-tests are listed in [AGENTS.md](AGENTS.md).
+The hotkey suite builds the complete application shortcut map from `HOTKEYS` in
+`js/hotkeys.js`, rejecting duplicate keys in each desk, paste-up, drawer-open or
+modal phase. Injected collisions include the original F/Fold/drawer regression.
+Browser regressions verify F plates Fold without opening the drawer, D toggles
+in both desk phases, and drawer/modal overlays prevent shortcut leakage.
 
 These are development dependencies only; the game still deploys without a build.
 The root `.dockerignore` excludes `late-edition/node_modules/` and
 `late-edition/tests/` because the Dockerfile copies the repository into the static
 server image. Tests and their deliberately invalid fixtures are never game assets.
 
-## Browser verification (#83–#85)
+## Browser verification (#83–#86)
 
 Use the supported Node version in `package.json` (22.22+ in 22.x, or 24.8+):
 
@@ -255,3 +318,8 @@ spiking, all six keyboard destinations, Tab/arrow selection and unplacing, cance
 drags, deadline expiry during both pointer and keyboard input, empty-banner trust,
 and visibly scored assist. Run browser suites sequentially: concurrent Playwright
 runs share and clear the same report/artifact directories.
+
+Drawer browser cases cover spike → open → police tip → visible lead, keyboard-only
+squeezing with stable focus, full-drawer shred selection, cancel, and deadline
+invalidation of a pending spike. Fuzzing includes file use/shredding, enforces six
+files maximum and unique UIDs across drawer, tray, Inside and page.

@@ -242,6 +242,16 @@
       </aside>
     </main>
 
+    <section id="file-drawer" class="file-drawer" aria-label="File drawer">
+      <button type="button" class="file-button" id="btn-drawer" aria-expanded="false" aria-controls="drawer-body">FILE DRAWER [D] · 0/6</button>
+      <div id="drawer-body" hidden>
+        <p id="drawer-status" role="status" aria-live="polite">Ink buys readers. Silence buys favors.</p>
+        <button type="button" class="file-button" id="btn-cancel-burn" hidden>Cancel spike</button>
+        <div id="drawer-files"></div>
+        <button type="button" class="file-button" id="btn-close-drawer">Close drawer [D / Esc]</button>
+      </div>
+    </section>
+
     <!-- Edition reports and the final stop-press telegram share a focus boundary. -->
     <div id="edition-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-subtitle">
       <div class="modal-dialog">

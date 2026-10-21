@@ -3,6 +3,7 @@
 // ============================================================================
 
 import {
+  FILE_DRAWER,
   WORLD_W,
   WORLD_H,
   EDITION_DURATION_SEC,
@@ -135,7 +136,12 @@ export class LateEditionSim {
     // Scooped Stories & 4 Front-Page Broadsheet Slots
     this.scoopedStories = [];
     this.insideStories = [];
-    this.spikedStories = [];
+    this.spikedStories = []; // Dossier cards; retained name for #85 callers.
+    // Subject names are data keys; null prototypes avoid inherited-name collisions.
+    this.subjectStates = Object.create(null);
+    this.subjectProgress = Object.create(null);
+    this.pendingBurns = [];
+    this.raidBlocked = false;
     // edition remains the numeric night counter; layout owns per-edition scoring flags.
     this.editionLayout = { assisted: false };
     this.frontPage = {
@@ -312,10 +318,149 @@ export class LateEditionSim {
     const story = this.scoopedStories.find((story) => story.uid === uid) ??
       this._placedEntries().find(([, story]) => story.uid === uid)?.[1];
     if (!story) return { ok: false, reason: 'unknown-story' };
+    if (this.spikedStories.length >= FILE_DRAWER.capacity) return { ok: false, reason: 'drawer-full' };
+    if (story.dossier?.freshness <= 0) return { ok: false, reason: 'expired-file' };
     this._removePlaced(uid);
     this.scoopedStories = this.scoopedStories.filter((story) => story.uid !== uid);
-    this.spikedStories.push(story);
+    const subject = story.subject || 'Municipal Records Office';
+    const dossier = story.dossier ?? {
+      freshness: FILE_DRAWER.freshness, exposure: 0,
+      weight: Math.min(FILE_DRAWER.maxWeight, Math.max(1, Math.ceil(story.baseValue / FILE_DRAWER.valuePerWeight))),
+      baseValue: story.baseValue,
+      arcProgress: this.arcProgress[story.arcId] || 0,
+      subjectProgress: this.subjectProgress[subject] || 0,
+    };
+    this.spikedStories.push({ uid, subject, tags: [...new Set([story.beat, ...(story.tags || [])])],
+      ...dossier, districtId: story.districtId || story.district || 'cityhall',
+      arcId: story.arcId, story: { ...story, subject } });
+    if (story.subjectStatus === 'dead') this.subjectStates[subject] = 'dead';
+    this.logWire(`FILED: ${subject}. Keep it off the street.`, 'ops');
     return { ok: true, reason: null };
+  }
+
+  canUseDrawer() {
+    return ['desk', 'paste-up'].includes(this.phase) && !this.deskTooSmall &&
+      !this.gameOver && !this.editionSummary && this.clockSec < EDITION_DURATION_SEC;
+  }
+
+  shredFile(uid) {
+    if (!this.canUseDrawer()) return { ok: false, reason: 'drawer-closed', effects: {} };
+    const file = this.spikedStories.find((entry) => entry.uid === uid);
+    if (!file) return { ok: false, reason: 'unknown-file', effects: {} };
+    this.spikedStories = this.spikedStories.filter((entry) => entry.uid !== uid);
+    this.logWire(`SHREDDED: ${file.subject}. Nothing left to trade.`, 'ops');
+    return { ok: true, reason: null, effects: { shredded: uid } };
+  }
+
+  // Pure command boundary: validate all inputs before changing state or drawing RNG.
+  // target is a favor (tip/stop/kill) or squeeze payment (cash/protection).
+  useFile(uid, action, target) {
+    const reject = (reason) => ({ ok: false, reason, effects: {} });
+    if (!this.canUseDrawer()) return reject('drawer-closed');
+    const file = this.spikedStories.find((entry) => entry.uid === uid);
+    if (!file) return reject('unknown-file');
+    if (file.freshness <= 0) return reject('expired-file');
+    if (!['favor', 'squeeze', 'print-later'].includes(action)) return reject('unknown-action');
+    if ((action === 'favor' && !['tip', 'stop', 'kill'].includes(target)) ||
+      (action === 'squeeze' && !['cash', 'protection'].includes(target)) ||
+      (action === 'print-later' && target !== undefined)) return reject('unknown-target');
+    const effects = {};
+    const dossier = Object.fromEntries(['freshness', 'exposure', 'weight', 'baseValue', 'arcProgress', 'subjectProgress']
+      .map((key) => [key, file[key]]));
+    if (action === 'squeeze') {
+      if (['dead', 'exposed'].includes(this.subjectStates[file.subject])) return reject('subject-unavailable');
+      file.exposure++;
+      effects.cash = target === 'cash' ? FILE_DRAWER.cashPerWeightNight * file.weight * file.freshness : 0;
+      effects.heat = target === 'protection' ? -FILE_DRAWER.protectionPerWeight * file.weight : 0;
+      this.cash += effects.cash;
+      this.syndicateHeat = Math.max(0, this.syndicateHeat + effects.heat);
+      effects.burnChance = FILE_DRAWER.burnBase + FILE_DRAWER.burnPerExposure * file.exposure;
+      effects.burned = this.nextFloat() < effects.burnChance;
+      this.logWire(`SQUEEZE: ${file.subject}. ${target === 'cash' ? `$${effects.cash} in an envelope.` : 'The press gets a quiet night.'}`, 'ops');
+      if (effects.burned) {
+        this.spikedStories = this.spikedStories.filter((entry) => entry.uid !== uid);
+        this.subjectStates[file.subject] = 'exposed';
+        const dueEdition = this.edition + FILE_DRAWER.burnDelayMin +
+          Math.floor(this.nextFloat() * (FILE_DRAWER.burnDelayMax - FILE_DRAWER.burnDelayMin + 1));
+        this.pendingBurns.push({ uid, subject: file.subject, dueEdition });
+        this.logWire(`SOURCE BURNED: ${file.subject}. Expect a call.`, 'danger');
+        effects.dueEdition = dueEdition;
+      }
+      return { ok: true, reason: null, effects };
+    }
+    if (action === 'favor') {
+      if (target === 'tip') {
+        if (this.leads.length >= 4) return reject('city-full');
+        const template = { ...file.story, dossier, baseValue: Math.max(FILE_DRAWER.tipValue, file.baseValue),
+          headline: `POLICE TIP: ${file.subject.toUpperCase()}`, arcId: null, arcPart: 0 };
+        const lead = this.spawnLead(file.districtId, template);
+        effects.leadUid = lead.uid;
+      } else if (target === 'stop') {
+        const goon = this.rivals.find((rival) => rival.type === 'goon');
+        if (goon) {
+          this.rivals = this.rivals.filter((rival) => rival.id !== goon.id);
+          effects.stopped = goon.id;
+        } else {
+          if (this.raidBlocked) return reject('already-protected');
+          this.raidBlocked = true;
+          effects.raidBlocked = true;
+        }
+      } else {
+        const rival = this.rivals.find((entry) => entry.type === 'herald' &&
+          this.leads.some((lead) => lead.uid === entry.targetLeadId && !lead.killedForRival));
+        if (!rival) return reject('no-rival-target');
+        // Removing that assignment prevents the legacy Herald fallback from
+        // simply retargeting the killed story on its next simulation step.
+        this.rivals = this.rivals.filter((entry) => entry.id !== rival.id);
+        const killed = this.leads.find((lead) => lead.uid === rival.targetLeadId);
+        killed.killedForRival = true;
+        killed.rivalProgress = 0;
+        effects.killedLead = rival.targetLeadId;
+      }
+      this.logWire(`FAVOR CALLED: ${file.subject}. ${target.toUpperCase()}.`, 'ops');
+    } else {
+      const advanced = (this.arcProgress[file.arcId] || 0) > file.arcProgress ||
+        (this.subjectProgress[file.subject] || 0) > file.subjectProgress;
+      const baseValue = Math.round(file.baseValue * (advanced ? FILE_DRAWER.advancedMultiplier : FILE_DRAWER.staleMultiplier));
+      // Carry age and exposure through the tray: re-filing never refreshes
+      // leverage or compounds held-copy bonuses into an unlimited cash loop.
+      this.scoopedStories.push({ ...file.story, dossier, baseValue,
+        seriesBadge: 'EXCLUSIVE — HELD', headline: `EXCLUSIVE — HELD: ${file.story.headline.replace(/^(EXCLUSIVE — HELD: )+/, '')}` });
+      effects.baseValue = baseValue;
+      effects.advanced = advanced;
+      this.logWire(`HELD COPY: ${file.subject}. ${advanced ? 'The story moved. Worth the wait.' : 'Old news. Set it small.'}`, 'ops');
+    }
+    this.spikedStories = this.spikedStories.filter((entry) => entry.uid !== uid);
+    return { ok: true, reason: null, effects };
+  }
+
+  _ageFiles() {
+    for (const file of this.spikedStories) {
+      file.freshness = Math.max(0, file.freshness - 1);
+      if (!file.freshness) this.logWire(`FILE EXPIRED: ${file.subject}. Shredded at the press.`, 'ops');
+    }
+    this.spikedStories = this.spikedStories.filter((file) => file.freshness > 0);
+    for (const story of [...this.scoopedStories, ...this.leads]) {
+      if (story.dossier) story.dossier.freshness = Math.max(0, story.dossier.freshness - 1);
+    }
+  }
+
+  _ringBurnedSource() {
+    if (this.activeDilemma || !['desk', 'paste-up'].includes(this.phase)) return;
+    const index = this.pendingBurns.findIndex((burn) => burn.dueEdition <= this.edition);
+    if (index < 0) return;
+    const [burn] = this.pendingBurns.splice(index, 1);
+    this.activeDilemma = {
+      id: 'burned_source', uid: burn.uid, caller: 'BURNED SOURCE // PRIVATE LINE', timer: FILE_DRAWER.callTimeout,
+      prompt: `${burn.subject}: "They know who talked. You owe me a way out."`,
+      acceptLabel: `[Y] PAY OFF (−$${FILE_DRAWER.payoff})`,
+      rejectLabel: `[N] HANG UP (−${FILE_DRAWER.trustHit} TRUST · +${FILE_DRAWER.heatSpike} HEAT)`,
+      acceptEffect: { cash: -FILE_DRAWER.payoff, wire: 'SOURCE PAID: A train ticket. No receipt.' },
+      rejectEffect: { credibility: -FILE_DRAWER.trustHit, heat: FILE_DRAWER.heatSpike,
+        wire: 'SOURCE ABANDONED: The street heard. So did the Observer.' },
+    };
+    this.audio.phoneRing();
+    this.logWire('PRIVATE LINE: A burned source wants an answer.', 'danger');
   }
 
   assistLayout() {
@@ -356,7 +501,7 @@ export class LateEditionSim {
     for (const key of ['phase', 'awaitingFirstDispatch', 'deskTooSmall', 'time', 'edition', 'maxEditions', 'clockSec', 'speed', 'paused',
       'gameOver', 'victory', 'cash', 'circulation', 'credibility', 'syndicateHeat',
       'pressHp', 'editionsPrinted', 'lastPublishedTime', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
-      'editionLayout', 'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
+      'subjectStates', 'subjectProgress', 'pendingBurns', 'raidBlocked', 'editionLayout', 'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
       'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws']) {
       state[key] = this[key];
     }
@@ -376,13 +521,13 @@ export class LateEditionSim {
     return hash.toString(16).padStart(8, '0');
   }
 
-  spawnLead(preferredDistrictId = null) {
+  spawnLead(preferredDistrictId = null, forcedTemplate = null) {
     if (this.leads.length >= 4) return null;
 
     // Check if we can spawn an unlocked Investigative Story Arc part (max 2 active arc leads at once)
     const activeArcLeads = this.leads.filter((l) => Boolean(l.arcId));
     let arcChoice = null;
-    if (activeArcLeads.length < 2) {
+    if (!forcedTemplate && activeArcLeads.length < 2) {
       for (let i = 0; i < INVESTIGATIVE_ARCS.length; i++) {
         const arc =
           INVESTIGATIVE_ARCS[(this.arcRotation + i) % INVESTIGATIVE_ARCS.length];
@@ -408,7 +553,9 @@ export class LateEditionSim {
     }
 
     let template;
-    if (arcChoice) {
+    if (forcedTemplate) {
+      template = forcedTemplate;
+    } else if (arcChoice) {
       template = {
         ...arcChoice.partObj,
         arcId: arcChoice.arc.id,
@@ -437,6 +584,12 @@ export class LateEditionSim {
 
     const lead = {
       uid: `lead_${this.nextLeadUid++}`,
+      // A tip trades the same source: carry age/exposure so tip → scoop →
+      // spike cannot wash leverage into endlessly fresh payments.
+      dossier: template.dossier ? { ...template.dossier } : undefined,
+      subject: template.subject,
+      subjectStatus: template.subjectStatus,
+      tags: template.tags || [template.beat],
       beat: template.beat,
       color: template.color,
       districtId: dist.id,
@@ -548,6 +701,11 @@ export class LateEditionSim {
     const isGoon = isUnlocked('fixer', this.edition) &&
       (this.syndicateHeat >= 35 || this.nextFloat() < 0.45);
 
+    if (isGoon && this.raidBlocked) {
+      this.raidBlocked = false;
+      this.logWire('RAID STOPPED: The precinct kept its word.', 'ops');
+      return;
+    }
     if (isGoon) {
       const obs = this.districts.find((d) => d.id === 'observer_hq');
       this.rivals.push({
@@ -567,8 +725,9 @@ export class LateEditionSim {
       // Target the highest-value unscooped lead on the map
       const targetLead =
         [...this.leads]
-          .filter((l) => !l.scoopedByRival)
-          .sort((a, b) => b.baseValue - a.baseValue)[0] || this.leads[0];
+          .filter((l) => !l.scoopedByRival && !l.killedForRival)
+          .sort((a, b) => b.baseValue - a.baseValue)[0];
+      if (!targetLead) return;
       this.rivals.push({
         id: `rv_${this.nextRivalUid++}`,
         type: 'herald',
@@ -654,6 +813,9 @@ export class LateEditionSim {
 
   resolveDilemma(accept = true) {
     if (!this.activeDilemma) return false;
+    // A payoff is a real expense. Insufficient funds keep both choices open;
+    // the deadline/timeout will take the trust-and-heat consequence instead.
+    if (accept && this.activeDilemma.id === 'burned_source' && this.cash < FILE_DRAWER.payoff) return false;
     const eff = accept
       ? this.activeDilemma.acceptEffect
       : this.activeDilemma.rejectEffect;
@@ -680,7 +842,12 @@ export class LateEditionSim {
     // Claim this tick before calling ports: repeated/reentrant inputs print once.
     this.lastPublishedTime = this.time;
     const { cashDelta: editionCash, circDelta, credDelta, heatDelta, platedCount } = this.calculateEditionProjection();
+    if (this.activeDilemma?.id === 'burned_source') this.resolveDilemma(false);
     for (const [slot, st] of this._placedEntries()) {
+      if (st.subject) {
+        this.subjectStates[st.subject] = st.subjectStatus === 'dead' ? 'dead' : 'exposed';
+        this.subjectProgress[st.subject] = (this.subjectProgress[st.subject] || 0) + 1;
+      }
       if (!st.arcId || !st.arcPart) continue;
       this.arcProgress[st.arcId] = Math.max(this.arcProgress[st.arcId] || 0, st.arcPart);
       const readers = Math.round((st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200) * (slot.id === 'inside' ? 0.25 : 1));
@@ -691,6 +858,7 @@ export class LateEditionSim {
     this.circulation = Math.max(2000, this.circulation + circDelta);
     this.credibility = Math.max(0, Math.min(100, this.credibility + credDelta));
     this.syndicateHeat = Math.max(0, Math.min(100, this.syndicateHeat + heatDelta));
+    this._ageFiles();
     this.editionsPrinted++;
     this.peakCirculation = Math.max(this.peakCirculation, this.circulation);
     // Snapshot before clearing the paste-up; later plating must not rewrite the
@@ -792,6 +960,8 @@ export class LateEditionSim {
     if (this.banner.timer > 0) {
       this.banner.timer = Math.max(0, this.banner.timer - dt);
     }
+
+    this._ringBurnedSource();
 
     // The night line comes onto the payroll on night four, at 40% of the edition.
     if (
@@ -963,7 +1133,8 @@ export class LateEditionSim {
 
       if (rv.type === 'herald') {
         const lead =
-          this.leads.find((l) => l.uid === rv.targetLeadId) || this.leads[0];
+          this.leads.find((l) => l.uid === rv.targetLeadId && !l.killedForRival) ||
+          this.leads.find((lead) => !lead.killedForRival);
         if (!lead) {
           this.rivals.splice(i, 1);
           continue;
@@ -1076,6 +1247,11 @@ export class LateEditionSim {
 
     const story = {
       uid: lead.uid,
+      dossier: lead.dossier,
+      subject: lead.subject,
+      subjectStatus: lead.subjectStatus,
+      tags: lead.tags,
+      districtId: lead.districtId,
       beat: lead.beat,
       color: lead.color,
       headline: lead.headline,
