@@ -1354,3 +1354,107 @@ body {
   font-size: 14px;
   color: #110d0a !important;
 }
+
+/* Native controls preserve keyboard activation while retaining the paper desk. */
+button.lead-item,
+button.scoop-chip,
+.op-select {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.op-select {
+  color: inherit;
+  background: transparent;
+  border: 0;
+}
+
+.op-info > span,
+.lead-headline,
+.lead-bars,
+.scoop-chip-title,
+.progress-track,
+.progress-fill {
+  display: block;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px double var(--paper-ink);
+  outline-offset: -3px;
+}
+
+/* Stop-press telegram uses the locked period palette, independent of legacy UI. */
+.paper-folded {
+  background: #0e0d0c;
+}
+
+.paper-folded .modal-dialog {
+  width: min(850px, 94vw);
+  max-height: 94vh;
+  overflow-y: auto;
+  border: 4px double #0e0d0c;
+  border-radius: 0;
+  background: #ede4ce;
+  color: #0e0d0c;
+}
+
+.paper-folded .modal-kicker,
+.paper-folded h2 {
+  color: #a3221b;
+}
+
+.paper-folded .modal-subtitle {
+  font-family: var(--font-mono);
+  color: #6b655c;
+}
+
+.paper-folded .modal-metric-box {
+  background: #d9cba8;
+  border-color: #6b655c;
+}
+
+.paper-folded .modal-metric-box span,
+.paper-folded .modal-metric-box strong {
+  color: #0e0d0c !important;
+}
+
+.final-front-page {
+  margin-bottom: 16px;
+  border-block: 3px double #0e0d0c;
+  padding-block: 12px;
+  text-align: left;
+}
+
+.final-front-page h3 {
+  text-align: center;
+  font-family: var(--font-serif);
+}
+
+.final-layout-slots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.final-front-page .paper-slot {
+  background: #ede4ce;
+  color: #0e0d0c;
+  border-color: #6b655c;
+  cursor: default;
+  opacity: 1;
+  overflow: visible;
+}
+
+.final-front-page .paper-slot[data-slot-id="banner"] {
+  grid-column: 1 / -1;
+}
+
+.paper-folded .btn-press-lever {
+  background: #d9cba8;
+  color: #0e0d0c;
+  border-color: #b5893f;
+}

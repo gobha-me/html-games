@@ -1,6 +1,6 @@
 {
   "name": "late-edition",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,10 +12,12 @@
     "lint:html": "html-validate index.html",
     "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
     "test": "node --test tests/*.test.mjs",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-include='js/sim.js' tests/*.test.mjs"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-include='js/sim.js' tests/*.test.mjs",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "html-validate": "^11.17.0",

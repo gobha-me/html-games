@@ -1,3 +1,7 @@
 # Late Edition deploys its static sources; lint dependencies and tests are development-only.
 late-edition/node_modules/
 late-edition/tests/
+late-edition/e2e/
+late-edition/playwright-report/
+late-edition/test-results/
+late-edition/playwright.config.js

@@ -75,6 +75,9 @@ export class LateEditionSim {
 
     this.cash = 340;
     this.circulation = 18400;
+    // Display-only run history; saved all-time best is a separate statistic.
+    this.peakCirculation = this.circulation;
+    this.lastPrintedFrontPage = null;
     this.credibility = 74; // 0..100
     this.syndicateHeat = 22; // 0..100
     this.pressHp = 100; // 0..100
@@ -567,6 +570,7 @@ export class LateEditionSim {
       : this.activeDilemma.rejectEffect;
     this.cash = Math.max(0, this.cash + (eff.cash || 0));
     this.circulation = Math.max(2000, this.circulation + (eff.circulation || 0));
+    this.peakCirculation = Math.max(this.peakCirculation, this.circulation);
     this.credibility = Math.max(
       0,
       Math.min(100, this.credibility + (eff.credibility || 0))
@@ -642,6 +646,11 @@ export class LateEditionSim {
     this.credibility = Math.max(0, Math.min(100, this.credibility + credDelta));
     this.syndicateHeat = Math.max(0, Math.min(100, this.syndicateHeat + heatDelta));
     this.editionsPrinted++;
+    this.peakCirculation = Math.max(this.peakCirculation, this.circulation);
+    // Snapshot before clearing the paste-up; later plating must not rewrite the
+    // final printed front page shown when the paper folds.
+    this.lastPrintedFrontPage = Object.fromEntries(Object.entries(this.frontPage)
+      .map(([slot, story]) => [slot, story && { ...story }]));
 
     if (this.circulation > this.highCirculation) {
       this.highCirculation = this.circulation;

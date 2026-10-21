@@ -229,13 +229,17 @@
       </aside>
     </main>
 
-    <!-- EDITION SUMMARY / CAMPAIGN END MODAL -->
-    <div id="edition-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <!-- Edition reports and the final stop-press telegram share a focus boundary. -->
+    <div id="edition-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-subtitle">
       <div class="modal-dialog">
         <div class="modal-kicker" id="modal-kicker">ROTARY PRESS REPORT</div>
         <h2 id="modal-title">EXTRA! EXTRA! EDITION #1 HITS THE STREETS</h2>
         <p id="modal-subtitle" class="modal-subtitle"></p>
         <div id="modal-metrics" class="modal-metrics"></div>
+        <section id="final-front-page" class="final-front-page" aria-label="Final front page" hidden>
+          <h3>THE EVENING STAR · LATE FINAL</h3>
+          <div id="final-layout-slots" class="final-layout-slots"></div>
+        </section>
         <div class="modal-actions">
           <button type="button" id="btn-modal-continue" class="btn-press-lever">START NEXT NIGHT SHIFT [SPACE]</button>
         </div>

@@ -15,6 +15,17 @@
    - Verified scoops automatically rip off the wire stand-in and plate bold black-ink headlines, datelines, multi-column justified newspaper copy, and halftone darkroom plates onto the front page!
    - Press **`[SPACE]`** (or pull the **🖨️ ROLL PRESSES** lever) at any time, or let the engraved brass flip-clock reach `12:00 AM` midnight to print the edition.
 
+When trust reaches zero or saboteurs destroy the presses, the **PAPER FOLDED**
+telegram shows the reason, edition reached, this run's peak circulation, and final
+front page (the current paste-up if it has copy, otherwise the last printed page).
+**Start a new night shift**, Enter or Space starts a fresh seed and clears the run;
+the saved all-time record remains. Space on the telegram never rolls presses.
+
+Keyboard-only: use **Tab/Shift+Tab** to reach passes, wire leads, scoops and page
+slots; **Enter/Space** activates the focused control. **[1]–[4]** selects a pass.
+Space away from controls rolls presses; on an edition report it continues.
+Reports move focus to their action and restore the previous control on dismissal.
+
 ## Tech Stack & File Layout
 
 - Zero external runtime dependencies — self-contained ES modules + HTML5 2D Canvas + WebAudio synthesizer + original `.mp3` SFX.
@@ -26,6 +37,7 @@ late-edition/
 ├── css/
 │   └── style.css       # Burled mahogany, green leather blotter, manila press passes & aged newsprint
 ├── js/
+│   ├── dom.js          # Keyed DOM reconciliation; dynamic copy uses textContent
 │   ├── main.js         # UI controller, wire stand-in/paste-up renderer & input bindings
 │   ├── sim.js          # 1947 city-dispatch, rival AI & edition economy, injected ports & canonical state hash
 │   ├── rng.js          # Mulberry32 seeded PRNG, validated integer bounds & array selection
@@ -114,3 +126,38 @@ These are development dependencies only; the game still deploys without a build.
 The root `.dockerignore` excludes `late-edition/node_modules/` and
 `late-edition/tests/` because the Dockerfile copies the repository into the static
 server image. Tests and their deliberately invalid fixtures are never game assets.
+
+## Browser verification (#83)
+
+Use the supported Node version in `package.json` (22.22+ in 22.x, or 24.8+):
+
+```bash
+npm ci
+npm run lint
+npm run test:coverage
+npx playwright install chromium
+npm run test:e2e
+```
+
+Playwright starts Python's static HTTP server at the repository root on port 8123.
+The tests in `e2e/` are linted and excluded from the explicit `tests/*.test.mjs`
+Node test glob and Docker image. GitHub's `late-edition` job installs Chromium
+with its OS dependencies, runs the suite and uploads the HTML report, screenshots
+and traces on failure. Reports go to ignored `playwright-report/` and `test-results/`.
+
+Each browser test checks console errors and uncaught exceptions. Tests use the
+existing `window.lateEditionApp` inspection handle to force trust collapse and
+hostile copy. The click contract is **100 actual pointer clicks on currently live
+lead buttons = exactly 100 calls returning true from `dispatchOperativeToLead`**,
+with simulation time advancing throughout. Separate cases hold a pointer down
+across changing renders, verify keyed node/focus/hover retention, remove stale
+leads, inject HTML-shaped text, hold restart keys and resize during keyboard-only
+play through one published edition. The tests replace the legacy remote font
+stylesheet with empty CSS so offline runs exercise local fallback fonts; the
+remote typography migration belongs to the planned art pass.
+
+The six lists reconcile keyed nodes; unchanged subtrees stay attached between
+250 ms display ticks. Container event delegation is bound once. Runtime DOM copy
+uses `createElement`/`textContent`, with no `innerHTML` templates. Sim history
+(`peakCirculation`, `lastPrintedFrontPage`) is display-only and excluded from
+canonical gameplay hashes; deterministic replay behavior remains unchanged.
