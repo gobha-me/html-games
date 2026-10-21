@@ -6,6 +6,41 @@
 export const WORLD_W = 1600;
 export const WORLD_H = 1200;
 
+export const CAMPAIGN_SECTORS = [
+  {
+    index: 0,
+    code: 'SEC-07',
+    title: 'SECTOR 7 // REDLINE CROSSROADS',
+    subtitle: 'STAGE 1/4: HOLD 2 WAVES & RECOVER SUBSTATION FUSE AT PRECINCT 7 [E]',
+    wavesRequired: 2,
+    objPos: { x: 1300, y: 240, label: 'SUBSTATION FUSE [E]', color: '#38bdf8' },
+  },
+  {
+    index: 1,
+    code: 'SEC-04',
+    title: 'SECTOR 4 // ST. JUDE TRIAGE COURTYARD',
+    subtitle: 'STAGE 2/4: SURVIVE 2 FERAL WAVES & REFUEL FEMA GENERATOR TRUCK [E]',
+    wavesRequired: 2,
+    objPos: { x: 810, y: 790, label: 'FEMA GENERATOR [E]', color: '#10b981' },
+  },
+  {
+    index: 2,
+    code: 'SEC-02',
+    title: 'SECTOR 2 // REDLINE HIGHWAY UNDERPASS',
+    subtitle: 'STAGE 3/4: HOTWIRE CONVOY HIGH-BEAMS & CLEAR 2 SCREAMER WAVES [E]',
+    wavesRequired: 2,
+    objPos: { x: 484, y: 515, label: 'CONVOY RELAY [E]', color: '#f59e0b' },
+  },
+  {
+    index: 3,
+    code: 'SEC-00',
+    title: 'SECTOR 0 // QUARANTINE BRIDGE HELIPAD',
+    subtitle: 'STAGE 4/4: REPEL FINAL JUGGERNAUT SIEGE & BOARD EVAC CHOPPER [E]',
+    wavesRequired: 2,
+    objPos: { x: 800, y: 600, label: 'BOARD EVAC CHOPPER [E]', color: '#fde047' },
+  },
+];
+
 export const WEAPONS = [
   {
     id: 'pistol',

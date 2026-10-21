@@ -227,6 +227,11 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     const { mx, my } = getMoveAxes();
     sim.triggerDash(mx, my);
+  } else if (k === 'V') {
+    const mode = sim.toggleGameMode();
+    const modeEl = document.getElementById('hud-mode-txt');
+    if (modeEl) modeEl.textContent = mode === 'campaign' ? 'MODE: CAMPAIGN' : 'MODE: ENDLESS';
+    syncHud();
   } else if (k === 'Q') {
     toggleLightingQuality();
   } else if (k === 'P') {
@@ -291,6 +296,12 @@ document.getElementById('btn-workbench')?.addEventListener('click', () => toggle
 document.getElementById('btn-close-workbench')?.addEventListener('click', () => toggleWorkbench(false));
 document.getElementById('wb-backdrop')?.addEventListener('click', () => toggleWorkbench(false));
 document.getElementById('btn-dossier')?.addEventListener('click', () => toggleSitrep());
+document.getElementById('btn-mode')?.addEventListener('click', () => {
+  const mode = sim.toggleGameMode();
+  const modeEl = document.getElementById('hud-mode-txt');
+  if (modeEl) modeEl.textContent = mode === 'campaign' ? 'MODE: CAMPAIGN' : 'MODE: ENDLESS';
+  syncHud();
+});
 document.getElementById('btn-quality')?.addEventListener('click', () => toggleLightingQuality());
 document.getElementById('btn-dismiss-sitrep')?.addEventListener('click', () => {
   sim.awaitingFirstInput = false;

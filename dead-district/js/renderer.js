@@ -1434,6 +1434,33 @@ export class DeadDistrictRenderer {
       ctx.restore();
     }
 
+    // Campaign Sector Extraction / Objective Beacon (#32)
+    if (sim.gameMode === 'campaign' && sim.currentSector) {
+      const sec = sim.currentSector;
+      const obj = sec.objPos;
+      const ready = sim.sectorObjectiveReady;
+      ctx.save();
+      ctx.translate(obj.x, obj.y);
+      const pulse = 0.6 + 0.4 * Math.sin(sim.time * (ready ? 7 : 3));
+      ctx.strokeStyle = ready ? '#fde047' : obj.color;
+      ctx.lineWidth = ready ? 2.6 : 1.5;
+      ctx.setLineDash(ready ? [] : [5, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, 22 + pulse * 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = ready ? '#fde047' : '#cbd5e1';
+      ctx.font = '700 8.5px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        ready ? `⚡ ${obj.label}` : `${sec.code}: ${sim.sectorWavesCleared}/${sec.wavesRequired} WAVES`,
+        0,
+        -32
+      );
+      ctx.restore();
+    }
+
     // Distance & Light-Gated Sensory Cues for Unlit / Penumbra Infected
     for (const e of sim.enemies) {
       const illum = e._illum ?? 0.5;

@@ -252,15 +252,16 @@ html, body {
 #hud-top-center {
   position: absolute;
   top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 344px;
+  right: 404px;
+  transform: none;
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  width: min(540px, calc(100vw - 660px));
-  min-width: 340px;
+  width: auto;
+  min-width: 0;
   pointer-events: none;
 }
 
@@ -302,7 +303,7 @@ html, body {
 
 #sitrep-card {
   position: fixed;
-  top: 52px;
+  top: 86px;
   right: 14px;
   width: 282px;
   background: rgba(9, 13, 21, 0.72);
@@ -388,8 +389,11 @@ html, body {
   top: 12px;
   right: 14px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  max-width: 380px;
 }
 
 .tactical-btn {
@@ -398,13 +402,13 @@ html, body {
   color: var(--text-main);
   border: 1px solid var(--border-olive);
   border-radius: 5px;
-  padding: 0 10px;
-  height: 32px;
+  padding: 0 8px;
+  height: 29px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;

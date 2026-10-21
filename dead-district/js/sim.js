@@ -2,7 +2,7 @@
 // DEAD DISTRICT // SECTOR 7 — Tactical Survival Horror Simulation Engine
 // ============================================================================
 
-import { WORLD_W, WORLD_H, WEAPONS, INFECTED_TYPES, buildDistrictMap } from './config.js';
+import { WORLD_W, WORLD_H, WEAPONS, INFECTED_TYPES, CAMPAIGN_SECTORS, buildDistrictMap } from './config.js';
 import { audio } from './audio.js';
 
 const HI_SCORE_KEY = 'dead_district_sector7_hi_v2';
@@ -16,7 +16,18 @@ export class DeadDistrictSim {
       }
     } catch (_) {}
     this.highScore = savedHi;
+    this.gameMode = 'arcade'; // 'arcade' (Endless Sector Stand) | 'campaign' (4-Sector Blackout Evacuation)
     this.reset();
+  }
+
+  toggleGameMode() {
+    this.gameMode = this.gameMode === 'arcade' ? 'campaign' : 'arcade';
+    this.reset();
+    return this.gameMode;
+  }
+
+  get currentSector() {
+    return CAMPAIGN_SECTORS[this.campaignIndex] || CAMPAIGN_SECTORS[0];
   }
 
   reset() {
@@ -31,6 +42,10 @@ export class DeadDistrictSim {
     this.time = 0;
     this.paused = false;
     this.gameOver = false;
+    this.campaignWon = false;
+    this.campaignIndex = 0;
+    this.sectorWavesCleared = 0;
+    this.sectorObjectiveReady = false;
     this.awaitingFirstInput = true;
 
     this.score = 0;
@@ -102,13 +117,44 @@ export class DeadDistrictSim {
     this.floatTexts = [];
     this.sonarRipples = []; // { x, y, r, maxR, alpha, color }
 
-    this.banner = {
-      title: 'SECTOR 7 // QUARANTINE BREACH',
-      sub: 'WAVE 1 INCOMING — HOLD THE CROSSROADS OR FORTIFY SAFE-ROOMS',
-      timer: 4.0,
-    };
+    this.banner = this.gameMode === 'campaign'
+      ? {
+          title: this.currentSector.title,
+          sub: this.currentSector.subtitle,
+          timer: 4.5,
+        }
+      : {
+          title: 'SECTOR 7 // QUARANTINE BREACH',
+          sub: 'WAVE 1 INCOMING — HOLD THE CROSSROADS OR FORTIFY SAFE-ROOMS',
+          timer: 4.0,
+        };
 
     this.queueWave(1);
+  }
+
+  advanceCampaignSector() {
+    if (this.gameMode !== 'campaign') return false;
+    if (this.campaignIndex >= CAMPAIGN_SECTORS.length - 1) {
+      this.campaignWon = true;
+      this.gameOver = true;
+      this.addScore(1500);
+      this.setBanner('BLACKOUT EVACUATION COMPLETE!', 'OPERATOR EXTRACTED FROM QUARANTINE BRIDGE HELIPAD', 99);
+      return true;
+    }
+    this.campaignIndex++;
+    this.sectorWavesCleared = 0;
+    this.sectorObjectiveReady = false;
+    this.scrap += 100;
+    this.addScore(500);
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + 40);
+    this.player.flares = Math.min(6, (this.player.flares || 0) + 2);
+    for (const b of this.barricades) b.hp = b.maxHp;
+    this.enemies = [];
+    this.queueWave(this.wave + 1);
+    const sec = this.currentSector;
+    this.setBanner(sec.title, sec.subtitle, 4.5);
+    audio.buy();
+    return true;
   }
 
   get currentWeapon() {
@@ -385,9 +431,17 @@ export class DeadDistrictSim {
     return true;
   }
 
-  // Interactive Environmental Lighting [E]: Hotwire Vehicle High-Beams + Car Alarm OR Flip Safe-Room Breaker (#33)
+  // Interactive Environmental Lighting [E]: Campaign Objective, Hotwire Vehicle High-Beams + Car Alarm, OR Flip Safe-Room Breaker (#32, #33)
   interactEnvironmental() {
     if (this.paused || this.gameOver) return false;
+
+    // 0. Check Campaign Sector Objective Beacon if ready (#32)
+    if (this.gameMode === 'campaign' && this.sectorObjectiveReady) {
+      const obj = this.currentSector.objPos;
+      if (Math.hypot(this.player.x - obj.x, this.player.y - obj.y) < 135) {
+        return this.advanceCampaignSector();
+      }
+    }
 
     // 1. Check nearby street vehicle (< 120px from center)
     for (const w of this.walls) {
@@ -723,7 +777,26 @@ export class DeadDistrictSim {
         const waveBonus = 60 + this.wave * 25;
         this.scrap += waveBonus;
         this.addScore(250 * this.wave);
-        this.setBanner(`WAVE ${this.wave} CLEARED!`, `+$${waveBonus} REQUISITION SCRAP · NEXT HORDE IN 8s`, 4.5);
+        if (this.gameMode === 'campaign') {
+          this.sectorWavesCleared++;
+          const sec = this.currentSector;
+          if (this.sectorWavesCleared >= sec.wavesRequired) {
+            this.sectorObjectiveReady = true;
+            this.setBanner(
+              `${sec.code} OBJECTIVE UNLOCKED!`,
+              `MOVE TO ${sec.objPos.label} AT (${sec.objPos.x}, ${sec.objPos.y}) & PRESS [E] TO ADVANCE`,
+              6.0
+            );
+          } else {
+            this.setBanner(
+              `${sec.code} WAVE ${this.sectorWavesCleared}/${sec.wavesRequired} CLEARED`,
+              `+$${waveBonus} SCRAP · NEXT HORDE IN 8s`,
+              4.5
+            );
+          }
+        } else {
+          this.setBanner(`WAVE ${this.wave} CLEARED!`, `+$${waveBonus} REQUISITION SCRAP · NEXT HORDE IN 8s`, 4.5);
+        }
       }
     } else {
       this.breatherTimer -= dt;
