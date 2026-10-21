@@ -181,6 +181,7 @@ function applyBrushAt(tx, ty, isRightClick) {
     const check = sim.canPlace(uiState.selectedBuilding, tx, ty);
     if (check.ok || (existing && existing.id === uiState.selectedBuilding)) {
       sim.placeBuilding(uiState.selectedBuilding, tx, ty, uiState.buildDir);
+      document.getElementById('canvas-hud-guide')?.classList.add('hidden');
       if (uiState.selectedBuilding === 'smelter' || uiState.selectedBuilding === 'fabricator' || uiState.selectedBuilding === 'spire') {
         uiState.inspectTile = { x: tx, y: ty };
         updateInspector();
@@ -351,6 +352,9 @@ document.getElementById('btn-pause')?.addEventListener('click', e => {
 document.getElementById('btn-center')?.addEventListener('click', () => {
   renderer.camX = (CORE_X + 1) * TILE_SIZE;
   renderer.camY = (CORE_Y + 1) * TILE_SIZE;
+});
+document.getElementById('btn-dismiss-guide')?.addEventListener('click', () => {
+  document.getElementById('canvas-hud-guide')?.classList.add('hidden');
 });
 document.getElementById('btn-mute')?.addEventListener('click', e => {
   const m = audio.toggleMute();
