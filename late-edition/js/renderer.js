@@ -74,6 +74,7 @@ export class NoirCityRenderer {
     this._drawStreetlampPools(ctx);
     this._drawTrafficCabs(ctx, sim);
     this._drawDistrictBuildings25D(ctx, sim);
+    this._drawSyndicateStringBoard(ctx, sim);
     this._drawDispatchVectors(ctx, sim);
     this._drawStoryLeads(ctx, sim);
     this._drawRivals(ctx, sim);
@@ -398,6 +399,36 @@ export class NoirCityRenderer {
     }
   }
 
+  _drawSyndicateStringBoard(ctx, sim) {
+    const arcLeads = sim.leads.filter((l) => Boolean(l.arcId));
+    if (arcLeads.length === 0) return;
+
+    const hqX = sim.hq.x + sim.hq.w * 0.5;
+    const hqY = sim.hq.y + sim.hq.h * 0.5;
+
+    ctx.save();
+    for (const lead of arcLeads) {
+      // Crimson investigative string from Evening Star HQ to the active Arc Lead
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.52)';
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(hqX, hqY);
+      ctx.lineTo(lead.x, lead.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Brass pushpin at HQ & midpoint evidence tag
+      const mx = (hqX + lead.x) * 0.5;
+      const my = (hqY + lead.y) * 0.5;
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   _drawDispatchVectors(ctx, sim) {
     ctx.save();
     for (const op of sim.operatives) {
@@ -512,6 +543,18 @@ export class NoirCityRenderer {
 
       ctx.fillStyle = '#f8fafc';
       ctx.fillText(label, 0, -32.5);
+
+      if (lead.seriesBadge) {
+        ctx.font = '800 9.5px "IBM Plex Mono", monospace';
+        const sw = ctx.measureText(lead.seriesBadge).width + 14;
+        ctx.fillStyle = '#991b1b';
+        ctx.strokeStyle = '#fde68a';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(-sw / 2, -65, sw, 16);
+        ctx.strokeRect(-sw / 2, -65, sw, 16);
+        ctx.fillStyle = '#fef08a';
+        ctx.fillText(lead.seriesBadge, 0, -54);
+      }
 
       if (lead.photoVerified) {
         ctx.fillStyle = '#38bdf8';

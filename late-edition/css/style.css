@@ -475,6 +475,29 @@ body {
   font-weight: 700;
 }
 
+.series-badge {
+  padding: 0 3px;
+  border-radius: 2px;
+  background: #991b1b;
+  color: #fef08a;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.series-stamp {
+  align-self: flex-start;
+  display: inline-block;
+  padding: 1px 5px;
+  margin-bottom: 2px;
+  border-radius: 2px;
+  background: #991b1b;
+  color: #fef08a;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .lead-headline {
   font-family: var(--font-serif);
   font-size: 8.5px;

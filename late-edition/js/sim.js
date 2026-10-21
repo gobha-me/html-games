@@ -10,6 +10,7 @@ import {
   OPERATIVE_ROSTER,
   FRONT_PAGE_SLOTS,
   STORY_CATALOG,
+  INVESTIGATIVE_ARCS,
 } from './config.js';
 
 const STORAGE_KEY_BEST = 'lateEdition.bestCirculation.v2';
@@ -68,6 +69,14 @@ export class LateEditionSim {
     this.nextLeadUid = 1;
     this.leads = [];
     this.catalogIdx = 0;
+
+    // Multi-Edition Investigative Story Arc Progress (0 = unstarted, 1..3 = highest plated part)
+    this.arcProgress = {
+      red_hook: 0,
+      transit_graft: 0,
+      tenement_torch: 0,
+    };
+    this.arcRotation = 0;
 
     // Scooped Stories & 4 Front-Page Broadsheet Slots
     this.scoopedStories = [];
@@ -128,6 +137,7 @@ export class LateEditionSim {
     let credDelta = 0;
     let heatDelta = 0;
     let platedCount = 0;
+    let seriesBonusReaders = 0;
 
     for (const slot of FRONT_PAGE_SLOTS) {
       const st = this.frontPage[slot.id];
@@ -139,6 +149,19 @@ export class LateEditionSim {
       circDelta += Math.round(storyCash * 14);
       credDelta += st.credibility + slot.credBonus;
       heatDelta += st.heat + slot.heatDelta;
+
+      if (st.arcPart) {
+        const arcReaderBonus =
+          st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200;
+        const arcCashBonus =
+          st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60;
+        seriesBonusReaders += arcReaderBonus;
+        circDelta += arcReaderBonus;
+        cashDelta += arcCashBonus;
+        if (st.arcPart === 3) {
+          heatDelta -= 12;
+        }
+      }
     }
 
     if (platedCount === 0) {
@@ -146,7 +169,14 @@ export class LateEditionSim {
       circDelta -= 1800;
     }
 
-    return { cashDelta, circDelta, credDelta, heatDelta, platedCount };
+    return {
+      cashDelta,
+      circDelta,
+      credDelta,
+      heatDelta,
+      platedCount,
+      seriesBonusReaders,
+    };
   }
 
   setBanner(title, sub, timer = 3.5) {
@@ -170,8 +200,49 @@ export class LateEditionSim {
 
   spawnLead(preferredDistrictId = null) {
     if (this.leads.length >= 4) return null;
-    const template = STORY_CATALOG[this.catalogIdx % STORY_CATALOG.length];
-    this.catalogIdx++;
+
+    // Check if we can spawn an unlocked Investigative Story Arc part (max 2 active arc leads at once)
+    const activeArcLeads = this.leads.filter((l) => Boolean(l.arcId));
+    let arcChoice = null;
+    if (activeArcLeads.length < 2) {
+      for (let i = 0; i < INVESTIGATIVE_ARCS.length; i++) {
+        const arc =
+          INVESTIGATIVE_ARCS[(this.arcRotation + i) % INVESTIGATIVE_ARCS.length];
+        const currentDone = this.arcProgress[arc.id] || 0;
+        const nextPartNum = currentDone + 1;
+        if (nextPartNum > 3) continue;
+
+        const alreadyPresent =
+          this.leads.some((l) => l.arcId === arc.id) ||
+          this.scoopedStories.some((s) => s.arcId === arc.id) ||
+          Object.values(this.frontPage).some(
+            (s) => s && s.arcId === arc.id && s.arcPart === nextPartNum
+          );
+        if (!alreadyPresent) {
+          const partObj = arc.parts.find((p) => p.part === nextPartNum);
+          if (partObj) {
+            arcChoice = { arc, partObj };
+            this.arcRotation++;
+            break;
+          }
+        }
+      }
+    }
+
+    let template;
+    if (arcChoice) {
+      template = {
+        ...arcChoice.partObj,
+        arcId: arcChoice.arc.id,
+        arcCode: arcChoice.arc.shortCode,
+        arcTitle: arcChoice.arc.title,
+        arcPart: arcChoice.partObj.part,
+        seriesBadge: `${arcChoice.arc.shortCode} · ${arcChoice.partObj.badge}`,
+      };
+    } else {
+      template = STORY_CATALOG[this.catalogIdx % STORY_CATALOG.length];
+      this.catalogIdx++;
+    }
 
     const distId = preferredDistrictId || template.district;
     const dist =
@@ -197,6 +268,11 @@ export class LateEditionSim {
       baseValue: template.baseValue + (this.edition - 1) * 20,
       credibility: template.credibility,
       heat: template.heat,
+      arcId: template.arcId || null,
+      arcCode: template.arcCode || null,
+      arcTitle: template.arcTitle || null,
+      arcPart: template.arcPart || 0,
+      seriesBadge: template.seriesBadge || null,
       x,
       y,
       progress: 0, // 0..100
@@ -206,7 +282,8 @@ export class LateEditionSim {
     };
 
     this.leads.push(lead);
-    this.logWire(`WIRE FLASH [${lead.beat}]: ${lead.headline}`, 'info');
+    const arcTag = lead.seriesBadge ? ` [${lead.seriesBadge}]` : '';
+    this.logWire(`WIRE FLASH [${lead.beat}]${arcTag}: ${lead.headline}`, 'info');
     return lead;
   }
 
@@ -390,6 +467,7 @@ export class LateEditionSim {
     let credDelta = 0;
     let heatDelta = 0;
     let platedCount = 0;
+    let seriesBonusReaders = 0;
 
     for (const slot of FRONT_PAGE_SLOTS) {
       const st = this.frontPage[slot.id];
@@ -401,6 +479,34 @@ export class LateEditionSim {
       circDelta += Math.round(storyCash * 14);
       credDelta += st.credibility + slot.credBonus;
       heatDelta += st.heat + slot.heatDelta;
+
+      if (st.arcId && st.arcPart) {
+        const arcReaderBonus =
+          st.arcPart === 3 ? 4500 : st.arcPart === 2 ? 2500 : 1200;
+        const arcCashBonus =
+          st.arcPart === 3 ? 190 : st.arcPart === 2 ? 110 : 60;
+        seriesBonusReaders += arcReaderBonus;
+        circDelta += arcReaderBonus;
+        editionCash += arcCashBonus;
+        if (st.arcPart === 3) {
+          heatDelta -= 12;
+        }
+        this.arcProgress[st.arcId] = Math.max(
+          this.arcProgress[st.arcId] || 0,
+          st.arcPart
+        );
+        if (st.arcPart < 3) {
+          this.logWire(
+            `INVESTIGATIVE SERIES [${st.arcCode}]: ${st.arcTitle} Part ${st.arcPart}/3 printed (+${arcReaderBonus.toLocaleString()} readers) — PART ${st.arcPart + 1}/3 UNLOCKED!`,
+            'scoop'
+          );
+        } else {
+          this.logWire(
+            `PULITZER EXPOSÉ FINALE [${st.arcCode}]: ${st.arcTitle} Part 3/3 indicts Syndicate (+4,500 readers, -12% Heat)!`,
+            'scoop'
+          );
+        }
+      }
     }
 
     if (platedCount === 0) {
@@ -727,6 +833,11 @@ export class LateEditionSim {
       credibility: lead.credibility,
       heat: lead.heat,
       photoVerified: lead.photoVerified,
+      arcId: lead.arcId || null,
+      arcCode: lead.arcCode || null,
+      arcTitle: lead.arcTitle || null,
+      arcPart: lead.arcPart || 0,
+      seriesBadge: lead.seriesBadge || null,
     };
 
     this.scoopedStories.push(story);

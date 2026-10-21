@@ -62,12 +62,17 @@ class LateEditionApp {
         uid: 'demo_story_1',
         beat: 'SCANDAL',
         color: '#f43f5e',
-        headline: 'DA’S STAR WITNESS SPOTTED IN BLUE VELVET VIP BOOTH',
-        subdeck: 'Speed Graphic flashbulb catches grand-jury informant toasting Syndicate counsel.',
-        baseValue: 220,
-        credibility: 9,
-        heat: 12,
+        headline: 'TRANSIT COMMISSIONER CAUGHT AT BLUE VELVET WITH MOB PAYMASTER',
+        subdeck: 'Speed Graphic flashbulb captures leather satchel changing hands in velvet booth #4.',
+        baseValue: 230,
+        credibility: 11,
+        heat: 14,
         photoVerified: true,
+        arcId: 'transit_graft',
+        arcCode: 'ARC B',
+        arcTitle: 'CITY HALL TRANSIT KICKBACKS',
+        arcPart: 2,
+        seriesBadge: 'ARC B · SERIES PART II/III',
       },
       {
         uid: 'demo_story_2',
@@ -79,6 +84,11 @@ class LateEditionApp {
         credibility: 10,
         heat: 15,
         photoVerified: true,
+        arcId: 'red_hook',
+        arcCode: 'ARC A',
+        arcTitle: 'RED HOOK DOCKSIDE SYNDICATE',
+        arcPart: 1,
+        seriesBadge: 'ARC A · SERIES PART I/III',
       },
       {
         uid: 'demo_story_3',
@@ -380,6 +390,7 @@ class LateEditionApp {
           <div class="lead-item ${isSel ? 'selected' : ''}" data-lead-id="${lead.uid}">
             <div class="lead-top">
               <span class="lead-cat" style="color:${lead.color}">${lead.beat} · $${lead.baseValue}</span>
+              ${lead.seriesBadge ? `<span class="series-badge">${lead.seriesBadge}</span>` : ''}
               <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : ''}</span>
             </div>
             <div class="lead-headline">${lead.headline}</div>
@@ -421,7 +432,7 @@ class LateEditionApp {
           return `
             <div class="scoop-chip" data-story-uid="${st.uid}">
               <div class="scoop-chip-top">
-                <span style="color:${st.color}">${st.beat} ${st.photoVerified ? '📸 1.8×' : ''}</span>
+                <span style="color:${st.color}">${st.beat} ${st.seriesBadge ? `· ${st.seriesBadge}` : ''} ${st.photoVerified ? '📸 1.8×' : ''}</span>
                 <span>+$${st.baseValue}</span>
               </div>
               <div class="scoop-chip-title">${st.headline}</div>
@@ -525,12 +536,16 @@ class LateEditionApp {
         `;
       }
       const bodyText = bodyCopyByBeat[st.beat] || bodyCopyByBeat.CRIME;
+      const seriesPill = st.seriesBadge
+        ? `<span class="series-stamp">${st.seriesBadge} (+${st.arcPart === 3 ? '4,500' : st.arcPart === 2 ? '2,500' : '1,200'} RDRS)</span>`
+        : '';
       return `
         <div class="paper-slot" data-slot-id="${slot.id}">
           <div class="slot-meta">
             <span>${slot.label} (${slot.mul}×)</span>
             <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? '· 📸 1.8× PHOTO' : ''}</span>
           </div>
+          ${seriesPill}
           ${
             isPhotoSlot
               ? `<div class="halftone-photo-box">
