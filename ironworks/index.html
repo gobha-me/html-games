@@ -93,29 +93,30 @@
         <div id="selected-tool-desc"></div>
       </div>
 
-      <div class="panel-box">
-        <div class="panel-title">
+      <details class="panel-box accordion-box">
+        <summary class="panel-title">
           <span>MANUAL CORE FABRICATION</span>
-          <span>INSTANT</span>
-        </div>
+          <span class="accordion-meta">INSTANT ▾</span>
+        </summary>
         <div class="craft-grid">
           <button class="action-btn" data-craft="smelt_steel">+1 Steel (1 Fe, 1 Coal)</button>
           <button class="action-btn" data-craft="fab_ammo">+2 Slugs (1 Fe, 1 Cu)</button>
           <button class="action-btn" data-craft="fab_circuit">+1 Circuit (2 Cu, 1 Fe)</button>
           <button class="action-btn" data-craft="fab_shell">+2 Shells (1 Stl, 1 Coal)</button>
         </div>
-      </div>
+      </details>
 
-      <div class="panel-box">
-        <div class="panel-title">
+      <details class="panel-box accordion-box" open>
+        <summary class="panel-title">
           <span>DIRECTIVES &amp; ASCENSION</span>
-        </div>
+          <span id="directives-count" class="accordion-meta">0/5 DONE ▾</span>
+        </summary>
         <div id="obj-1" class="obj-row">○ Deploy Excavator Drills (1/2)</div>
         <div id="obj-2" class="obj-row">○ Fortify with Defense Turrets (2/4)</div>
         <div id="obj-3" class="obj-row">○ Smelt &amp; Fabricate Ordnance (0/25)</div>
         <div id="obj-4" class="obj-row">○ Repel Siege Crawler Waves (0/5)</div>
         <div id="obj-5" class="obj-row">○ Charge Orbital Ascension Spire (0%)</div>
-      </div>
+      </details>
 
       <div class="panel-box" style="margin-top:auto">
         <div class="craft-grid" style="grid-template-columns:repeat(3,1fr)">
@@ -133,16 +134,25 @@
     <main id="canvas-stage">
       <canvas id="viewport"></canvas>
       <div id="canvas-hud-guide">
-        <div class="guide-title">LOGISTICS TELEMETRY · QUICK GUIDE</div>
-        <div class="guide-body">
-          Place <b>Drills [3]</b> on <span style="color:#60a5fa">Iron</span>/<span style="color:#f97316">Copper</span>/<span style="color:#94a3b8">Coal</span> veins, drag <b>Conveyor Belts [1]</b> into <b>Smelters [4]</b> or the <b>2×2 Core</b>, and fortify with <b>Turrets [7–0]</b>.
-        </div>
+        <span class="guide-title">QUICK GUIDE</span>
+        <span class="guide-body">
+          Place <b>Drills [3]</b> on <span style="color:#60a5fa">Iron</span>/<span style="color:#f97316">Copper</span>/<span style="color:#94a3b8">Coal</span> veins → drag <b>Belts [1]</b> into <b>Smelters [4]</b> or the <b>Core</b> → fortify with <b>Turrets [7–0]</b>.
+        </span>
+        <button id="btn-dismiss-guide" class="guide-dismiss" type="button" title="Dismiss Quick Guide">×</button>
       </div>
       <div id="toast-banner"></div>
       <div id="inspector-panel"></div>
       <div id="minimap-wrap">
         <div class="minimap-head"><span>SECTOR RADAR</span><span>48×48</span></div>
         <canvas id="minimap" width="168" height="168"></canvas>
+        <div class="minimap-legend" aria-label="Sector Radar Legend">
+          <span><i style="background:#38bdf8"></i>Core</span>
+          <span><i style="background:#60a5fa"></i>Fe</span>
+          <span><i style="background:#f97316"></i>Cu</span>
+          <span><i style="background:#64748b"></i>Coal</span>
+          <span><i style="background:#2dd4bf"></i>Aeth</span>
+          <span><i style="background:#ef4444"></i>Foe</span>
+        </div>
       </div>
     </main>
   </div>

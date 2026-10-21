@@ -181,6 +181,7 @@ function applyBrushAt(tx, ty, isRightClick) {
     const check = sim.canPlace(uiState.selectedBuilding, tx, ty);
     if (check.ok || (existing && existing.id === uiState.selectedBuilding)) {
       sim.placeBuilding(uiState.selectedBuilding, tx, ty, uiState.buildDir);
+      document.getElementById('canvas-hud-guide')?.classList.add('hidden');
       if (uiState.selectedBuilding === 'smelter' || uiState.selectedBuilding === 'fabricator' || uiState.selectedBuilding === 'spire') {
         uiState.inspectTile = { x: tx, y: ty };
         updateInspector();
@@ -352,6 +353,9 @@ document.getElementById('btn-center')?.addEventListener('click', () => {
   renderer.camX = (CORE_X + 1) * TILE_SIZE;
   renderer.camY = (CORE_Y + 1) * TILE_SIZE;
 });
+document.getElementById('btn-dismiss-guide')?.addEventListener('click', () => {
+  document.getElementById('canvas-hud-guide')?.classList.add('hidden');
+});
 document.getElementById('btn-mute')?.addEventListener('click', e => {
   const m = audio.toggleMute();
   e.currentTarget.textContent = m ? '🔇 Mute' : '🔊 SFX';
@@ -440,7 +444,9 @@ function syncHud() {
   }
 
   // Mission Objectives checklist
+  let doneCount = 0;
   const setObj = (id, done, text) => {
+    if (done) doneCount++;
     const el = document.getElementById(id);
     if (!el) return;
     el.className = 'obj-row' + (done ? ' done' : '');
@@ -451,6 +457,8 @@ function syncHud() {
   setObj('obj-3', sim.stats.smelted >= 25, `Smelt & Fabricate Ordnance (${sim.stats.smelted}/25)`);
   setObj('obj-4', sim.stats.wavesCleared >= 5, `Repel Siege Crawler Waves (${sim.stats.wavesCleared}/5)`);
   setObj('obj-5', sim.stats.spireProgress >= 100, `Charge Orbital Ascension Spire (${sim.stats.spireProgress}%)`);
+  const dirCountEl = document.getElementById('directives-count');
+  if (dirCountEl) dirCountEl.textContent = `${doneCount}/5 DONE ▾`;
 
   if (sim.over) {
     const modal = document.getElementById('modal-gameover');
