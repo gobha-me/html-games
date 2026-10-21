@@ -16,19 +16,23 @@ import { Renderer } from './renderer.js';
 
 const STORAGE_KEY_OFFSET = 'backbeat.offsetMs.v2';
 const STORAGE_KEY_SCORES = 'backbeat.scores.v2';
+const STORAGE_KEY_GRADES = 'backbeat.grades.v2';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const audio = new AudioEngine();
 
 let selectedTrackIdx = 0;
-let selectedDiffId = 'normal';
+let selectedDiffId = 'tour';
 let audioOffsetMs = Number(localStorage.getItem(STORAGE_KEY_OFFSET)) || 0;
 let highScores = {};
+let bestGrades = {};
 try {
   highScores = JSON.parse(localStorage.getItem(STORAGE_KEY_SCORES) || '{}') || {};
+  bestGrades = JSON.parse(localStorage.getItem(STORAGE_KEY_GRADES) || '{}') || {};
 } catch (_) {
   highScores = {};
+  bestGrades = {};
 }
 
 let currentTrack = TRACK_ROSTER[0];
@@ -54,13 +58,19 @@ function getBestScore(trackId, diffId) {
   return Number(highScores[`${trackId}:${diffId}`]) || 0;
 }
 
-function saveBestScore(trackId, diffId, score) {
+function getBestGrade(trackId, diffId) {
+  return bestGrades[`${trackId}:${diffId}`] || '';
+}
+
+function saveBestScore(trackId, diffId, score, grade = '') {
   const key = `${trackId}:${diffId}`;
   const prev = Number(highScores[key]) || 0;
   if (score > prev) {
     highScores[key] = score;
+    if (grade) bestGrades[key] = grade;
     try {
       localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(highScores));
+      localStorage.setItem(STORAGE_KEY_GRADES, JSON.stringify(bestGrades));
     } catch (_) {}
     return true;
   }
@@ -76,6 +86,7 @@ function renderTrackCrate() {
     const card = document.createElement('div');
     card.className = 'track-card' + (idx === selectedTrackIdx ? ' selected' : '');
     const best = getBestScore(tr.id, selectedDiffId);
+    const grade = getBestGrade(tr.id, selectedDiffId);
     const mins = Math.floor(tr.duration / 60);
     const secs = String(tr.duration % 60).padStart(2, '0');
 
@@ -86,7 +97,7 @@ function renderTrackCrate() {
         <div class="tc-sub">${tr.genre}</div>
         <div class="tc-badges">
           <span style="color:${tr.accent}">${tr.bpm} BPM</span>
-          <span style="color:#ffd21f;margin-left:auto">${best > 0 ? best.toLocaleString() : `${mins}:${secs}`}</span>
+          <span style="color:#ffd21f;margin-left:auto">${best > 0 ? `${grade ? grade + ' · ' : ''}${best.toLocaleString()}` : `${mins}:${secs}`}</span>
         </div>
       </div>
     `;
@@ -285,8 +296,8 @@ function syncHud(timeSec) {
   }
 }
 
-function onNoteJudged(lane, judgement) {
-  renderer.addFlash(lane, judgement);
+function onNoteJudged(lane, judgement, _offsetMs, note) {
+  renderer.addFlash(lane, judgement, Boolean(note && note.chord));
   if (judgement !== JUDGE.MISS) {
     audio.hit(lane, judgement === JUDGE.PERFECT);
   }
@@ -505,7 +516,7 @@ function loop() {
       trackStarted = false;
       audio.pause();
       const res = game.results();
-      saveBestScore(currentTrack.id, selectedDiffId, res.score);
+      saveBestScore(currentTrack.id, selectedDiffId, res.score, res.grade);
       renderTrackCrate();
       updateOverlay('complete', res);
     }

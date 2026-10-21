@@ -15,9 +15,9 @@ export const LANE_GLOWS = [
 ];
 
 export const DIFFICULTY = {
-  easy: {
-    id: 'easy',
-    label: 'EASY',
+  club: {
+    id: 'club',
+    label: 'CLUB',
     perfect: 85,
     good: 155,
     leadSec: 2.1,
@@ -26,24 +26,24 @@ export const DIFFICULTY = {
     allowChords: false,
     allowHolds: true,
   },
-  normal: {
-    id: 'normal',
-    label: 'NORMAL',
+  tour: {
+    id: 'tour',
+    label: 'TOUR',
     perfect: 60,
     good: 120,
     leadSec: 1.65,
-    scoreMul: 1.4,
+    scoreMul: 1.25,
     density: 0.8,
     allowChords: true,
     allowHolds: true,
   },
-  hard: {
-    id: 'hard',
-    label: 'HARD',
+  hyperdrive: {
+    id: 'hyperdrive',
+    label: 'HYPERDRIVE',
     perfect: 45,
     good: 95,
     leadSec: 1.32,
-    scoreMul: 1.85,
+    scoreMul: 1.5,
     density: 1.0,
     allowChords: true,
     allowHolds: true,
@@ -60,6 +60,10 @@ export const DIFFICULTY = {
     allowHolds: true,
   },
 };
+// Backward-compatible aliases
+DIFFICULTY.easy = DIFFICULTY.club;
+DIFFICULTY.normal = DIFFICULTY.tour;
+DIFFICULTY.hard = DIFFICULTY.hyperdrive;
 
 export const JUDGE = {
   PERFECT: 'perfect',
@@ -129,8 +133,10 @@ export const TRACK_ROSTER = [
   },
 ];
 
+export const TRACK_CATALOG = TRACK_ROSTER;
+
 export function judgeOffset(absOffsetMs, difficultyId) {
-  const w = DIFFICULTY[difficultyId] || DIFFICULTY.normal;
+  const w = DIFFICULTY[difficultyId] || DIFFICULTY.tour;
   if (absOffsetMs <= w.perfect) return JUDGE.PERFECT;
   if (absOffsetMs <= w.good) return JUDGE.GOOD;
   return null;
