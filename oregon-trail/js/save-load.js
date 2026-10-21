@@ -118,6 +118,8 @@ export function loadGame(createRNG) {
     stats: payload.stats ?? null
   };
 }
+
+/**
  * Check whether a valid, version-matching save exists in localStorage.
  *
  * @returns {boolean}

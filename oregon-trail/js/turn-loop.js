@@ -236,7 +236,6 @@ function resolveAction(action, state, rng) {
       }
       break;
     }
-    }
 
     case 'rest': {
       // Rest: recover health and morale, but lose a day
