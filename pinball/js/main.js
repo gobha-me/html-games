@@ -58,6 +58,9 @@ window.addEventListener('keydown', e => {
     sim.nudge(1, 0);
   } else if (k === 'X') {
     sim.nudge(0, -1);
+  } else if (k === 'G') {
+    const drawer = document.getElementById('grimoire-drawer');
+    if (drawer) drawer.open = !drawer.open;
   } else if (k === 'P') {
     sim.paused = !sim.paused;
     document.getElementById('btn-pause').textContent = sim.paused ? '▶ Resume' : '⏸ Pause';
@@ -120,6 +123,11 @@ document.getElementById('btn-multiball-demo')?.addEventListener('click', () => {
 document.getElementById('btn-nudge-left')?.addEventListener('click', () => sim.nudge(-1, 0));
 document.getElementById('btn-nudge-up')?.addEventListener('click', () => sim.nudge(0, -1));
 document.getElementById('btn-nudge-right')?.addEventListener('click', () => sim.nudge(1, 0));
+
+document.getElementById('btn-grimoire')?.addEventListener('click', () => {
+  const drawer = document.getElementById('grimoire-drawer');
+  if (drawer) drawer.open = !drawer.open;
+});
 
 document.getElementById('btn-pause')?.addEventListener('click', e => {
   sim.paused = !sim.paused;
