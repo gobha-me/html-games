@@ -21,6 +21,9 @@ export class DeadDistrictRenderer {
     this.camX = 160;
     this.camY = 200;
     this._cachedVehicleCones = [];
+    this.lightingQuality = 'ultra'; // 'ultra' | 'balanced'
+    this.autoQualityEnabled = true;
+    this._slowFrameCount = 0;
 
     // Top-down pixel art sprites (generated via Venice gpt-image-2-5-flare, hide_watermark: true)
     this.sprites = {};
@@ -284,13 +287,20 @@ export class DeadDistrictRenderer {
       }
     }
 
-    // 5. Active Thermite Fire Pools & Sentry Turrets
+    // 5. Active Thermite Fire Pools, Magnesium Road Flares & Sentry Turrets
     for (const hz of sim.hazards) {
       if (hz.type !== 'fire') continue;
       const d = Math.hypot(wx - hz.x, wy - hz.y);
       const fireR = hz.r * 2.2;
       if (d < fireR) {
         level += 0.85 * (1 - d / fireR);
+      }
+    }
+
+    for (const fl of sim.flares || []) {
+      const d = Math.hypot(wx - fl.x, wy - fl.y);
+      if (d < fl.r) {
+        level += 0.92 * Math.pow(1 - d / fl.r, 1.2);
       }
     }
 
@@ -872,6 +882,73 @@ export class DeadDistrictRenderer {
     return { sx, sy, maxRange, poly };
   }
 
+  // Return cached world-space raycast cone translated to screen space for stationary street vehicles (#31)
+  getCachedVehicleConeScreenPoly(sim, wall, hl, spMult = 1.0, rMult = 1.0, rays = 26) {
+    if (!wall._coneCache || wall._coneCacheRev !== (sim._mapRev || 0)) {
+      wall._coneCache = new Map();
+      wall._coneCacheRev = sim._mapRev || 0;
+    }
+    const key = `${hl.side}_${spMult.toFixed(2)}_${rMult.toFixed(2)}_${rays}`;
+    let worldPoly = wall._coneCache.get(key);
+    const spread = hl.spread * spMult;
+    const maxRange = hl.range * rMult;
+    if (!worldPoly) {
+      worldPoly = [{ x: hl.wx, y: hl.wy }];
+      for (let i = 0; i <= rays; i++) {
+        const ang = hl.beamAngle - spread + (i / rays) * (spread * 2);
+        const hitDist = this.castLightRay(sim, hl.wx, hl.wy, ang, maxRange, wall);
+        worldPoly.push({
+          x: hl.wx + Math.cos(ang) * hitDist,
+          y: hl.wy + Math.sin(ang) * hitDist,
+        });
+      }
+      wall._coneCache.set(key, worldPoly);
+    }
+    const sx = hl.wx - this.camX;
+    const sy = hl.wy - this.camY;
+    const poly = worldPoly.map((pt) => ({
+      x: pt.x - this.camX,
+      y: pt.y - this.camY,
+    }));
+    return { sx, sy, maxRange, poly };
+  }
+
+  // Fast raycast-free illumination lookup for atmospheric dust motes (#31)
+  computeFastMoteIlluminationAt(sim, wx, wy) {
+    const p = sim.player;
+    let level = 0.04;
+    const distToPlayer = Math.hypot(wx - p.x, wy - p.y);
+    if (distToPlayer < 130) {
+      level = Math.max(level, 0.45 * (1 - distToPlayer / 130));
+    }
+    if (p.flashlightOn) {
+      const coneSpread = (p.wideBeam ? 0.62 : 0.42) * (1 + sim.perks.xenonBeam * 0.16);
+      const coneMaxRange = (p.wideBeam ? 395 : 535) * (1 + sim.perks.xenonBeam * 0.16);
+      if (distToPlayer < coneMaxRange) {
+        const ang = Math.atan2(wy - p.y, wx - p.x);
+        const diff = Math.abs(Math.atan2(Math.sin(ang - p.angle), Math.cos(ang - p.angle)));
+        if (diff < coneSpread) {
+          level += 0.85 * (1 - distToPlayer / coneMaxRange);
+        }
+      }
+    }
+    for (const w of sim.walls) {
+      if (w.type !== 'vehicle' || !w._vState) continue;
+      for (const hl of w._vState.headlights) {
+        if (hl.intensity <= 0.05) continue;
+        const d = Math.hypot(wx - hl.wx, wy - hl.wy);
+        if (d < hl.range) {
+          const ang = Math.atan2(wy - hl.wy, wx - hl.wx);
+          const diff = Math.abs(Math.atan2(Math.sin(ang - hl.beamAngle), Math.cos(ang - hl.beamAngle)));
+          if (diff <= hl.spread) {
+            level += 0.8 * hl.intensity * (1 - d / hl.range);
+          }
+        }
+      }
+    }
+    return level;
+  }
+
   // True 2D Raycast Flashlight + Aligned Vehicle Headlights + Emergency Lightbars Shadow Layer
   renderLightingLayer(mainCtx, sim) {
     const lctx = this.lightCtx;
@@ -927,19 +1004,10 @@ export class DeadDistrictRenderer {
       if (wall.type !== 'vehicle') continue;
       const vState = wall._vState || this.getVehicleLightingState(wall, sim.time);
 
-      // Carve out each working/flickering headlight cone from its exact front socket
+      // Carve out each working/flickering headlight cone from its exact front socket (using cached world raycast polygon!)
       for (const hl of vState.headlights) {
         if (hl.intensity <= 0.03 || hl.range <= 10) continue;
-        const cone = this.buildRaycastConeScreenPoly(
-          sim,
-          hl.wx,
-          hl.wy,
-          hl.beamAngle,
-          hl.spread,
-          hl.range,
-          26,
-          wall
-        );
+        const cone = this.getCachedVehicleConeScreenPoly(sim, wall, hl, 1.0, 1.0, 26);
         vehicleCones.push({ ...cone, hl, wall });
 
         const g = lctx.createRadialGradient(cone.sx, cone.sy, 4, cone.sx, cone.sy, hl.range);
@@ -1006,7 +1074,7 @@ export class DeadDistrictRenderer {
       lctx.fill();
     }
 
-    // 5. Active Fire Pools
+    // 5. Active Fire Pools & Magnesium Road Flares (#33)
     for (const hz of sim.hazards) {
       if (hz.type !== 'fire') continue;
       const hx = hz.x - this.camX;
@@ -1021,6 +1089,21 @@ export class DeadDistrictRenderer {
       lctx.fill();
     }
 
+    for (const fl of sim.flares || []) {
+      const fx = fl.x - this.camX;
+      const fy = fl.y - this.camY;
+      const flick = 0.94 + 0.06 * Math.sin(sim.time * 28 + fl.x);
+      const r = fl.r * flick;
+      const g = lctx.createRadialGradient(fx, fy, 6, fx, fy, r);
+      g.addColorStop(0, 'rgba(0,0,0,0.95)');
+      g.addColorStop(0.65, 'rgba(0,0,0,0.68)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      lctx.fillStyle = g;
+      lctx.beginPath();
+      lctx.arc(fx, fy, r, 0, Math.PI * 2);
+      lctx.fill();
+    }
+
     lctx.restore();
     mainCtx.drawImage(this.lightCanvas, 0, 0);
 
@@ -1028,24 +1111,29 @@ export class DeadDistrictRenderer {
     mainCtx.save();
     mainCtx.globalCompositeOperation = 'lighter';
 
-    // Helper for 3-pass feathered volumetric light cone (eliminates hard geometric polygon edges)
-    const drawFeatheredCone = (sx, sy, baseAng, spread, maxRange, worldX, worldY, coreCol, midCol, ignoreWall = null) => {
-      const passes = [
-        { spMult: 1.26, rMult: 0.94, alphaMult: 0.32 }, // Soft outer penumbra feather
-        { spMult: 1.0,  rMult: 1.0,  alphaMult: 0.65 }, // Main beam
-        { spMult: 0.46, rMult: 0.90, alphaMult: 0.85 }, // Bright inner hot-spot core
-      ];
+    // Helper for feathered volumetric light cone (3-pass in 'ultra', 1-pass in 'balanced'; uses cached world polys for vehicles)
+    const isBalanced = this.lightingQuality === 'balanced';
+    const passes = isBalanced
+      ? [{ spMult: 1.04, rMult: 1.0, alphaMult: 0.92 }]
+      : [
+          { spMult: 1.26, rMult: 0.94, alphaMult: 0.32 }, // Soft outer penumbra feather
+          { spMult: 1.0,  rMult: 1.0,  alphaMult: 0.65 }, // Main beam
+          { spMult: 0.46, rMult: 0.90, alphaMult: 0.85 }, // Bright inner hot-spot core
+        ];
+    const drawFeatheredCone = (sx, sy, baseAng, spread, maxRange, worldX, worldY, coreCol, midCol, ignoreWall = null, cachedHl = null) => {
       for (const pass of passes) {
-        const cPoly = this.buildRaycastConeScreenPoly(
-          sim,
-          worldX,
-          worldY,
-          baseAng,
-          spread * pass.spMult,
-          maxRange * pass.rMult,
-          24,
-          ignoreWall
-        );
+        const cPoly = cachedHl && ignoreWall
+          ? this.getCachedVehicleConeScreenPoly(sim, ignoreWall, cachedHl, pass.spMult, pass.rMult, 24)
+          : this.buildRaycastConeScreenPoly(
+              sim,
+              worldX,
+              worldY,
+              baseAng,
+              spread * pass.spMult,
+              maxRange * pass.rMult,
+              isBalanced ? 20 : 24,
+              ignoreWall
+            );
         const g = mainCtx.createRadialGradient(sx, sy, 3, sx, sy, maxRange * pass.rMult);
         g.addColorStop(0, coreCol(pass.alphaMult));
         g.addColorStop(0.52, midCol(pass.alphaMult * 0.45));
@@ -1088,7 +1176,8 @@ export class DeadDistrictRenderer {
         hl.wy,
         (a) => `rgba(${baseRgb}, ${(0.22 * hl.intensity * a).toFixed(3)})`,
         (a) => `rgba(${baseRgb}, ${(0.11 * hl.intensity * a).toFixed(3)})`,
-        wall
+        wall,
+        hl
       );
 
       // Multi-stage emitter bloom corona at the headlight lens
@@ -1103,13 +1192,14 @@ export class DeadDistrictRenderer {
     }
 
     // B2. Atmospheric Quarantine Dust / Ash Motes Floating Inside Light Beams
-    for (let i = 0; i < 56; i++) {
+    const moteCount = isBalanced ? 24 : 56;
+    for (let i = 0; i < moteCount; i++) {
       const wx = ((i * 197 + Math.sin(sim.time * 0.35 + i) * 45 + sim.time * 14) % (WORLD_W - 160)) + 80;
       const wy = ((i * 131 + Math.cos(sim.time * 0.28 + i * 1.7) * 40 + sim.time * 9) % (WORLD_H - 160)) + 80;
       const sx = wx - this.camX;
       const sy = wy - this.camY;
       if (sx < 0 || sx > w || sy < 0 || sy > h) continue;
-      const illum = this.computeIlluminationAt(sim, wx, wy);
+      const illum = this.computeFastMoteIlluminationAt(sim, wx, wy);
       if (illum > 0.28) {
         const moteAlpha = Math.min(0.65, (illum - 0.25) * 0.75 * (0.6 + 0.4 * Math.sin(sim.time * 3 + i)));
         const r = 1.1 + (i % 3) * 0.55;
@@ -1217,6 +1307,22 @@ export class DeadDistrictRenderer {
       }
     }
 
+    // D. Red Magnesium Road Flares additive crimson glow (#33)
+    for (const fl of sim.flares || []) {
+      const fx = fl.x - this.camX;
+      const fy = fl.y - this.camY;
+      const pulse = 0.85 + 0.15 * Math.sin(sim.time * 32 + fl.x);
+      const fg = mainCtx.createRadialGradient(fx, fy, 2, fx, fy, fl.r * pulse);
+      fg.addColorStop(0, 'rgba(255, 241, 242, 0.85)');
+      fg.addColorStop(0.22, 'rgba(244, 63, 94, 0.42)');
+      fg.addColorStop(0.65, 'rgba(225, 29, 72, 0.14)');
+      fg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      mainCtx.fillStyle = fg;
+      mainCtx.beginPath();
+      mainCtx.arc(fx, fy, fl.r * pulse, 0, Math.PI * 2);
+      mainCtx.fill();
+    }
+
     mainCtx.restore();
   }
 
@@ -1268,7 +1374,7 @@ export class DeadDistrictRenderer {
   drawPostLightOverlays(ctx, sim) {
     const p = sim.player;
 
-    // SubtleVehicle Stencil Callouts when near or lit
+    // Subtle Vehicle Stencil Callouts & Interactive [E] Hotwire / Breaker Prompts (#33)
     for (const w of sim.walls) {
       if (w.type !== 'vehicle') continue;
       const vState = w._vState;
@@ -1276,13 +1382,83 @@ export class DeadDistrictRenderer {
       const d = Math.hypot(vState.cx - p.x, vState.cy - p.y);
       if (d < 340) {
         ctx.save();
-        ctx.globalAlpha = Math.max(0.22, (1 - d / 340) * 0.65);
-        ctx.fillStyle = '#94a3b8';
+        ctx.globalAlpha = Math.max(0.22, (1 - d / 340) * 0.78);
+        ctx.fillStyle = w.alarmTimer > 0 ? '#fde047' : '#94a3b8';
         ctx.font = '700 8.5px "IBM Plex Mono", monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(w.label, vState.cx, w.y - 8);
+        const prompt = d < 125
+          ? `[E] HOTWIRE ${w.label} (ALARM + HIGH-BEAMS)`
+          : w.alarmTimer > 0
+            ? `🔊 ${w.label} ALARM (${Math.ceil(w.alarmTimer)}s)`
+            : w.label;
+        ctx.fillText(prompt, vState.cx, w.y - 8);
         ctx.restore();
       }
+    }
+
+    // Safe-Room Wall Breaker Boxes & Active Road Flares (#33)
+    for (const br of sim.breakers || []) {
+      const d = Math.hypot(br.x - p.x, br.y - p.y);
+      ctx.save();
+      ctx.fillStyle = br.activeTimer > 0 ? br.color : '#1e293b';
+      ctx.strokeStyle = br.activeTimer > 0 ? '#ffffff' : br.color;
+      ctx.lineWidth = 1.6;
+      ctx.fillRect(br.x - 7, br.y - 7, 14, 14);
+      ctx.strokeRect(br.x - 7, br.y - 7, 14, 14);
+      if (d < 240 || br.activeTimer > 0) {
+        ctx.fillStyle = br.activeTimer > 0 ? '#fef08a' : '#cbd5e1';
+        ctx.font = '700 8px "IBM Plex Mono", monospace';
+        ctx.textAlign = 'center';
+        const txt = br.activeTimer > 0
+          ? `💡 FLOODLIT (${Math.ceil(br.activeTimer)}s)`
+          : d < 125
+            ? '[E] FLIP FLOODLIGHT BREAKER'
+            : 'BREAKER [E]';
+        ctx.fillText(txt, br.x, br.y - 12);
+      }
+      ctx.restore();
+    }
+
+    for (const fl of sim.flares || []) {
+      ctx.save();
+      ctx.translate(fl.x, fl.y);
+      ctx.fillStyle = '#e11d48';
+      ctx.strokeStyle = '#fecdd3';
+      ctx.lineWidth = 1.4;
+      ctx.fillRect(-6, -2.5, 12, 5);
+      ctx.strokeRect(-6, -2.5, 12, 5);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(6, 0, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Campaign Sector Extraction / Objective Beacon (#32)
+    if (sim.gameMode === 'campaign' && sim.currentSector) {
+      const sec = sim.currentSector;
+      const obj = sec.objPos;
+      const ready = sim.sectorObjectiveReady;
+      ctx.save();
+      ctx.translate(obj.x, obj.y);
+      const pulse = 0.6 + 0.4 * Math.sin(sim.time * (ready ? 7 : 3));
+      ctx.strokeStyle = ready ? '#fde047' : obj.color;
+      ctx.lineWidth = ready ? 2.6 : 1.5;
+      ctx.setLineDash(ready ? [] : [5, 4]);
+      ctx.beginPath();
+      ctx.arc(0, 0, 22 + pulse * 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = ready ? '#fde047' : '#cbd5e1';
+      ctx.font = '700 8.5px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        ready ? `⚡ ${obj.label}` : `${sec.code}: ${sim.sectorWavesCleared}/${sec.wavesRequired} WAVES`,
+        0,
+        -32
+      );
+      ctx.restore();
     }
 
     // Distance & Light-Gated Sensory Cues for Unlit / Penumbra Infected

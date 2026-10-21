@@ -2,7 +2,7 @@
 // DEAD DISTRICT // SECTOR 7 — Tactical Survival Horror Simulation Engine
 // ============================================================================
 
-import { WORLD_W, WORLD_H, WEAPONS, INFECTED_TYPES, buildDistrictMap } from './config.js';
+import { WORLD_W, WORLD_H, WEAPONS, INFECTED_TYPES, CAMPAIGN_SECTORS, buildDistrictMap } from './config.js';
 import { audio } from './audio.js';
 
 const HI_SCORE_KEY = 'dead_district_sector7_hi_v2';
@@ -16,7 +16,18 @@ export class DeadDistrictSim {
       }
     } catch (_) {}
     this.highScore = savedHi;
+    this.gameMode = 'arcade'; // 'arcade' (Endless Sector Stand) | 'campaign' (4-Sector Blackout Evacuation)
     this.reset();
+  }
+
+  toggleGameMode() {
+    this.gameMode = this.gameMode === 'arcade' ? 'campaign' : 'arcade';
+    this.reset();
+    return this.gameMode;
+  }
+
+  get currentSector() {
+    return CAMPAIGN_SECTORS[this.campaignIndex] || CAMPAIGN_SECTORS[0];
   }
 
   reset() {
@@ -25,10 +36,16 @@ export class DeadDistrictSim {
     this.walls = map.walls;
     this.barricades = map.barricades;
     this.lights = map.lights;
+    this.breakers = map.breakers || [];
+    this._mapRev = (this._mapRev || 0) + 1;
 
     this.time = 0;
     this.paused = false;
     this.gameOver = false;
+    this.campaignWon = false;
+    this.campaignIndex = 0;
+    this.sectorWavesCleared = 0;
+    this.sectorObjectiveReady = false;
     this.awaitingFirstInput = true;
 
     this.score = 0;
@@ -64,6 +81,7 @@ export class DeadDistrictSim {
       wideBeam: false,
       medkits: 2,
       molotovs: 2,
+      flares: 3,
       turretKits: 1,
       hitFlash: 0,
     };
@@ -90,6 +108,7 @@ export class DeadDistrictSim {
     this.bullets = [];
     this.acidProjectiles = [];
     this.hazards = []; // { x, y, r, type: 'fire' | 'acid', life, maxLife, tickTimer }
+    this.flares = [];  // { x, y, r, life, maxLife } — Red Magnesium Road Flares (#33)
     this.turrets = []; // { x, y, angle, ammo, maxAmmo, fireTimer, life }
     this.pickups = []; // { x, y, type: 'med' | 'ammo' | 'scrap', life }
     this.bloodDecals = []; // { x, y, r, alpha }
@@ -98,13 +117,44 @@ export class DeadDistrictSim {
     this.floatTexts = [];
     this.sonarRipples = []; // { x, y, r, maxR, alpha, color }
 
-    this.banner = {
-      title: 'SECTOR 7 // QUARANTINE BREACH',
-      sub: 'WAVE 1 INCOMING — HOLD THE CROSSROADS OR FORTIFY SAFE-ROOMS',
-      timer: 4.0,
-    };
+    this.banner = this.gameMode === 'campaign'
+      ? {
+          title: this.currentSector.title,
+          sub: this.currentSector.subtitle,
+          timer: 4.5,
+        }
+      : {
+          title: 'SECTOR 7 // QUARANTINE BREACH',
+          sub: 'WAVE 1 INCOMING — HOLD THE CROSSROADS OR FORTIFY SAFE-ROOMS',
+          timer: 4.0,
+        };
 
     this.queueWave(1);
+  }
+
+  advanceCampaignSector() {
+    if (this.gameMode !== 'campaign') return false;
+    if (this.campaignIndex >= CAMPAIGN_SECTORS.length - 1) {
+      this.campaignWon = true;
+      this.gameOver = true;
+      this.addScore(1500);
+      this.setBanner('BLACKOUT EVACUATION COMPLETE!', 'OPERATOR EXTRACTED FROM QUARANTINE BRIDGE HELIPAD', 99);
+      return true;
+    }
+    this.campaignIndex++;
+    this.sectorWavesCleared = 0;
+    this.sectorObjectiveReady = false;
+    this.scrap += 100;
+    this.addScore(500);
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + 40);
+    this.player.flares = Math.min(6, (this.player.flares || 0) + 2);
+    for (const b of this.barricades) b.hp = b.maxHp;
+    this.enemies = [];
+    this.queueWave(this.wave + 1);
+    const sec = this.currentSector;
+    this.setBanner(sec.title, sec.subtitle, 4.5);
+    audio.buy();
+    return true;
   }
 
   get currentWeapon() {
@@ -346,6 +396,100 @@ export class DeadDistrictSim {
     }
   }
 
+  // Throw Red Magnesium Road Flare [X] toward cursor (#33)
+  throwFlare(targetX, targetY) {
+    if (this.paused || this.gameOver) return false;
+    if (this.player.flares <= 0) {
+      if (this.scrap >= 15) {
+        this.scrap -= 15;
+        this.player.flares += 2;
+      } else {
+        this.setBanner('NO MAGNESIUM FLARES REMAINING', 'REQUIRES $15 SCRAP IN ARMORY', 1.8);
+        return false;
+      }
+    }
+    this.player.flares--;
+    const dx = targetX - this.player.x;
+    const dy = targetY - this.player.y;
+    const dist = Math.min(360, Math.hypot(dx, dy));
+    const ang = Math.atan2(dy, dx);
+    const fx = Math.max(40, Math.min(WORLD_W - 40, this.player.x + Math.cos(ang) * dist));
+    const fy = Math.max(40, Math.min(WORLD_H - 40, this.player.y + Math.sin(ang) * dist));
+
+    this.flares.push({
+      x: fx,
+      y: fy,
+      r: 205,
+      life: 35.0,
+      maxLife: 35.0,
+      sparkTimer: 0,
+    });
+    audio.buy();
+    this.spawnParticles(fx, fy, '#fb7185', 14, 150);
+    this.addFloatText(fx, fy - 14, 'MAGNESIUM FLARE (35s)', '#fb7185');
+    this.setBanner('RED MAGNESIUM ROAD FLARE IGNITED', 'ILLUMINATING DARK ALLEYWAY FOR 35s', 2.0);
+    return true;
+  }
+
+  // Interactive Environmental Lighting [E]: Campaign Objective, Hotwire Vehicle High-Beams + Car Alarm, OR Flip Safe-Room Breaker (#32, #33)
+  interactEnvironmental() {
+    if (this.paused || this.gameOver) return false;
+
+    // 0. Check Campaign Sector Objective Beacon if ready (#32)
+    if (this.gameMode === 'campaign' && this.sectorObjectiveReady) {
+      const obj = this.currentSector.objPos;
+      if (Math.hypot(this.player.x - obj.x, this.player.y - obj.y) < 135) {
+        return this.advanceCampaignSector();
+      }
+    }
+
+    // 1. Check nearby street vehicle (< 120px from center)
+    for (const w of this.walls) {
+      if (w.type !== 'vehicle') continue;
+      const cx = w.x + w.w * 0.5;
+      const cy = w.y + w.h * 0.5;
+      if (Math.hypot(this.player.x - cx, this.player.y - cy) < 120) {
+        w.hotwireTimer = 25.0;
+        w.alarmTimer = 12.0;
+        for (const hl of w.headlights || []) {
+          hl._origState = hl._origState || hl.state;
+          hl._origRange = hl._origRange ?? hl.range;
+          hl.state = 'on';
+          hl.range = Math.max(hl.range, hl.baseRange || 340);
+        }
+        w._coneCache = null; // Invalidate cached raycast cones so newly restored beam renders immediately
+        this._mapRev = (this._mapRev || 0) + 1;
+        audio.repair();
+        this.sonarRipples.push({ x: cx, y: cy, r: 14, maxR: 280, alpha: 0.95, color: '#fde047' });
+        this.addFloatText(cx, cy - 24, '⚡ HIGH-BEAMS & CAR ALARM ACTIVE!', '#fde047');
+        this.setBanner(
+          `${w.label} HOTWIRED!`,
+          'HIGH-BEAMS BOOSTED (25s) & CAR ALARM LURING HORDE INTO KILL-ZONE (12s)',
+          2.8
+        );
+        return true;
+      }
+    }
+
+    // 2. Check nearby Safe-Room Wall Breaker Box (< 125px)
+    for (const br of this.breakers) {
+      if (Math.hypot(this.player.x - br.x, this.player.y - br.y) < 125) {
+        br.activeTimer = 40.0;
+        const lt = this.lights[br.lightIdx];
+        if (lt) {
+          lt.r = 320;
+          lt.flicker = 0;
+        }
+        audio.repair();
+        this.addFloatText(br.x, br.y - 18, '💡 BREAKER ON (40s)', br.color);
+        this.setBanner(`${br.name.toUpperCase()} ENGAGED`, 'SAFE-ROOM & DOORWAYS FLOODED WITH HIGH-BAY LIGHT FOR 40s', 2.6);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   // Deploy 360-Degree Aegis Auto-Turret [T]
   deployTurret() {
     if (this.paused || this.gameOver) return false;
@@ -499,6 +643,14 @@ export class DeadDistrictSim {
       this.addFloatText(this.player.x, this.player.y - 18, '+2 THERMITE', '#fb923c');
       return true;
     }
+    if (actionId === 'flare') {
+      if (this.scrap < 15) return false;
+      this.scrap -= 15;
+      this.player.flares += 3;
+      audio.buy();
+      this.addFloatText(this.player.x, this.player.y - 18, '+3 FLARES', '#fb7185');
+      return true;
+    }
     if (actionId === 'turret_kit' || actionId === 'turret') {
       const cost = actionId === 'turret' ? 110 : 95;
       if (this.scrap < cost) return false;
@@ -625,7 +777,26 @@ export class DeadDistrictSim {
         const waveBonus = 60 + this.wave * 25;
         this.scrap += waveBonus;
         this.addScore(250 * this.wave);
-        this.setBanner(`WAVE ${this.wave} CLEARED!`, `+$${waveBonus} REQUISITION SCRAP · NEXT HORDE IN 8s`, 4.5);
+        if (this.gameMode === 'campaign') {
+          this.sectorWavesCleared++;
+          const sec = this.currentSector;
+          if (this.sectorWavesCleared >= sec.wavesRequired) {
+            this.sectorObjectiveReady = true;
+            this.setBanner(
+              `${sec.code} OBJECTIVE UNLOCKED!`,
+              `MOVE TO ${sec.objPos.label} AT (${sec.objPos.x}, ${sec.objPos.y}) & PRESS [E] TO ADVANCE`,
+              6.0
+            );
+          } else {
+            this.setBanner(
+              `${sec.code} WAVE ${this.sectorWavesCleared}/${sec.wavesRequired} CLEARED`,
+              `+$${waveBonus} SCRAP · NEXT HORDE IN 8s`,
+              4.5
+            );
+          }
+        } else {
+          this.setBanner(`WAVE ${this.wave} CLEARED!`, `+$${waveBonus} REQUISITION SCRAP · NEXT HORDE IN 8s`, 4.5);
+        }
       }
     } else {
       this.breatherTimer -= dt;
@@ -965,10 +1136,23 @@ export class DeadDistrictSim {
         }
       }
 
-      // Steering toward player (with smooth obstacle avoidance around building corners)
-      const dx = this.player.x - e.x;
-      const dy = this.player.y - e.y;
-      const distToPlayer = Math.hypot(dx, dy);
+      // Steering toward player (or toward an active hotwired Vehicle Car Alarm within 440px!)
+      let targetX = this.player.x;
+      let targetY = this.player.y;
+      for (const w of this.walls) {
+        if (w.type === 'vehicle' && w.alarmTimer > 0) {
+          const vcx = w.x + w.w * 0.5;
+          const vcy = w.y + w.h * 0.5;
+          if (Math.hypot(vcx - e.x, vcy - e.y) < 440) {
+            targetX = vcx + Math.cos(w.angle || 0) * 110;
+            targetY = vcy + Math.sin(w.angle || 0) * 110;
+            break;
+          }
+        }
+      }
+      const dx = targetX - e.x;
+      const dy = targetY - e.y;
+      const distToPlayer = Math.hypot(this.player.x - e.x, this.player.y - e.y);
       let targetAngle = Math.atan2(dy, dx);
 
       // If direct line to player is blocked by a solid wall, steer toward the nearest corridor opening or doorway
@@ -1110,6 +1294,62 @@ export class DeadDistrictSim {
       sr.r += 190 * dt;
       sr.alpha -= dt * 0.85;
       if (sr.alpha <= 0 || sr.r >= sr.maxR) this.sonarRipples.splice(i, 1);
+    }
+
+    // Magnesium Road Flares (#33)
+    for (let i = this.flares.length - 1; i >= 0; i--) {
+      const fl = this.flares[i];
+      fl.life -= dt;
+      fl.sparkTimer -= dt;
+      if (fl.sparkTimer <= 0) {
+        fl.sparkTimer = 0.14;
+        this.spawnParticles(fl.x, fl.y, '#fb7185', 2, 55);
+      }
+      if (fl.life <= 0) this.flares.splice(i, 1);
+    }
+
+    // Hotwired Vehicle Timers & Car Alarms (#33)
+    for (const w of this.walls) {
+      if (w.type !== 'vehicle') continue;
+      if (w.alarmTimer > 0) {
+        const prev = Math.floor(w.alarmTimer * 1.5);
+        w.alarmTimer = Math.max(0, w.alarmTimer - dt);
+        if (Math.floor(w.alarmTimer * 1.5) !== prev) {
+          this.sonarRipples.push({
+            x: w.x + w.w * 0.5,
+            y: w.y + w.h * 0.5,
+            r: 12,
+            maxR: 260,
+            alpha: 0.75,
+            color: '#f59e0b',
+          });
+        }
+      }
+      if (w.hotwireTimer > 0) {
+        w.hotwireTimer = Math.max(0, w.hotwireTimer - dt);
+        if (w.hotwireTimer === 0) {
+          for (const hl of w.headlights || []) {
+            if (hl._origState) hl.state = hl._origState;
+            if (hl._origRange !== undefined) hl.range = hl._origRange;
+          }
+          w._coneCache = null;
+          this._mapRev = (this._mapRev || 0) + 1;
+        }
+      }
+    }
+
+    // Safe-Room Wall Breaker Timers (#33)
+    for (const br of this.breakers) {
+      if (br.activeTimer > 0) {
+        br.activeTimer = Math.max(0, br.activeTimer - dt);
+        if (br.activeTimer === 0) {
+          const lt = this.lights[br.lightIdx];
+          if (lt) {
+            lt.r = lt.baseR || 185;
+            lt.flicker = 0.12;
+          }
+        }
+      }
     }
   }
 
