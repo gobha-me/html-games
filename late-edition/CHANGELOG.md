@@ -1,5 +1,33 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.4.0] — 2026-10-21 (#83 — Paper folded and stable input)
+
+### Added
+- Period-palette **PAPER FOLDED** stop-press telegram with game-over reason,
+  edition reached, run peak readership and final front page. Restart by button,
+  Enter or Space starts a fresh seed, clears selection/history and preserves the
+  saved record. Current paste-up takes precedence over the last printed page.
+- Snapshot of each printed page and run-specific peak circulation, including
+  phone effects, without changing deterministic gameplay hashes.
+- Playwright Chromium suite covering trust collapse/restart, held restart keys,
+  exactly 100 successful dispatches from 100 live pointer clicks, pointer-down
+  across changed ticks, keyboard-only publication, resizing, stable keyed nodes,
+  hostile text and stale lead removal. Every case checks browser console errors.
+- `test:e2e`, static-server config, locked dev dependency, lint coverage for browser
+  tests, CI browser installation and failure report/trace artifacts. Node test
+  discovery and Docker deployment exclude browser tests and generated reports.
+
+### Fixed
+- Replaced dynamic `innerHTML` builds in leads, roster, tray, wire, page slots,
+  standings and metrics with keyed createElement/textContent reconciliation.
+  Unchanged nodes stay attached and delegated handlers bind once, preserving
+  pointer presses, hover and keyboard focus across 250 ms updates.
+- Native buttons for leads, pass selection and scoop plating; keyboard activation
+  for page slots. Focused Space dispatches without printing. Modals isolate the
+  covered desk, contain focus and restore the prior control on dismissal.
+- End-screen input takes precedence over edition summaries and shortcuts. Space
+  activation and held repeats cannot accidentally publish the restarted edition.
+
 ## [2.3.1] — 2026-10-21 (#82 — Adversarial sim coverage)
 
 ### Added

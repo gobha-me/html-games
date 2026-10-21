@@ -17,10 +17,11 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
 | `css/style.css` | Mahogany desk, leather blotter, brass rail, newsprint slots, passes, phone and modal styling. |
 | `js/config.js` | World dimensions, 90-second editions, districts, lamps, four operatives, slots, story catalog, three investigative arcs and phone dilemmas. |
 | `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, plating, projections, publishing, arc progression and dilemmas. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
-| `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup. |
+| `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup and modal focus handling. |
 | `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
 | `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
 | `js/adapters.js` | Safe best-score persistence, optional audio ports and URL seed parsing. |
+| `js/dom.js` | Keyed recursive DOM reconciliation with text-only dynamic copy; preserves unchanged nodes and input. |
 | `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
 | `assets/` | Existing sprite PNGs and three MP3 effects, loaded with relative URLs. |
@@ -33,7 +34,7 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
 - Today `main.js` passes audio into the sim, calls its methods, and also
   mutates selection, speed, pause, summary and operative targets directly.
   It scales frame delta by speed, calls `sim.step(dt)`, draws each frame,
-  and rebuilds much of the DOM every 250 ms.
+  and reconciles keyed DOM lists every 250 ms with delegated input handlers.
 - `sim.js` imports config and pure helper/adapter modules; no DOM or browser APIs.
   Gameplay randomness uses the injected RNG; IDs use counters. It owns visual
   effect/traffic data for compatibility, excluded from gameplay hashes.
@@ -98,6 +99,8 @@ cd late-edition
 npm ci                    # Node 22.22+ (22.x) or 24.8+; lockfile is required
 npm run lint              # ESLint, stylelint standard, html-validate recommended
 npm run test:coverage     # node:test plus >=80% sim.js line coverage; Node 22 native flags
+npx playwright install chromium
+npm run test:e2e          # Chromium browser scenarios; starts a root static server
 cd ..
 bash -n late-edition/scripts/check-docs.sh late-edition/scripts/check-docs.test.sh
 bash late-edition/scripts/check-docs.sh
@@ -108,9 +111,8 @@ Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`
 from this directory. Bad fixtures are excluded from normal lint discovery;
 tests feed their contents through the production configurations deliberately.
 
-The docs checker skips vendor `node_modules` and exempts only direction/changelog
-history in project files. Its optional directory argument is for isolated fixtures.
-Both shell checks and the separate `late-edition` npm job run in GitHub CI.
+The docs checker skips vendor `node_modules` and exempts direction/changelog history. Its optional directory argument is for isolated fixtures.
+Both shell checks and the `late-edition` lint/unit/Chromium job run in GitHub CI.
 Area suites and 50-seed, three-edition invariant fuzzing cover gameplay (#82). Run all tests/linters before finishing;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
@@ -124,11 +126,11 @@ and simultaneous rival/player completion, rather than only successful play.
 
 - Native modules and committed source avoid a build stage because the game
   deploys directly from static files; preserve relative asset/import URLs.
-- Mutable sim/UI coupling remains legacy debt for the stable-input work; browser
-  APIs and display formatting are now behind ports/adapters (#81).
-- Repeated `innerHTML` rendering uses authored content today; stable keyed
-  updates and an explicit game-over screen are planned to fix lost input/focus.
-  Never interpolate untrusted content into this path.
+- Mutable selection/targets remain legacy sim/UI coupling; browser APIs and
+  display formatting are behind ports/adapters. Keyed lists use delegated events
+  and textContent/createElement; never interpolate dynamic content into HTML.
+- Run peak and last-printed page are display history, excluded from gameplay hashes.
+  Restart chooses fresh browser entropy; sim.reset() itself remains deterministic.
 - Audio fetch/resume failures are currently swallowed so missing cues or
   browser autoplay restrictions cannot stop play; fallback tones are intentional.
 - Audit exception (2026-10-21, #80): stylelint 17.16.0's transitive `braces@3.0.3`

@@ -2,6 +2,7 @@
 // LATE EDITION // 1947 — Main Application Controller
 // ============================================================================
 
+import { h, reconcile } from './dom.js';
 import { FRONT_PAGE_SLOTS } from './config.js';
 import { LateEditionSim } from './sim.js';
 import { NoirCityRenderer } from './renderer.js';
@@ -31,6 +32,8 @@ class LateEditionApp {
     this.selectedStoryUid = null;
     this.lastFrameTime = performance.now();
     this.uiTickAccum = 0;
+    this.modalMode = null;
+    this.focusBeforeModal = null;
 
     this._bindEvents();
 
@@ -123,7 +126,48 @@ class LateEditionApp {
     });
   }
 
+  _bindListEvents() {
+    const delegate = (id, selector, action) => {
+      const container = document.getElementById(id);
+      container.addEventListener('click', (event) => {
+        const target = event.target.closest(selector);
+        if (!target || !container.contains(target) || this.sim.gameOver || this.modalMode) return;
+        action(target);
+        this._syncFullUI();
+      });
+      container.addEventListener('keydown', (event) => {
+        const target = event.target.closest('[role="button"]');
+        if (target && (event.key === 'Enter' || event.code === 'Space')) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) target.click();
+        }
+      });
+    };
+    delegate('lead-list', '[data-lead-id]', (target) => {
+      this.sim.selectedLeadId = target.dataset.leadId;
+      this.sim.dispatchOperativeToLead(this.sim.selectedOpId, target.dataset.leadId);
+    });
+    delegate('operative-list', '[data-select-op], [data-dispatch-op], [data-op-id]', (target) => {
+      const opId = target.dataset.selectOp ?? target.dataset.dispatchOp ?? target.dataset.opId;
+      this.sim.selectedOpId = opId;
+      if (target.dataset.dispatchOp) {
+        const uid = this.sim.selectedLeadId || this.sim.leads[0]?.uid;
+        if (uid) this.sim.dispatchOperativeToLead(opId, uid);
+      } else this.audio.typewriter();
+    });
+    delegate('scoop-tray', '[data-story-uid]', (target) => {
+      this.selectedStoryUid = target.dataset.storyUid;
+      this.sim.plateStoryToFrontPage(this.selectedStoryUid);
+    });
+    delegate('layout-slots', '[data-slot-id]', (target) => {
+      const candidate = this.sim.scoopedStories.find((s) => s.uid === this.selectedStoryUid) || this.sim.scoopedStories[0];
+      if (candidate) this.sim.plateStoryToFrontPage(candidate.uid, target.dataset.slotId);
+    });
+  }
+
   _bindEvents() {
+    this._bindListEvents();
     const unlockAudio = () => this.audio.resume();
     window.addEventListener('pointerdown', unlockAudio, { once: true });
     window.addEventListener('keydown', unlockAudio, { once: true });
@@ -152,6 +196,7 @@ class LateEditionApp {
     });
 
     this.canvas.addEventListener('click', (e) => {
+      if (this.sim.gameOver || this.modalMode) return;
       const pt = this.renderer.screenToWorld(e.clientX, e.clientY);
 
       for (const op of this.sim.operatives) {
@@ -178,6 +223,7 @@ class LateEditionApp {
 
     this.canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
+      if (this.sim.gameOver || this.modalMode) return;
       const op = this.sim.operatives.find((o) => o.id === this.sim.selectedOpId);
       if (op) {
         op.targetLeadId = null;
@@ -258,15 +304,34 @@ class LateEditionApp {
 
     document.getElementById('btn-modal-continue').addEventListener('click', () => {
       if (this.sim.gameOver) {
-        this.sim.reset();
+        this._restart();
       } else {
         this.sim.editionSummary = null;
+        this._syncFullUI();
       }
-      this._syncFullUI();
     });
 
     window.addEventListener('keydown', (e) => {
-      if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      const modalButton = document.getElementById('btn-modal-continue');
+      if (this.sim.gameOver || this.sim.editionSummary) {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          modalButton.focus();
+        } else if (e.code === 'Space' || e.key === 'Enter') {
+          // Consume the activation before resetting: the same Space must never
+          // fall through to the new run's press lever (including held repeats).
+          e.preventDefault();
+          if (!e.repeat) modalButton.click();
+        }
+        return;
+      }
+      if ((e.code === 'Space' || e.key === 'Enter') && e.repeat) {
+        e.preventDefault();
+        return;
+      }
+      if (e.target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      // Let native controls own Space/Enter so keyboard dispatch cannot print.
+      if (e.code === 'Space' && e.target?.closest('button, a, [role="button"]')) return;
       const k = e.key.toLowerCase();
       if (['1', '2', '3', '4'].includes(k)) {
         const idx = Number(k) - 1;
@@ -358,153 +423,104 @@ class LateEditionApp {
   }
 
   _renderOperativesRoster() {
-    const container = document.getElementById('operative-list');
     const spriteMap = {
       reporter: 'assets/sprites/unit_reporter.png',
       photographer: 'assets/sprites/unit_photographer.png',
       fixer: 'assets/sprites/unit_fixer.png',
     };
-
-    container.innerHTML = this.sim.operatives
-      .map((op, idx) => {
-        const isSel = op.id === this.sim.selectedOpId;
-        return `
-          <div class="op-card ${isSel ? 'selected' : ''}" data-op-id="${op.id}">
-            <div class="op-pass-top">
-              <div class="op-avatar-wrap">
-                <span class="op-key">${idx + 1}</span>
-                <img src="${spriteMap[op.sprite]}" alt="${op.name}" class="op-avatar" />
-              </div>
-              <div class="op-info">
-                <div class="op-name-row">${op.name}</div>
-                <div class="op-role">${op.roleLabel} · ${op.callsign}</div>
-              </div>
-            </div>
-            <div class="op-pass-bottom">
-              <div class="op-status">${op.state}</div>
-              <button class="op-dispatch-btn" data-dispatch-op="${op.id}" title="Dispatch to selected lead">
-                SEND
-              </button>
-            </div>
-          </div>
-        `;
-      })
-      .join('');
-
-    container.querySelectorAll('.op-card').forEach((card) => {
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('.op-dispatch-btn')) return;
-        this.sim.selectedOpId = card.dataset.opId;
-        this.audio.typewriter();
-        this._syncFullUI();
-      });
-    });
-
-    container.querySelectorAll('.op-dispatch-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const opId = btn.dataset.dispatchOp;
-        this.sim.selectedOpId = opId;
-        const targetUid =
-          this.sim.selectedLeadId ||
-          (this.sim.leads[0] && this.sim.leads[0].uid);
-        if (targetUid) {
-          this.sim.dispatchOperativeToLead(opId, targetUid);
-          this._syncFullUI();
-        }
-      });
-    });
+    reconcile(document.getElementById('operative-list'), this.sim.operatives.map((op, idx) =>
+      h('div', `op-card ${op.id === this.sim.selectedOpId ? 'selected' : ''}`, [
+        h('button', 'op-pass-top op-select', [
+          h('span', 'op-avatar-wrap', [
+            h('span', 'op-key', idx + 1),
+            h('img', 'op-avatar', [], { src: spriteMap[op.sprite], alt: op.name }),
+          ]),
+          h('span', 'op-info', [
+            h('span', 'op-name-row', op.name),
+            h('span', 'op-role', `${op.roleLabel} · ${op.callsign}`),
+          ]),
+        ], { 'data-select-op': op.id, 'aria-pressed': op.id === this.sim.selectedOpId }),
+        h('div', 'op-pass-bottom', [
+          h('div', 'op-status', op.state),
+          h('button', 'op-dispatch-btn', 'SEND', {
+            'data-dispatch-op': op.id, 'aria-label': `Send ${op.name} to selected lead`,
+          }),
+        ]),
+      ], { 'data-op-id': op.id }, op.id)));
   }
 
   _renderLeadsList() {
-    const container = document.getElementById('lead-list');
-    document.getElementById('leads-count').textContent =
-      `${this.sim.leads.length} ACTIVE`;
-
-    container.innerHTML = this.sim.leads
-      .map((lead) => {
-        const isSel = lead.uid === this.sim.selectedLeadId;
-        return `
-          <div class="lead-item ${isSel ? 'selected' : ''}" data-lead-id="${lead.uid}">
-            <div class="lead-top">
-              <span class="lead-cat" style="color:${lead.color}">${lead.beat} · $${lead.baseValue}</span>
-              ${lead.arcCode ? `<span class="series-badge">${lead.arcCode}·P${lead.arcPart}/3</span>` : ''}
-              <span>${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : lead.scoopedByRival ? '· ⚠️ 0.5×' : ''}</span>
-            </div>
-            <div class="lead-headline">${lead.headline}</div>
-            <div class="lead-bars">
-              <div class="progress-track" title="Investigation ${Math.round(lead.progress)}%">
-                <div class="progress-fill player" style="width:${Math.round(lead.progress)}%"></div>
-              </div>
-              <div class="progress-track" title="Rival Herald ${Math.round(lead.rivalProgress)}%">
-                <div class="progress-fill rival" style="width:${Math.round(lead.rivalProgress)}%"></div>
-              </div>
-            </div>
-          </div>
-        `;
-      })
-      .join('');
-
-    container.querySelectorAll('.lead-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const leadUid = item.dataset.leadId;
-        this.sim.selectedLeadId = leadUid;
-        this.sim.dispatchOperativeToLead(this.sim.selectedOpId, leadUid);
-        this._syncFullUI();
-      });
-    });
+    document.getElementById('leads-count').textContent = `${this.sim.leads.length} ACTIVE`;
+    reconcile(document.getElementById('lead-list'), this.sim.leads.map((lead) =>
+      h('button', `lead-item ${lead.uid === this.sim.selectedLeadId ? 'selected' : ''}`, [
+        h('span', 'lead-top', [
+          h('span', 'lead-cat', `${lead.beat} · $${lead.baseValue}`, { style: `color:${lead.color}` }),
+          h('span', 'series-badge', lead.arcCode ? `${lead.arcCode}·P${lead.arcPart}/3` : '', lead.arcCode ? {} : { hidden: '' }),
+          h('span', '', `${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : lead.scoopedByRival ? '· ⚠️ 0.5×' : ''}`),
+        ]),
+        h('span', 'lead-headline', lead.headline),
+        h('span', 'lead-bars', [
+          h('span', 'progress-track', [h('span', 'progress-fill player', [], { style: `width:${Math.round(lead.progress)}%` })], { title: `Investigation ${Math.round(lead.progress)}%` }),
+          h('span', 'progress-track', [h('span', 'progress-fill rival', [], { style: `width:${Math.round(lead.rivalProgress)}%` })], { title: `Rival Herald ${Math.round(lead.rivalProgress)}%` }),
+        ]),
+      ], { 'data-lead-id': lead.uid }, lead.uid)));
   }
 
   _renderScoopTrayAndWire() {
-    const tray = document.getElementById('scoop-tray');
-    if (this.sim.scoopedStories.length === 0) {
-      tray.innerHTML = `
-        <div class="scoop-chip" style="grid-column: 1 / -1; opacity: 0.8;">
-          <div class="scoop-chip-top"><span>ALL SCOOPS PLATED ON FRONT PAGE</span><span>DISPATCH UNITS [1–4]</span></div>
-          <div class="scoop-chip-title">Verified scoops automatically plate into open columns on the right-hand broadsheet.</div>
-        </div>
-      `;
-    } else {
-      tray.innerHTML = this.sim.scoopedStories
-        .map((st) => {
-          return `
-            <div class="scoop-chip" data-story-uid="${st.uid}">
-              <div class="scoop-chip-top">
-                <span style="color:${st.color}">${st.beat} ${st.seriesBadge ? `· ${st.seriesBadge}` : ''} ${st.photoVerified ? '📸 1.8×' : ''}</span>
-                <span>+$${st.baseValue}</span>
-              </div>
-              <div class="scoop-chip-title">${st.headline}</div>
-            </div>
-          `;
-        })
-        .join('');
-
-      tray.querySelectorAll('.scoop-chip[data-story-uid]').forEach((el) => {
-        el.addEventListener('click', () => {
-          const uid = el.dataset.storyUid;
-          this.selectedStoryUid = uid;
-          this.sim.plateStoryToFrontPage(uid);
-          this._syncFullUI();
-        });
-      });
-    }
-
-    const wire = document.getElementById('wire-log');
-    wire.innerHTML = this.sim.wireLog
-      .slice(0, 7)
-      .map(
-        (entry) =>
-          `<div class="wire-entry ${entry.tone}">[${entry.time}] ${entry.text}</div>`
-      )
-      .join('');
+    const stories = this.sim.scoopedStories;
+    reconcile(document.getElementById('scoop-tray'), stories.length ? stories.map((st) =>
+      h('button', 'scoop-chip', [
+        h('span', 'scoop-chip-top', [
+          h('span', '', `${st.beat} ${st.seriesBadge ? `· ${st.seriesBadge}` : ''} ${st.photoVerified ? '📸 1.8×' : ''}`, { style: `color:${st.color}` }),
+          h('span', '', `+$${st.baseValue}`),
+        ]),
+        h('span', 'scoop-chip-title', st.headline),
+      ], { 'data-story-uid': st.uid }, st.uid)) : [
+      h('div', 'scoop-chip', [
+        h('div', 'scoop-chip-top', [h('span', '', 'ALL SCOOPS PLATED ON FRONT PAGE'), h('span', '', 'DISPATCH UNITS [1–4]')]),
+        h('div', 'scoop-chip-title', 'Verified scoops automatically plate into open columns on the right-hand broadsheet.'),
+      ], { style: 'grid-column:1 / -1;opacity:0.8' }, 'empty'),
+    ]);
+    // Entries are stable objects, even if two messages have identical copy/time.
+    reconcile(document.getElementById('wire-log'), this.sim.wireLog.slice(0, 7).map((entry) =>
+      h('div', `wire-entry ${entry.tone}`, `[${entry.time}] ${entry.text}`, {}, entry)));
   }
 
   _renderBroadsheetAndPress() {
     document.getElementById('paper-edition-label').textContent =
       `VOL. LVIII · LATE NIGHT EDITION #${this.sim.edition}`;
-
     const proj = this.sim.calculateEditionProjection();
     document.getElementById('paper-projected-readers').textContent =
       `EST. ${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()} READERS`;
+    this._renderFrontPage(document.getElementById('layout-slots'), this.sim.frontPage, true);
+
+    document.getElementById('proj-circ').textContent =
+      `${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()}`;
+    document.getElementById('proj-cash').textContent = `+$${proj.cashDelta}`;
+    document.getElementById('proj-cred').textContent =
+      `${proj.credDelta >= 0 ? '+' : ''}${proj.credDelta}%`;
+    document.getElementById('proj-heat').textContent =
+      `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
+
+    const inkColorMap = { herald: '#1e3a8a', observer: '#991b1b', gazette: '#334155' };
+    const allPapers = [
+      { id: 'player', name: '★ The Evening Star (You)', circulation: this.sim.circulation, inkColor: '#b91c1c' },
+      ...this.sim.rivalStandings.map((r) => ({ ...r, inkColor: inkColorMap[r.id] || '#1e293b' })),
+    ].sort((a, b) => b.circulation - a.circulation);
+    const maxCirc = Math.max(40000, ...allPapers.map((p) => p.circulation));
+    reconcile(document.getElementById('rival-standings'), allPapers.map((p) =>
+      h('div', 'rival-row', [
+        h('div', 'rival-row-top', [
+          h('span', '', p.name, { style: `color:${p.inkColor}` }),
+          h('span', '', p.circulation.toLocaleString()),
+        ]),
+        h('div', 'progress-track', [h('div', 'progress-fill', [], {
+          style: `width:${Math.min(100, Math.round(p.circulation / maxCirc * 100))}%;background:${p.inkColor}`,
+        })]),
+      ], { 'data-paper-id': p.id }, p.id)));
+  }
+
+  _renderFrontPage(slotsEl, page, interactive = false) {
 
     const bodyCopyByBeat = {
       SCANDAL:
@@ -544,153 +560,98 @@ class LateEditionApp {
       },
     };
 
-    const slotsEl = document.getElementById('layout-slots');
-    slotsEl.innerHTML = FRONT_PAGE_SLOTS.map((slot) => {
-      const st = this.sim.frontPage[slot.id];
-      const isPhotoSlot = slot.id === 'photo_expose';
-      if (!st) {
-        const filler = standInBySlot[slot.id] || standInBySlot.banner;
-        return `
-          <div class="paper-slot empty" data-slot-id="${slot.id}">
-            <div class="slot-meta">
-              <span>${slot.label}</span>
-              <span class="galley-stamp">${filler.stamp}</span>
-            </div>
-            ${
-              isPhotoSlot
-                ? `<div class="halftone-photo-box">
-                     <img src="assets/sprites/unit_photographer.png" alt="Darkroom Plate" class="halftone-photo-img" />
-                     <div class="halftone-caption-bar"><span>DARKROOM PLATE OPEN</span><span>📸 1.8× PHOTO BONUS</span></div>
-                   </div>`
-                : ''
-            }
-            <div class="standin-copy">
-              <div class="slot-headline">${filler.headline}</div>
-              <div class="slot-deck">${filler.deck}</div>
-              <div class="slot-body-copy">${filler.body}</div>
-            </div>
-          </div>
-        `;
-      }
-      const bodyText = bodyCopyByBeat[st.beat] || bodyCopyByBeat.CRIME;
-      const seriesPill = st.seriesBadge
-        ? `<span class="series-stamp">${st.seriesBadge} (+${st.arcPart === 3 ? '4,500' : st.arcPart === 2 ? '2,500' : '1,200'} RDRS)</span>`
-        : '';
-      return `
-        <div class="paper-slot" data-slot-id="${slot.id}">
-          <div class="slot-meta">
-            <span>${slot.label} (${slot.mul}×)</span>
-            <span>${st.beat} · $${st.baseValue} ${st.photoVerified ? (st.scoopedByRival ? '· 📸 COUNTER-SCOOP 1.8×' : '· 📸 1.8× PHOTO') : st.scoopedByRival ? '· ⚠️ RIVAL 0.5×' : ''}</span>
-          </div>
-          ${seriesPill}
-          ${
-            isPhotoSlot
-              ? `<div class="halftone-photo-box">
-                   <img src="assets/sprites/masthead_press.png" alt="Speed Graphic Exposé" class="halftone-photo-img" />
-                   <div class="halftone-caption-bar"><span>📸 SPEED GRAPHIC // ${st.beat}</span><span>${st.photoVerified ? 'VERIFIED 1.8×' : 'FILE PHOTO'}</span></div>
-                 </div>`
-              : ''
-          }
-          <div class="slot-headline">${st.headline}</div>
-          <div class="slot-deck">${st.subdeck}</div>
-          <div class="slot-byline">By Staff Correspondent · Metropolis, Oct. 1947</div>
-          <div class="slot-body-copy">${bodyText}</div>
-        </div>
-      `;
-    }).join('');
+    reconcile(slotsEl, FRONT_PAGE_SLOTS.map((slot) => {
+      const st = page[slot.id];
+      const filler = standInBySlot[slot.id] || standInBySlot.banner;
+      const photo = slot.id === 'photo_expose';
+      const photoNote = st?.photoVerified ? (st.scoopedByRival ? ' · 📸 COUNTER-SCOOP 1.8×' : ' · 📸 1.8× PHOTO') : st?.scoopedByRival ? ' · ⚠️ RIVAL 0.5×' : '';
+      return h('article', `paper-slot ${st ? '' : 'empty'}`, [
+        h('div', 'slot-meta', [
+          h('span', '', `${slot.label}${st ? ` (${slot.mul}×)` : ''}`),
+          h('span', st ? '' : 'galley-stamp', st ? `${st.beat} · $${st.baseValue}${photoNote}` : filler.stamp),
+        ]),
+        h('span', st?.seriesBadge ? 'series-stamp' : '', st?.seriesBadge ? `${st.seriesBadge} (+${st.arcPart === 3 ? '4,500' : st.arcPart === 2 ? '2,500' : '1,200'} RDRS)` : '', st?.seriesBadge ? {} : { hidden: '' }),
+        ...(photo ? [h('div', 'halftone-photo-box', [
+          h('img', 'halftone-photo-img', [], {
+            src: st ? 'assets/sprites/masthead_press.png' : 'assets/sprites/unit_photographer.png',
+            alt: st ? 'Speed Graphic Exposé' : 'Darkroom Plate',
+          }),
+          h('div', 'halftone-caption-bar', [
+            h('span', '', st ? `📸 SPEED GRAPHIC // ${st.beat}` : 'DARKROOM PLATE OPEN'),
+            h('span', '', st ? (st.photoVerified ? 'VERIFIED 1.8×' : 'FILE PHOTO') : '📸 1.8× PHOTO BONUS'),
+          ]),
+        ])] : []),
+        h('div', st ? '' : 'standin-copy', [
+          h('div', 'slot-headline', st ? st.headline : filler.headline),
+          h('div', 'slot-deck', st ? st.subdeck : filler.deck),
+          h('div', 'slot-byline', st ? 'By Staff Correspondent · Metropolis, Oct. 1947' : '', st ? {} : { hidden: '' }),
+          h('div', 'slot-body-copy', st ? (bodyCopyByBeat[st.beat] || bodyCopyByBeat.CRIME) : filler.body),
+        ]),
+      ], { 'data-slot-id': slot.id, ...(interactive ? {
+        role: 'button', tabindex: '0', 'aria-label': `Plate story in ${slot.label}`,
+      } : {}) }, slot.id);
+    }));
+  }
 
-    slotsEl.querySelectorAll('.paper-slot').forEach((slotEl) => {
-      slotEl.addEventListener('click', () => {
-        const slotId = slotEl.dataset.slotId;
-        if (this.sim.scoopedStories.length > 0) {
-          const candidate =
-            this.sim.scoopedStories.find((s) => s.uid === this.selectedStoryUid) ||
-            this.sim.scoopedStories[0];
-          this.sim.plateStoryToFrontPage(candidate.uid, slotId);
-          this._syncFullUI();
-        }
-      });
-    });
-
-    document.getElementById('proj-circ').textContent =
-      `${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()}`;
-    document.getElementById('proj-cash').textContent = `+$${proj.cashDelta}`;
-    document.getElementById('proj-cred').textContent =
-      `${proj.credDelta >= 0 ? '+' : ''}${proj.credDelta}%`;
-    document.getElementById('proj-heat').textContent =
-      `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
-
-    const standingsEl = document.getElementById('rival-standings');
-    const inkColorMap = {
-      herald: '#1e3a8a',
-      observer: '#991b1b',
-      gazette: '#334155',
-    };
-    const allPapers = [
-      {
-        name: '★ The Evening Star (You)',
-        circulation: this.sim.circulation,
-        inkColor: '#b91c1c',
-      },
-      ...this.sim.rivalStandings.map((r) => ({
-        ...r,
-        inkColor: inkColorMap[r.id] || '#1e293b',
-      })),
-    ].sort((a, b) => b.circulation - a.circulation);
-
-    const maxCirc = Math.max(40000, ...allPapers.map((p) => p.circulation));
-    standingsEl.innerHTML = allPapers
-      .map((p) => {
-        const pct = Math.min(100, Math.round((p.circulation / maxCirc) * 100));
-        return `
-          <div class="rival-row">
-            <div class="rival-row-top">
-              <span style="color:${p.inkColor}">${p.name}</span>
-              <span style="color:#14100a">${p.circulation.toLocaleString()}</span>
-            </div>
-            <div class="progress-track">
-              <div class="progress-fill" style="width:${pct}%; background:${p.inkColor}"></div>
-            </div>
-          </div>
-        `;
-      })
-      .join('');
+  _restart() {
+    // A restart is a new night, not a replay of ?seed=. Keep deterministic reset
+    // in the sim; the browser alone owns fresh entropy for this user action.
+    const entropy = new Uint32Array(1);
+    crypto.getRandomValues(entropy);
+    this.sim.seed = entropy[0] === (this.sim.seed >>> 0) ? (entropy[0] + 1) >>> 0 : entropy[0];
+    this.sim.reset();
+    this.selectedStoryUid = null;
+    this.renderer.hoverLeadId = null;
+    this.renderer.hoverOperativeId = null;
+    this.uiTickAccum = 0;
+    this.lastFrameTime = performance.now();
+    this._syncFullUI();
   }
 
   _renderModal() {
     const modal = document.getElementById('edition-modal');
     const sum = this.sim.editionSummary;
-    if (!sum) {
-      modal.classList.add('hidden');
+    const folded = this.sim.gameOver;
+    const mode = folded ? 'folded' : sum ? 'summary' : null;
+    const changed = mode !== this.modalMode;
+    if (mode && !this.modalMode) this.focusBeforeModal = document.activeElement;
+    modal.classList.toggle('hidden', !mode);
+    modal.classList.toggle('paper-folded', folded);
+    // Native inert removes the covered desk from pointer and keyboard navigation.
+    document.querySelector('.brass-rail').inert = Boolean(mode);
+    document.querySelector('.desk-workspace').inert = Boolean(mode);
+    this.modalMode = mode;
+    if (!mode) {
+      if (changed && this.focusBeforeModal?.isConnected) this.focusBeforeModal.focus();
       return;
     }
-    modal.classList.remove('hidden');
-
-    document.getElementById('modal-kicker').textContent =
-      `ROTARY PRESS REPORT // EDITION #${sum.edition}`;
-    document.getElementById('modal-title').textContent =
-      `EXTRA! EXTRA! EDITION #${sum.edition} HITS THE STREETS`;
-    document.getElementById('modal-subtitle').textContent =
+    document.getElementById('modal-kicker').textContent = folded ? 'THE EVENING STAR // STOP PRESS TELEGRAM' : `ROTARY PRESS REPORT // EDITION #${sum.edition}`;
+    document.getElementById('modal-title').textContent = folded ? 'PAPER FOLDED' : `EXTRA! EXTRA! EDITION #${sum.edition} HITS THE STREETS`;
+    document.getElementById('modal-subtitle').textContent = folded ? this.sim.gameOverReason :
       `Plated ${sum.slottedCount}/4 front-page columns. Managing Editor Lou Vance reviews the morning street sales:`;
-
-    document.getElementById('modal-metrics').innerHTML = `
-      <div class="modal-metric-box">
-        <span>CIRCULATION SHIFT</span>
-        <strong class="accent-gold">${sum.circDelta >= 0 ? '+' : ''}${sum.circDelta.toLocaleString()} (${sum.totalCirculation.toLocaleString()})</strong>
-      </div>
-      <div class="modal-metric-box">
-        <span>STREET &amp; AD REVENUE</span>
-        <strong class="accent-emerald">+$${sum.cashDelta} ($${sum.totalFunds})</strong>
-      </div>
-      <div class="modal-metric-box">
-        <span>CREDIBILITY RATING</span>
-        <strong class="accent-cyan">${sum.credibility}% (${sum.credDelta >= 0 ? '+' : ''}${sum.credDelta}%)</strong>
-      </div>
-      <div class="modal-metric-box">
-        <span>SYNDICATE MOB HEAT</span>
-        <strong class="accent-crimson">${sum.heat}%</strong>
-      </div>
-    `;
+    const metrics = folded ? [
+      ['EDITION REACHED', `#${this.sim.edition}`],
+      ['PEAK CIRCULATION', this.sim.peakCirculation.toLocaleString()],
+    ] : [
+      ['CIRCULATION SHIFT', `${sum.circDelta >= 0 ? '+' : ''}${sum.circDelta.toLocaleString()} (${sum.totalCirculation.toLocaleString()})`],
+      ['STREET & AD REVENUE', `+$${sum.cashDelta} ($${sum.totalFunds})`],
+      ['CREDIBILITY RATING', `${sum.credibility}% (${sum.credDelta >= 0 ? '+' : ''}${sum.credDelta}%)`],
+      ['SYNDICATE MOB HEAT', `${sum.heat}%`],
+    ];
+    reconcile(document.getElementById('modal-metrics'), metrics.map(([label, value]) =>
+      h('div', 'modal-metric-box', [h('span', '', label), h('strong', '', value)], {}, label)));
+    const final = document.getElementById('final-front-page');
+    final.hidden = !folded;
+    if (folded) {
+      // Preserve the current paste-up if it has copy; otherwise show the last
+      // printed page, since publishEdition clears the desk for the next edition.
+      const hasCopy = Object.values(this.sim.frontPage).some(Boolean);
+      this._renderFrontPage(document.getElementById('final-layout-slots'),
+        hasCopy ? this.sim.frontPage : this.sim.lastPrintedFrontPage ?? this.sim.frontPage);
+    }
+    const button = document.getElementById('btn-modal-continue');
+    button.textContent = folded ? 'Start a new night shift' : 'START NEXT NIGHT SHIFT [SPACE]';
+    if (changed) button.focus();
   }
 
   _renderRotaryPhone() {
@@ -737,13 +698,7 @@ class LateEditionApp {
     this.uiTickAccum += rawDt;
     if (this.uiTickAccum >= 0.25) {
       this.uiTickAccum = 0;
-      this._syncTopBar();
-      this._renderOperativesRoster();
-      this._renderLeadsList();
-      this._renderScoopTrayAndWire();
-      this._renderBroadsheetAndPress();
-      this._renderRotaryPhone();
-      this._renderModal();
+      this._syncFullUI();
     }
 
     requestAnimationFrame((t) => this._loop(t));
