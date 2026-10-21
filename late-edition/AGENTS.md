@@ -25,7 +25,7 @@ no external JavaScript runtime dependencies. Serve it over HTTP.
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
 | `assets/` | Existing sprite PNGs and three MP3 effects, loaded with relative URLs. |
 | `scripts/` | Documentation-reference checker and its isolated adversarial shell tests. |
-| `tests/` | Adversarial lint/PRNG/adapter/delta tests and a five-edition golden replay. |
+| `tests/` | Adversarial area suites, 50-seed fuzzing, lint/adapter tests and a five-edition golden replay. |
 | `package.json` | Native ES modules; development-only lint/test tools and npm scripts. |
 
 ## Sim/UI boundary
@@ -97,7 +97,7 @@ From the repository root, run the checks available now:
 cd late-edition
 npm ci                    # Node 22.22+ (22.x) or 24.8+; lockfile is required
 npm run lint              # ESLint, stylelint standard, html-validate recommended
-npm test                  # node:test: bad fixtures must fail; real sources pass
+npm run test:coverage     # node:test plus >=80% sim.js line coverage; Node 22 native flags
 cd ..
 bash -n late-edition/scripts/check-docs.sh late-edition/scripts/check-docs.test.sh
 bash late-edition/scripts/check-docs.sh
@@ -111,7 +111,7 @@ tests feed their contents through the production configurations deliberately.
 The docs checker skips vendor `node_modules` and exempts only direction/changelog
 history in project files. Its optional directory argument is for isolated fixtures.
 Both shell checks and the separate `late-edition` npm job run in GitHub CI.
-Broader gameplay tests and coverage arrive in #82. Run all tests/linters before finishing;
+Area suites and 50-seed, three-edition invariant fuzzing cover gameplay (#82). Run all tests/linters before finishing;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 

@@ -79,6 +79,7 @@ export class LateEditionSim {
     this.syndicateHeat = 22; // 0..100
     this.pressHp = 100; // 0..100
     this.editionsPrinted = 0;
+    this.lastPublishedTime = null;
     this.scoopsTotal = 0;
 
     this.districts = DISTRICTS.map((d) => ({ ...d }));
@@ -244,7 +245,7 @@ export class LateEditionSim {
     const state = {};
     for (const key of ['time', 'edition', 'maxEditions', 'clockSec', 'speed', 'paused',
       'gameOver', 'victory', 'cash', 'circulation', 'credibility', 'syndicateHeat',
-      'pressHp', 'editionsPrinted', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
+      'pressHp', 'editionsPrinted', 'lastPublishedTime', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
       'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
       'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws']) {
       state[key] = this[key];
@@ -372,6 +373,8 @@ export class LateEditionSim {
   }
 
   dispatchOperativeToPoint(opId, wx, wy) {
+    // Reject malformed input before it can introduce nonfinite movement state.
+    if (!Number.isFinite(wx) || !Number.isFinite(wy)) return;
     const op = this.operatives.find((o) => o.id === opId) || this.operatives[0];
     if (!op) return;
 
@@ -423,6 +426,10 @@ export class LateEditionSim {
   }
 
   plateStoryToFrontPage(storyUid, preferredSlotId = null) {
+    // A misspelled slot must not remove a story into an unprintable property.
+    if (preferredSlotId !== null && !FRONT_PAGE_SLOTS.some((slot) => slot.id === preferredSlotId)) {
+      return false;
+    }
     const idx = this.scoopedStories.findIndex((s) => s.uid === storyUid);
     const story = idx >= 0 ? this.scoopedStories[idx] : null;
     if (!story) return false;
@@ -575,6 +582,9 @@ export class LateEditionSim {
   }
 
   publishEdition() {
+    if (this.gameOver || this.pressHp <= 0 || this.lastPublishedTime === this.time) return false;
+    // Claim this tick before calling ports: repeated/reentrant inputs print once.
+    this.lastPublishedTime = this.time;
     let editionCash = 110; // Base newsstand sales
     let circDelta = 0;
     let credDelta = 0;
@@ -697,6 +707,7 @@ export class LateEditionSim {
     while (this.leads.length < 3) {
       this.spawnLead();
     }
+    return true;
   }
 
   step(dt) {
@@ -992,6 +1003,8 @@ export class LateEditionSim {
   }
 
   completeLeadScoop(lead) {
+    // A stale completion must not duplicate a story or its scoop counter.
+    if (!lead || !this.leads.some((active) => active.uid === lead.uid)) return false;
     this.leads = this.leads.filter((l) => l.uid !== lead.uid);
     this.scoopsTotal++;
 
@@ -1032,5 +1045,6 @@ export class LateEditionSim {
       '#ffd47a'
     );
     this.spawnLead();
+    return true;
   }
 }
