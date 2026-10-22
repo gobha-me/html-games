@@ -32,8 +32,9 @@ Below either minimum dimension, **The desk is too small** covers the desk and
 pauses both play and Lou's call. Resize back to resume the same state, including
 an intentional pause. Reduced-motion preferences freeze canvas rain/ripples,
 disable CSS animation and reveal Lou's dialogue immediately; Skip remains available.
-Reloading during the opening returns to an idle title. Only the best circulation
-is saved; continuing a saved run belongs to the later save/load feature.
+Reloading during the opening returns to an idle title. After a completed edition,
+the title also offers **Continue the run (Edition N)** and **New run**; New run
+asks before overwriting a valid saved run (see save/load below).
 
 
 1. **① Pick a Manila Press Pass (`[1]`–`[4]` or Click Pass at Bottom-Left):**
@@ -96,8 +97,8 @@ Files start at **3 freshness** and age once on each successful publish, includin
 that night's print. At zero they expire and are automatically shredded with a wire
 notice (zero-freshness cards use yellow if rendered before cleanup). Drawer state,
 subject status, pending calls and raid protection survive editions and participate
-in the canonical hash. Reset clears them. Disk save/load remains issue #87; this
-feature deliberately keeps run state in the sim, without introducing a save format.
+in the canonical hash. Reset clears them. The edition-boundary autosave preserves
+this state, including source age/exposure and scheduled burned-source calls (see below).
 
 - **Favor: police tip** consumes the file and puts a high-value lead in its subject's
   district immediately. A city with four active leads rejects without consuming it.
@@ -137,6 +138,51 @@ never spikes. Both must survive and total funds must stay below **$100,000**,
 including print revenue. This ceiling is a test budget, not an in-game cash clamp.
 The dedicated tests also attack repeated same-tick payment and print/re-file loops.
 
+## Saving and continuing (#87)
+
+The run autosaves **after you dismiss the press-run report**, ready for the next
+edition. The report freezes the sim. Closing/reloading the page writes only while
+still at that boundary (`clockSec === 0`, after a completed edition and dismissed
+report). During an edition, the previous checkpoint remains intact: reloading
+returns to its start. Mid-edition saves are deliberately unavailable because
+replaying a partial night after seeing dispatch or burn outcomes would undermine
+the deterministic checkpoint and allow save-scumming.
+
+A valid save shows **Continue the run (Edition N)** on the title; it resumes the
+desk directly, with that edition's payroll unlocks, tray, drawer, arcs, rivals,
+source status, raid protection and queued calls intact. **New run** asks to confirm
+overwriting. Cancel keeps the save. Game over removes the run save; best circulation
+uses a separate key and survives. A damaged file displays **The morgue file is
+damaged** and lets you start fresh. Blocked storage and quota errors show a notice
+without stopping play; failed writes leave the last checkpoint untouched.
+
+`LateEditionSim.serialize()` returns a JSON string; static
+`LateEditionSim.deserialize(json)` returns `{ok: true, sim}` or `{ok: false, reason}`.
+The pure sim has no browser storage dependency. `js/save.js` validates an explicit
+allowlist; `js/adapters.js` reads/writes/removes the `lateEdition.run` key.
+The format is `{format: 'late-edition-save', version: 1, seed, rngState, state}`.
+`state.edition` is the next edition/unlock night. RNG state is restored directly,
+without replaying draws. Arbitrary injected RNG implementations cannot serialize.
+Display history (peak and last page) is retained; browser ports, best scores,
+wire timestamps and decorative city effects are rebuilt rather than deserialized.
+
+Version 0 means no defined format and is cleanly refused with an older-file
+message. Future versions are also refused with an unsupported-version message.
+Malformed/non-finite values, negative funds, trust/heat/HP outside their ranges,
+more than six files, duplicate live UIDs, invalid counters, missing fields and
+non-boundary snapshots are **rejected, never clamped**. Unknown fields and
+`__proto__`/`constructor`/`prototype` keys are ignored; subject dictionaries retain
+null prototypes. Inputs are capped at 2,000,000 characters with bounded inventories,
+strings and nesting prescribed by the schema to bound decoding work.
+
+The save suite checks round-trip hashes and a real seeded playthrough saved after
+edition 2 then played for three further editions against uninterrupted play.
+Adversarial tests cover malformed, mismatched and unsupported versions, tampered
+values, duplicate inventory, pollution keys, quota/read/delete failures and the
+report boundary. Browser tests exercise reload/Continue with a retained dossier,
+overwrite cancel/confirm, mid-edition unload, corruption/version notices, storage
+failures and game-over deletion.
+
 ## Tech Stack & File Layout
 
 - Zero external runtime dependencies — self-contained ES modules + HTML5 2D Canvas + WebAudio synthesizer + original `.mp3` SFX.
@@ -153,7 +199,8 @@ late-edition/
 │   ├── hotkeys.js      # Shared phase-specific shortcut table; collision-tested by Node
 │   ├── sim.js          # 1947 city-dispatch, rival AI & edition economy, injected ports & canonical state hash
 │   ├── rng.js          # Mulberry32 seeded PRNG, validated integer bounds & array selection
-│   ├── adapters.js     # Safe score persistence, audio ports & URL seed parsing
+│   ├── adapters.js     # Safe run/score persistence, audio ports & URL seed parsing
+│   ├── save.js         # Versioned save allowlist, validation and resource limits
 │   ├── opening.js      # Pure 30-second cold-open text clock and reduced-motion reveal
 │   ├── presentation.js # Display-only clock, wire, banner & status formatting
 │   ├── renderer.js     # 2.5D extruded noir landmarks, wet streetlamp reflections & rain
@@ -262,7 +309,7 @@ The root `.dockerignore` excludes `late-edition/node_modules/` and
 `late-edition/tests/` because the Dockerfile copies the repository into the static
 server image. Tests and their deliberately invalid fixtures are never game assets.
 
-## Browser verification (#83–#86)
+## Browser verification (#83–#87)
 
 Use the supported Node version in `package.json` (22.22+ in 22.x, or 24.8+):
 

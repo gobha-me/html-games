@@ -29,6 +29,15 @@ class LateEditionApp {
       audio: createAudioAdapter(this.audio),
       now: () => performance.now(),
     });
+    this.savedRun = null;
+    this.saveNotice = '';
+    const stored = this.sim.storage.readRun();
+    if (!stored.ok) this.saveNotice = stored.reason;
+    else if (stored.json !== null) {
+      const loaded = LateEditionSim.deserialize(stored.json);
+      if (loaded.ok) this.savedRun = loaded.sim;
+      else this.saveNotice = loaded.reason;
+    }
     this.canvas = document.getElementById('city-canvas');
     this.motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
     this.coldOpen = new ColdOpen(this.motionPreference.matches);
@@ -216,6 +225,11 @@ class LateEditionApp {
       document.getElementById('btn-close-drawer').focus();
     });
     document.getElementById('btn-start-shift').addEventListener('click', () => this._startShift());
+    document.getElementById('btn-continue-run').addEventListener('click', () => this._continueRun());
+    window.addEventListener('beforeunload', () => {
+      if (this.sim.gameOver) this._discardSave();
+      else if (this.sim.canSave()) this._autosave();
+    });
     document.getElementById('btn-skip-intro').addEventListener('click', () => this._skipIntro());
     window.addEventListener('resize', () => this._updateDeskSize());
     this._bindListEvents();
@@ -367,7 +381,7 @@ class LateEditionApp {
       if (this.sim.gameOver) {
         this._restart();
       } else {
-        this.sim.editionSummary = null;
+        this._dismissReport();
         this._syncFullUI();
       }
     });
@@ -385,7 +399,11 @@ class LateEditionApp {
       if (!['desk', 'paste-up'].includes(this.sim.phase)) {
         if (action === 'start-shift' && !e.target?.closest('a')) {
           e.preventDefault();
-          if (!e.repeat) this._startShift();
+          if (!e.repeat) {
+            if (e.target?.closest('button')) e.target.closest('button').click();
+            else if (this.savedRun) this._continueRun();
+            else this._startShift();
+          }
         } else if (action === 'skip-intro') {
           e.preventDefault();
           this._skipIntro();
@@ -480,7 +498,7 @@ class LateEditionApp {
       } else if (action === 'publish') {
         e.preventDefault();
         if (this.sim.editionSummary) {
-          this.sim.editionSummary = null;
+          this._dismissReport();
         } else {
           this.sim.publishEdition();
         }
@@ -847,6 +865,7 @@ class LateEditionApp {
     const sum = this.sim.editionSummary;
     const folded = this.sim.gameOver;
     const mode = folded ? 'folded' : sum ? 'summary' : null;
+    if (folded && this.modalMode !== 'folded') this._discardSave();
     const changed = mode !== this.modalMode;
     if (mode && !this.modalMode) this.focusBeforeModal = document.activeElement;
     modal.classList.toggle('hidden', !mode);
@@ -936,8 +955,56 @@ class LateEditionApp {
       EDITOR_QUOTES[(this.sim.edition - 1 + this.sim.scoopsTotal) % EDITOR_QUOTES.length];
   }
 
+  _discardSave() {
+    this.savedRun = null;
+    const result = this.sim.storage.clearRun();
+    this.saveNotice = result.ok ? '' : result.reason;
+  }
+
+  _autosave() {
+    if (!this.sim.canSave()) return;
+    try {
+      const result = this.sim.storage.writeRun(this.sim.serialize());
+      this.saveNotice = result.ok ? `Run saved. Edition ${this.sim.edition} is on file.` : result.reason;
+    } catch {
+      // A rejected/oversized snapshot must never interrupt the live run. Keep the
+      // previous checkpoint intact and tell the editor that this one was not saved.
+      this.saveNotice = 'The run could not be saved. The last checkpoint is unchanged.';
+    }
+    document.getElementById('save-status').textContent = this.saveNotice;
+  }
+
+  _dismissReport() {
+    if (!this.sim.editionSummary || this.sim.gameOver) return;
+    this.sim.editionSummary = null;
+    this._autosave();
+  }
+
+  _continueRun() {
+    if (!this.savedRun || this.sim.phase !== 'title' || this.sim.deskTooSmall) return;
+    // Keep browser ports outside the pure deserializer and its stored object.
+    const { storage, audio, now, highCirculation } = this.sim;
+    this.sim = this.savedRun;
+    this.savedRun = null;
+    Object.assign(this.sim, { storage, audio, now, highCirculation, deskTooSmall: false });
+    // Constructor display copy describes night one. Rebuild it for this checkpoint
+    // without carrying stale wire messages or timestamps into the resumed desk.
+    this.sim.wireLog = [];
+    this.sim.setBanner(`EDITION #${this.sim.edition} // NIGHT DESK REOPENED`,
+      'THE MORGUE FILE IS BACK ON THE DESK. THE CITY REMEMBERS.', 4.5);
+    this.sim.logWire(`RUN CONTINUED: Edition ${this.sim.edition}. Drawer and city records restored.`, 'ops');
+    this.lastFrameTime = performance.now();
+    this.uiTickAccum = 0;
+    this.saveNotice = '';
+    this._syncFullUI();
+    document.querySelector('#operative-list .op-select')?.focus();
+  }
+
   _startShift() {
-    if (!this.sim.startNightShift()) return;
+    if (this.sim.phase !== 'title' || this.sim.deskTooSmall) return;
+    if (this.savedRun && !window.confirm('Start a new run and overwrite the saved run?')) return;
+    this._discardSave();
+    this.sim.startNightShift();
     this.coldOpen = new ColdOpen(this.motionPreference.matches);
     this._syncFullUI();
     document.getElementById('btn-skip-intro').focus();
@@ -967,6 +1034,12 @@ class LateEditionApp {
     document.getElementById('desk-too-small').hidden = !deskTooSmall;
     document.getElementById('opening-arcade').hidden = ['desk', 'paste-up'].includes(phase) && !deskTooSmall;
     document.getElementById('edition-modal').inert = deskTooSmall;
+    const continueButton = document.getElementById('btn-continue-run');
+    continueButton.hidden = !this.savedRun;
+    if (this.savedRun) continueButton.textContent = `Continue the run (Edition ${this.savedRun.edition})`;
+    document.getElementById('btn-start-shift').textContent = this.savedRun ? 'New run' : 'Start the night shift';
+    document.getElementById('title-save-notice').textContent = this.saveNotice;
+    document.getElementById('save-status').textContent = this.saveNotice;
     document.getElementById('title-best').textContent = `Best circulation: ${this.sim.highCirculation.toLocaleString()}`;
     if (phase === 'cold-open') {
       reconcile(document.getElementById('lou-lines'), this.coldOpen.lines.map((line, i) =>
@@ -993,8 +1066,9 @@ class LateEditionApp {
     }
     const previousPhase = this.sim.phase;
     const previousEdition = this.sim.edition;
+    const wasGameOver = this.sim.gameOver;
     this.sim.step(dt);
-    if (previousPhase !== this.sim.phase || previousEdition !== this.sim.edition) this._syncFullUI();
+    if (wasGameOver !== this.sim.gameOver || previousPhase !== this.sim.phase || previousEdition !== this.sim.edition) this._syncFullUI();
     // Scoops replace a lead immediately, often without changing the list length.
     // Reconcile membership in this frame so the next pointer event cannot hit
     // a stale button during the 250 ms display-refresh gap. Countdown/progress

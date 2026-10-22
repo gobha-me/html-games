@@ -8,6 +8,7 @@ test('run peak includes the initial readership and survives circulation losses',
   sim.publishEdition();
   assert.equal(sim.circulation, 16600);
   assert.equal(sim.peakCirculation, 18400, 'A blank first edition cannot erase the initial peak');
+  sim.editionSummary = null; // Continue from the now-frozen press report.
   sim.step(0.05);
   sim.frontPage.banner = story();
   sim.publishEdition();
