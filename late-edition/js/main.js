@@ -753,7 +753,7 @@ class LateEditionApp {
     document.getElementById('proj-heat').textContent =
       `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
 
-    const inkColorMap = { herald: PALETTE.newsprintAged, observer: PALETTE.stampRed, gazette: PALETTE.smoke };
+    const inkColorMap = { herald: PALETTE.brass, observer: PALETTE.stampRed, gazette: PALETTE.smoke };
     const allPapers = [
       { id: 'player', name: '★ The Evening Star (You)', circulation: this.sim.circulation, inkColor: PALETTE.stampRed },
       ...this.sim.rivalStandings.map((r) => ({ ...r, inkColor: inkColorMap[r.id] || PALETTE.smoke })),
@@ -762,7 +762,8 @@ class LateEditionApp {
     reconcile(document.getElementById('rival-standings'), allPapers.map((p) =>
       h('div', 'rival-row', [
         h('div', 'rival-row-top', [
-          h('span', '', p.name, { style: `color:${p.inkColor}` }),
+          // Names stay night ink for legibility on newsprint (aged-paper ink failed contrast); the bar carries the paper's colour.
+          h('span', '', p.name),
           h('span', '', p.circulation.toLocaleString()),
         ]),
         h('div', 'progress-track', [h('div', 'progress-fill', [], {
