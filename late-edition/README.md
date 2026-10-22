@@ -33,7 +33,7 @@ with immediate replacement of scooped leads, preserving dispatch pace per minute
 
 Below either minimum dimension, **The desk is too small** covers the desk and
 pauses both play and Lou's call. Resize back to resume the same state, including
-an intentional pause. Reduced-motion preferences freeze canvas rain/ripples,
+an intentional pause. Reduced-motion preferences freeze canvas rain, fog, walking bob and title parallax,
 disable CSS animation and reveal Lou's dialogue immediately; Skip remains available.
 Reloading during the opening returns to an idle title. After a completed edition,
 the title also offers **Continue the run (Edition N)** and **New run**; New run
@@ -190,7 +190,7 @@ failures and game-over deletion.
 ## Tech Stack & File Layout
 
 - Zero external runtime dependencies — self-contained ES modules + HTML5 2D Canvas + WebAudio synthesizer + original `.mp3` SFX.
-- Custom 1947 noir pixel-art sprites and illustrations (`late-edition/assets/sprites/*.png`).
+- Procedural Canvas2D noir city and hat-and-coat silhouettes; two retained desk/press illustrations ([asset notes](assets/README.md)).
 
 ```text
 late-edition/
@@ -207,12 +207,15 @@ late-edition/
 │   ├── save.js         # Versioned save allowlist, validation and resource limits
 │   ├── opening.js      # Pure 30-second cold-open text clock and reduced-motion reveal
 │   ├── presentation.js # Display-only clock, wire, banner & status formatting
-│   ├── renderer.js     # 2.5D extruded noir landmarks, wet streetlamp reflections & rain
+│   ├── city.js         # Fixed-seed map/title buildings and shared rooftop sign geometry
+│   ├── label-placement.js # Pure four-offset telegram placement and persistent leaders
+│   ├── silhouettes.js  # Shared Canvas2D street figures and staff portraits
+│   ├── renderer.js     # Cached oblique city/title layers, wet streets, fog & dynamic figures
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
 │   └── audio.js        # Hybrid MP3 + procedural WebAudio typewriter, flashbulb & press SFX
 └── assets/
     ├── audio/          # Newsroom & street MP3 sound effects
-    └── sprites/        # Top-down pixel-art operatives, editor portrait & rotary press art
+    └── sprites/        # Retained editor portrait & rotary press art; unit PNGs retired
 ```
 
 ## Status and Direction
@@ -224,7 +227,7 @@ See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint,
 enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
 for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
 and art bible. Manual layout, the file drawer and the desk art pass are implemented;
-city geometry and silhouettes remain #89. At 1280×720 and larger, all four
+the oblique silhouette city and shared operative portraits are implemented (#89). At 1280×720 and larger, all four
 front-page slots stay visible together in both desk and paste-up. Grid tracks
 share the available height; compact slot excerpts yield to complete headlines.
 Only the copy tray and Inside list scroll when crowded, not the page or slots.
@@ -254,8 +257,8 @@ Stored best scores, adapters, wire messages/timestamps, traffic, banners,
 flashes, callouts and all cosmetic fields (colors/accents, labels, district signage,
 operative descriptions, summary copy, angles and animation phases) are excluded:
 they never drive gameplay. The injected `now()` supplies wire event timestamps
-only; gameplay time always comes from `step()`. Renderer rain/ripples may use
-`Math.random()` independently without advancing the gameplay generator.
+only; gameplay time always comes from `step()`. City geometry and rain use their own fixed cosmetic seed, independently of the
+gameplay generator; renderer animation uses its own display clock.
 
 The golden test runs five full 210-second editions with progressive payroll,
 dispatches, investigation, manual placement during paste-up, rivals, fortification
@@ -422,7 +425,7 @@ compute every text-role contrast (minimum **4.66:1**, maximum **15.34:1**).
 Carbon dots have newsprint backing because blue on aged stock fails 4.5:1.
 Grain is a small inline monochrome SVG; rotations are deterministic and shadows
 fall down/right from one lamp. Paper and stamp animations last 120ms and switch
-off for reduced motion. Canvas geometry and operative sprites await #89.
+off for reduced motion. The city geometry and procedural silhouettes follow #89 below.
 
 The caption baseline counts non-whitespace static label text nodes in
 `index.html`, excluding comments, script/style, attributes and fields replaced
@@ -436,3 +439,102 @@ caption reduction.
 District accents and every other color field are cosmetic and excluded from the
 gameplay hash. No legacy palette checksum data is needed; recoloring must leave
 the hash unchanged while changes to gameplay values must still be detected.
+
+
+## Silhouette city and performance (#89, 2.10.0)
+
+The Weegee / *The Big Clock* / *Sweet Smell of Success* map uses 30-degree oblique
+roofs with lighter top faces over ink-dark fronts, lamp-directed soft street shadows,
+setbacks/parapets, smoke cornices and fire escapes, solid water-tower silhouettes,
+sparse sodium windows and wet lamp reflections. Each neighbourhood has one landmark:
+City Hall dome, Pier 14 cranes/pier, Herald clock tower, Observer warehouse loading bay,
+Evening Star press room/rooftop sign, trust bank columns, meatpacking stacks and the
+Velvet marquee. Pier cranes have solid masts, booms and counterweights. Mahogany
+only warms masses near lamps. All eight small street signs slide along their district curbs to avoid
+telegram flags, headlines and series badges, stepping into an adjoining street when
+four flags cover both curbs. An impossible fixture covering the whole map retains
+one stable sign at the least occluded curb position. Each district label is painted
+exactly once, including Observer; cached landmarks never repeat a street label.
+Rain and drifting edge fog obscure the outskirts without changing gameplay visibility.
+
+`js/city.js` derives six buildings per district from fixed seed **1947** and district
+identity. The stream is separate from simulation RNG, and generation order does not
+matter. `js/silhouettes.js` draws the same fedora/trench coat figures on the map and
+staff passes: camera/flash reflector for Clara, broad shoulders for Knuckles, brass
+hats for Herald men and a red cigarette ember for Observer goons. Selected staff have
+a sodium ground ring and small number badges. Map figures are scaled 2.24× (1.4×
+the previous size), with proportionally enlarged rings/badges, long cast shadows
+and a larger camera/flash reflector; pass portraits retain their scale. Telegram
+flags, headlines and series/verification badges are placed once at birth against
+HQ, district signs and existing labels: try above-right, above-left, below-right,
+then below-left, keeping the last offset if all four are blocked. Every label has
+a thin leader line. Figure/ring collisions are checked at most every 250 ms; only
+an obstructed label is re-placed, using the same four offsets. The address pin and
+countdown/progress rings stay at the original lead coordinates with sodium glow;
+arc yarn remains red. Herald sedans use sodium
+headlights; only Observer raids use police-blue cones. Scoops get a brief Weegee
+flash; the photographer's existing snap produces a flashbulb star. No unit PNG is
+loaded; the editor portrait and press plate remain in use (see asset notes).
+
+`NoirCityRenderer` caches city geometry/lamps, ink-only edge shading, and three title depth
+layers on detached canvases at the displayed size × DPR. City/title geometry is
+baked only for the scene being displayed; title geometry is generated lazily and
+all title canvases release their backing stores when leaving the title. The city renderer
+never creates title caches. Static city/fog caches use the detached Canvas2D sources
+from `43d7940`. Caches rebuild on size/DPR changes, after the initial local font
+load settles. Each frame composites these layers and draws traffic, figures, leads,
+threads, collision-offset street signs, weather and callouts. Title layers dissolve
+into an ink-to-faint-mahogany/sodium horizon through low-contrast dark haze, with an
+near skyline close to ink-black, bridge, solid water towers and sparse windows.
+Three slightly lifted token-mixed silhouette values distinguish the depth layers
+against the night sky. The Evening Star sign's frame sits on two legs ending at
+building 17's generated near-layer cornice; sign and roof share the same geometry.
+Slow parallax and a visible low-alpha sodium municipal searchlight complete it.
+Reduced motion freezes rain, fog, bob and parallax and suppresses scoop/camera flashes; title pixels remain
+identical across frames, including after changing the preference during play.
+
+The presentation never writes simulation state or changes coordinates, hit radii,
+input priority or dispatch rules. Existing five-edition golden hashes and the recorded
+pre-#88 gameplay-equality fixture remain unchanged. Tests compare gameplay hashes and
+RNG state before/after real cold-cache, warm-cache, resize and DPR rendering. Invalid
+cosmetic seeds/geometry reject; outputs never share mutable building/window arrays.
+Browser cases click ten distinct actual addresses at both 1280×720 and 1920×1080,
+exercise inside/outside hit boundaries, unit priority and closed-dispatch rejection,
+and reject console errors and all `unit_*.png` network requests. The 1600×900 review
+regression also rejects smoke-grey distant pixels and brightened corners, forces
+flags onto every district’s usual sign position and attaches title/map screenshots.
+
+The performance scenarios launch Chromium with ANGLE **SwiftShader** at 1080p.
+They record five seconds of live rAF intervals/render costs, then invoke the real
+renderer 150 times synchronously with fixed dt. Both live and deterministic render
+p95 must be **<8ms**, or **<16ms with CDP 4× CPU throttling**. The batch follows
+live sampling so its queued raster work cannot bias presentation measurements.
+Gameplay hash/RNG and warm-cache identity must remain unchanged by the batch.
+
+Frame p95 **<20ms** remains mandatory on the unthrottled run when independent
+foreground calibration (empty page, then a blank full-viewport canvas) achieves
+**≥55fps and p95 <20ms**. Slow or software rendering hosts still enforce renderer
+budgets; no environment variable or game frame rate can waive them. Calibration,
+render costs, frame intervals and waiver reasons are attached to the browser report.
+Missing/corrupt calibration fails, and an adversarial test starves rAF while making
+the real renderer exceed its budget to verify that the batch still collects 150
+samples and exposes the slow calls.
+
+Paper grain uses the original SVG turbulence baked once to a 120×120 black/alpha
+PNG tile. Normal source-over preserves monochrome multiply within one 8-bit channel
+step without retaining expensive blend surfaces over the animated map. UI refreshes
+only mutate changed text nodes, preserving unchanged paper paint.
+Small drifting-fog sprites follow displayed resolution/DPR, and street-sign widths
+and collision positions are cached until lead display geometry changes. Rain
+remains one stroked path; no per-frame shadow blur or resolution cap was added.
+Telegram text/flags/stamps and the bouncing onboarding prompt are drawn directly
+with text and vector paths, using cached numeric widths and fixed birth placements.
+Only a 250 ms wall-clock figure/ring overlap check may re-place an existing label;
+address edits retie its leader without moving it. Copy edits refresh dimensions in
+place; selection and verification are painted live. Removed leads release placement
+metadata. Enlarged figures use direct vector paths at `FIGURE_SCALE`, retaining
+body bob, fixed street shadows, badges and selection/stun rings. No per-label,
+per-figure or onboarding canvas/ImageBitmap sources are allocated or sampled.
+Hidden title art retains no cache or backing texture behind the desk.
+See [profiling notes](docs/PERFORMANCE.md) for the PR #101 diagnosis, trace commands,
+local before/after measurements and the limits of CPU submission timing.

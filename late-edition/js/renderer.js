@@ -1,4 +1,8 @@
 import { PALETTE, alpha as withAlpha } from './palette.js';
+import { CITY_SEED, generateDistrict, generateSkyline, rooftopSignGeometry, districtSignPosition, shadowVector } from './city.js';
+import { mulberry32 } from './rng.js';
+import { drawSilhouette, FIGURE_SCALE, MARKER_SCALE, figureBox } from './silhouettes.js';
+import { boxesIntersect, labelLeader, placeLabel } from './label-placement.js';
 // ============================================================================
 // LATE EDITION // 1947 — 2.5D Rain-Slicked Noir Metropolis Renderer
 // ============================================================================
@@ -15,42 +19,96 @@ export class NoirCityRenderer {
     this.reducedMotion = reducedMotion;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.sprites = {};
+    this.city = DISTRICTS.map((district) => ({ district, buildings: generateDistrict(district) }));
+    this.skylines = null;
+    this.cosmeticTime = 0;
+    this.cache = null;
+    this.previousLeads = [];
+    this.lastScoops = 0;
+    this.scoopFlashes = [];
+    const rainRng = mulberry32(CITY_SEED);
     this.hoverLeadId = null;
     this.hoverOperativeId = null;
     this.mouseWorld = { x: WORLD_W * 0.5, y: WORLD_H * 0.5 };
 
-    // Pre-generate diagonal rain drops and puddle ripples
+    // Pre-generate deterministic cosmetic rain, independent of the run seed
     this.rain = Array.from({ length: 160 }, () => ({
-      x: Math.random() * WORLD_W,
-      y: Math.random() * WORLD_H,
-      len: 16 + Math.random() * 18,
-      speed: 440 + Math.random() * 220,
+      x: rainRng.nextFloat() * WORLD_W,
+      y: rainRng.nextFloat() * WORLD_H,
+      len: 16 + rainRng.nextFloat() * 18,
+      speed: 440 + rainRng.nextFloat() * 220,
     }));
 
-    this.ripples = Array.from({ length: 34 }, () => ({
-      x: Math.random() * WORLD_W,
-      y: Math.random() * WORLD_H,
-      r: Math.random() * 16,
-      maxR: 12 + Math.random() * 14,
-      speed: 14 + Math.random() * 10,
-    }));
-
-    this._loadSprites();
   }
 
-  _loadSprites() {
-    const manifest = {
-      reporter: 'assets/sprites/unit_reporter.png',
-      photographer: 'assets/sprites/unit_photographer.png',
-      fixer: 'assets/sprites/unit_fixer.png',
-      rival: 'assets/sprites/unit_rival.png',
-    };
-    for (const [key, src] of Object.entries(manifest)) {
-      const img = new Image();
-      img.src = src;
-      this.sprites[key] = img;
+  // Static geometry is rasterized once per backing-size/DPR change. Keeping
+  // world coordinates unchanged preserves every legacy input target.
+  _ensureLayers(title = false) {
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    const key = `${width}:${height}:${dpr}`;
+    if (this.cache?.key === key && (title ? this.cache.skyline : this.cache.city)) return true;
+    if (this.cache && this.cache.title !== title) this._releaseLayers();
+    // Wait for the initial local font load before baking signs. Otherwise the
+    // cache would retain fallback glyphs until resize; no font-triggered rebuild
+    // is needed. Failed/blocked fonts settle and use the period fallback stacks.
+    if (!this.cache && document.fonts?.status === 'loading') return false;
+    if (this.cache?.key !== key) {
+      this._releaseLayers();
+      this.canvas.width = width;
+      this.canvas.height = height;
     }
+    // Keep the large static canvases on the known-good 43d7940 path. Small
+    // per-label/figure sources can force uploads/flushes on CI SwiftShader;
+    // those are drawn directly below instead of introducing more textures.
+    const layer = (paint) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(width / WORLD_W, height / WORLD_H);
+      paint(ctx);
+      return canvas;
+    };
+    // Rasterize the small drifting haze at its displayed resolution once. Three
+    // radial-gradient fills per frame waste software-raster work; only its
+    // position changes. Rain already shares one stroked path and needs no sprite.
+    const driftFog = document.createElement('canvas');
+    driftFog.width = Math.max(1, Math.round(width / WORLD_W * 840));
+    driftFog.height = Math.max(1, Math.round(height / WORLD_H * 98));
+    const fogCtx = driftFog.getContext('2d');
+    fogCtx.scale(driftFog.width / 280, driftFog.height / 280);
+    const fog = fogCtx.createRadialGradient(140, 140, 0, 140, 140, 140);
+    fog.addColorStop(0, withAlpha(PALETTE.mahogany, 0.10));
+    fog.addColorStop(1, withAlpha(PALETTE.mahogany, 0));
+    fogCtx.fillStyle = fog;
+    fogCtx.fillRect(0, 0, 280, 280);
+    if (this.cache?.key !== key) this.cache = {
+      key,
+      title,
+      driftFog,
+      signs: null,
+      labelLayout: { placements: new Map(), lastCheck: performance.now() },
+      city: null,
+      skyline: null,
+      fog: layer((ctx) => this._drawFogEdges(ctx)),
+    };
+    // A desk never displays a title skyline. Avoid submitting three unused
+    // canvas textures into SwiftShader's deferred raster queue at desk startup;
+    // likewise, title-only renderers do not need city geometry.
+    if (title) {
+      this.skylines = [0, 1, 2].map((depth) => generateSkyline(depth));
+      this.cache.skyline = [0, 1, 2].map((depth) => layer((ctx) => this._drawSkyline(ctx, depth)));
+    }
+    else this.cache.city = layer((ctx) => {
+      this._drawWetAsphaltBase(ctx);
+      this._drawStreetNetwork(ctx);
+      this._drawStreetlampPools(ctx);
+      this._drawDistrictBuildings25D(ctx);
+    });
+    return true;
   }
 
   screenToWorld(clientX, clientY) {
@@ -64,50 +122,148 @@ export class NoirCityRenderer {
   }
 
   render(sim, dt = 0.016) {
-    if (this.reducedMotion) dt = 0;
+    if (!this._ensureLayers()) return;
+    dt = this.reducedMotion || !Number.isFinite(dt) ? 0 : Math.max(0, Math.min(dt, 0.1));
+    this.cosmeticTime += dt;
     const ctx = this.ctx;
-    const cw = this.canvas.width;
-    const ch = this.canvas.height;
-
+    ctx.drawImage(this.cache.city, 0, 0);
     ctx.save();
-    ctx.scale(cw / WORLD_W, ch / WORLD_H);
-
-    this._drawWetAsphaltBase(ctx);
-    this._drawStreetNetwork(ctx, sim);
-    this._drawStreetlampPools(ctx);
+    ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
     this._drawTrafficCabs(ctx, sim);
-    this._drawDistrictBuildings25D(ctx, sim);
     this._drawSyndicateStringBoard(ctx, sim);
     this._drawDispatchVectors(ctx, sim);
+    this._drawDistrictSigns(ctx, sim);
     this._drawStoryLeads(ctx, sim);
     this._drawRivals(ctx, sim);
     this._drawOperatives(ctx, sim);
+    if (sim.scoopsTotal > this.lastScoops && !this.reducedMotion) {
+      for (const lead of this.previousLeads) {
+        if (sim.scoopedStories.some((story) => story.uid === lead.uid)) this.scoopFlashes.push({ x: lead.x, y: lead.y, life: 0.22 });
+      }
+    }
+    this.lastScoops = sim.scoopsTotal;
+    this.previousLeads = sim.leads.map(({ uid, x, y }) => ({ uid, x, y }));
+    this.scoopFlashes = this.scoopFlashes.filter((flash) => (flash.life -= dt) > 0);
     this._drawFlashesAndCallouts(ctx, sim);
     this._drawRainAndVignette(ctx, dt);
+    ctx.restore();
+    ctx.drawImage(this.cache.fog, 0, 0);
+    ctx.save();
+    ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
     this._drawBannerOverlay(ctx, sim);
-
     ctx.restore();
   }
 
   renderTitle(dt = 0.016) {
+    if (!this._ensureLayers(true)) return;
+    dt = this.reducedMotion || !Number.isFinite(dt) ? 0 : Math.max(0, Math.min(dt, 0.1));
+    this.cosmeticTime += dt;
+    const time = this.reducedMotion ? 0 : this.cosmeticTime;
     const ctx = this.ctx;
+    ctx.fillStyle = PALETTE.nightInk;
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // Paint the beam between the distant haze and near silhouettes so it lights
+    // the sky without washing the foreground roofs or title lettering.
+    ctx.drawImage(this.cache.skyline[0], Math.sin(time * 0.06) * 5, 0);
     ctx.save();
     ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
-    ctx.fillStyle = PALETTE.nightInk;
-    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-    // Silhouette-only skyline for the masthead; no legacy sprites or neon labels.
-    for (let i = 0; i < 18; i++) {
-      const height = 160 + ((i * 173) % 310);
-      const x = i * 84 - 30;
-      ctx.fillStyle = i % 3 === 0 ? PALETTE.mahogany : PALETTE.nightInk;
-      ctx.fillRect(x, 810 - height, 78, height + 190);
-      ctx.fillStyle = PALETTE.brass;
-      for (let row = 0; row < 4; row++) {
-        if ((i + row) % 3 === 0) ctx.fillRect(x + 16, 840 - height + row * 42, 9, 14);
-      }
-    }
-    this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt, PALETTE.smoke);
+    this._drawTitleSearchlight(ctx, time);
     ctx.restore();
+    for (const depth of [1, 2]) {
+      ctx.drawImage(this.cache.skyline[depth], Math.sin(time * 0.06) * (depth + 1) * 5, 0);
+    }
+    ctx.save();
+    ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
+    this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt);
+    ctx.restore();
+    ctx.drawImage(this.cache.fog, 0, 0);
+  }
+
+  _drawTitleSearchlight(ctx, time) {
+    ctx.save();
+    ctx.translate(1150, 790);
+    ctx.rotate(-0.48 + Math.sin(time * 0.12) * 0.32);
+    const light = ctx.createLinearGradient(0, 0, 0, -850);
+    light.addColorStop(0, withAlpha(PALETTE.sodium, 0.16));
+    light.addColorStop(0.65, withAlpha(PALETTE.sodium, 0.10));
+    light.addColorStop(1, withAlpha(PALETTE.sodium, 0));
+    ctx.fillStyle = light;
+    polygon(ctx, [[0, 0], [-170, -850], [100, -850]]);
+    ctx.restore();
+  }
+
+  _drawSkyline(ctx, depth) {
+    if (depth === 0) {
+      const sky = ctx.createLinearGradient(0, 0, 0, WORLD_H);
+      sky.addColorStop(0, PALETTE.nightInk);
+      sky.addColorStop(0.55, mix(PALETTE.nightInk, PALETTE.mahogany, 0.35));
+      sky.addColorStop(0.8, mix(PALETTE.nightInk, PALETTE.sodium, 0.07));
+      sky.addColorStop(1, PALETTE.nightInk);
+      ctx.fillStyle = sky;
+      ctx.fillRect(-20, 0, WORLD_W + 40, WORLD_H);
+    }
+    const mass = [mix(PALETTE.nightInk, PALETTE.smoke, 0.17),
+      mix(PALETTE.nightInk, PALETTE.smoke, 0.11), mix(PALETTE.nightInk, PALETTE.smoke, 0.035)][depth];
+    ctx.fillStyle = mass;
+    const baseline = 610 + depth * 150;
+    for (const { index: i, x, top, width, height } of this.skylines[depth]) {
+      ctx.fillRect(x, top, width, height + 240);
+      ctx.fillRect(x + 5, top - 5, width - 10, 5);
+      if (i % 3 === 0) {
+        ctx.fillRect(x + 8, top - 19, width - 16, 18);
+        ctx.fillRect(x + 15, top - 30, width - 30, 12);
+      }
+      if (i % 5 === 1) polygon(ctx, [[x, top], [x + width / 2, top - 28], [x + width, top]]);
+      if (i % 4 === 0) drawWaterTower(ctx, x + 30, top, mass);
+      ctx.fillStyle = withAlpha(PALETTE.sodium, depth === 0 ? 0.06 : depth === 1 ? 0.17 : 0.5);
+      for (let j = 0; j < 12; j++) {
+        if ((i * 7 + j * 13 + depth) % 5 === 0) ctx.fillRect(x + 10 + (j % 3) * 15, top + 18 + Math.floor(j / 3) * 25, 4, 7);
+      }
+      ctx.fillStyle = mass;
+    }
+    if (depth < 2) {
+      const haze = ctx.createLinearGradient(0, baseline - 240, 0, baseline + 160);
+      haze.addColorStop(0, withAlpha(PALETTE.mahogany, 0));
+      haze.addColorStop(0.6, withAlpha(PALETTE.mahogany, depth === 0 ? 0.12 : 0.05));
+      haze.addColorStop(1, withAlpha(PALETTE.sodium, depth === 0 ? 0.035 : 0.015));
+      ctx.fillStyle = haze;
+      ctx.fillRect(-20, baseline - 240, WORLD_W + 40, WORLD_H - baseline + 240);
+    }
+    if (depth === 2) {
+      // Paint after all masses: neighbouring roofs cannot erase the frame/legs.
+      ctx.save();
+      ctx.font = '22px "League Gothic", Impact, sans-serif';
+      const sign = rooftopSignGeometry(this.skylines[2][17], ctx.measureText('EVENING STAR').width + 12);
+      ctx.strokeStyle = PALETTE.brass;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (const x of sign.legs) {
+        ctx.moveTo(x, sign.y + sign.h);
+        ctx.lineTo(x, sign.bottomY);
+      }
+      ctx.stroke();
+      ctx.fillStyle = PALETTE.nightInk;
+      ctx.fillRect(sign.x, sign.y, sign.w, sign.h);
+      ctx.strokeRect(sign.x, sign.y, sign.w, sign.h);
+      ctx.fillStyle = PALETTE.sodium;
+      ctx.fillText('EVENING STAR', sign.x + 6, sign.y + 21);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(0, 180);
+      ctx.strokeStyle = PALETTE.nightInk;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(0, 650); ctx.lineTo(650, 650);
+      ctx.moveTo(120, 660); ctx.lineTo(120, 410);
+      ctx.moveTo(540, 660); ctx.lineTo(540, 410);
+      ctx.moveTo(0, 530); ctx.quadraticCurveTo(330, 780, 650, 530);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 650; x += 30) {
+        ctx.beginPath(); ctx.moveTo(x, 650); ctx.lineTo(x, 530 + Math.sin(x / 650 * Math.PI) * 120); ctx.stroke();
+      }
+      ctx.restore();
+    }
   }
 
   _drawWetAsphaltBase(ctx) {
@@ -119,8 +275,8 @@ export class NoirCityRenderer {
       WORLD_H * 0.5,
       920
     );
-    grad.addColorStop(0, PALETTE.nightInk);
-    grad.addColorStop(0.65, PALETTE.nightInk);
+    grad.addColorStop(0, mix(PALETTE.nightInk, PALETTE.smoke, 0.08));
+    grad.addColorStop(0.65, mix(PALETTE.nightInk, PALETTE.smoke, 0.04));
     grad.addColorStop(1, PALETTE.nightInk);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
@@ -178,16 +334,6 @@ export class NoirCityRenderer {
       ctx.setLineDash([]);
     }
 
-    // Puddle ripples on wet asphalt
-    for (const rp of this.ripples) {
-      const rx = Math.max(0.5, rp.r);
-      const opacity = Math.max(0, 1 - rx / rp.maxR) * 0.25;
-      ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, opacity);
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      ctx.ellipse(rp.x, rp.y, rx, rx * 0.55, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
     ctx.restore();
   }
 
@@ -203,6 +349,11 @@ export class NoirCityRenderer {
       ctx.arc(lamp.x, lamp.y, 68, 0, Math.PI * 2);
       ctx.fill();
 
+      const reflection = ctx.createLinearGradient(0, lamp.y, 0, lamp.y + 105);
+      reflection.addColorStop(0, withAlpha(PALETTE.sodium, 0.16));
+      reflection.addColorStop(1, withAlpha(PALETTE.sodium, 0));
+      ctx.fillStyle = reflection;
+      ctx.fillRect(lamp.x - 5, lamp.y, 10, 105);
       ctx.fillStyle = PALETTE.sodium;
       ctx.beginPath();
       ctx.arc(lamp.x, lamp.y, 3.2, 0, Math.PI * 2);
@@ -244,183 +395,104 @@ export class NoirCityRenderer {
     ctx.restore();
   }
 
-  _drawDistrictBuildings25D(ctx, sim) {
-    const cx = WORLD_W * 0.5;
-    const cy = WORLD_H * 0.5;
-
-    for (const d of DISTRICTS) {
-      const h3d = d.isHQ ? 42 : d.isRival ? 34 : 30;
-      const bx = d.x + d.w * 0.5;
-      const by = d.y + d.h * 0.5;
-      const ox = ((bx - cx) / WORLD_W) * h3d * 0.65;
-      const oy = ((by - cy) / WORLD_H) * h3d * 0.55 - h3d * 0.42;
-
-      const rx = d.x + ox;
-      const ry = d.y + oy;
-
-      ctx.save();
-
-      // #88: restrained lamp reflection; city geometry is reserved for #89.
-      const pool = ctx.createRadialGradient(
-        bx,
-        by,
-        20,
-        bx,
-        by,
-        Math.max(d.w, d.h) * 0.72
-      );
-      pool.addColorStop(0, withAlpha(PALETTE.sodium, 0.06));
-      pool.addColorStop(1, withAlpha(PALETTE.nightInk, 0));
-      ctx.fillStyle = pool;
-      ctx.fillRect(d.x - 30, d.y - 30, d.w + 60, d.h + 60);
-
-      // Street drop shadow
-      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.72);
-      ctx.fillRect(d.x + 8, d.y + 10, d.w, d.h);
-
-      // 2.5D Extruded South/Side Facade Walls
-      ctx.fillStyle = d.color;
-      ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.25);
-      ctx.lineWidth = 1.4;
-
-      // Bottom wall
-      ctx.beginPath();
-      ctx.moveTo(d.x, d.y + d.h);
-      ctx.lineTo(d.x + d.w, d.y + d.h);
-      ctx.lineTo(rx + d.w, ry + d.h);
-      ctx.lineTo(rx, ry + d.h);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Side wall
-      if (ox < 0) {
-        ctx.beginPath();
-        ctx.moveTo(d.x + d.w, d.y);
-        ctx.lineTo(d.x + d.w, d.y + d.h);
-        ctx.lineTo(rx + d.w, ry + d.h);
-        ctx.lineTo(rx + d.w, ry);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      } else {
-        ctx.beginPath();
-        ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x, d.y + d.h);
-        ctx.lineTo(rx, ry + d.h);
-        ctx.lineTo(rx, ry);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      }
-
-      // Roof Deck
-      const roofGrad = ctx.createLinearGradient(rx, ry, rx + d.w, ry + d.h);
-      roofGrad.addColorStop(0, d.color);
-      roofGrad.addColorStop(1, PALETTE.nightInk);
-      ctx.fillStyle = roofGrad;
-      ctx.fillRect(rx, ry, d.w, d.h);
-
-      ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.3);
-      ctx.lineWidth = d.isHQ ? 2.4 : 1.5;
-      ctx.strokeRect(rx, ry, d.w, d.h);
-
-      // Inner Art-Deco Rooftop Setback & Architectural Details
-      ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.2);
-      ctx.lineWidth = 1;
-      ctx.strokeRect(rx + 10, ry + 10, d.w - 20, d.h - 20);
-
-      if (d.id === 'cityhall') {
-        // Classical Rotunda Dome & Sweeping Searchlight
-        const domeX = rx + d.w * 0.5;
-        const domeY = ry + d.h * 0.62;
-        ctx.fillStyle = withAlpha(PALETTE.stampRed, 0.14);
-        ctx.strokeStyle = withAlpha(PALETTE.stampRed, 0.55);
-        ctx.beginPath();
-        ctx.arc(domeX, domeY, 34, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(domeX, domeY, 16, 0, Math.PI * 2);
-        ctx.stroke();
-      } else if (d.id === 'docks') {
-        // Waterfront Cargo Pier Cranes & Slip Lines
-        ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, 0.42);
-        for (const cxOff of [42, d.w - 42]) {
-          ctx.strokeRect(rx + cxOff - 14, ry + d.h - 68, 28, 26);
-          ctx.beginPath();
-          ctx.moveTo(rx + cxOff, ry + d.h - 55);
-          ctx.lineTo(rx + cxOff + (cxOff < 100 ? -26 : 26), ry + d.h - 82);
-          ctx.stroke();
-        }
-      } else if (d.id === 'redlight') {
-        // Neon Lounge Rooftop Skylight & Cocktail Sign Ring
-        ctx.strokeStyle = withAlpha(PALETTE.stampRed, 0.55);
-        ctx.strokeRect(rx + d.w * 0.5 - 56, ry + d.h - 72, 112, 26);
-      } else if (d.id === 'wallst') {
-        // Neoclassical Colonnade Steps & Vault Skylight
-        ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, 0.45);
-        for (let p = 0; p < 6; p++) {
-          ctx.strokeRect(rx + 36 + p * 42, ry + 14, 16, 8);
-        }
-      } else if (d.id === 'slaughterhouse') {
-        // Brick Smokestacks & Water Tower Circles
-        ctx.fillStyle = withAlpha(PALETTE.stampRed, 0.2);
-        ctx.strokeStyle = withAlpha(PALETTE.stampRed, 0.6);
-        for (const sx of [rx + 46, rx + d.w - 46]) {
-          ctx.beginPath();
-          ctx.arc(sx, ry + d.h - 58, 13, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-        }
-      }
-
-      // Lit Art Deco window strips on roof/facade
-      const cols = Math.floor((d.w - 28) / 22);
-      for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < 2; r++) {
-          const wx = rx + 16 + c * 22;
-          const wy = ry + d.h - 28 + r * 10;
-          const lit = ((c * 7 + r * 3 + d.x) % 4) !== 0;
-          ctx.fillStyle = lit
-            ? d.isHQ
-              ? withAlpha(PALETTE.sodium, 0.85)
-              : withAlpha(d.accent, 0.467)
-            : withAlpha(PALETTE.nightInk, 0.7);
-          ctx.fillRect(wx, wy, 12, 5);
-        }
-      }
-
-      // District Code Badge & Title on Roof
-      ctx.textAlign = 'center';
-      ctx.font = '700 12px "Courier Prime", "Courier New", monospace';
-      ctx.fillStyle = d.accent;
-      ctx.fillText(d.code, rx + d.w * 0.5, ry + 26);
-
-      ctx.font = '800 15px "League Gothic", Impact, "Arial Narrow", sans-serif';
-      ctx.fillStyle = PALETTE.newsprint;
-      ctx.fillText(d.name, rx + d.w * 0.5, ry + 48);
-
-      // Neon Marquee Sign
-      ctx.font = '600 10.5px "Courier Prime", "Courier New", monospace';
-      ctx.fillStyle = withAlpha(PALETTE.newsprint, 0.75);
-      ctx.fillText(d.neon, rx + d.w * 0.5, ry + 68);
-
-      if (d.isHQ) {
-        // Press Integrity Bar on HQ Roof
-        const barW = d.w - 48;
-        const barX = rx + 24;
-        const barY = ry + 84;
-        ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.85);
-        ctx.fillRect(barX, barY, barW, 10);
-        ctx.fillStyle = sim.pressHp > 45 ? PALETTE.newsprintAged : PALETTE.stampRed;
-        ctx.fillRect(barX, barY, (barW * sim.pressHp) / 100, 10);
-        ctx.strokeStyle = withAlpha(PALETTE.newsprint, 0.25);
-        ctx.strokeRect(barX, barY, barW, 10);
-      }
-
-      ctx.restore();
+  _drawDistrictBuildings25D(ctx) {
+    // Shadows belong on the street beneath every mass, including adjacent roofs.
+    for (const { buildings } of this.city) for (const b of buildings) drawBuildingShadow(ctx, b);
+    for (const { district: d, buildings } of this.city) {
+      for (const b of buildings) drawBuilding(ctx, b);
+      this._drawLandmark(ctx, d, buildings[4]);
     }
+  }
+
+  _drawDistrictSigns(ctx, sim) {
+    ctx.save();
+    ctx.font = '12px "Courier Prime", monospace';
+    // Text measurement crosses into browser font/layout code. Lead progress and
+    // rain change every frame, but sign collision boxes only change with these
+    // display fields. Snapshot values (not live objects): debug tools/tests can
+    // move or edit an existing lead in place without changing its identity.
+    const fields = ['x', 'y', 'baseValue', 'headline', 'seriesBadge'];
+    const previous = this.cache.signs;
+    if (!previous || previous.leads.length !== sim.leads.length ||
+        sim.leads.some((lead, i) => fields.some((field) => lead[field] !== previous.leads[i][field]))) {
+      this.cache.signs = this._layoutDistrictSigns(ctx, sim, fields);
+    }
+    for (const { text, x, y, width } of this.cache.signs.positions) drawSign(ctx, text, x, y, false, width);
+    ctx.restore();
+  }
+
+  _layoutDistrictSigns(ctx, sim, fields) {
+    // Reserve the entire flag/headline/series badge, not just the lead hit point.
+    const obstacles = sim.leads.map((lead) => {
+      const headline = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
+      const half = Math.max(48, (ctx.measureText(headline).width + 16) / 2,
+        lead.seriesBadge ? (ctx.measureText(lead.seriesBadge).width + 14) / 2 : 0);
+      return { x: lead.x - half - 8, y: lead.y - 74, w: half * 2 + 16, h: 142 };
+    });
+    const positions = DISTRICTS.map((d) => {
+      const text = STREET_SIGNS[d.id];
+      const width = ctx.measureText(text).width + 12;
+      const { x, y } = districtSignPosition(d, width, obstacles);
+      return { districtId: d.id, text, x, y, width };
+    });
+    return { leads: sim.leads.map((lead) => Object.fromEntries(fields.map((field) => [field, lead[field]]))), positions };
+  }
+
+  _drawLandmark(ctx, d, b) {
+    const x = b.x + b.width / 2, y = b.y - b.height;
+    ctx.save();
+    ctx.fillStyle = PALETTE.nightInk;
+    ctx.strokeStyle = PALETTE.smoke;
+    ctx.lineWidth = 2;
+    if (d.id === 'cityhall') {
+      ctx.beginPath(); ctx.arc(x, y, 29, Math.PI, 0); ctx.fill(); ctx.stroke();
+      ctx.fillRect(x - 3, y - 40, 6, 16);
+    } else if (d.id === 'docks') {
+      ctx.fillStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.12);
+      ctx.fillRect(d.x, d.y + d.h - 25, d.w, 13);
+      for (const craneX of [d.x + 44, d.x + 205]) {
+        ctx.fillStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.22);
+        polygon(ctx, [[craneX - 13, y + 45], [craneX - 5, y - 75],
+          [craneX + 6, y - 75], [craneX + 15, y + 45]]);
+        polygon(ctx, [[craneX - 20, y - 66], [craneX + 66, y - 106],
+          [craneX + 83, y - 99], [craneX - 20, y - 52]]);
+        ctx.fillRect(craneX - 17, y - 77, 34, 23);
+        ctx.strokeStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.35);
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(craneX + 65, y - 99);
+        ctx.lineTo(craneX + 65, y - 20); ctx.stroke();
+        ctx.fillRect(craneX + 60, y - 22, 11, 7);
+      }
+    } else if (d.id === 'herald_hq') {
+      ctx.fillRect(x - 18, y - 80, 36, 85);
+      ctx.strokeRect(x - 18, y - 80, 36, 85);
+      ctx.fillStyle = PALETTE.newsprintAged;
+      ctx.beginPath(); ctx.arc(x, y - 55, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = PALETTE.nightInk;
+      ctx.beginPath(); ctx.moveTo(x, y - 64); ctx.lineTo(x, y - 55); ctx.lineTo(x + 7, y - 52); ctx.stroke();
+    } else if (d.id === 'hq') {
+      drawSign(ctx, 'EVENING STAR', x - 72, y - 26, true);
+      ctx.fillStyle = withAlpha(PALETTE.sodium, 0.65);
+      for (let i = 0; i < 6; i++) ctx.fillRect(x - 26 + i * 10, y + 18, 6, 14);
+    } else if (d.id === 'observer_hq') {
+      // The district's sole OBSERVER label belongs to the street-sign pass.
+      ctx.fillRect(x - 30, y + 10, 60, 12);
+      ctx.strokeRect(x - 30, y + 10, 60, 12);
+    } else if (d.id === 'wallst') {
+      polygon(ctx, [[x - 44, y + 8], [x, y - 15], [x + 44, y + 8]]);
+      ctx.fillStyle = PALETTE.smoke;
+      for (let i = 0; i < 5; i++) ctx.fillRect(x - 35 + i * 16, y + 12, 5, 34);
+    } else if (d.id === 'slaughterhouse') {
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(x - 28 + i * 22, y - 58 - i * 8, 13, 65 + i * 8);
+        ctx.strokeRect(x - 28 + i * 22, y - 58 - i * 8, 13, 65 + i * 8);
+      }
+    } else if (d.id === 'redlight') {
+      drawSign(ctx, 'VELVET', x - 32, y + 35, true);
+      ctx.fillStyle = PALETTE.mahogany;
+      polygon(ctx, [[x - 40, y + 48], [x + 40, y + 48], [x + 50, y + 62], [x - 45, y + 62]]);
+    }
+    ctx.restore();
   }
 
   _drawSyndicateStringBoard(ctx, sim) {
@@ -470,14 +542,136 @@ export class NoirCityRenderer {
       ctx.setLineDash([]);
 
       ctx.beginPath();
-      ctx.arc(op.targetX, op.targetY, 8, 0, Math.PI * 2);
+      ctx.arc(op.targetX, op.targetY, 8 * MARKER_SCALE, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.restore();
   }
 
-  _drawStoryLeads(ctx, sim) {
+  _leadLabelStaticObstacles(sim) {
+    return [sim.hq, ...(this.cache?.signs?.positions ?? []).map((sign) =>
+      ({ x: sign.x - 1, y: sign.y - 19, w: sign.width + 2, h: 45 }))];
+  }
+
+  _leadLabelObstacles(sim) {
+    const obstacles = [];
+    for (const op of sim.operatives) {
+      if (!sim.operativeAvailable(op)) continue;
+      obstacles.push(figureBox(op.x, op.y));
+      if (op.id === sim.selectedOpId || op.id === this.hoverOperativeId) {
+        obstacles.push({ x: op.x - 39 * MARKER_SCALE, y: op.y - 13 * MARKER_SCALE,
+          w: 78 * MARKER_SCALE, h: 36 * MARKER_SCALE });
+      }
+      if (Math.hypot(op.targetX - op.x, op.targetY - op.y) >= 10) {
+        const radius = 8 * MARKER_SCALE + 2;
+        obstacles.push({ x: op.targetX - radius, y: op.targetY - radius, w: radius * 2, h: radius * 2 });
+      }
+    }
+    for (const rival of sim.rivals) {
+      obstacles.push(figureBox(rival.x, rival.y));
+      if (rival.stunTimer > 0) {
+        const radius = 43 * MARKER_SCALE + 2;
+        obstacles.push({ x: rival.x - radius, y: rival.y - 35 * MARKER_SCALE - radius,
+          w: radius * 2, h: radius * 2 });
+      }
+    }
+    return obstacles;
+  }
+
+  _layoutLeadLabels(ctx, sim, now = performance.now()) {
+    const { labelLayout } = this.cache;
+    const { placements } = labelLayout;
+    const live = new Set(sim.leads.map((lead) => lead.uid));
+    for (const uid of placements.keys()) {
+      if (!live.has(uid)) placements.delete(uid);
+    }
+    const allIdle = sim.operatives.every((op) => !op.targetLeadId && !op.targetRivalId);
+    let staticObstacles;
     for (const lead of sim.leads) {
+      const key = JSON.stringify([lead.headline, lead.baseValue, lead.seriesBadge]);
+      let placement = placements.get(lead.uid);
+      if (placement && (placement.leader.from.x !== lead.x || placement.leader.from.y !== lead.y)) {
+        // Moving a gameplay address updates its thread, never its label position.
+        placement = { ...placement, leader: labelLeader(lead, placement.box) };
+        placements.set(lead.uid, placement);
+      }
+      if (placement?.key === key) continue;
+      ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
+      const textWidth = ctx.measureText(`$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`).width + 16;
+      let width = Math.max(86, textWidth);
+      let seriesWidth = 0;
+      if (lead.seriesBadge) {
+        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
+        seriesWidth = ctx.measureText(lead.seriesBadge).width + 14;
+        width = Math.max(width, seriesWidth);
+      }
+      // Reserve onboarding space for this label's entire lifetime. A scoop or
+      // later selection must not shrink its box and shift the centered artwork.
+      const promptSpace = placement?.promptSpace ?? (sim.scoopsTotal === 0);
+      let promptWidth = 0;
+      if (promptSpace) {
+        ctx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
+        promptWidth = ctx.measureText('▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE').width + 20;
+        width = Math.max(width, promptWidth);
+      }
+      const top = lead.seriesBadge ? -67 : -48;
+      const size = { w: width + 4, h: (promptSpace ? 62 : 12) - top };
+      if (!placement) {
+        staticObstacles ??= this._leadLabelStaticObstacles(sim);
+        placement = { ...placeLabel(lead, size,
+          [...staticObstacles, ...[...placements.values()].map(({ box }) => box)]), top, promptSpace };
+      } else {
+        // Copy changes refresh measured dimensions, never the fixed position.
+        // Verification and selection are painted live without layout work.
+        const box = { ...placement.box, ...size };
+        placement = { ...placement, box, top, leader: labelLeader(lead, box) };
+      }
+      placements.set(lead.uid, { ...placement, key, textWidth, seriesWidth, promptWidth });
+    }
+    // Wall time keeps the 250 ms safety check alive when paused/reduced-motion.
+    // Warm frames do no obstacle construction or collision checks at all.
+    if (now - labelLayout.lastCheck >= 250) {
+      labelLayout.lastCheck = now;
+      const figures = this._leadLabelObstacles(sim);
+      for (const lead of sim.leads) {
+        const placement = placements.get(lead.uid);
+        if (!figures.some((obstacle) => boxesIntersect(placement.box, obstacle))) continue;
+        staticObstacles ??= this._leadLabelStaticObstacles(sim);
+        const others = [...placements].filter(([uid]) => uid !== lead.uid).map(([, { box }]) => box);
+        placements.set(lead.uid, { ...placement, ...placeLabel(lead, placement.box,
+          [...staticObstacles, ...others, ...figures]) });
+      }
+    }
+    // Prompt visibility is independent of placement and never moves a label.
+    this.showDispatchPrompt = allIdle && sim.scoopsTotal === 0;
+    return sim.leads.map((lead) => placements.get(lead.uid));
+  }
+
+  releaseTitle() {
+    if (!this.cache && !this.skylines) return;
+    this._releaseLayers();
+    // Also discard the hidden live canvas backing store, not just its sources.
+    this.canvas.width = this.canvas.height = 1;
+  }
+
+  _releaseLayers() {
+    this.skylines = null;
+    if (!this.cache) return;
+    const { city, fog, driftFog, skyline } = this.cache;
+    for (const sprite of [city, fog, driftFog, ...(skyline ?? [])]) {
+      if (typeof sprite?.close === 'function') sprite.close();
+      else if (sprite) {
+        // Detached Canvas2D sources have no close(); clearing their dimensions
+        // releases backing textures even if a diagnostic still holds a reference.
+        sprite.width = sprite.height = 0;
+      }
+    }
+    this.cache = null;
+  }
+
+  _drawStoryLeads(ctx, sim) {
+    const placements = this._layoutLeadLabels(ctx, sim);
+    for (const [index, lead] of sim.leads.entries()) {
       const isSelected = lead.uid === sim.selectedLeadId;
       const isHovered = lead.uid === this.hoverLeadId;
       const ttlRatio = Math.max(0, Math.min(1, lead.timeLeft / 48));
@@ -486,7 +680,7 @@ export class NoirCityRenderer {
       ctx.translate(lead.x, lead.y);
 
       // Radial beacon pulse
-      const pulse = 0.5 + 0.5 * Math.sin(sim.time * 5 + lead.x);
+      const pulse = 0.5 + 0.5 * Math.sin(this.cosmeticTime * 5 + lead.x);
       const auraR = (isSelected ? 48 : 36) + pulse * 8;
       const aura = ctx.createRadialGradient(0, 0, 5, 0, 0, auraR);
       aura.addColorStop(0, withAlpha(PALETTE.sodium, 0.467));
@@ -504,14 +698,8 @@ export class NoirCityRenderer {
         ctx.stroke();
       }
 
-      // Dark brass node badge
-      ctx.fillStyle = PALETTE.nightInk;
-      ctx.strokeStyle = PALETTE.sodium;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(0, 0, 22, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+      ctx.fillStyle = PALETTE.stampRed;
+      ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
 
       // TTL countdown arc
       ctx.strokeStyle = ttlRatio < 0.3 ? PALETTE.stampRed : PALETTE.newsprint;
@@ -550,238 +738,168 @@ export class NoirCityRenderer {
         ctx.stroke();
       }
 
-      // Beat label inside node
-      ctx.font = '800 10px "Courier Prime", "Courier New", monospace';
-      ctx.fillStyle = PALETTE.sodium;
-      ctx.textAlign = 'center';
-      ctx.fillText(lead.beat.slice(0, 5), 0, 3.5);
-
-      // Headline callout pill above node
-      const label = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
-      ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
-      const tw = ctx.measureText(label).width + 16;
-      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.94);
-      ctx.strokeStyle = isSelected ? PALETTE.newsprint : PALETTE.sodium;
-      ctx.lineWidth = 1.4;
-      ctx.fillRect(-tw / 2, -46, tw, 19);
-      ctx.strokeRect(-tw / 2, -46, tw, 19);
-
-      ctx.fillStyle = PALETTE.newsprint;
-      ctx.fillText(label, 0, -32.5);
-
-      if (lead.seriesBadge) {
-        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
-        const sw = ctx.measureText(lead.seriesBadge).width + 14;
-        ctx.fillStyle = PALETTE.stampRed;
-        ctx.strokeStyle = PALETTE.sodium;
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(-sw / 2, -65, sw, 16);
-        ctx.strokeRect(-sw / 2, -65, sw, 16);
-        ctx.fillStyle = PALETTE.sodium;
-        ctx.fillText(lead.seriesBadge, 0, -54);
-      }
-
-      if (lead.photoVerified) {
-        ctx.fillStyle = PALETTE.newsprintAged;
-        ctx.fillRect(16, -22, 26, 14);
-        ctx.fillStyle = PALETTE.nightInk;
-        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
-        ctx.fillText('1.8×', 29, -12);
-      } else if (lead.scoopedByRival) {
-        ctx.fillStyle = PALETTE.stampRed;
-        ctx.fillRect(-38, -22, 24, 14);
-        ctx.fillStyle = PALETTE.newsprint;
-        ctx.font = '800 9px "Courier Prime", "Courier New", monospace';
-        ctx.fillText('0.5×', -26, -12);
-      }
+      ctx.restore();
+      const { box, top, leader, textWidth, seriesWidth, promptWidth } = placements[index];
+      ctx.save();
+      ctx.strokeStyle = withAlpha(PALETTE.brass, 0.8);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(leader.from.x, leader.from.y);
+      ctx.lineTo(leader.to.x, leader.to.y); ctx.stroke();
+      ctx.translate(box.x + box.w / 2, box.y - top);
+      this._paintLeadLabel(ctx, lead, isSelected, textWidth, seriesWidth);
 
       // First-launch onboarding prompt on the selected lead when all units are idle at HQ
-      const allIdle = sim.operatives.every(
-        (op) => !op.targetLeadId && !op.targetRivalId
-      );
-      if (allIdle && isSelected && sim.scoopsTotal === 0) {
-        const bounce = Math.sin(sim.time * 6) * 4;
-        const prompt = '▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE';
+      if (this.showDispatchPrompt && isSelected) {
+        ctx.translate(0, 33 + Math.sin(this.cosmeticTime * 6) * 4);
+        ctx.textAlign = 'center';
         ctx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
-        const pw = ctx.measureText(prompt).width + 20;
         ctx.fillStyle = PALETTE.sodium;
         ctx.strokeStyle = PALETTE.nightInk;
         ctx.lineWidth = 2;
-        ctx.fillRect(-pw / 2, 34 + bounce, pw, 22);
-        ctx.strokeRect(-pw / 2, 34 + bounce, pw, 22);
+        ctx.fillRect(-promptWidth / 2, 1, promptWidth, 22);
+        ctx.strokeRect(-promptWidth / 2, 1, promptWidth, 22);
         ctx.fillStyle = PALETTE.nightInk;
-        ctx.fillText(prompt, 0, 49 + bounce);
+        ctx.fillText('▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE', 0, 16);
       }
 
       ctx.restore();
     }
   }
 
-  _drawRivals(ctx, sim) {
-    const rivalImg = this.sprites.rival;
-    for (const rv of sim.rivals) {
-      if (rv.type === 'herald' && rv.targetLeadId) {
-        const tgt = sim.leads.find((l) => l.uid === rv.targetLeadId);
-        if (tgt) {
-          ctx.save();
-          ctx.strokeStyle = withAlpha(PALETTE.sodium, 0.5);
-          ctx.lineWidth = 1.6;
-          ctx.setLineDash([7, 6]);
-          ctx.beginPath();
-          ctx.moveTo(rv.x, rv.y);
-          ctx.lineTo(tgt.x, tgt.y);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.restore();
-        }
-      }
+  _paintLeadLabel(ctx, lead, isSelected, textWidth, seriesWidth) {
+    // The telegram moves as one group; the address/rings above stay fixed.
+    ctx.strokeStyle = PALETTE.brass;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -24); ctx.stroke();
+    ctx.fillStyle = PALETTE.telegram;
+    polygon(ctx, [[0, -24], [29, -24], [24, -15], [29, -6], [0, -6]]);
 
+    // Beat label inside node
+    ctx.font = '800 10px "Courier Prime", "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = PALETTE.nightInk;
+    ctx.fillText(lead.beat.slice(0, 5), 14, -12);
+
+    // Headline callout pill above node
+    const label = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
+    ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
+    const tw = textWidth;
+    ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.94);
+    ctx.strokeStyle = isSelected ? PALETTE.newsprint : PALETTE.sodium;
+    ctx.lineWidth = 1.4;
+    ctx.fillRect(-tw / 2, -46, tw, 19);
+    ctx.strokeRect(-tw / 2, -46, tw, 19);
+
+    ctx.fillStyle = PALETTE.newsprint;
+    ctx.fillText(label, 0, -32.5);
+
+    if (lead.seriesBadge) {
+      ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
+      const sw = seriesWidth;
+      ctx.fillStyle = PALETTE.stampRed;
+      ctx.strokeStyle = PALETTE.sodium;
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(-sw / 2, -65, sw, 16);
+      ctx.strokeRect(-sw / 2, -65, sw, 16);
+      ctx.fillStyle = PALETTE.sodium;
+      ctx.fillText(lead.seriesBadge, 0, -54);
+    }
+
+    if (lead.photoVerified) {
+      ctx.fillStyle = PALETTE.newsprintAged;
+      ctx.fillRect(16, -22, 26, 14);
+      ctx.fillStyle = PALETTE.nightInk;
+      ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
+      ctx.fillText('1.8×', 29, -12);
+    } else if (lead.scoopedByRival) {
+      ctx.fillStyle = PALETTE.stampRed;
+      ctx.fillRect(-38, -22, 24, 14);
+      ctx.fillStyle = PALETTE.newsprint;
+      ctx.font = '800 9px "Courier Prime", "Courier New", monospace';
+      ctx.fillText('0.5×', -26, -12);
+    }
+  }
+
+  _drawRivals(ctx, sim) {
+    for (const rv of sim.rivals) {
       ctx.save();
       ctx.translate(rv.x, rv.y);
-
-      const ringColor = rv.type === 'goon' ? PALETTE.stampRed : PALETTE.sodium;
-      // Press cruiser / saboteur searchlight cone
-      ctx.save();
-      ctx.rotate(rv.angle);
-      const beam = ctx.createLinearGradient(12, 0, 78, 0);
-      beam.addColorStop(0, ringColor + '44');
-      beam.addColorStop(1, ringColor + '00');
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(10, -6);
-      ctx.lineTo(78, -26);
-      ctx.lineTo(78, 26);
-      ctx.lineTo(10, 6);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-
-      ctx.fillStyle = withAlpha(PALETTE.stampRed, 0.18);
-      ctx.strokeStyle = rv.stunTimer > 0 ? PALETTE.newsprintAged : ringColor;
-      ctx.lineWidth = 2.4;
-      ctx.beginPath();
-      ctx.arc(0, 0, 24, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.save();
-      ctx.rotate(rv.angle);
-      if (rivalImg && rivalImg.complete && rivalImg.naturalWidth > 0) {
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(rivalImg, -28, -28, 56, 56);
-      } else {
-        ctx.fillStyle = ringColor;
-        ctx.beginPath();
-        ctx.arc(0, 0, 14, 0, Math.PI * 2);
-        ctx.fill();
+      const goon = rv.type === 'goon';
+      if (rv.targetLeadId && !goon) {
+        // Herald sedan headlights are sodium; only a raid gets police blue.
+        ctx.save(); ctx.rotate(rv.angle);
+        const beam = ctx.createLinearGradient(10, 0, 100, 0);
+        beam.addColorStop(0, withAlpha(PALETTE.sodium, 0.22));
+        beam.addColorStop(1, withAlpha(PALETTE.sodium, 0));
+        ctx.fillStyle = beam;
+        polygon(ctx, [[10, -7], [100, -30], [100, 30], [10, 7]]);
+        ctx.fillStyle = PALETTE.nightInk;
+        ctx.fillRect(-23, -11, 46, 22);
+        ctx.strokeStyle = PALETTE.smoke; ctx.strokeRect(-23, -11, 46, 22);
+        ctx.fillStyle = PALETTE.smoke; ctx.fillRect(-5, -8, 15, 16);
+        ctx.restore();
       }
+      if (goon) {
+        ctx.save(); ctx.rotate(rv.angle);
+        ctx.fillStyle = withAlpha(PALETTE.policeBlue, 0.15);
+        polygon(ctx, [[0, 0], [90, -28], [90, 28]]);
+        ctx.restore();
+      }
+      ctx.save(); ctx.scale(FIGURE_SCALE, FIGURE_SCALE);
+      drawSilhouette(ctx, goon ? 'fixer' : 'reporter', { herald: !goon, goon,
+        bob: rv.stunTimer > 0 ? 0 : Math.sin(this.cosmeticTime * 10 + rv.x * 0.01) * 1.5 });
       ctx.restore();
-
-      ctx.font = '700 10px "Courier Prime", "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.92);
-      ctx.fillRect(-48, 24, 96, 15);
-      ctx.fillStyle = rv.stunTimer > 0 ? PALETTE.newsprint : ringColor;
-      ctx.fillText(
-        rv.stunTimer > 0
-          ? 'FLASH STUNNED'
-          : rv.type === 'goon'
-            ? 'MOB SABOTEUR'
-            : 'DAILY HERALD',
-        0,
-        35
-      );
+      if (rv.stunTimer > 0) {
+        ctx.strokeStyle = PALETTE.newsprint;
+        ctx.beginPath(); ctx.arc(0, -35 * MARKER_SCALE, 43 * MARKER_SCALE, 0, Math.PI * 2); ctx.stroke();
+      }
       ctx.restore();
     }
   }
 
   _drawOperatives(ctx, sim) {
-    for (let i = 0; i < sim.operatives.length; i++) {
-      const op = sim.operatives[i];
-      if (!sim.operativeAvailable(op)) continue;
-      const isSelected = op.id === sim.selectedOpId;
-      const isHovered = op.id === this.hoverOperativeId;
-      const sprite = this.sprites[op.sprite];
-
+    sim.operatives.forEach((op, i) => {
+      if (!sim.operativeAvailable(op)) return;
       ctx.save();
       ctx.translate(op.x, op.y);
-
-      // Flashlight / Camera light cone
-      ctx.save();
-      ctx.rotate(op.angle);
-      const beam = ctx.createLinearGradient(14, 0, 96, 0);
-      beam.addColorStop(0, withAlpha(PALETTE.sodium, 0.282));
-      beam.addColorStop(1, withAlpha(PALETTE.sodium, 0.000));
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(10, -7);
-      ctx.lineTo(96, -32);
-      ctx.lineTo(96, 32);
-      ctx.lineTo(10, 7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-
-      if (isSelected || isHovered) {
-        const pulse = 0.5 + 0.5 * Math.sin(sim.time * 7);
-        ctx.strokeStyle = PALETTE.newsprint;
-        ctx.lineWidth = 2.8;
-        ctx.beginPath();
-        ctx.arc(0, 0, 30 + pulse * 3, 0, Math.PI * 2);
-        ctx.stroke();
+      if (op.id === sim.selectedOpId || op.id === this.hoverOperativeId) {
+        ctx.strokeStyle = PALETTE.sodium;
+        ctx.lineWidth = 2 * MARKER_SCALE;
+        ctx.beginPath(); ctx.ellipse(0, 5 * MARKER_SCALE, 38 * MARKER_SCALE, 17 * MARKER_SCALE, 0, 0, Math.PI * 2); ctx.stroke();
       }
-
-      // Base tactical ring
-      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.78);
-      ctx.strokeStyle = PALETTE.sodium;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, 24, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      // Top-down pixel-art sprite rotated toward heading
-      ctx.save();
-      ctx.rotate(op.angle);
-      if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(sprite, -30, -30, 60, 60);
-      } else {
-        ctx.fillStyle = PALETTE.sodium;
-        ctx.beginPath();
-        ctx.arc(0, 0, 15, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-
-      // Hotkey badge [1..4]
+      ctx.scale(FIGURE_SCALE, FIGURE_SCALE);
+      const walking = Math.hypot(op.targetX - op.x, op.targetY - op.y) > 10;
+      drawSilhouette(ctx, op.role, { bob: walking ? Math.sin(this.cosmeticTime * 10 + i) * 1.5 : 0 });
       ctx.fillStyle = PALETTE.sodium;
-      ctx.fillRect(-30, -32, 18, 16);
+      ctx.fillRect(-20, -41, 11, 12);
       ctx.fillStyle = PALETTE.nightInk;
-      ctx.font = '800 11px "Courier Prime", "Courier New", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(String(i + 1), -21, -20);
-
-      // Callsign plate underneath
-      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.94);
-      ctx.strokeStyle = withAlpha(PALETTE.sodium, 0.600);
-      ctx.lineWidth = 1.2;
-      ctx.fillRect(-38, 24, 76, 17);
-      ctx.strokeRect(-38, 24, 76, 17);
-
-      ctx.fillStyle = PALETTE.newsprint;
-      ctx.font = '700 10px "Courier Prime", "Courier New", monospace';
-      ctx.fillText(op.callsign, 0, 36);
-
+      ctx.font = '10px "Courier Prime", monospace';
+      ctx.textAlign = 'center'; ctx.fillText(String(i + 1), -14.5, -32);
       ctx.restore();
-    }
+    });
   }
 
   _drawFlashesAndCallouts(ctx, sim) {
     ctx.save();
-    for (const fl of sim.flashes) {
+    for (const flash of this.reducedMotion ? [] : this.scoopFlashes) {
+      ctx.globalAlpha = flash.life / 0.22;
+      ctx.fillStyle = PALETTE.newsprint;
+      polygon(ctx, [[flash.x, flash.y - 45], [flash.x + 8, flash.y - 8], [flash.x + 45, flash.y],
+        [flash.x + 8, flash.y + 8], [flash.x, flash.y + 45], [flash.x - 8, flash.y + 8],
+        [flash.x - 45, flash.y], [flash.x - 8, flash.y - 8]]);
+    }
+    for (const fl of this.reducedMotion ? [] : sim.flashes) {
       ctx.strokeStyle = PALETTE.newsprint;
       ctx.globalAlpha = Math.max(0, fl.alpha);
+      // A flashbulb star, rather than a screen flash, keeps the address legible.
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4;
+        ctx.moveTo(fl.x + Math.cos(angle) * fl.r * 0.5, fl.y + Math.sin(angle) * fl.r * 0.5);
+        ctx.lineTo(fl.x + Math.cos(angle) * fl.r * 1.4, fl.y + Math.sin(angle) * fl.r * 1.4);
+      }
+      ctx.stroke();
       ctx.lineWidth = 3.2;
       ctx.beginPath();
       ctx.arc(fl.x, fl.y, fl.r, 0, Math.PI * 2);
@@ -815,36 +933,29 @@ export class NoirCityRenderer {
       drop.y += drop.speed * dt;
       if (drop.y > WORLD_H) {
         drop.y = -24;
-        drop.x = Math.random() * (WORLD_W + 180);
+        drop.x = (drop.x + 613) % (WORLD_W + 180);
       }
       if (drop.x < -20) drop.x = WORLD_W + 20;
       ctx.moveTo(drop.x, drop.y);
       ctx.lineTo(drop.x - drop.len * 0.22, drop.y + drop.len);
     }
     ctx.stroke();
-
-    for (const rp of this.ripples) {
-      rp.r += rp.speed * dt;
-      if (rp.r >= rp.maxR) {
-        rp.r = 0.5;
-        rp.x = Math.random() * WORLD_W;
-        rp.y = Math.random() * WORLD_H;
-      }
+    for (let i = 0; i < 3; i++) {
+      const x = 150 + i * 530 + Math.sin(this.cosmeticTime * 0.08 + i) * 90;
+      const y = i % 2 === 0 ? 950 : 40;
+      ctx.drawImage(this.cache.driftFog, x - 420, y - 49, 840, 98);
     }
-
-    const vig = ctx.createRadialGradient(
-      WORLD_W * 0.5,
-      WORLD_H * 0.5,
-      WORLD_W * 0.34,
-      WORLD_W * 0.5,
-      WORLD_H * 0.5,
-      WORLD_W * 0.68
-    );
-    vig.addColorStop(0, withAlpha(PALETTE.nightInk, 0));
-    vig.addColorStop(1, withAlpha(PALETTE.nightInk, 0.62));
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
     ctx.restore();
+  }
+
+  _drawFogEdges(ctx) {
+    // Ink-only falloff: smoke at the corners reads as a dirty lens on the title.
+    const fog = ctx.createRadialGradient(700, 500, 330, 700, 500, 830);
+    fog.addColorStop(0, withAlpha(PALETTE.nightInk, 0));
+    fog.addColorStop(0.75, withAlpha(PALETTE.nightInk, 0.04));
+    fog.addColorStop(1, withAlpha(PALETTE.nightInk, 0.25));
+    ctx.fillStyle = fog;
+    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   }
 
   _drawBannerOverlay(ctx, sim) {
@@ -870,5 +981,117 @@ export class NoirCityRenderer {
     ctx.fillStyle = PALETTE.newsprint;
     ctx.fillText(sim.banner.sub, WORLD_W * 0.5, by + 38);
     ctx.restore();
+  }
+}
+
+const STREET_SIGNS = {
+  hq: 'PRESS ROW', docks: 'PIER 14', cityhall: 'CITY HALL', redlight: 'VELVET CLUB',
+  wallst: 'TRUST BANK', slaughterhouse: 'MEATPACKING', herald_hq: 'HERALD SQ.', observer_hq: 'OBSERVER',
+};
+function polygon(ctx, points) {
+  ctx.beginPath();
+  points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+  ctx.closePath(); ctx.fill();
+}
+function drawSign(ctx, text, x, y, rooftop = false, measuredWidth) {
+  ctx.save();
+  ctx.font = rooftop ? '22px "League Gothic", Impact, sans-serif' : '12px "Courier Prime", monospace';
+  const width = measuredWidth ?? ctx.measureText(text).width + 12;
+  ctx.strokeStyle = PALETTE.smoke; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x + 3, y); ctx.lineTo(x + 3, y + 25); ctx.stroke();
+  ctx.fillStyle = PALETTE.nightInk; ctx.fillRect(x, y - 18, width, 23);
+  ctx.strokeRect(x, y - 18, width, 23);
+  ctx.fillStyle = rooftop ? PALETTE.sodium : PALETTE.newsprintAged;
+  ctx.fillText(text, x + 6, y);
+  ctx.restore();
+}
+function mix(base, tint, amount) {
+  return `color-mix(in srgb, ${base}, ${tint} ${amount * 100}%)`;
+}
+function drawWaterTower(ctx, x, y, mass = PALETTE.nightInk) {
+  ctx.save();
+  ctx.fillStyle = mass;
+  polygon(ctx, [[x - 10, y], [x - 7, y - 20], [x - 3, y - 20], [x - 6, y]]);
+  polygon(ctx, [[x + 6, y], [x + 3, y - 20], [x + 7, y - 20], [x + 10, y]]);
+  ctx.fillRect(x - 12, y - 36, 24, 20);
+  polygon(ctx, [[x - 15, y - 36], [x, y - 44], [x + 15, y - 36]]);
+  ctx.restore();
+}
+function nearestStreetlamp(x, y) {
+  return STREETLAMPS.reduce((best, lamp) =>
+    Math.hypot(lamp.x - x, lamp.y - y) < Math.hypot(best.x - x, best.y - y) ? lamp : best);
+}
+function drawBuildingShadow(ctx, { x, y, width: w, depth: d, height: h }) {
+  const skew = d * 0.577, cx = x + (w + skew) / 2, cy = y - d / 2;
+  const shadow = shadowVector(cx, cy, h * 1.6, nearestStreetlamp(cx, cy));
+  const footprint = [[x, y], [x + w, y], [x + w + skew, y - d], [x + skew, y - d]];
+  const points = [...footprint, ...footprint.map(([px, py]) => [px + shadow.x, py + shadow.y])];
+  // Include the rear footprint: a lamp south of a building must cast beyond its
+  // north edge rather than hiding the entire shadow beneath its roof.
+  const sorted = points.toSorted(([ax, ay], [bx, by]) => ax - bx || ay - by);
+  const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const half = (list) => {
+    const edge = [];
+    for (const point of list) {
+      while (edge.length > 1 && cross(edge.at(-2), edge.at(-1), point) <= 0) edge.pop();
+      edge.push(point);
+    }
+    return edge.slice(0, -1);
+  };
+  // Cached gradients soften shadows without a per-frame blur/filter. Extend
+  // the fade beyond the footprint so short shadows remain visible on streets.
+  const reach = 1 + Math.hypot(w + skew, d) / (2 * Math.hypot(shadow.x, shadow.y));
+  const shade = ctx.createLinearGradient(cx, cy, cx + shadow.x * reach, cy + shadow.y * reach);
+  shade.addColorStop(0, withAlpha(PALETTE.nightInk, 0.8));
+  shade.addColorStop(1, withAlpha(PALETTE.nightInk, 0));
+  ctx.fillStyle = shade;
+  polygon(ctx, [...half(sorted), ...half(sorted.toReversed())]);
+}
+function drawBuilding(ctx, b) {
+  const { x, y, width: w, depth: d, height: h } = b;
+  const skew = d * 0.577; // 30-degree oblique roof, purely cosmetic projection.
+  const nearest = nearestStreetlamp(x + (w + skew) / 2, y - d / 2);
+  const distance = Math.hypot(nearest.x - x - (w + skew) / 2, nearest.y - y + d / 2);
+  const warmth = Math.max(0, 1 - distance / 230);
+  ctx.fillStyle = mix(mix(PALETTE.nightInk, PALETTE.smoke, 0.045), PALETTE.mahogany, warmth * 0.22);
+  polygon(ctx, [[x, y], [x + w, y], [x + w, y - h], [x, y - h]]);
+  ctx.fillStyle = PALETTE.nightInk;
+  polygon(ctx, [[x + w, y], [x + w + skew, y - d], [x + w + skew, y - d - h], [x + w, y - h]]);
+  ctx.fillStyle = mix(mix(PALETTE.nightInk, PALETTE.smoke, 0.24), PALETTE.mahogany, warmth * 0.15);
+  polygon(ctx, [[x, y - h], [x + skew, y - h - d], [x + w + skew, y - h - d], [x + w, y - h]]);
+  ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.45); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, y - h + 3); ctx.lineTo(x + w, y - h + 3);
+  ctx.lineTo(x + w + skew, y - h - d + 3); ctx.stroke();
+  if (b.setback) {
+    // A real second extrusion, rather than a rectangle pasted onto the roof.
+    const sx = x + skew * 0.55 + 8, sy = y - h - d * 0.3;
+    const sw = w * 0.56, rise = 12, sd = d * 0.32;
+    ctx.fillStyle = PALETTE.nightInk;
+    polygon(ctx, [[sx, sy], [sx + sw, sy], [sx + sw, sy - rise], [sx, sy - rise]]);
+    ctx.fillStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.3);
+    polygon(ctx, [[sx, sy - rise], [sx + sd * 0.577, sy - sd - rise],
+      [sx + sw + sd * 0.577, sy - sd - rise], [sx + sw, sy - rise]]);
+  } else {
+    ctx.strokeStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.35);
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x, y - h - 3); ctx.lineTo(x + w, y - h - 3);
+    ctx.lineTo(x + w + skew, y - h - d - 3); ctx.stroke();
+  }
+  if (b.tank) drawWaterTower(ctx, x + w / 2 + skew * 0.5, y - h - d / 2);
+  b.windows.forEach((lit, i) => {
+    if (!lit) return;
+    ctx.fillStyle = withAlpha(PALETTE.sodium, 0.5);
+    ctx.fillRect(x + 7 + (i % 5) * (w - 12) / 5, y - h + 10 + Math.floor(i / 5) * (h - 15) / 3, 3, 4);
+  });
+  if (b.escape) {
+    ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.5);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const top = y - h + 13 + i * 13;
+      ctx.moveTo(x + w - 15, top); ctx.lineTo(x + w - 3, top);
+      ctx.lineTo(x + w - 15, top + 13);
+    }
+    ctx.stroke();
   }
 }

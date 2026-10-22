@@ -1,5 +1,139 @@
 # Changelog — LATE EDITION // 1947
 
+## Unreleased — PR #101 CI GPU-path experiment
+
+- Remove per-lead, figure and onboarding canvas/bitmap caches. Paint telegram text,
+  flags, stamps, prompt and scaled silhouette paths directly each frame; retain
+  numeric text widths, fixed birth placements, leader lines and 250 ms overlap checks.
+- Restore the `43d7940` detached Canvas2D city/fog cache setup, retaining lazy title
+  creation/release and all director-note visuals. Per-frame canvas draws now only
+  sample the original city, edge fog and drifting fog sources.
+- Replace sprite-reuse assertions with adversarial allocation/blit guards, live
+  copy/verification/selection checks, fixed-placement and direct-figure regressions.
+  CI SwiftShader improvement still requires a GitHub run; local timing cannot prove it.
+
+## [2.10.0] — 2026-10-21 (#89 — Oblique silhouette city)
+
+### Changed
+- Replace outlined district slabs and pixel units with a fixed-seed oblique noir
+  city: varied extruded buildings, cornices, fire escapes, water towers, sparse
+  lit windows, eight landmark silhouettes and small period street signs.
+- Wet asphalt, sodium pools/reflections, rain and drifting fog at the city edges;
+  pinned telegram lead flags, red arc thread, sodium selection rings and scoop flash.
+- Shared procedural fedora/coat staff portraits and street figures, photographer
+  camera, broad fixer, brass Herald hats/sedans and Observer cigarette embers;
+  police-blue searchlights are reserved for raids. Delete the four unused unit PNGs;
+  retain the editor portrait and press illustration, with asset documentation.
+- Three cached title skyline depth layers, bridge, water towers, lit windows,
+  Evening Star rooftop sign, slow searchlight/parallax. Reduced motion freezes
+  decorative animation and suppresses flashes; title pixels remain static.
+- Cache static layers at displayed resolution/DPR; per-frame work is dynamic art.
+  Simulation, gameplay RNG, world hit targets and golden hashes stay unchanged.
+
+### Art director review round 1 (#89)
+- Darken distant skyline masses into low-contrast night haze over an ink-to-faint
+  mahogany/sodium horizon; keep near silhouettes ink-black with sparse windows.
+  Replace grey corner fog with subtle ink-only shading. Place a slow, low-alpha
+  sodium searchlight behind the near buildings so its beam reads against the sky.
+- Give map buildings lighter oblique roofs, dark fronts, setbacks/parapets/cornices
+  and soft street shadows cast away from the nearest lamp. Restrict mahogany to
+  a faint tint near lamps; use solid tanks/roofs/legs and substantial pier cranes.
+- Enlarge street staff/rivals 1.6×, retain number badges and add long cast shadows
+  and a more readable camera. Retain all eight district street signs with curb
+  offsets around telegram flags, headlines and series badges.
+- Add adversarial coincident-lamp/shadow and obstructed-sign checks plus a 1600×900
+  browser regression for night values, ink-only corners and every district’s signs.
+  The browser report attaches review screenshots; gameplay and input are unchanged.
+
+### CI performance follow-up (PR #101)
+- Follow-up CDP LayerTree/paint-flashing/paint + cc traces identify fifteen
+  compositor surfaces from multiply-blended paper, including a 1286×997 grain
+  surface; unconditional 250 ms text replacement also invalidates the broadsheet.
+  Encode grain as equivalent translucent black and use normal source-over (three
+  surfaces). Preserve unchanged text nodes and update changed copy in place.
+- Add browser regressions comparing the baked grain with the original SVG on all
+  ten palette colors and rejecting unchanged UI text mutations, stale values,
+  node replacement and HTML injection. Retain every performance assertion.
+- Trace 4× CPU/1080p SwiftShader with render/UI User Timing and browser raster,
+  paint, style/layout and compositor events. Two-core runs reproduced 66 frames
+  even with weather disabled: raster flush stalls dominate that failure shape.
+- Cache street-sign measurements/collision positions with in-place lead-edit
+  invalidation and DPR-sized drifting fog sprites. Bake the existing SVG paper
+  grain to an equivalent 120×120 PNG; retain its filter source/rebuild command.
+- Require 150 fixed-dt render samples plus five seconds of live render timings:
+  p95 <8ms normally, <16ms at CDP 4× CPU. Measure live pacing before the batch so
+  queued benchmark raster work cannot contaminate it. Keep frame p95 <20ms when
+  independent empty-page/full-viewport-canvas calibration sustains ≥55fps/<20ms;
+  never waive render budgets or use an environment flag to waive frame pacing.
+- Adversarial tests reject corrupt/missing calibration, force slow raster-shaped
+  rAF starvation and over-budget rendering, and attack stale sign/fog caches.
+  Local diagnosis and measurements are recorded in `docs/PERFORMANCE.md`.
+
+### Verification
+- Add adversarial cosmetic-generation/cache/DPR/nonfinite-delta tests; compare
+  gameplay hash/RNG before and after rendering without changing the golden fixture.
+- Browser regressions click ten distinct leads at 720p/1080p, attack hit-boundary,
+  unit-priority and closed-dispatch paths, reject retired PNG requests/console
+  errors, and compare title pixels under live reduced-motion preference changes.
+- Five-second 1080p live SwiftShader smoke asserts rAF frame p95 <20ms and render
+  CPU p95 <8ms, with metrics attached to the browser report. Initial local sample:
+  16.7ms frame / 0.5ms render p95; superseded by the calibrated checks above.
+
+### Art director review round 2 (PR #101)
+- Remove the cached Observer warehouse label; each district now paints exactly
+  one unique street-sign label, verified across the complete cold-cache render.
+- Enlarge staff/rival silhouettes another 1.4×, with proportional number badges,
+  selection/stun rings and dispatch markers. Offset telegram/headline/badge groups
+  above/right/left/below to avoid figures and rings; crowded groups use a clear
+  offset with a thin leader line. Keep lead coordinates and input targets intact.
+- Slightly lift the three title silhouette layers using palette mixes, strengthen
+  the slow sodium searchlight, and attach the Evening Star frame's two legs to
+  the actual generated near-building roofline. Reduced motion remains static.
+- Add adversarial unique-sign, crowded/boxed-in label, scaling, invalid geometry
+  and multi-seed roof-anchor tests. Paper grain and performance gates are unchanged.
+
+### Director-notes performance regression (PR #101)
+- Cache telegram text/flags/stamps at display resolution, retaining label positions
+  until lead geometry changes or a current figure/ring/sign would intersect them.
+  Keep countdown/progress rings and leader lines live, and bounce the prompt bitmap.
+  Invalidate in-place copy, verification and selection changes; release expired
+  sprites and rebuild on size/DPR changes.
+- Lazily bake only the visible city/title scene, use CPU-backed static bitmap
+  sources, and declare the visible canvas opaque. Avoid unused skyline submissions
+  and extra GPU producers competing with the live SwiftShader map. Preserve every
+  director visual change and every performance assertion.
+- Cache enlarged figure bodies by role/faction, preserving separate live bobbing,
+  fixed cast shadows, badges and rings instead of resubmitting their coat/hat/camera
+  paths each render. Invalidate figure resolution with the other DPR-sized art.
+- Add adversarial incoming-obstacle, unlock/hover/selection, stale-content,
+  last-lead removal and DPR checks, plus a live hidden-title regression. Extend
+  profiling with complete historical art modules, frozen-placement ablation and
+  explicit live-window trace totals; record results in `docs/PERFORMANCE.md`.
+
+### Owner-approved performance simplification (PR #101)
+- Place new lead labels once at four fixed diagonal offsets against HQ, street
+  signs and existing labels; choose the first clear offset or the final offset
+  when all are blocked. Always connect telegrams to their addresses with a thin
+  leader line. Remove the recurring per-frame collision pass.
+- Check figure/selection/dispatch/stun-ring overlaps at most every 250 ms of wall
+  time, including while paused or under reduced motion. Re-place only an
+  obstructed label and reuse its bitmap. Copy/selection/verification edits refresh
+  pixels in place; address edits only retie the leader. Keep onboarding collision
+  space for each label's lifetime, even after its first scoop, while tightly
+  bounding cached images around actual artwork.
+- Generate title skyline geometry/textures lazily, close bitmaps and clear canvas
+  references/backing stores when leaving the title. Desk rendering never creates
+  or retains title caches. Preserve unique district signs, 1.4× figures and the
+  title depth contrast, rooftop sign and searchlight.
+- Update adversarial tests for the exact 250 ms boundary, warm-frame zero collision
+  work, persistent leaders, all-four-blocked fallback, unlock/hover/target/stun
+  rings, cache closure, desk resize and title re-entry. Record verification in
+  `docs/PERFORMANCE.md`.
+- Give the starvation scenario the same 60 s total setup/test timeout as the two
+  budget cases after reproducing a 23.8 s SwiftShader context-creation delay.
+  Keep all measured frame/render budgets and adversarial assertions unchanged;
+  document the initial failure and separate cache/trace diagnostics explicitly.
+
 ## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
 
 ### Changed

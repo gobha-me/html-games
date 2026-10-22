@@ -288,7 +288,9 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 }
 
 /* Single top-left lamp: all paper casts its shadow down and right.
-   The monochrome turbulence is composited at low opacity over token-colored stock. */
+   The original monochrome turbulence is baked as black/inverse-luminance alpha
+   (e2e/bake-paper-grain.js). Normal source-over matches monochrome multiply
+   without destination-dependent blend surfaces over the live map (PR #101). */
 .lead-item, .op-card, .broadsheet-paper, .paper-slot, .scoop-chip, .dossier,
 .teletype-roll-box, .modal-dialog, .call-paper, .drag-copy {
   position: relative;
@@ -307,8 +309,7 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   z-index: 2;
   pointer-events: none;
   opacity: 0.065;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath filter='url(%23g)' d='M0 0h120v120H0z'/%3E%3C/svg%3E");
+  background-image: url('../assets/paper-grain.png');
 }
 
 .lead-item {
@@ -445,8 +446,6 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 .op-avatar {
   width: 28px;
   height: 28px;
-  image-rendering: pixelated;
-  filter: grayscale(1);
 }
 
 .op-key {

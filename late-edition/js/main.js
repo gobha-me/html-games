@@ -3,10 +3,11 @@ import { PALETTE } from './palette.js';
 // LATE EDITION // 1947 — Main Application Controller
 // ============================================================================
 
-import { h, reconcile } from './dom.js';
+import { h, reconcile, setText } from './dom.js';
 import { FILE_DRAWER, FRONT_PAGE_SLOTS, isUnlocked, deskFits } from './config.js';
 import { LateEditionSim } from './sim.js';
 import { NoirCityRenderer } from './renderer.js';
+import { drawSilhouette } from './silhouettes.js';
 import { ColdOpen } from './opening.js';
 import { NoirAudio } from './audio.js';
 import { createAudioAdapter, createStorageAdapter, resolveSeed } from './adapters.js';
@@ -68,7 +69,10 @@ class LateEditionApp {
     }
 
     this._syncFullUI();
-    this.renderer.render(this.sim, 0.016);
+    // Do not submit a hidden desk's city textures while the full-screen title
+    // owns presentation; the frame loop keeps the same phase-based ownership.
+    if (this.sim.phase === 'title' && !this.sim.deskTooSmall) this.titleRenderer.renderTitle(0.016);
+    else this.renderer.render(this.sim, 0.016);
     requestAnimationFrame((t) => this._loop(t));
   }
 
@@ -208,11 +212,11 @@ class LateEditionApp {
         this._layoutResult(this.sim.spike(pending.uid));
       }
       const status = document.getElementById('drawer-status');
-      status.textContent = result.ok ? 'The file has done its work.' : `Cannot use file: ${result.reason}.`;
+      setText(status, result.ok ? 'The file has done its work.' : `Cannot use file: ${result.reason}.`);
       if (result.ok && result.effects.killedLead) {
         const stamp = document.createElement('span');
         stamp.className = 'rubber-stamp';
-        stamp.textContent = 'KILLED';
+        setText(stamp, 'KILLED');
         status.replaceChildren(stamp);
       }
       // Consumed cards disappear. Keep keyboard focus inside the drawer.
@@ -228,7 +232,7 @@ class LateEditionApp {
     document.getElementById('btn-close-drawer').addEventListener('click', () => this._toggleDrawer(false));
     document.getElementById('btn-cancel-burn').addEventListener('click', () => {
       this.pendingSpike = null;
-      document.getElementById('drawer-status').textContent = 'Copy stays on the desk.';
+      setText(document.getElementById('drawer-status'), 'Copy stays on the desk.');
       this._syncFullUI();
       document.getElementById('btn-close-drawer').focus();
     });
@@ -329,7 +333,7 @@ class LateEditionApp {
     const btnAudio = document.getElementById('btn-audio');
     btnAudio.addEventListener('click', () => {
       const muted = this.audio.toggleMute();
-      btnAudio.textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
+      setText(btnAudio, muted ? 'SOUND: OFF' : 'SOUND: ON');
       btnAudio.classList.toggle('active', !muted);
     });
 
@@ -502,7 +506,7 @@ class LateEditionApp {
         this._syncSpeedButtons();
       } else if (action === 'mute') {
         const muted = this.audio.toggleMute();
-        btnAudio.textContent = muted ? 'SOUND: OFF' : 'SOUND: ON';
+        setText(btnAudio, muted ? 'SOUND: OFF' : 'SOUND: ON');
       } else if (action === 'publish') {
         e.preventDefault();
         if (this.sim.editionSummary) {
@@ -516,7 +520,7 @@ class LateEditionApp {
   }
 
   _layoutResult(result) {
-    document.getElementById('layout-status').textContent = result.ok ? 'Copy desk updated.' : `Cannot assign: ${result.reason}.`;
+    setText(document.getElementById('layout-status'), result.ok ? 'Copy desk updated.' : `Cannot assign: ${result.reason}.`);
     this._syncFullUI();
   }
 
@@ -525,7 +529,7 @@ class LateEditionApp {
     this._layoutResult(result);
     if (result.reason === 'drawer-full') {
       this.pendingSpike = { uid, edition: this.sim.edition };
-      document.getElementById('drawer-status').textContent = 'DRAWER FULL. Choose a file to shred before spiking this story.';
+      setText(document.getElementById('drawer-status'), 'DRAWER FULL. Choose a file to shred before spiking this story.');
       this._toggleDrawer(true);
       document.querySelector('#drawer-files [data-file-action="shred"]')?.focus();
     }
@@ -546,7 +550,7 @@ class LateEditionApp {
     if (this.pendingSpike && (!this.sim.canLayout() || this.pendingSpike.edition !== this.sim.edition)) this.pendingSpike = null;
     document.getElementById('file-drawer').inert = !available;
     const handle = document.getElementById('btn-drawer');
-    handle.textContent = `FILES [D] · ${this.sim.spikedStories.length}/${FILE_DRAWER.capacity}`;
+    setText(handle, `FILES [D] · ${this.sim.spikedStories.length}/${FILE_DRAWER.capacity}`);
     handle.setAttribute('aria-expanded', String(this.drawerOpen));
     document.getElementById('file-drawer').classList.toggle('open', this.drawerOpen);
     document.getElementById('drawer-body').hidden = !this.drawerOpen;
@@ -606,7 +610,7 @@ class LateEditionApp {
         drag.moved = true;
         drag.ghost = document.createElement('div');
         drag.ghost.className = 'drag-copy';
-        drag.ghost.textContent = 'GALLEY PROOF';
+        setText(drag.ghost, 'GALLEY PROOF');
         drag.ghost.setAttribute('aria-hidden', 'true');
         document.body.append(drag.ghost);
       }
@@ -646,40 +650,29 @@ class LateEditionApp {
   }
 
   _syncTopBar() {
-    document.getElementById('hud-edition').textContent =
-      `#${this.sim.edition}`;
-    document.getElementById('hud-clock').textContent =
-      this.sim.getClockString();
-    document.getElementById('hud-circulation').textContent =
-      this.sim.circulation.toLocaleString();
-    document.getElementById('hud-funds').textContent = `$${this.sim.cash}`;
-    document.getElementById('hud-credibility').textContent =
-      `${this.sim.credibility}%`;
-    document.getElementById('hud-heat').textContent =
-      `${this.sim.syndicateHeat}%`;
+    setText(document.getElementById('hud-edition'), `#${this.sim.edition}`);
+    setText(document.getElementById('hud-clock'), this.sim.getClockString());
+    setText(document.getElementById('hud-circulation'), this.sim.circulation.toLocaleString());
+    setText(document.getElementById('hud-funds'), `$${this.sim.cash}`);
+    setText(document.getElementById('hud-credibility'), `${this.sim.credibility}%`);
+    setText(document.getElementById('hud-heat'), `${this.sim.syndicateHeat}%`);
 
     const selOp =
       this.sim.operatives.find((o) => o.id === this.sim.selectedOpId) ||
       this.sim.operatives[0];
     if (selOp) {
       const idx = this.sim.operatives.indexOf(selOp) + 1;
-      document.getElementById('map-selection-status').textContent =
-        `[${idx}] ${selOp.name.toUpperCase()}`;
+      setText(document.getElementById('map-selection-status'), `[${idx}] ${selOp.name.toUpperCase()}`);
     }
   }
 
   _renderOperativesRoster() {
-    const spriteMap = {
-      reporter: 'assets/sprites/unit_reporter.png',
-      photographer: 'assets/sprites/unit_photographer.png',
-      fixer: 'assets/sprites/unit_fixer.png',
-    };
     reconcile(document.getElementById('operative-list'), this.sim.operatives.flatMap((op, idx) => this.sim.operativeAvailable(op) ? [
       h('div', `op-card ${op.id === this.sim.selectedOpId ? 'selected' : ''}`, [
         h('button', 'op-pass-top op-select', [
           h('span', 'op-avatar-wrap', [
             h('span', 'op-key', idx + 1),
-            h('img', 'op-avatar', [], { src: spriteMap[op.sprite], alt: op.name }),
+            h('canvas', 'op-avatar', [], { width: 64, height: 64, role: 'img', 'aria-label': op.name, 'data-role': op.role }),
           ]),
           h('span', 'op-info', [
             h('span', 'op-name-row', op.name),
@@ -693,11 +686,19 @@ class LateEditionApp {
           }),
         ]),
       ], { 'data-op-id': op.id }, op.id)] : []));
+    for (const portrait of document.querySelectorAll('.op-avatar')) {
+      if (portrait.dataset.painted) continue;
+      const ctx = portrait.getContext('2d');
+      ctx.translate(30, 56);
+      ctx.scale(1.2, 1.2);
+      drawSilhouette(ctx, portrait.dataset.role);
+      portrait.dataset.painted = 'true';
+    }
   }
 
   _renderLeadsList() {
     this.renderedLeadIds = this.sim.leads.map((lead) => lead.uid);
-    document.getElementById('leads-count').textContent = `${this.sim.leads.length} ACTIVE`;
+    setText(document.getElementById('leads-count'), `${this.sim.leads.length} ACTIVE`);
     reconcile(document.getElementById('lead-list'), this.sim.leads.map((lead) =>
       h('button', `lead-item ${lead.uid === this.sim.selectedLeadId ? 'selected' : ''}`, [
         h('span', 'lead-top', [
@@ -734,25 +735,20 @@ class LateEditionApp {
   }
 
   _renderBroadsheetAndPress() {
-    document.getElementById('paper-edition-label').textContent =
-      `EDITION #${this.sim.edition}`;
+    setText(document.getElementById('paper-edition-label'), `EDITION #${this.sim.edition}`);
     const proj = this.sim.calculateEditionProjection();
-    document.getElementById('paper-projected-readers').textContent =
-      `EST. ${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()} READERS`;
+    setText(document.getElementById('paper-projected-readers'), `EST. ${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()} READERS`);
     this._renderFrontPage(document.getElementById('layout-slots'), this.sim.frontPage, true);
     reconcile(document.getElementById('inside-stories'), this.sim.insideStories.map((story) =>
       h('button', `scoop-chip ${story.uid === this.selectedStoryUid ? 'selected-copy' : ''}`, story.headline,
         { type: 'button', 'data-story-uid': story.uid, 'aria-pressed': String(story.uid === this.selectedStoryUid) }, story.uid)));
-    document.getElementById('spiked-count').textContent = `${this.sim.spikedStories.length} SPIKED`;
-    document.getElementById('assist-note').textContent = this.sim.editionLayout.assisted ? 'ASSISTED · −500 READERS' : 'MANUAL PASTE-UP';
+    setText(document.getElementById('spiked-count'), `${this.sim.spikedStories.length} SPIKED`);
+    setText(document.getElementById('assist-note'), this.sim.editionLayout.assisted ? 'ASSISTED · −500 READERS' : 'MANUAL PASTE-UP');
 
-    document.getElementById('proj-circ').textContent =
-      `${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()}`;
-    document.getElementById('proj-cash').textContent = `+$${proj.cashDelta}`;
-    document.getElementById('proj-cred').textContent =
-      `${proj.credDelta >= 0 ? '+' : ''}${proj.credDelta}%`;
-    document.getElementById('proj-heat').textContent =
-      `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
+    setText(document.getElementById('proj-circ'), `${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()}`);
+    setText(document.getElementById('proj-cash'), `+$${proj.cashDelta}`);
+    setText(document.getElementById('proj-cred'), `${proj.credDelta >= 0 ? '+' : ''}${proj.credDelta}%`);
+    setText(document.getElementById('proj-heat'), `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`);
 
     const inkColorMap = { herald: PALETTE.brass, observer: PALETTE.stampRed };
     const allPapers = [
@@ -830,7 +826,7 @@ class LateEditionApp {
         h('span', st?.seriesBadge ? 'series-stamp' : '', st?.seriesBadge ? `${st.seriesBadge} (+${st.arcPart === 3 ? '4,500' : st.arcPart === 2 ? '2,500' : '1,200'} RDRS)` : '', st?.seriesBadge ? {} : { hidden: '' }),
         ...(photo ? [h('div', 'halftone-photo-box', [
           h('img', 'halftone-photo-img', [], {
-            src: st ? 'assets/sprites/masthead_press.png' : 'assets/sprites/unit_photographer.png',
+            src: 'assets/sprites/masthead_press.png',
             alt: st ? 'Speed Graphic Exposé' : 'Darkroom Plate',
           }),
           h('div', 'halftone-caption-bar', [
@@ -889,10 +885,10 @@ class LateEditionApp {
       if (changed && this.focusBeforeModal?.isConnected) this.focusBeforeModal.focus();
       return;
     }
-    document.getElementById('modal-kicker').textContent = folded ? 'THE EVENING STAR // STOP PRESS TELEGRAM' : `ROTARY PRESS REPORT // EDITION #${sum.edition}`;
-    document.getElementById('modal-title').textContent = folded ? 'PAPER FOLDED' : `EXTRA! EXTRA! EDITION #${sum.edition} HITS THE STREETS`;
-    document.getElementById('modal-subtitle').textContent = folded ? this.sim.gameOverReason :
-      `Printed ${sum.slottedCount} stories (${sum.insideCount} inside). ${sum.assisted ? 'ASSISTED: −500 readers. ' : ''}${sum.emptyBanner ? 'WIRE STAND-IN: −6 trust. ' : ''}Managing Editor Lou Vance reviews the morning street sales:`;
+    setText(document.getElementById('modal-kicker'), folded ? 'THE EVENING STAR // STOP PRESS TELEGRAM' : `ROTARY PRESS REPORT // EDITION #${sum.edition}`);
+    setText(document.getElementById('modal-title'), folded ? 'PAPER FOLDED' : `EXTRA! EXTRA! EDITION #${sum.edition} HITS THE STREETS`);
+    setText(document.getElementById('modal-subtitle'), folded ? this.sim.gameOverReason :
+      `Printed ${sum.slottedCount} stories (${sum.insideCount} inside). ${sum.assisted ? 'ASSISTED: −500 readers. ' : ''}${sum.emptyBanner ? 'WIRE STAND-IN: −6 trust. ' : ''}Managing Editor Lou Vance reviews the morning street sales:`);
     const metrics = folded ? [
       ['EDITION REACHED', `#${this.sim.edition}`],
       ['PEAK CIRCULATION', this.sim.peakCirculation.toLocaleString()],
@@ -914,7 +910,7 @@ class LateEditionApp {
         hasCopy ? this.sim.frontPage : this.sim.lastPrintedFrontPage ?? this.sim.frontPage);
     }
     const button = document.getElementById('btn-modal-continue');
-    button.textContent = folded ? 'Start a new night shift' : 'START NEXT NIGHT SHIFT [SPACE]';
+    setText(button, folded ? 'Start a new night shift' : 'START NEXT NIGHT SHIFT [SPACE]');
     if (changed && !this.sim.deskTooSmall) button.focus();
   }
 
@@ -927,12 +923,11 @@ class LateEditionApp {
       return;
     }
     card.classList.remove('hidden');
-    document.getElementById('rotary-caller').textContent = d.caller;
-    document.getElementById('rotary-timer').textContent =
-      `${Math.max(1, Math.ceil(d.timer))}s`;
-    document.getElementById('rotary-prompt').textContent = d.prompt;
-    document.getElementById('btn-dilemma-accept').textContent = d.acceptLabel;
-    document.getElementById('btn-dilemma-reject').textContent = d.rejectLabel;
+    setText(document.getElementById('rotary-caller'), d.caller);
+    setText(document.getElementById('rotary-timer'), `${Math.max(1, Math.ceil(d.timer))}s`);
+    setText(document.getElementById('rotary-prompt'), d.prompt);
+    setText(document.getElementById('btn-dilemma-accept'), d.acceptLabel);
+    setText(document.getElementById('btn-dilemma-reject'), d.rejectLabel);
   }
 
   _syncFullUI() {
@@ -960,9 +955,9 @@ class LateEditionApp {
     this._renderModal();
     if (enterLayout) document.querySelector('#scoop-tray button')?.focus();
 
-    document.getElementById('editor-directive').textContent = this.sim.edition === 1 ?
+    setText(document.getElementById('editor-directive'), this.sim.edition === 1 ?
       'Pick a reporter’s pass. Click a wire slip. We need names before midnight.' :
-      EDITOR_QUOTES[(this.sim.edition - 1 + this.sim.scoopsTotal) % EDITOR_QUOTES.length];
+      EDITOR_QUOTES[(this.sim.edition - 1 + this.sim.scoopsTotal) % EDITOR_QUOTES.length]);
   }
 
   _discardSave() {
@@ -981,7 +976,7 @@ class LateEditionApp {
       // previous checkpoint intact and tell the editor that this one was not saved.
       this.saveNotice = 'The run could not be saved. The last checkpoint is unchanged.';
     }
-    document.getElementById('save-status').textContent = this.saveNotice;
+    setText(document.getElementById('save-status'), this.saveNotice);
   }
 
   _dismissReport() {
@@ -1045,6 +1040,7 @@ class LateEditionApp {
 
   _renderOpening() {
     const { phase, deskTooSmall } = this.sim;
+    if (phase !== 'title' || deskTooSmall) this.titleRenderer.releaseTitle();
     document.getElementById('title-screen').hidden = phase !== 'title' || deskTooSmall;
     document.getElementById('cold-open').hidden = phase !== 'cold-open' || deskTooSmall;
     document.getElementById('desk-too-small').hidden = !deskTooSmall;
@@ -1052,11 +1048,11 @@ class LateEditionApp {
     document.getElementById('edition-modal').inert = deskTooSmall;
     const continueButton = document.getElementById('btn-continue-run');
     continueButton.hidden = !this.savedRun;
-    if (this.savedRun) continueButton.textContent = `Continue the run (Edition ${this.savedRun.edition})`;
-    document.getElementById('btn-start-shift').textContent = this.savedRun ? 'New run' : 'Start the night shift';
-    document.getElementById('title-save-notice').textContent = this.saveNotice;
-    document.getElementById('save-status').textContent = this.saveNotice;
-    document.getElementById('title-best').textContent = `Best circulation: ${this.sim.highCirculation.toLocaleString()}`;
+    if (this.savedRun) setText(continueButton, `Continue the run (Edition ${this.savedRun.edition})`);
+    setText(document.getElementById('btn-start-shift'), this.savedRun ? 'New run' : 'Start the night shift');
+    setText(document.getElementById('title-save-notice'), this.saveNotice);
+    setText(document.getElementById('save-status'), this.saveNotice);
+    setText(document.getElementById('title-best'), `Best circulation: ${this.sim.highCirculation.toLocaleString()}`);
     if (phase === 'cold-open') {
       reconcile(document.getElementById('lou-lines'), this.coldOpen.lines.map((line, i) =>
         h('p', '', line, {}, i)));
@@ -1095,7 +1091,10 @@ class LateEditionApp {
       this._renderLeadsList();
     }
     if (this.sim.phase === 'title' && !this.sim.deskTooSmall) this.titleRenderer.renderTitle(rawDt);
-    else this.renderer.render(this.sim, this.sim.deskTooSmall ? 0 : rawDt);
+    else {
+      this.titleRenderer.releaseTitle();
+      this.renderer.render(this.sim, this.sim.deskTooSmall ? 0 : rawDt);
+    }
 
     this.uiTickAccum += rawDt;
     if (this.uiTickAccum >= 0.25) {
