@@ -97,3 +97,20 @@ test('reduced motion freezes title geometry/rain, including after a live prefere
   renderer.renderTitle(10);
   assert.deepEqual(fixture.calls, first);
 });
+
+
+test('initial font loading cannot bake fallback signs; font failure still permits the city', (t) => {
+  const fixture = canvasFixture(t);
+  globalThis.document.fonts = { status: 'loading' };
+  const renderer = new NoirCityRenderer(fixture.canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  renderer.render(sim);
+  renderer.renderTitle();
+  assert.equal(renderer.cache, null);
+  assert.equal(fixture.calls.length, 0);
+  // FontFaceSet settles to loaded even when a face failed (blocked/offline).
+  globalThis.document.fonts.status = 'loaded';
+  renderer.render(sim);
+  assert.ok(renderer.cache);
+  assert.ok(fixture.calls.some(([name]) => name === 'fillText'));
+});

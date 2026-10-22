@@ -47,7 +47,11 @@ export class NoirCityRenderer {
     const width = Math.max(1, Math.round(rect.width * dpr));
     const height = Math.max(1, Math.round(rect.height * dpr));
     const key = `${width}:${height}:${dpr}`;
-    if (this.cache?.key === key) return;
+    if (this.cache?.key === key) return true;
+    // Wait for the initial local font load before baking signs. Otherwise the
+    // cache would retain fallback glyphs until resize; no font-triggered rebuild
+    // is needed. Failed/blocked fonts settle and use the period fallback stacks.
+    if (!this.cache && document.fonts?.status === 'loading') return false;
     this.canvas.width = width;
     this.canvas.height = height;
     const layer = (paint) => {
@@ -70,6 +74,7 @@ export class NoirCityRenderer {
       fog: layer((ctx) => this._drawFogEdges(ctx)),
       skyline: [0, 1, 2].map((depth) => layer((ctx) => this._drawSkyline(ctx, depth))),
     };
+    return true;
   }
 
   screenToWorld(clientX, clientY) {
@@ -83,7 +88,7 @@ export class NoirCityRenderer {
   }
 
   render(sim, dt = 0.016) {
-    this._ensureLayers();
+    if (!this._ensureLayers()) return;
     dt = this.reducedMotion || !Number.isFinite(dt) ? 0 : Math.max(0, Math.min(dt, 0.1));
     this.cosmeticTime += dt;
     const ctx = this.ctx;
@@ -115,7 +120,7 @@ export class NoirCityRenderer {
   }
 
   renderTitle(dt = 0.016) {
-    this._ensureLayers();
+    if (!this._ensureLayers()) return;
     dt = this.reducedMotion || !Number.isFinite(dt) ? 0 : Math.max(0, Math.min(dt, 0.1));
     this.cosmeticTime += dt;
     const time = this.reducedMotion ? 0 : this.cosmeticTime;

@@ -463,7 +463,7 @@ loaded; the editor portrait and press plate remain in use (see asset notes).
 
 `NoirCityRenderer` caches city geometry/lamps/signs, edge fog, and three title depth
 layers on detached canvases at the displayed size × DPR. Caches rebuild on size/DPR
-changes only. Each frame composites these layers and draws traffic, figures, leads,
+changes only, after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
 threads, weather and callouts. Title layers add a bridge, water towers, lit windows,
 Evening Star sign, slow parallax and municipal searchlight. Reduced motion freezes
 rain, fog, bob and parallax and suppresses scoop/camera flashes; title pixels remain
@@ -478,7 +478,8 @@ Browser cases click ten distinct actual addresses at both 1280×720 and 1920×10
 exercise inside/outside hit boundaries, unit priority and closed-dispatch rejection,
 and reject console errors and all `unit_*.png` network requests.
 
-Playwright explicitly launches Chromium with ANGLE **SwiftShader**. The 1080p combat
+The performance scenario explicitly launches Chromium with ANGLE **SwiftShader**;
+other browser scenarios retain Playwright’s default backend. The 1080p combat
 smoke samples real `requestAnimationFrame` timestamps for **at least five seconds**,
 requires more than 100 frames/render calls with live gameplay and stable caches,
 and asserts **p95 frame interval <20ms** plus **p95 `renderer.render()` cost <8ms**.
