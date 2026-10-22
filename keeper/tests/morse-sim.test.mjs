@@ -155,6 +155,23 @@ test('WHO replies with a stable alphanumeric callsign and wrecks cannot receive 
   assert.equal(state.morse.lastMessage.recipient, null);
 });
 
+test('known unfinished commands survive the seven-unit word gap and dispatch the whole vocabulary', () => {
+  for (const [text, reply] of [['WHAT LIGHT', 'SKR'], ['STEER N', 'R'], ['STEER S', 'R'], ['STEER E', 'R'], ['STEER W', 'R']]) {
+    const state = send(aimed(), text);
+    assert.equal(state.morse.lastMessage.text, text);
+    assert.equal(state.morse.lastMessage.recipient, 'trawler');
+    assert.deepEqual(state.trawler.reply.flashes, keyingFor(reply));
+    assert.equal(state.trawler.warnedAt, null, 'only ROCKS changes navigation');
+  }
+  let state = send(aimed(), 'WHAT');
+  assert.equal(state.morse.lastMessage, null);
+  assert.equal(state.trawler.reply, null, 'do not reply to the unfinished first word');
+  state = resetLamp(state);
+  state = send(state, 'HELLO');
+  assert.equal(state.morse.lastMessage.text, 'HELLO');
+  assert.deepEqual(state.trawler.reply.flashes, keyingFor('?'));
+});
+
 test('mode reset discards held key and partial message; pause adds no synthetic dash or replay', () => {
   let state = step(aimed(), { lamp: true, hold: true }, 0.1);
   const before = structuredClone(state);

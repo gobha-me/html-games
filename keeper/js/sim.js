@@ -357,7 +357,11 @@ function keyLamp(state, input, dt) {
     keying.down = null;
   }
   state.lamp = held;
-  if (!held && keying.events.length && state.time * 1000 - keying.events.at(-1).up >= 7 * keying.unit - 1e-7) {
+  // These two vocabulary prefixes need the same 7u gap to introduce a word.
+  // Keep them unfinished until the second word, rather than sending nonsense.
+  const unfinished = keying.text === 'WHAT' || keying.text === 'STEER';
+  if (!held && !unfinished && keying.events.length
+    && state.time * 1000 - keying.events.at(-1).up >= 7 * keying.unit - 1e-7) {
     sendLamp(state);
   }
 }
