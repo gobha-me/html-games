@@ -1,7 +1,8 @@
 import { PALETTE, alpha as withAlpha } from './palette.js';
-import { CITY_SEED, generateDistrict, districtSignPosition, shadowVector } from './city.js';
+import { CITY_SEED, generateDistrict, generateSkyline, rooftopSignGeometry, districtSignPosition, shadowVector } from './city.js';
 import { mulberry32 } from './rng.js';
-import { drawSilhouette } from './silhouettes.js';
+import { drawSilhouette, FIGURE_SCALE, MARKER_SCALE, figureBox } from './silhouettes.js';
+import { placeLabel } from './label-placement.js';
 // ============================================================================
 // LATE EDITION // 1947 — 2.5D Rain-Slicked Noir Metropolis Renderer
 // ============================================================================
@@ -19,6 +20,7 @@ export class NoirCityRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.city = DISTRICTS.map((district) => ({ district, buildings: generateDistrict(district) }));
+    this.skylines = [0, 1, 2].map((depth) => generateSkyline(depth));
     this.cosmeticTime = 0;
     this.cache = null;
     this.previousLeads = [];
@@ -152,8 +154,8 @@ export class NoirCityRenderer {
     ctx.translate(1150, 790);
     ctx.rotate(-0.48 + Math.sin(time * 0.12) * 0.32);
     const light = ctx.createLinearGradient(0, 0, 0, -850);
-    light.addColorStop(0, withAlpha(PALETTE.sodium, 0.085));
-    light.addColorStop(0.65, withAlpha(PALETTE.sodium, 0.055));
+    light.addColorStop(0, withAlpha(PALETTE.sodium, 0.16));
+    light.addColorStop(0.65, withAlpha(PALETTE.sodium, 0.10));
     light.addColorStop(1, withAlpha(PALETTE.sodium, 0));
     ctx.fillStyle = light;
     polygon(ctx, [[0, 0], [-170, -850], [100, -850]]);
@@ -179,16 +181,11 @@ export class NoirCityRenderer {
       ctx.fillStyle = sky;
       ctx.fillRect(-20, 0, WORLD_W + 40, WORLD_H);
     }
-    const mass = [mix(PALETTE.nightInk, PALETTE.smoke, 0.10),
-      mix(PALETTE.nightInk, PALETTE.mahogany, 0.18), PALETTE.nightInk][depth];
-    const skylineRng = mulberry32(CITY_SEED + depth);
+    const mass = [mix(PALETTE.nightInk, PALETTE.smoke, 0.20),
+      mix(PALETTE.nightInk, PALETTE.smoke, 0.11), mix(PALETTE.nightInk, PALETTE.smoke, 0.035)][depth];
     ctx.fillStyle = mass;
     const baseline = 610 + depth * 150;
-    for (let i = 0; i < 22; i++) {
-      const x = i * 70 - 30;
-      const height = 90 + skylineRng.nextInt(0, 285);
-      const width = 45 + skylineRng.nextInt(0, 37);
-      const top = baseline - height;
+    for (const { index: i, x, top, width, height } of this.skylines[depth]) {
       ctx.fillRect(x, top, width, height + 240);
       ctx.fillRect(x + 5, top - 5, width - 10, 5);
       if (i % 3 === 0) {
@@ -202,8 +199,6 @@ export class NoirCityRenderer {
         if ((i * 7 + j * 13 + depth) % 5 === 0) ctx.fillRect(x + 10 + (j % 3) * 15, top + 18 + Math.floor(j / 3) * 25, 4, 7);
       }
       ctx.fillStyle = mass;
-      // Anchor the sign to a foreground roof outside the central title paper.
-      if (depth === 2 && i === 17) drawSign(ctx, 'EVENING STAR', x + 3, top - 5, true);
     }
     if (depth < 2) {
       const haze = ctx.createLinearGradient(0, baseline - 240, 0, baseline + 160);
@@ -214,6 +209,24 @@ export class NoirCityRenderer {
       ctx.fillRect(-20, baseline - 240, WORLD_W + 40, WORLD_H - baseline + 240);
     }
     if (depth === 2) {
+      // Paint after all masses: neighbouring roofs cannot erase the frame/legs.
+      ctx.save();
+      ctx.font = '22px "League Gothic", Impact, sans-serif';
+      const sign = rooftopSignGeometry(this.skylines[2][17], ctx.measureText('EVENING STAR').width + 12);
+      ctx.strokeStyle = PALETTE.brass;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (const x of sign.legs) {
+        ctx.moveTo(x, sign.y + sign.h);
+        ctx.lineTo(x, sign.bottomY);
+      }
+      ctx.stroke();
+      ctx.fillStyle = PALETTE.nightInk;
+      ctx.fillRect(sign.x, sign.y, sign.w, sign.h);
+      ctx.strokeRect(sign.x, sign.y, sign.w, sign.h);
+      ctx.fillStyle = PALETTE.sodium;
+      ctx.fillText('EVENING STAR', sign.x + 6, sign.y + 21);
+      ctx.restore();
       ctx.save();
       ctx.translate(0, 180);
       ctx.strokeStyle = PALETTE.nightInk;
@@ -399,7 +412,7 @@ export class NoirCityRenderer {
       const text = STREET_SIGNS[d.id];
       const width = ctx.measureText(text).width + 12;
       const { x, y } = districtSignPosition(d, width, obstacles);
-      return { text, x, y, width };
+      return { districtId: d.id, text, x, y, width };
     });
     return { leads: sim.leads.map((lead) => Object.fromEntries(fields.map((field) => [field, lead[field]]))), positions };
   }
@@ -441,8 +454,9 @@ export class NoirCityRenderer {
       ctx.fillStyle = withAlpha(PALETTE.sodium, 0.65);
       for (let i = 0; i < 6; i++) ctx.fillRect(x - 26 + i * 10, y + 18, 6, 14);
     } else if (d.id === 'observer_hq') {
-      ctx.globalAlpha = 0.5;
-      drawSign(ctx, 'OBSERVER', x - 42, y + 10);
+      // The district's sole OBSERVER label belongs to the street-sign pass.
+      ctx.fillRect(x - 30, y + 10, 60, 12);
+      ctx.strokeRect(x - 30, y + 10, 60, 12);
     } else if (d.id === 'wallst') {
       polygon(ctx, [[x - 44, y + 8], [x, y - 15], [x + 44, y + 8]]);
       ctx.fillStyle = PALETTE.smoke;
@@ -507,14 +521,67 @@ export class NoirCityRenderer {
       ctx.setLineDash([]);
 
       ctx.beginPath();
-      ctx.arc(op.targetX, op.targetY, 8, 0, Math.PI * 2);
+      ctx.arc(op.targetX, op.targetY, 8 * MARKER_SCALE, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.restore();
   }
 
+  _leadLabelObstacles(sim) {
+    const obstacles = sim.leads.map((lead) => ({ x: lead.x - 32, y: lead.y - 32, w: 64, h: 64 }));
+    for (const op of sim.operatives) {
+      if (!sim.operativeAvailable(op)) continue;
+      obstacles.push(figureBox(op.x, op.y));
+      if (op.id === sim.selectedOpId || op.id === this.hoverOperativeId) {
+        obstacles.push({ x: op.x - 39 * MARKER_SCALE, y: op.y - 13 * MARKER_SCALE,
+          w: 78 * MARKER_SCALE, h: 36 * MARKER_SCALE });
+      }
+      if (Math.hypot(op.targetX - op.x, op.targetY - op.y) >= 10) {
+        const radius = 8 * MARKER_SCALE + 2;
+        obstacles.push({ x: op.targetX - radius, y: op.targetY - radius, w: radius * 2, h: radius * 2 });
+      }
+    }
+    for (const rival of sim.rivals) {
+      obstacles.push(figureBox(rival.x, rival.y));
+      if (rival.stunTimer > 0) {
+        const radius = 43 * MARKER_SCALE + 2;
+        obstacles.push({ x: rival.x - radius, y: rival.y - 35 * MARKER_SCALE - radius,
+          w: radius * 2, h: radius * 2 });
+      }
+    }
+    for (const sign of this.cache?.signs?.positions ?? []) {
+      obstacles.push({ x: sign.x - 1, y: sign.y - 19, w: sign.width + 2, h: 45 });
+    }
+    return obstacles;
+  }
+
+  _layoutLeadLabels(ctx, sim) {
+    const obstacles = this._leadLabelObstacles(sim);
+    const allIdle = sim.operatives.every((op) => !op.targetLeadId && !op.targetRivalId);
+    return sim.leads.map((lead) => {
+      const prompt = allIdle && lead.uid === sim.selectedLeadId && sim.scoopsTotal === 0;
+      ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
+      let width = Math.max(86, ctx.measureText(`$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`).width + 16);
+      if (lead.seriesBadge) {
+        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
+        width = Math.max(width, ctx.measureText(lead.seriesBadge).width + 14);
+      }
+      if (prompt) {
+        ctx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
+        width = Math.max(width, ctx.measureText('▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE').width + 20);
+      }
+      // Include strokes and the onboarding prompt's full bounce in the box.
+      const top = lead.seriesBadge ? -67 : -48;
+      const height = (prompt ? 62 : 12) - top;
+      const placement = placeLabel(lead, { w: width + 4, h: height }, obstacles);
+      obstacles.push(placement.box);
+      return { ...placement, top };
+    });
+  }
+
   _drawStoryLeads(ctx, sim) {
-    for (const lead of sim.leads) {
+    const placements = this._layoutLeadLabels(ctx, sim);
+    for (const [index, lead] of sim.leads.entries()) {
       const isSelected = lead.uid === sim.selectedLeadId;
       const isHovered = lead.uid === this.hoverLeadId;
       const ttlRatio = Math.max(0, Math.min(1, lead.timeLeft / 48));
@@ -541,12 +608,6 @@ export class NoirCityRenderer {
         ctx.stroke();
       }
 
-      // Pin is exactly at the unchanged address; the telegram is decoration.
-      ctx.strokeStyle = PALETTE.brass;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -24); ctx.stroke();
-      ctx.fillStyle = PALETTE.telegram;
-      polygon(ctx, [[0, -24], [29, -24], [24, -15], [29, -6], [0, -6]]);
       ctx.fillStyle = PALETTE.stampRed;
       ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
 
@@ -586,6 +647,31 @@ export class NoirCityRenderer {
         );
         ctx.stroke();
       }
+
+      ctx.restore();
+      const { box, top, leader } = placements[index];
+      ctx.save();
+      if (leader) {
+        ctx.strokeStyle = withAlpha(PALETTE.brass, 0.8);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(leader.from.x, leader.from.y);
+        ctx.lineTo(leader.to.x, leader.to.y); ctx.stroke();
+      } else {
+        // A short pin thread keeps a nearby offset telegram tied to its address.
+        ctx.strokeStyle = withAlpha(PALETTE.brass, 0.5);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(lead.x, lead.y);
+        ctx.lineTo(Math.max(box.x, Math.min(lead.x, box.x + box.w)),
+          Math.max(box.y, Math.min(lead.y, box.y + box.h))); ctx.stroke();
+      }
+      ctx.translate(box.x + box.w / 2, box.y - top);
+      // The telegram moves as one group; the address/rings above stay fixed.
+      ctx.strokeStyle = PALETTE.brass;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -24); ctx.stroke();
+      ctx.fillStyle = PALETTE.telegram;
+      polygon(ctx, [[0, -24], [29, -24], [24, -15], [29, -6], [0, -6]]);
+
 
       // Beat label inside node
       ctx.font = '800 10px "Courier Prime", "Courier New", monospace';
@@ -680,13 +766,13 @@ export class NoirCityRenderer {
         polygon(ctx, [[0, 0], [90, -28], [90, 28]]);
         ctx.restore();
       }
-      ctx.save(); ctx.scale(1.6, 1.6);
+      ctx.save(); ctx.scale(FIGURE_SCALE, FIGURE_SCALE);
       drawSilhouette(ctx, goon ? 'fixer' : 'reporter', { herald: !goon, goon,
         bob: rv.stunTimer > 0 ? 0 : Math.sin(this.cosmeticTime * 10 + rv.x * 0.01) * 1.5 });
       ctx.restore();
       if (rv.stunTimer > 0) {
         ctx.strokeStyle = PALETTE.newsprint;
-        ctx.beginPath(); ctx.arc(0, -35, 43, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, -35 * MARKER_SCALE, 43 * MARKER_SCALE, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     }
@@ -699,10 +785,10 @@ export class NoirCityRenderer {
       ctx.translate(op.x, op.y);
       if (op.id === sim.selectedOpId || op.id === this.hoverOperativeId) {
         ctx.strokeStyle = PALETTE.sodium;
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(0, 5, 38, 17, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 2 * MARKER_SCALE;
+        ctx.beginPath(); ctx.ellipse(0, 5 * MARKER_SCALE, 38 * MARKER_SCALE, 17 * MARKER_SCALE, 0, 0, Math.PI * 2); ctx.stroke();
       }
-      ctx.scale(1.6, 1.6);
+      ctx.scale(FIGURE_SCALE, FIGURE_SCALE);
       const walking = Math.hypot(op.targetX - op.x, op.targetY - op.y) > 10;
       drawSilhouette(ctx, op.role, { bob: walking ? Math.sin(this.cosmeticTime * 10 + i) * 1.5 : 0 });
       ctx.fillStyle = PALETTE.sodium;

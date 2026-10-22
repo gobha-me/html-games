@@ -1,5 +1,13 @@
 import { PALETTE, alpha } from './palette.js';
 
+export const FIGURE_SCALE = 1.6 * 1.4;
+export const MARKER_SCALE = 1.4;
+
+// Includes coat, camera/flash, badge, stroke and the full walking-bob range.
+// The cast shadow is street decoration, not part of the opaque figure box.
+export const figureBox = (x, y) => ({ x: x - 21 * FIGURE_SCALE,
+  y: y - 43 * FIGURE_SCALE, w: 42 * FIGURE_SCALE, h: 49 * FIGURE_SCALE });
+
 // Shared geometry for street figures and press-pass portraits. Coordinates are
 // relative to the feet; the art deliberately has no input/hit-test information.
 export function drawSilhouette(ctx, role = 'reporter', { bob = 0, herald = false, goon = false } = {}) {

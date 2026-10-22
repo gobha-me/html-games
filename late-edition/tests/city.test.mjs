@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateDistrict, CITY_SEED, districtSignPosition, shadowVector } from '../js/city.js';
+import { generateDistrict, generateSkyline, rooftopSignGeometry, CITY_SEED, districtSignPosition, shadowVector } from '../js/city.js';
 import { DISTRICTS } from '../js/config.js';
 import { NoirCityRenderer } from '../js/renderer.js';
 import { LateEditionSim } from '../js/sim.js';
+import { boxesIntersect, placeLabel } from '../js/label-placement.js';
+import { FIGURE_SCALE, MARKER_SCALE } from '../js/silhouettes.js';
 
 const district = DISTRICTS[0];
 test('cosmetic seed is repeatable, isolated from order, and changes silhouettes', () => {
@@ -186,4 +188,112 @@ test('all eight district signs escape flags, headlines and series badges on thei
     assert.ok(Number.isFinite(fallback.x) && Number.isFinite(fallback.y));
     assert.deepEqual(districtSignPosition(d, width, blocked), fallback);
   }
+});
+
+test('whole map paints exactly one unique sign label per district, including cached landmarks', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  // Force every street sign off its usual curb; never resurrect a landmark copy.
+  sim.leads = DISTRICTS.map((d, i) => ({ ...sim.leads[0], uid: `crowd-${i}`,
+    x: d.x + 40, y: d.y + d.h - 4 }));
+  renderer.render(sim, 0);
+  const signs = renderer.cache.signs.positions;
+  assert.equal(signs.length, DISTRICTS.length);
+  assert.equal(new Set(signs.map((sign) => sign.text)).size, DISTRICTS.length);
+  assert.deepEqual(signs.map((sign) => sign.districtId).sort(), DISTRICTS.map((d) => d.id).sort());
+  for (const sign of signs) {
+    assert.equal(calls.filter(([method, text]) => method === 'fillText' && text === sign.text).length,
+      1, `${sign.districtId}: the static city and dynamic sign pass together paint one label`);
+  }
+});
+
+test('crowded labels avoid enlarged staff/rivals, badges, selection and dispatch rings', (t) => {
+  const { canvas } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  sim.edition = 4;
+  sim.operatives.forEach((op, i) => Object.assign(op, {
+    x: 650 + i * 35, y: 530, targetX: 700, targetY: 500,
+  }));
+  sim.rivals = [{ x: 740, y: 440, stunTimer: 1 }, { x: 600, y: 475, stunTimer: 0 }];
+  sim.leads.forEach((lead, i) => Object.assign(lead, { x: 700 + i * 20, y: 500,
+    headline: 'LONG CROWDED TELEGRAM HEADLINE', seriesBadge: 'SERIES PART III/III (+2,500 RDRS)' }));
+  const before = sim.getStateHash();
+  const obstacles = renderer._leadLabelObstacles(sim);
+  const placements = renderer._layoutLeadLabels(renderer.ctx, sim);
+  assert.ok(placements.some((p) => p.leader), 'Crowding must force the fallback path');
+  for (const { box } of placements) {
+    assert.ok(obstacles.every((b) => !boxesIntersect(box, b)), JSON.stringify(box));
+    assert.ok(box.x >= 0 && box.x + box.w <= 1400 && box.y >= 0 && box.y + box.h <= 1000);
+    obstacles.push(box);
+  }
+  assert.equal(sim.getStateHash(), before);
+});
+
+test('label offsets try above, right, left, below before a detached leader fallback', () => {
+  const anchor = { x: 200, y: 200 }, size = { w: 80, h: 30 };
+  const bounds = { x: 0, y: 0, w: 400, h: 400 };
+  const obstacles = [];
+  for (const direction of ['above', 'right', 'left', 'below']) {
+    const placement = placeLabel(anchor, size, obstacles, bounds);
+    assert.equal(placement.leader, null);
+    const { box } = placement;
+    assert.ok(direction === 'above' ? box.y + box.h < anchor.y : direction === 'right' ? box.x > anchor.x :
+      direction === 'left' ? box.x + box.w < anchor.x : box.y > anchor.y);
+    obstacles.push({ ...box });
+  }
+  const snapshot = structuredClone({ anchor, size, obstacles, bounds });
+  const fallback = placeLabel(anchor, size, obstacles, bounds);
+  assert.ok(fallback.leader);
+  assert.deepEqual(fallback.leader.from, anchor);
+  assert.ok(!obstacles.some((b) => boxesIntersect(fallback.box, b)));
+  assert.deepEqual(placeLabel(anchor, size, obstacles, bounds), fallback);
+  assert.deepEqual({ anchor, size, obstacles, bounds }, snapshot);
+  const covered = [{ x: -1000, y: -1000, w: 4000, h: 4000 }];
+  const impossible = placeLabel(anchor, size, covered, bounds);
+  assert.ok(impossible.leader && !boxesIntersect(impossible.box, covered[0]));
+  for (const bad of [{ ...size, w: NaN }, { ...size, h: 0 }, { ...size, w: -1 }]) {
+    assert.throws(() => placeLabel(anchor, bad, obstacles), RangeError);
+  }
+  assert.throws(() => placeLabel({ x: Infinity, y: 0 }, size, []), RangeError);
+  assert.throws(() => placeLabel(anchor, size, [{ x: 0, y: 0, w: 0, h: 10 }]), RangeError);
+});
+
+test('street figures, number badges and ground rings grow together by 1.4x', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  sim.edition = 4;
+  renderer._drawOperatives(renderer.ctx, sim);
+  assert.equal(FIGURE_SCALE, 1.6 * 1.4);
+  assert.equal(calls.filter(([method, x, y]) => method === 'scale' && x === FIGURE_SCALE && y === FIGURE_SCALE).length, 4);
+  assert.ok(calls.some(([method, , , rx, ry]) => method === 'ellipse' && rx === 38 * MARKER_SCALE && ry === 17 * MARKER_SCALE));
+  calls.length = 0;
+  renderer._drawRivals(renderer.ctx, { rivals: [{ x: 0, y: 0, type: 'goon', angle: 0, stunTimer: 1 }] });
+  assert.ok(calls.some(([method, x, y]) => method === 'scale' && x === FIGURE_SCALE && y === FIGURE_SCALE));
+});
+
+test('title sign legs meet their generated near-building roof within one pixel', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  for (const seed of [CITY_SEED, 0, -99, 12345]) {
+    const buildings = generateSkyline(2, seed);
+    assert.deepEqual(generateSkyline(2, seed), buildings);
+    const host = buildings[17];
+    const sign = rooftopSignGeometry(host, 120);
+    assert.ok(Math.abs(sign.bottomY - host.roofY) <= 1);
+    assert.equal(host.roofY, host.top - 5, 'The actual cornice roof, not the facade top');
+    assert.ok(sign.legs.every((x) => x > host.x && x < host.x + host.width));
+    renderer.skylines[2] = buildings;
+    calls.length = 0;
+    renderer._drawSkyline(renderer.ctx, 2);
+    for (const x of sign.legs) assert.ok(calls.some(([method, px, py]) => method === 'lineTo' && px === x && Math.abs(py - host.roofY) <= 1));
+    assert.ok(calls.some(([method, x, y, w, h]) => method === 'fillRect' && x === host.x && y === host.top && w === host.width && h === host.height + 240));
+    assert.equal(calls.filter(([method, text]) => method === 'fillText' && text === 'EVENING STAR').length, 1);
+  }
+  for (const depth of [-1, 3, NaN]) assert.throws(() => generateSkyline(depth), RangeError);
+  assert.throws(() => generateSkyline(2, Infinity), RangeError);
+  assert.throws(() => rooftopSignGeometry(null, 120), RangeError);
+  assert.throws(() => rooftopSignGeometry(generateSkyline(2)[17], NaN), RangeError);
 });

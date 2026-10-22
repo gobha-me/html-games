@@ -3,6 +3,28 @@ import { WORLD_W, WORLD_H } from './config.js';
 
 // A separate, fixed cosmetic stream: never accept the simulation's RNG here.
 export const CITY_SEED = 1947;
+
+export function generateSkyline(depth, seed = CITY_SEED) {
+  if (![0, 1, 2].includes(depth) || !Number.isSafeInteger(seed)) throw new RangeError('Invalid skyline seed/depth');
+  const rng = mulberry32(seed + depth);
+  const baseline = 610 + depth * 150;
+  return Array.from({ length: 22 }, (_, index) => {
+    const height = 90 + rng.nextInt(0, 285);
+    const width = 45 + rng.nextInt(0, 37);
+    const top = baseline - height;
+    return { index, x: index * 70 - 30, top, width, height, roofY: top - 5 };
+  });
+}
+
+// Legs land on the same cornice that paints the host roof. Allow a modest sign
+// overhang, but keep both supports inside this particular building's footprint.
+export function rooftopSignGeometry(building, width) {
+  if (!building || !['x', 'width', 'roofY'].every((key) => Number.isFinite(building[key])) ||
+      building.width < 20 || !Number.isFinite(width) || width <= 0) throw new RangeError('Invalid rooftop sign geometry');
+  return { x: building.x + building.width / 2 - width / 2, y: building.roofY - 42,
+    w: width, h: 28, bottomY: building.roofY,
+    legs: [building.x + 10, building.x + building.width - 10] };
+}
 export function generateDistrict(district, seed = CITY_SEED) {
   if (!district || typeof district.id !== 'string' || !district.id.length ||
       !['x', 'y', 'w', 'h'].every((key) => Number.isFinite(district[key])) ||
