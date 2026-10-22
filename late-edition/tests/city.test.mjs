@@ -363,6 +363,30 @@ test('warm label sprites reject stale in-place copy, selection and verification;
   assert.equal(renderer.cache.leadLabels.size, 0);
 });
 
+test('a first scoop and later selection never shrink onboarding space or shift surviving artwork', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  renderer.render(sim, 0);
+  const lead = sim.leads[1];
+  const placement = renderer.cache.labelLayout.placements.get(lead.uid);
+  const cached = renderer.cache.leadLabels.get(lead.uid);
+  assert.ok(cached.width < placement.box.w, 'Do not rasterize the empty prompt margin');
+  const drawPosition = (sprite) => {
+    const call = calls.find(([name, image]) => name === 'drawImage' && image === sprite);
+    assert.ok(call, 'The actual cached telegram must be blitted');
+    return call.slice(2);
+  };
+  const before = drawPosition(cached.sprite);
+  sim.scoopsTotal = 1;
+  sim.selectedLeadId = lead.uid;
+  calls.length = 0;
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.deepEqual(renderer.cache.labelLayout.placements.get(lead.uid).box, placement.box);
+  assert.deepEqual(drawPosition(renderer.cache.leadLabels.get(lead.uid).sprite), before,
+    'A selection pixel refresh must preserve the exact image position and size after onboarding ends');
+});
+
 test('only overlapping labels move at 250 ms; warm frames never build collision geometry or repaint', (t) => {
   const { canvas, calls } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas, { reducedMotion: true });

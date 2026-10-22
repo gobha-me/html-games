@@ -171,7 +171,8 @@ not measure or paint text. Copy, selection and verification changes refresh
 pixels at the existing position. Moving an address reties its leader and leaves
 the label stationary. A new lead or changed sign never reflows an existing label.
 Expired leads close their sprites; backing-size/DPR changes rebuild resolution.
-Onboarding space is reserved at birth so changing selection cannot cause reflow.
+Onboarding space is reserved at birth for the label's entire lifetime, so even a
+selection change after the first scoop cannot shrink the box or shift its art.
 That empty margin belongs only to collision geometry: each cached image is tightly
 bounded around the actual telegram artwork, centered inside the fixed label box.
 An earlier full-margin run hit **18.2 ms** deterministic render p95 at CPU 4×
@@ -217,8 +218,21 @@ and forced >=10 ms starvation assertions are unchanged. Trace capture remains
 configured. This harness change is recorded explicitly because the rendering
 simplification alone did not remove that browser-context delay.
 
-Verification results are recorded below after the required repeat run and full
-lint/unit/browser suites complete.
+Verification with Node **22.23.4**:
+
+- `npm run lint`: pass (ESLint, Stylelint, HTML validation).
+- `npm run test:coverage`: **338 passed**; `sim.js` **100% lines**, **99.01% branches**.
+- `npm run test:e2e`: **75 passed**, including title-cache closure/re-entry,
+  crowded figures/rings, unique signs, title contrast/searchlight/roof anchoring,
+  reduced motion, input and the three performance scenarios.
+- Documentation shell syntax/reference checks: pass; **23 checker self-tests passed**.
+- Final two-core `taskset -c 0,1 npx playwright test e2e/performance.spec.js
+  --repeat-each=5`: running against the same verified code; results follow below.
+
+The complete browser report is retained under the ignored
+`performance-results/final-e2e/` directory. Its title and crowded-map screenshots
+were visually inspected alongside the geometry/pixel assertions.
+
 
 ## Performance contract
 

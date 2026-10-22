@@ -617,17 +617,19 @@ export class NoirCityRenderer {
       // Cache only the artwork; onboarding's empty collision margin needs no
       // texture pixels or per-frame upload/sampling work.
       const artWidth = width + 4;
-      // Reserve onboarding space from birth, even if selection changes later.
-      if (sim.scoopsTotal === 0) {
+      // Reserve onboarding space for this label's entire lifetime. A scoop or
+      // later selection must not shrink its box and shift the centered artwork.
+      const promptSpace = placement?.promptSpace ?? (sim.scoopsTotal === 0);
+      if (promptSpace) {
         ctx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
         width = Math.max(width, ctx.measureText('▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE').width + 20);
       }
       const top = lead.seriesBadge ? -67 : -48;
-      const size = { w: width + 4, h: (sim.scoopsTotal === 0 ? 62 : 12) - top };
+      const size = { w: width + 4, h: (promptSpace ? 62 : 12) - top };
       if (!placement) {
         staticObstacles ??= this._leadLabelStaticObstacles(sim);
         placement = { ...placeLabel(lead, size,
-          [...staticObstacles, ...[...placements.values()].map(({ box }) => box)]), top };
+          [...staticObstacles, ...[...placements.values()].map(({ box }) => box)]), top, promptSpace };
       } else {
         // Copy/verification/selection can change in place. Refresh only pixels
         // and dimensions; they never cause a surviving label to move.
@@ -654,7 +656,7 @@ export class NoirCityRenderer {
         staticObstacles ??= this._leadLabelStaticObstacles(sim);
         const others = [...placements].filter(([uid]) => uid !== lead.uid).map(([, { box }]) => box);
         placements.set(lead.uid, { ...placeLabel(lead, placement.box,
-          [...staticObstacles, ...others, ...figures]), top: placement.top });
+          [...staticObstacles, ...others, ...figures]), top: placement.top, promptSpace: placement.promptSpace });
       }
     }
     // Prompt visibility is independent of placement and never moves a label.
