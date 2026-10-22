@@ -1,6 +1,9 @@
 # LATE EDITION // 1947
 
-**1947 Noir Newsroom Desk & Broadsheet Paste-Up RTS** — Run the night desk of *The Evening Star*. Scout a 2.5D rain-slicked metropolis on the green-leather Precinct Dispatch Blotter (left), send investigative reporters, Speed Graphic photojournalists, and Tommy-gun street fixers via physical Manila Press Passes, and replace faded municipal wire stand-ins on a full-height 1947 Cream Newsprint Front Page (right) before the `12:00 AM` rotary presses roll.
+**1947 noir newsroom and broadsheet paste-up RTS.** Run the night desk of
+*The Evening Star*: send reporters into the rain, lay out tomorrow's page and
+keep useful secrets in the file drawer. The desk uses the ten-token art bible,
+self-hosted period type and tactile paper objects.
 
 ## How to Play (1-2-3 Night Editor Workflow)
 
@@ -84,8 +87,9 @@ Reports move focus to their action and restore the previous control on dismissal
 ## The file drawer — ink or leverage (#86)
 
 Spike copy during paste-up to file its subject, tags and evidence. **D** (desk
-drawer) or the brass drawer handle opens the manila drawer at the bottom of the
-desk; **D / Esc** closes it. D works at the desk and during paste-up; **F / 2**
+drawer) or the tab at the left desk edge slides a manila folder over the map
+(up to 420px wide), keeping the whole broadsheet visible; **D / Esc** closes it.
+The slide lasts 180ms and is immediate with reduced motion. D works at the desk and during paste-up; **F / 2**
 assigns Fold during paste-up. An open drawer blocks page/desk shortcuts.
 Tab/Shift+Tab reach every action; Enter/Space uses the focused button. Carbon dots
 show nights remaining; red pinholes count exposure. The drawer holds **six files**.
@@ -192,7 +196,7 @@ failures and game-over deletion.
 late-edition/
 ├── index.html          # Two-Zone 1947 Mahogany Desk: Left Dispatch Blotter + Right Cream Broadsheet
 ├── css/
-│   └── style.css       # Burled mahogany, green leather blotter, manila press passes & aged newsprint
+│   └── style.css       # Burled mahogany, strict art tokens, manila press passes & newsprint grain
 ├── js/
 │   ├── dom.js          # Keyed DOM reconciliation; dynamic copy uses textContent
 │   ├── main.js         # UI controller, wire stand-in/paste-up renderer & input bindings
@@ -219,7 +223,11 @@ equal gameplay hashes. Browser storage, audio and clocks are injected ports.
 See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint, stylelint and HTML validation are
 enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
 for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
-and art bible; manual layout and the file drawer are playable, while the visual overhaul remains a target.
+and art bible. Manual layout, the file drawer and the desk art pass are implemented;
+city geometry and silhouettes remain #89. At 1280×720 and larger, all four
+front-page slots stay visible together in both desk and paste-up. Grid tracks
+share the available height; compact slot excerpts yield to complete headlines.
+Only the copy tray and Inside list scroll when crowded, not the page or slots.
 
 ## Deterministic runs
 
@@ -243,7 +251,8 @@ independently timed browser clicks/frame sequences identical.
 IDs/counters, economy, movement, leads, arcs, dilemmas, edition summaries and the
 last-published time (which prevents duplicate publication within a sim tick).
 Stored best scores, adapters, wire messages/timestamps, traffic, banners,
-flashes, callouts and display-only labels/angles/animation phases are excluded:
+flashes, callouts and all cosmetic fields (colors/accents, labels, district signage,
+operative descriptions, summary copy, angles and animation phases) are excluded:
 they never drive gameplay. The injected `now()` supplies wire event timestamps
 only; gameplay time always comes from `step()`. Renderer rain/ripples may use
 `Math.random()` independently without advancing the gameplay generator.
@@ -253,6 +262,17 @@ dispatches, investigation, manual placement during paste-up, rivals, fortificati
 and night-four/five phone choices, asserting a pinned hash after each print.
 Issue #86 repins the hashes for story subjects, subject publication state/progress,
 pending burned-source calls and raid protection; replay inputs are unchanged.
+Issue #88 performs a one-time repin as cosmetics leave the hash; recursive filtering
+applies to the entire projection and preserves ordered arrays. The same replay also
+checks every print's circulation, funds, credibility, heat, press HP, edition, scoops
+and drawer against [a snapshot](tests/fixtures/pre88-gameplay.json) recorded by
+running pre-#88 commit `2c8b14e` and verifying its original goldens. Gameplay is unchanged.
+#100 removes the duplicate Herald district standings row and repins the hashes.
+A reserved publish-time RNG draw preserves all later seeded gameplay. The
+pre-#88 snapshot compares player state only (no rival rows) and remains untouched.
+Standings now contain only the Herald and Observer alongside the player paper;
+save validation rejects unknown/duplicate rivals. Existing v1 checkpoints discard
+only the validated historical third row when loaded; new saves contain two rivals.
 Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
 zero. Blocked reads and quota-exceeded writes never interrupt play; the current
 run's best is retained in memory.
@@ -341,9 +361,15 @@ obsolete buttons disappear while surviving keyed buttons stay attached.
 Separate cases hold a pointer down across changing renders, verify keyed
 node/focus/hover retention, remove stale
 leads, inject HTML-shaped text, hold restart keys and resize during keyboard-only
-play through one published edition. The tests replace the legacy remote font
-stylesheet with empty CSS so offline runs exercise local fallback fonts; the
-remote typography migration belongs to the planned art pass.
+play through one published edition. Every scenario records actual requests
+before navigation and rejects external origins; no remote stylesheet interception can hide a request. Art cases assert
+all four font families load, then block all fonts and verify the fallback layout
+at 1280×720, including 200% CSS layout zoom (magnification plus reflow, rather than
+CDP pinch-only scaling), paste-up, drawer and publication. Container queries keep
+magnified controls reachable by scrolling. The minimum physical desk gate remains
+1280×720; browser-frame dimensions distinguish 200% browser zoom from a smaller
+window without treating Retina DPR as zoom. Screenshots for the PR are maintained
+by the owner.
 
 Gameplay lists, including Inside copy, reconcile keyed nodes; unchanged subtrees stay attached between
 250 ms display ticks. Lead membership also reconciles immediately after each
@@ -370,3 +396,43 @@ Drawer browser cases cover spike → open → police tip → visible lead, keybo
 squeezing with stable focus, full-drawer shred selection, cancel, and deadline
 invalidation of a pending spike. Fuzzing includes file use/shredding, enforces six
 files maximum and unique UIDs across drawer, tray, Inside and page.
+
+
+## Art and font credits (#88)
+
+[Font credits and OFL licenses](assets/fonts/README.md) cover League Gothic
+(The League of Moveable Type: Tyler Finck, Caroline Hadilaksono, Micah Rich),
+Old Standard TT (Alexey Kryukov),
+Courier Prime (Alan Dague-Greene) and UnifrakturMaguntia (j. 'mach' wust / Peter
+Wiegel). The pinned google/fonts TTFs are converted to Latin WOFF2 by
+[scripts/build-fonts.py](scripts/build-fonts.py), using fonttools and Brotli in a
+venv. No font or runtime asset uses an external origin. Unifraktur is reserved
+for mixed-case The Evening Star mastheads; the fallback stacks are Impact/Arial Narrow,
+Georgia and Courier New. The title masthead stays on one line at supported
+sizes. All four broadsheet slots fit together without scrolling at supported
+desk sizes; grid tracks share available height. Body excerpts end in an ellipsis
+after two lines (one in compact slots), with secondary decks/bylines omitted in
+compact slots. Headlines remain complete. At 200% zoom, the document reflows
+and scrolls with intrinsic slot heights to keep controls reachable.
+
+The ten CSS root colors mirror `PALETTE` in `js/palette.js`. The custom stylelint
+plugin runs core `color-no-hex` and `function-disallowed-list` rules outside root
+declarations; Node tests forbid JS hex/rgb literals outside the palette, and
+compute every text-role contrast (minimum **4.66:1**, maximum **15.34:1**).
+Carbon dots have newsprint backing because blue on aged stock fails 4.5:1.
+Grain is a small inline monochrome SVG; rotations are deterministic and shadows
+fall down/right from one lamp. Paper and stamp animations last 120ms and switch
+off for reduced motion. Canvas geometry and operative sprites await #89.
+
+The caption baseline counts non-whitespace static label text nodes in
+`index.html`, excluding comments, script/style, attributes and fields replaced
+at runtime (the fixture lists the exact dynamic IDs), including static controls:
+**74 → 37 nodes** (50% reduction), **286 → 99 words** (65.4%). Including initial
+dynamic placeholders, all body text nodes fall **103 → 44**, and words
+**395 → 121**. The browser checks the static caption counts against the committed
+pre-#88 baseline fixture, so removing a temporary placeholder cannot count as a
+caption reduction.
+
+District accents and every other color field are cosmetic and excluded from the
+gameplay hash. No legacy palette checksum data is needed; recoloring must leave
+the hash unchanged while changes to gameplay values must still be detected.

@@ -1,3 +1,4 @@
+import { PALETTE } from './palette.js';
 // ============================================================================
 // LATE EDITION // 1947 — Main Application Controller
 // ============================================================================
@@ -98,7 +99,7 @@ class LateEditionApp {
       {
         uid: 'demo_story_1',
         beat: 'SCANDAL',
-        color: '#f43f5e',
+        color: PALETTE.stampRed,
         headline: 'TRANSIT COMMISSIONER CAUGHT AT BLUE VELVET WITH MOB PAYMASTER',
         subdeck: 'Speed Graphic flashbulb captures leather satchel changing hands in velvet booth #4.',
         baseValue: 230,
@@ -114,7 +115,7 @@ class LateEditionApp {
       {
         uid: 'demo_story_2',
         beat: 'SYNDICATE',
-        color: '#ef4444',
+        color: PALETTE.stampRed,
         headline: 'TORRIO COLD-STORAGE VAULT HIDES BOOTLEG PRINTING PLATES',
         subdeck: 'Counterfeit ration stamps and union ballot boxes seized behind meat hooks.',
         baseValue: 210,
@@ -130,7 +131,7 @@ class LateEditionApp {
       {
         uid: 'demo_story_3',
         beat: 'GRAFT',
-        color: '#f59e0b',
+        color: PALETTE.stampRed,
         headline: 'MAYOR’S BROTHER TIED TO PHANTOM PAVING PAYROLL',
         subdeck: 'Auditor ledgers show $400,000 routed to nonexistent asphalt crews in Ward 4.',
         baseValue: 175,
@@ -151,7 +152,7 @@ class LateEditionApp {
       y: this.sim.operatives[2].y,
       r: 34,
       alpha: 0.9,
-      color: '#38bdf8',
+      color: PALETTE.newsprintAged,
     });
   }
 
@@ -206,7 +207,14 @@ class LateEditionApp {
         this.pendingSpike = null;
         this._layoutResult(this.sim.spike(pending.uid));
       }
-      document.getElementById('drawer-status').textContent = result.ok ? 'The file has done its work.' : `Cannot use file: ${result.reason}.`;
+      const status = document.getElementById('drawer-status');
+      status.textContent = result.ok ? 'The file has done its work.' : `Cannot use file: ${result.reason}.`;
+      if (result.ok && result.effects.killedLead) {
+        const stamp = document.createElement('span');
+        stamp.className = 'rubber-stamp';
+        stamp.textContent = 'KILLED';
+        status.replaceChildren(stamp);
+      }
       // Consumed cards disappear. Keep keyboard focus inside the drawer.
       this._syncFullUI();
       if (!button.isConnected) document.querySelector('#drawer-files button')?.focus();
@@ -538,8 +546,9 @@ class LateEditionApp {
     if (this.pendingSpike && (!this.sim.canLayout() || this.pendingSpike.edition !== this.sim.edition)) this.pendingSpike = null;
     document.getElementById('file-drawer').inert = !available;
     const handle = document.getElementById('btn-drawer');
-    handle.textContent = `FILE DRAWER [D] · ${this.sim.spikedStories.length}/${FILE_DRAWER.capacity}`;
+    handle.textContent = `FILES [D] · ${this.sim.spikedStories.length}/${FILE_DRAWER.capacity}`;
     handle.setAttribute('aria-expanded', String(this.drawerOpen));
+    document.getElementById('file-drawer').classList.toggle('open', this.drawerOpen);
     document.getElementById('drawer-body').hidden = !this.drawerOpen;
     document.getElementById('btn-cancel-burn').hidden = !this.pendingSpike;
     const actions = [['favor', 'tip', 'Favor: police tip'], ['favor', 'stop', 'Favor: stop goon / raid'],
@@ -655,7 +664,7 @@ class LateEditionApp {
     if (selOp) {
       const idx = this.sim.operatives.indexOf(selOp) + 1;
       document.getElementById('map-selection-status').textContent =
-        `UNIT [${idx}] ${selOp.name.toUpperCase()} (${selOp.roleLabel}) — CLICK ANY BREAKING LEAD ON MAP TO DISPATCH`;
+        `[${idx}] ${selOp.name.toUpperCase()}`;
     }
   }
 
@@ -692,9 +701,9 @@ class LateEditionApp {
     reconcile(document.getElementById('lead-list'), this.sim.leads.map((lead) =>
       h('button', `lead-item ${lead.uid === this.sim.selectedLeadId ? 'selected' : ''}`, [
         h('span', 'lead-top', [
-          h('span', 'lead-cat', `${lead.beat} · $${lead.baseValue}`, { style: `color:${lead.color}` }),
+          h('span', 'lead-cat', `${lead.beat} · $${lead.baseValue}`, {}),
           h('span', 'series-badge', lead.arcCode ? `${lead.arcCode}·P${lead.arcPart}/3` : '', lead.arcCode ? {} : { hidden: '' }),
-          h('span', '', `${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· 📸 1.8×' : lead.scoopedByRival ? '· ⚠️ 0.5×' : ''}`),
+          h('span', '', `${Math.ceil(lead.timeLeft)}s ${lead.photoVerified ? '· PHOTO 1.8×' : lead.scoopedByRival ? '· RIVAL 0.5×' : ''}`),
         ]),
         h('span', 'lead-headline', lead.headline),
         h('span', 'lead-bars', [
@@ -709,15 +718,15 @@ class LateEditionApp {
     reconcile(document.getElementById('scoop-tray'), stories.length ? stories.map((st) =>
       h('button', `scoop-chip ${st.uid === this.selectedStoryUid ? 'selected-copy' : ''}`, [
         h('span', 'scoop-chip-top', [
-          h('span', '', `${st.beat} ${st.seriesBadge ? `· ${st.seriesBadge}` : ''} ${st.photoVerified ? '📸 1.8×' : ''}`, {}),
+          h('span', '', `${st.beat} ${st.seriesBadge ? `· ${st.seriesBadge}` : ''} ${st.photoVerified ? 'PHOTO 1.8×' : ''}`, {}),
           h('span', '', `+$${st.baseValue}`),
         ]),
         h('span', 'scoop-chip-title', st.headline),
       ], { type: 'button', 'data-story-uid': st.uid, 'aria-pressed': String(st.uid === this.selectedStoryUid) }, st.uid)) : [
       h('div', 'scoop-chip', [
-        h('div', 'scoop-chip-top', [h('span', '', 'NO UNPLACED COPY'), h('span', '', 'DISPATCH UNITS [1–4]')]),
-        h('div', 'scoop-chip-title', 'Scoops wait here for paste-up. Lock up at 11 PM, or press L after dispatch.'),
-      ], { style: 'grid-column:1 / -1;opacity:0.8' }, 'empty'),
+        h('div', 'scoop-chip-top', [h('span', '', 'NO COPY'), h('span', '', '[1–4]')]),
+        h('div', 'scoop-chip-title', 'Lock up [L] · 11 PM'),
+      ], { style: 'grid-column:1 / -1' }, 'empty'),
     ]);
     // Entries are stable objects, even if two messages have identical copy/time.
     reconcile(document.getElementById('wire-log'), this.sim.wireLog.slice(0, 7).map((entry) =>
@@ -726,7 +735,7 @@ class LateEditionApp {
 
   _renderBroadsheetAndPress() {
     document.getElementById('paper-edition-label').textContent =
-      `VOL. LVIII · LATE NIGHT EDITION #${this.sim.edition}`;
+      `EDITION #${this.sim.edition}`;
     const proj = this.sim.calculateEditionProjection();
     document.getElementById('paper-projected-readers').textContent =
       `EST. ${proj.circDelta >= 0 ? '+' : ''}${proj.circDelta.toLocaleString()} READERS`;
@@ -745,16 +754,17 @@ class LateEditionApp {
     document.getElementById('proj-heat').textContent =
       `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
 
-    const inkColorMap = { herald: '#1e3a8a', observer: '#991b1b', gazette: '#334155' };
+    const inkColorMap = { herald: PALETTE.brass, observer: PALETTE.stampRed };
     const allPapers = [
-      { id: 'player', name: '★ The Evening Star (You)', circulation: this.sim.circulation, inkColor: '#b91c1c' },
-      ...this.sim.rivalStandings.map((r) => ({ ...r, inkColor: inkColorMap[r.id] || '#1e293b' })),
+      { id: 'player', name: '★ The Evening Star (You)', circulation: this.sim.circulation, inkColor: PALETTE.stampRed },
+      ...this.sim.rivalStandings.map((r) => ({ ...r, inkColor: inkColorMap[r.id] || PALETTE.smoke })),
     ].sort((a, b) => b.circulation - a.circulation);
     const maxCirc = Math.max(40000, ...allPapers.map((p) => p.circulation));
     reconcile(document.getElementById('rival-standings'), allPapers.map((p) =>
       h('div', 'rival-row', [
         h('div', 'rival-row-top', [
-          h('span', '', p.name, { style: `color:${p.inkColor}` }),
+          // Names stay night ink for legibility on newsprint (aged-paper ink failed contrast); the bar carries the paper's colour.
+          h('span', '', p.name),
           h('span', '', p.circulation.toLocaleString()),
         ]),
         h('div', 'progress-track', [h('div', 'progress-fill', [], {
@@ -778,44 +788,44 @@ class LateEditionApp {
 
     const standInBySlot = {
       banner: {
-        stamp: 'WIRE STAND-IN · CLICK MAP LEAD FOR 2.0× SCOOP',
+        stamp: 'WIRE STAND-IN',
         headline: 'CITY COUNCIL DEBATES HARBOR DREDGING APPROPRIATION',
-        deck: 'Routine municipal bond hearing adjourns without roll-call vote; replace this dull wire filler with an exclusive street scoop.',
-        body: 'Aldermen spent four hours reviewing dredging contracts for the outer channel before tabling the measure until November. Night editors are holding the top banner plate open for breaking crime or graft dispatches from our precinct reporters.',
+        deck: 'Bond hearing adjourns without a vote.',
+        body: 'Aldermen tabled the outer-channel contracts until November.',
       },
       above_fold: {
-        stamp: 'WIRE STAND-IN · 1.5× ABOVE-THE-FOLD',
+        stamp: 'WIRE STAND-IN',
         headline: 'AUTUMN SQUALL DELAYS EVENING COMMUTER FERRIES',
-        deck: 'Cross-harbor schedule resumes at dawn; dispatch Vance [1] or Sullivan [2] to replace this wire brief.',
+        deck: 'Cross-harbor service resumes at dawn.',
         body: 'Harbor Master bulletins report twenty-minute delays along the Staten slip due to heavy October rain and southwest gusts. Commuters crowded the terminal waiting room until the 9:15 P.M. steamer cleared the breakwater.',
       },
       photo_expose: {
-        stamp: 'DARKROOM PLATE · SEND CLARA [3] FOR 1.8× PHOTO',
+        stamp: 'WIRE STAND-IN',
         headline: 'COURTHOUSE ANNEX REPAIRS ENTER FOURTH MONTH',
-        deck: 'Scaffolding remains over east portico; send Photographer Clara Reyes [3] to a crime scene for a 1.8× Speed Graphic exposé.',
-        body: 'Public Works crews completed masonry pointing on the third-floor cornice Tuesday afternoon. A front-page Speed Graphic flashbulb exclusive in this column multiplies story value and circulation.',
+        deck: 'Scaffolding remains over the east portico.',
+        body: 'Public Works crews finished the third-floor cornice Tuesday.',
       },
       editorial: {
-        stamp: 'WIRE STAND-IN · 1.2× EDITORIAL COLUMN (-8% HEAT)',
+        stamp: 'WIRE STAND-IN',
         headline: 'MUNICIPAL COAL RESERVES REPORTED ADEQUATE BY BOARD',
-        deck: 'Winter stockpiles at eighty percent capacity; plating a story here also cools Syndicate Mob Heat by -8%.',
+        deck: 'Winter stockpiles reach eighty percent.',
         body: 'Fuel commissioners assured building superintendents that rail shipments from the anthracite valley remain on schedule despite wet switchyards.',
       },
     };
 
     if (!isUnlocked('photographer', this.sim.edition)) {
-      standInBySlot.photo_expose.stamp = 'DARKROOM · NOT YET ON PAYROLL · NIGHT 2';
-      standInBySlot.photo_expose.deck = 'The darkroom opens on night two. Until then, fill this column with a reporter’s copy.';
+      standInBySlot.photo_expose.stamp = 'DARKROOM · NIGHT 2';
+      standInBySlot.photo_expose.deck = 'Darkroom opens night two.';
     }
     reconcile(slotsEl, FRONT_PAGE_SLOTS.map((slot) => {
       const st = page[slot.id];
       const filler = standInBySlot[slot.id] || standInBySlot.banner;
       const photo = slot.id === 'photo_expose' && isUnlocked('photographer', this.sim.edition);
-      const photoNote = st?.photoVerified ? (st.scoopedByRival ? ' · 📸 COUNTER-SCOOP 1.8×' : ' · 📸 1.8× PHOTO') : st?.scoopedByRival ? ' · ⚠️ RIVAL 0.5×' : '';
+      const photoNote = st?.photoVerified ? ' · PHOTO 1.8×' : st?.scoopedByRival ? ' · RIVAL 0.5×' : '';
       return h('article', `paper-slot ${st ? '' : 'empty'} ${st?.uid === this.selectedStoryUid ? 'selected-copy' : ''}`, [
         h('div', 'slot-meta', [
-          h('span', '', `${slot.label}${st ? ` (${slot.mul}×)` : ''}`),
-          h('span', st ? '' : 'galley-stamp', st ? `${st.beat} · $${st.baseValue}${photoNote}` : filler.stamp),
+          h('span', '', `${({ banner: 'BANNER [1/B]', above_fold: 'FOLD [2/F]', photo_expose: 'PHOTO [3/P]', editorial: 'EDITORIAL [4/E]' })[slot.id]}${st ? ` (${slot.mul}×)` : ''}`),
+          h('span', st ? 'rubber-stamp' : 'galley-stamp', st ? `${st.seriesBadge ? 'EXCLUSIVE' : 'VERIFIED'}${photoNote}` : filler.stamp),
         ]),
         h('span', st?.seriesBadge ? 'series-stamp' : '', st?.seriesBadge ? `${st.seriesBadge} (+${st.arcPart === 3 ? '4,500' : st.arcPart === 2 ? '2,500' : '1,200'} RDRS)` : '', st?.seriesBadge ? {} : { hidden: '' }),
         ...(photo ? [h('div', 'halftone-photo-box', [
@@ -824,14 +834,14 @@ class LateEditionApp {
             alt: st ? 'Speed Graphic Exposé' : 'Darkroom Plate',
           }),
           h('div', 'halftone-caption-bar', [
-            h('span', '', st ? `📸 SPEED GRAPHIC // ${st.beat}` : 'DARKROOM PLATE OPEN'),
-            h('span', '', st ? (st.photoVerified ? 'VERIFIED 1.8×' : 'FILE PHOTO') : '📸 1.8× PHOTO BONUS'),
+            h('span', '', st ? `PHOTO · ${st.beat}` : 'DARKROOM PLATE OPEN'),
+            h('span', '', st ? (st.photoVerified ? 'VERIFIED 1.8×' : 'FILE PHOTO') : 'PHOTO 1.8×'),
           ]),
         ])] : []),
         h('div', st ? '' : 'standin-copy', [
           h('div', 'slot-headline', st ? st.headline : filler.headline),
           h('div', 'slot-deck', st ? st.subdeck : filler.deck),
-          h('div', 'slot-byline', st ? 'By Staff Correspondent · Metropolis, Oct. 1947' : '', st ? {} : { hidden: '' }),
+          h('div', 'slot-byline', st ? 'By Staff' : '', st ? {} : { hidden: '' }),
           h('div', 'slot-body-copy', st ? (bodyCopyByBeat[st.beat] || bodyCopyByBeat.CRIME) : filler.body),
         ]),
       ], { 'data-slot-id': slot.id, ...(interactive ? {
@@ -1017,7 +1027,13 @@ class LateEditionApp {
   }
 
   _updateDeskSize() {
-    const tooSmall = !deskFits(window.innerWidth, window.innerHeight);
+    // Browser zoom shrinks innerWidth but leaves the browser frame width alone.
+    // Recover the physical desk dimensions at >=125% magnification; ordinary
+    // window borders are below that threshold. CSS/container queries handle the
+    // smaller layout viewport. Do not use DPR: Retina screens also report 2.
+    const frameScale = window.outerWidth / window.innerWidth;
+    const zoom = frameScale >= 1.25 ? frameScale : 1;
+    const tooSmall = !deskFits(window.innerWidth * zoom, window.innerHeight * zoom);
     if (tooSmall === this.sim.deskTooSmall) return;
     if (tooSmall) this.focusBeforeResize = document.activeElement;
     this.sim.deskTooSmall = tooSmall;

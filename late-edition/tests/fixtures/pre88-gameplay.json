@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "2c8b14ef5391d974e0fe8cbc27273fda311f1535",
+  "seed": 81,
+  "snapshots": [
+    {
+      "circulation": 37596,
+      "funds": 1744,
+      "credibility": 100,
+      "heat": 81,
+      "pressHp": 100,
+      "edition": 2,
+      "scoops": 31,
+      "drawer": []
+    },
+    {
+      "circulation": 52184,
+      "funds": 2896,
+      "credibility": 100,
+      "heat": 100,
+      "pressHp": 100,
+      "edition": 3,
+      "scoops": 60,
+      "drawer": []
+    },
+    {
+      "circulation": 69208,
+      "funds": 3862,
+      "credibility": 100,
+      "heat": 100,
+      "pressHp": 100,
+      "edition": 4,
+      "scoops": 92,
+      "drawer": []
+    },
+    {
+      "circulation": 87296,
+      "funds": 4704,
+      "credibility": 100,
+      "heat": 100,
+      "pressHp": 100,
+      "edition": 5,
+      "scoops": 119,
+      "drawer": []
+    },
+    {
+      "circulation": 101872,
+      "funds": 5733,
+      "credibility": 100,
+      "heat": 100,
+      "pressHp": 100,
+      "edition": 6,
+      "scoops": 151,
+      "drawer": []
+    }
+  ]
+}

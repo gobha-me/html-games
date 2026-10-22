@@ -90,6 +90,11 @@ test('save after edition 2, then play three editions: equality with uninterrupte
 });
 
 for (const [name, mutate] of [
+  ['duplicate standings names', (s) => { s.state.rivalStandings[1].name = s.state.rivalStandings[0].name; }],
+  ['unknown paper name', (s) => { s.state.rivalStandings[0].name = 'Another Paper'; }],
+  ['duplicate standings', (s) => { s.state.rivalStandings[1] = s.state.rivalStandings[0]; }],
+  ['removed standings row', (s) => { s.state.rivalStandings.push({ ...s.state.rivalStandings[0], id: 'gazette' }); }],
+  ['unknown standings id', (s) => { s.state.rivalStandings[1].id = 'gazette'; }],
   ['wrong format', (s) => { s.format = 'another-game'; }],
   ['negative funds', (s) => { s.state.cash = -1; }],
   ['NaN becomes null in JSON', (s) => { s.state.cash = NaN; }],
@@ -238,4 +243,29 @@ test('storage access, reads, quota writes and deletion failures are non-fatal', 
     assert.match(adapter.clearRun().reason, /could not be removed/);
   }
   assert.equal(writes, 1, 'The quota path must actually reach setItem');
+});
+
+test('old v1 checkpoints discard only the validated duplicate row and preserve the player and RNG', () => {
+  const sim = checkpoint();
+  const old = JSON.parse(sim.serialize());
+  const removed = { id: 'gazette', name: 'The Daily Herald (Midtown)', circulation: 15200, color: 'old stock' };
+  old.state.rivalStandings.push(removed);
+  const result = LateEditionSim.deserialize(JSON.stringify(old));
+  assert.equal(result.ok, true, result.reason);
+  assert.equal(result.sim.rivalStandings.length, 2);
+  assert.equal(result.sim.getStateHash(), sim.getStateHash());
+  assert.equal(result.sim.serialize(), sim.serialize(), 'Every retained field and RNG state must match');
+  assert.throws(() => decodeSaveState(old.state), /Invalid save state/, 'New saves must never emit the removed row');
+  for (const mutate of [
+    (rows) => { rows[2].circulation = -1; },
+    (rows) => { rows[2].name = 'Unknown paper'; },
+    (rows) => { rows[2].id = 'herald'; },
+    (rows) => { rows.reverse(); },
+    (rows) => { rows[1] = rows[0]; },
+  ]) {
+    const tampered = structuredClone(old);
+    mutate(tampered.state.rivalStandings);
+    assert.equal(LateEditionSim.deserialize(JSON.stringify(tampered)).ok, false);
+  }
+  assert.equal(old.state.rivalStandings.length, 3, 'Migration must not mutate caller data');
 });

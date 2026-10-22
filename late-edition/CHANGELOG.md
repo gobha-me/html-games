@@ -1,5 +1,72 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
+
+### Changed
+- Ten strict palette tokens replace the legacy CSS/canvas hues. District seams
+  are neutral ink; the existing city geometry and sprites await #89.
+- Self-hosted Latin WOFF2 League Gothic, Old Standard TT, Courier Prime and
+  masthead-only UnifrakturMaguntia replace Google Fonts. All four OFL licenses,
+  pinned source revision and a fonttools/Brotli rebuild script are included.
+- Mahogany wood grain, newsprint turbulence, deterministic paper rotations and
+  shadows from a top-left lamp; telegram slips, punched manila passes, tabbed
+  folders, carbon dots, red pinholes, bakelite phone and outlined ink stamps.
+- Static caption text nodes: **74 → 37 (50% fewer)**; words: **286 → 99
+  (65.4% fewer)**. Count excludes whitespace, comments, attributes, scripts/style
+  and fields replaced at runtime; includes static controls. Including dynamic
+  placeholders, all body text nodes fall from 103 to 44 and words from 395 to 121.
+  Runtime instructional copy is shortened too; hotkeys and accessible action names remain.
+- Body text is at least 14px with explicit line heights; faded stand-in text is
+  removed. Text token contrasts range from **4.66:1 to 15.34:1**. Blue carbon dots
+  use newsprint stock (5.65:1), rather than aged stock (which fails at 4.44:1).
+- Paper slap and stamp hit last 120ms; reduced motion disables all CSS motion.
+  A container query reflows the magnified desk; scrolling retains core actions.
+
+### Art director review fixes (#100)
+- Keep **The Evening Star** mastheads in mixed case with their accessible names.
+- Show all four front-page slots together in desk and paste-up, without paper or
+  slot-grid scrolling. Height-sharing grid tracks, clamped type/spacing and
+  per-slot size queries shorten secondary excerpts; full headlines keep priority.
+  Slot size (not viewport height) controls excerpts so tall, narrow desks also fit.
+  Crowded copy trays and Inside lists scroll independently in bounded space.
+- Move the drawer to the map column as a left-sliding manila folder, up to 420px
+  wide, with an always-visible FILES tab. Transform motion takes 180ms (none under
+  reduced motion). Keep keyboard operations, close/focus restoration and internal
+  file scrolling; the folder and tab cannot cover the broadsheet.
+- Replace the scroll-per-headline regression with simultaneous slot, viewport,
+  grid/paper bounds, no-scroll, headline clipping and copy-tray checks in both
+  phases at 1280×720, 1366×768, 1600×900 and 1920×1080. Crowded fixtures include
+  twelve scoops, long headlines, photo plates and series stamps. Full-folder tests
+  cover both phases at 1280×720/1920×1080 and reduced-motion/keyboard operation.
+- Remove the duplicate Herald district row from simulation, UI and lore. Validate
+  exactly two distinct canonical rivals on save/load. Existing v1 checkpoints
+  discard only the validated historical third row; new saves contain two rivals.
+  Unit tests require unique standings names matching the three-paper lore table.
+- Repin golden hashes for the removed rival state, preserving its publish-time
+  random draw so all later seeded gameplay stays unchanged. The original pre-#88
+  player snapshot remains untouched: every recorded economy/HP/edition/scoop/file
+  field still matches; rival rows intentionally fall outside that comparison.
+
+### Verification and compatibility
+- Stylelint runs core `color-no-hex` and `function-disallowed-list` outside root
+  token declarations via a selector-scoped plugin; adversarial fixtures prove
+  that ordinary, grouped and nested rules cannot bypass enforcement.
+- Node tests reject literal colors in every JS module except `palette.js` and
+  check exact token parity, font signatures/licenses and used text-pair contrast.
+- Playwright attaches actual request logs and rejects external origins. Art
+  scenarios check loaded families, 1280×720/1920×1080 layout, blocked fonts at
+  100%/200% CSS layout zoom, core print/drawer actions and reduced motion.
+- Removed the legacy district-accent checksum file and import. All color and
+  display fields, including accents, district signage, operative descriptions
+  and summary copy, are excluded consistently across the entire hash projection.
+  Recursive filtering preserves ordered arrays, including nested dossier tags.
+- One-time #88 golden hash repin: cosmetics left the hash; gameplay is unchanged.
+  An independent fixture recorded from pre-#88 commit `2c8b14e` (after reproducing
+  its original goldens) pins circulation, funds, credibility, heat, press HP,
+  edition, scoops and drawer contents after every print in the five-edition replay.
+  Adversarial hash tests recolor/delete display fields and mutate nested records,
+  effects, summaries and geometry to distinguish cosmetics from gameplay.
+
 ## [2.8.0] — 2026-10-21 (#87 — Save/load the run)
 
 ### Added

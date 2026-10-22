@@ -1,3 +1,4 @@
+import { PALETTE } from './palette.js';
 // ============================================================================
 // LATE EDITION // 1947 — Noir Newspaper, Field Operatives & Press Cycle Sim
 // ============================================================================
@@ -40,13 +41,15 @@ function canonical(value) {
 }
 
 function withoutCosmetics(record) {
-  const cosmeticKeys = ['angle', 'stepPhase', 'state', 'color', 'headline', 'subdeck',
+  if (Array.isArray(record)) return record.map(withoutCosmetics);
+  if (!record || typeof record !== 'object') return record;
+  const cosmeticKeys = ['angle', 'stepPhase', 'state', 'color', 'accent', 'headline', 'subdeck',
     'seriesBadge', 'arcTitle', 'arcCode', 'districtName', 'name', 'callsign', 'roleLabel',
-    'sprite', 'label', 'caller', 'prompt', 'acceptLabel', 'rejectLabel', 'wire'];
+    'sprite', 'label', 'caller', 'prompt', 'acceptLabel', 'rejectLabel', 'wire',
+    'code', 'neon', 'desc', 'reason'];
   return Object.fromEntries(Object.entries(record)
     .filter(([key]) => !cosmeticKeys.includes(key))
-    .map(([key, value]) => [key, value && typeof value === 'object'
-      ? withoutCosmetics(value) : value]));
+    .map(([key, value]) => [key, withoutCosmetics(value)]));
 }
 
 export class LateEditionSim {
@@ -173,9 +176,8 @@ export class LateEditionSim {
     };
 
     this.rivalStandings = [
-      { id: 'herald', name: 'The Daily Herald', circulation: 21500, color: '#eab308' },
-      { id: 'observer', name: 'The Observer Syndicate', circulation: 19800, color: '#f43f5e' },
-      { id: 'gazette', name: 'The Daily Herald (Midtown)', circulation: 15200, color: '#c084fc' },
+      { id: 'herald', name: 'The Daily Herald', circulation: 21500, color: PALETTE.sodium },
+      { id: 'observer', name: 'The Observer Syndicate', circulation: 19800, color: PALETTE.stampRed },
     ];
 
     this.logWire('NIGHT DESK OPEN — Rotary presses warmed for the 12:00 AM deadline.', 'ops');
@@ -218,7 +220,7 @@ export class LateEditionSim {
       if (save.version !== SAVE_VERSION) return { ok: false, reason: 'This morgue file version is not supported. Start a new run.' };
       if (!Number.isSafeInteger(save.seed) || !Number.isInteger(save.rngState) ||
         save.rngState < 0 || save.rngState > 0xffffffff) return damaged;
-      const state = decodeSaveState(save.state);
+      const state = decodeSaveState(save.state, { allowLegacyStandings: true });
       const sim = new LateEditionSim({ seed: save.seed, storage: ports.storage, audio: ports.audio, now: ports.now });
       for (const key of SAVE_FIELDS) sim[key] = state[key];
       sim.rng = mulberry32(save.rngState);
@@ -523,7 +525,7 @@ export class LateEditionSim {
     this.banner = { title, sub, timer };
   }
 
-  addCallout(x, y, text, color = '#ffd47a') {
+  addCallout(x, y, text, color = PALETTE.sodium) {
     this.callouts.push({ x, y, text, color, life: 1.4 });
   }
 
@@ -544,17 +546,17 @@ export class LateEditionSim {
       'gameOver', 'victory', 'cash', 'circulation', 'credibility', 'syndicateHeat',
       'pressHp', 'editionsPrinted', 'lastPublishedTime', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
       'subjectStates', 'subjectProgress', 'pendingBurns', 'raidBlocked', 'editionLayout', 'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
-      'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws']) {
-      state[key] = this[key];
+      'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws',
+      'operatives', 'leads', 'scoopedStories', 'insideStories', 'spikedStories',
+      'rivals', 'rivalStandings', 'districts', 'frontPage', 'activeDilemma', 'editionSummary']) {
+      // These maps use subject names/arc IDs as keys, not record field names.
+      // A subject named "color" still drives gameplay and must remain hashed.
+      state[key] = ['subjectStates', 'subjectProgress', 'arcProgress'].includes(key)
+        ? this[key] : withoutCosmetics(this[key]);
     }
     state.rng = this.rng.getState?.() ?? null;
-    for (const key of ['operatives', 'leads', 'scoopedStories', 'insideStories', 'spikedStories', 'rivals', 'rivalStandings', 'districts']) {
-      state[key] = this[key].map(withoutCosmetics);
-    }
-    state.frontPage = Object.fromEntries(Object.entries(this.frontPage)
-      .map(([key, story]) => [key, story && withoutCosmetics(story)]));
-    state.activeDilemma = this.activeDilemma && withoutCosmetics(this.activeDilemma);
-    state.editionSummary = this.editionSummary;
+    // #88: filter the entire projection, including nested dossiers, effects and
+    // summaries, so art/copy changes cannot leak into the gameplay contract.
     // FNV-1a over UTF-8 canonical JSON; sorted object keys, ordered arrays.
     let hash = 0x811c9dc5;
     for (const byte of new TextEncoder().encode(JSON.stringify(canonical(state)))) {
@@ -706,7 +708,7 @@ export class LateEditionSim {
         op.targetY = rv.y;
         op.state = presentation.intercepting(rv);
         this.audio.dispatch();
-        this.addCallout(rv.x, rv.y - 14, 'INTERCEPT ORDERED', '#10b981');
+        this.addCallout(rv.x, rv.y - 14, 'INTERCEPT ORDERED', PALETTE.newsprintAged);
         return;
       }
     }
@@ -939,6 +941,10 @@ export class LateEditionSim {
       rv.circulation = Math.max(8000, rv.circulation + Math.round((this.nextFloat() - 0.35) * 2400));
     }
 
+    // PR 100: reserve the removed third standings row's draw. Dropping it would
+    // shift all subsequent leads/combat and change the player's seeded economy.
+    this.nextFloat();
+
     this.logWire(
       presentation.editionPrinted(printedEditionNum, circDelta, editionCash),
       'scoop'
@@ -965,7 +971,7 @@ export class LateEditionSim {
       y: this.hq.y + this.hq.h * 0.5,
       r: 18,
       alpha: 0.95,
-      color: '#ffd47a',
+      color: PALETTE.sodium,
     });
 
     this.setBanner(
@@ -1108,13 +1114,13 @@ export class LateEditionSim {
                 y: lead.y,
                 r: 12,
                 alpha: 1.0,
-                color: '#ffffff',
+                color: PALETTE.newsprint,
               });
               this.addCallout(
                 lead.x,
                 lead.y - 20,
                 '📸 PHOTO PROOF CAPTURED (1.8×)',
-                '#38bdf8'
+                PALETTE.newsprintAged
               );
               op.state = 'DARKROOM PROOF READY';
               op.targetLeadId = null;
@@ -1144,7 +1150,7 @@ export class LateEditionSim {
             rv.x,
             rv.y - 16,
             presentation.routed(rv),
-            '#10b981'
+            PALETTE.newsprintAged
           );
           this.cash += 35;
           this.rivals.splice(i, 1);
@@ -1163,9 +1169,9 @@ export class LateEditionSim {
             y: op.y,
             r: 10,
             alpha: 0.95,
-            color: '#38bdf8',
+            color: PALETTE.newsprintAged,
           });
-          this.addCallout(rv.x, rv.y - 14, '📸 FLASHBULB STUN!', '#38bdf8');
+          this.addCallout(rv.x, rv.y - 14, '📸 FLASHBULB STUN!', PALETTE.newsprintAged);
         }
       }
     }
@@ -1212,7 +1218,7 @@ export class LateEditionSim {
                 lead.x,
                 lead.y - 16,
                 '⚠️ RIVAL BEAT US (0.5× UNLESS PHOTO VERIFIED)',
-                '#eab308'
+                PALETTE.sodium
               );
               this.logWire(
                 presentation.contested(lead),
@@ -1223,7 +1229,7 @@ export class LateEditionSim {
                 lead.x,
                 lead.y - 16,
                 '⚠️ SCOOP STOLEN BY DAILY HERALD!',
-                '#eab308'
+                PALETTE.sodium
               );
               this.credibility = Math.max(0, this.credibility - 5);
               this.logWire(
@@ -1262,7 +1268,7 @@ export class LateEditionSim {
       const l = this.leads[i];
       l.timeLeft -= dt;
       if (l.timeLeft <= 0) {
-        this.addCallout(l.x, l.y, 'LEAD WENT COLD', '#94a3b8');
+        this.addCallout(l.x, l.y, 'LEAD WENT COLD', PALETTE.newsprintAged);
         this.leads.splice(i, 1);
       }
     }
@@ -1322,7 +1328,7 @@ export class LateEditionSim {
       lead.x,
       lead.y - 22,
       presentation.scooped(lead),
-      '#ffd47a'
+      PALETTE.sodium
     );
     this.spawnLead();
     return true;

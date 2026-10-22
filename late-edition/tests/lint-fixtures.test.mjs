@@ -67,7 +67,7 @@ test('stylelint rejects invalid CSS hex and returns a failing exit code', () => 
   assert.equal(result.status, 2, result.stdout + result.stderr);
   // Stylelint 17 writes diagnostics to stderr, reserving stdout for fixed code.
   const warnings = JSON.parse(result.stderr).flatMap((entry) => entry.warnings);
-  assert.deepEqual(warnings.map((warning) => warning.rule), ['declaration-property-value-no-unknown']);
+  assert.deepEqual(warnings.map((warning) => warning.rule), ['declaration-property-value-no-unknown', 'color-no-hex']);
   assert.equal(warnings[0].severity, 'error');
   assert.ok(warnings[0].text.includes('#zzzzzz'), result.stderr);
 });

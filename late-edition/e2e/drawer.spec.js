@@ -38,7 +38,7 @@ for (const phase of ['desk', 'paste-up']) {
   test(`D toggles the drawer in ${phase}; held D and F cannot leak into other actions`, async ({ page }) => {
     await drawerDesk(page, 1, { lock: phase === 'paste-up' });
     const handle = page.locator('#btn-drawer');
-    await expect(handle).toHaveText('FILE DRAWER [D] · 0/6');
+    await expect(handle).toHaveText('FILES [D] · 0/6');
     const before = await page.evaluate(() => window.lateEditionApp.sim.getStateHash());
     await page.keyboard.down('d');
     await expect(page.locator('#drawer-body')).toBeVisible();
@@ -161,4 +161,70 @@ test('cancel a full drawer spike; expiry and deadline close stale burn selection
   expect(await page.evaluate(() => window.lateEditionApp.sim.getStateHash())).toBe(printed);
   expect(await page.evaluate(() => window.lateEditionApp.pendingSpike)).toBeNull();
   expect(await page.evaluate(() => window.lateEditionApp.sim.spikedStories.length)).toBe(6);
+});
+
+for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
+  for (const phase of ['desk', 'paste-up']) {
+    test(`folder stays over map with its tab visible in ${phase} at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      const uids = await drawerDesk(page, 6);
+      await page.evaluate(({ uids, phase }) => {
+        const app = window.lateEditionApp;
+        for (const uid of uids) app.sim.spike(uid);
+        app.sim.phase = phase;
+        app._syncFullUI();
+      }, { uids, phase });
+      const handle = page.locator('#btn-drawer');
+      await expect(handle).toHaveText('FILES [D] · 6/6');
+      await expect(handle).toBeInViewport({ ratio: 1 });
+      const closed = await handle.boundingBox();
+      expect(closed.x).toBeLessThan(16);
+      await handle.click();
+      await expect(page.locator('#drawer-body')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Favor: police tip', exact: true }).first()).toBeFocused();
+      // Sample the actual transform until the folder is fully open; asserting
+      // mid-slide alone would miss an overlap at the end of the transition.
+      await expect.poll(() => page.locator('#file-drawer').evaluate((node) =>
+        new DOMMatrixReadOnly(getComputedStyle(node).transform).m41)).toBe(0);
+      const geometry = await page.locator('#file-drawer').evaluate((node) => {
+        const folder = node.getBoundingClientRect();
+        const paper = document.querySelector('.broadsheet-paper').getBoundingClientRect();
+        const map = document.querySelector('.map-frame').getBoundingClientRect();
+        const tab = document.querySelector('#btn-drawer').getBoundingClientRect();
+        return {
+          width: folder.width,
+          intersects: folder.left < paper.right && folder.right > paper.left && folder.top < paper.bottom && folder.bottom > paper.top,
+          overMap: folder.right <= map.right && folder.bottom <= map.bottom + 1,
+          tabOverPaper: tab.right > paper.left,
+          duration: getComputedStyle(node).transitionDuration,
+          property: getComputedStyle(node).transitionProperty,
+        };
+      });
+      expect(geometry.intersects).toBe(false);
+      expect(geometry.overMap).toBe(true);
+      expect(geometry.tabOverPaper).toBe(false);
+      expect(geometry.width).toBeGreaterThanOrEqual(390);
+      expect(geometry.width).toBeLessThanOrEqual(420);
+      expect(geometry.property).toBe('transform');
+      expect(parseFloat(geometry.duration)).toBeLessThanOrEqual(0.2);
+      await expect(handle).toBeInViewport({ ratio: 1 });
+      // A full folder scrolls internally without expanding across the paper.
+      await page.getByRole('button', { name: 'Shred', exact: true }).last().focus();
+      await page.keyboard.press('Escape');
+      await expect(handle).toBeFocused();
+      await expect(page.locator('#drawer-body')).toBeHidden();
+      await expect(handle).toBeInViewport({ ratio: 1 });
+    });
+  }
+}
+
+test('reduced motion removes the folder slide and leaves keyboard close immediate', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await drawerDesk(page);
+  await page.keyboard.press('d');
+  expect(await page.locator('#file-drawer').evaluate((node) => getComputedStyle(node).transitionProperty)).toBe('none');
+  expect(await page.locator('#btn-drawer').evaluate((node) => getComputedStyle(node).transitionProperty)).toBe('none');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#btn-drawer')).toBeFocused();
+  await expect(page.locator('#drawer-body')).toBeHidden();
 });

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <title>LATE EDITION // 1947 — Noir Newsroom Desk &amp; Broadsheet Paste-Up</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,600&family=IBM+Plex+Mono:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,700;0,6..72,800;1,6..72,500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -15,8 +14,8 @@
       <div class="rail-brand">
         <a href="../" class="back-to-arcade" title="Return to Arcade Launcher">← Arcade</a>
         <div class="plaque-title">
-          <span class="plaque-kicker">THE EVENING STAR · NIGHT DESK</span>
-          <h1>LATE EDITION <em>// 1947</em></h1>
+
+          <h1>LATE EDITION // 1947</h1>
         </div>
       </div>
 
@@ -28,38 +27,36 @@
           class="editor-portrait"
         >
         <div class="editor-bubble">
-          <span class="editor-tag">LOU VANCE // MANAGING EDITOR</span>
-          <p id="editor-directive" class="editor-quote">
-            "Rain's washing the blood off Pier 14, kid. Click any breaking lead on the map to dispatch Vance before the Herald steals our banner."
-          </p>
+
+          <p id="editor-directive" class="editor-quote"></p>
         </div>
       </div>
 
       <!-- Diegetic 1947 Brass Flip-Clock & Engraved Night-Desk Ledger Plate -->
       <div class="brass-ledger-plate">
         <div class="flip-clock-unit">
-          <span class="fc-tag">EDITION <b id="hud-edition">#1</b> · DEADLINE 12:00 AM</span>
-          <strong id="hud-clock" class="fc-time">06:00 PM</strong>
+          <span class="fc-tag"><b id="hud-edition"></b> · MIDNIGHT</span>
+          <strong id="hud-clock" class="fc-time"></strong>
         </div>
         <div class="ledger-divider"></div>
         <div class="ledger-metric">
-          <span class="dial-lbl">CIRCULATION</span>
-          <strong id="hud-circulation" class="accent-gold">18,400</strong>
+          <span class="dial-lbl">READERS</span>
+          <strong id="hud-circulation" class="accent-gold"></strong>
         </div>
         <div class="ledger-divider"></div>
         <div class="ledger-metric">
-          <span class="dial-lbl">DESK FUNDS</span>
-          <strong id="hud-funds" class="accent-emerald">$340</strong>
+          <span class="dial-lbl">CASH</span>
+          <strong id="hud-funds" class="accent-paper"></strong>
         </div>
         <div class="ledger-divider"></div>
         <div class="ledger-metric">
-          <span class="dial-lbl">PUBLIC TRUST</span>
-          <strong id="hud-credibility" class="accent-cyan">74%</strong>
+          <span class="dial-lbl">TRUST</span>
+          <strong id="hud-credibility" class="accent-paper"></strong>
         </div>
         <div class="ledger-divider"></div>
         <div class="ledger-metric">
-          <span class="dial-lbl">MOB HEAT</span>
-          <strong id="hud-heat" class="accent-crimson">22%</strong>
+          <span class="dial-lbl">HEAT</span>
+          <strong id="hud-heat" class="accent-sodium"></strong>
         </div>
       </div>
 
@@ -70,9 +67,9 @@
           <button type="button" id="btn-speed-1" class="btn-chip active" title="Normal speed">1×</button>
           <button type="button" id="btn-speed-2" class="btn-chip" title="Fast speed">2×</button>
         </div>
-        <button type="button" id="btn-audio" class="btn-chip active" title="Toggle Noir Jazz &amp; SFX (M)">🔊 JAZZ</button>
+        <button type="button" id="btn-audio" class="btn-chip active" title="Toggle Noir Jazz &amp; SFX (M)">SOUND [M]</button>
         <button type="button" id="btn-roll-press" class="btn-press-lever" title="Lock front page and roll the rotary presses [Space]">
-          🖨️ ROLL PRESSES [SPC]
+          ROLL PRESSES [SPC]
         </button>
       </div>
     </header>
@@ -84,18 +81,9 @@
         <div class="map-frame">
           <!-- 1-2-3 Night Editor Onboarding Bar -->
           <div class="map-hud-bar">
-            <div class="workflow-steps">
-              <span class="wf-step"><b>①</b> PICK PRESS PASS [1–4]</span>
-              <span class="wf-sep">→</span>
-              <span class="wf-step"><b>②</b> CLICK LEAD ON MAP</span>
-              <span class="wf-sep">→</span>
-              <span class="wf-step"><b>③</b> PLATE &amp; ROLL PRESS [SPC]</span>
-            </div>
-            <div class="map-instruction">
+<div class="map-instruction">
               <span class="dot-live"></span>
-              <span id="map-selection-status">
-                UNIT [1] JACK VANCE SELECTED — CLICK ANY BREAKING LEAD ON MAP TO DISPATCH
-              </span>
+              <span id="map-selection-status"></span>
             </div>
           </div>
 
@@ -106,9 +94,9 @@
             <!-- Non-Blocking Bakelite Rotary Phone Editorial Dilemma Card -->
             <aside id="rotary-phone-card" class="rotary-phone-card hidden" aria-label="Rotary Phone Editorial Dilemma">
               <div class="rotary-head">
-                <span class="rotary-bell">☎️</span>
-                <span id="rotary-caller">DISTRICT ATTORNEY’S OFFICE</span>
-                <strong id="rotary-timer">24s</strong>
+                <span class="rotary-bell">☎</span>
+                <span id="rotary-caller"></span>
+                <strong id="rotary-timer"></strong>
               </div>
               <p id="rotary-prompt" class="rotary-prompt"></p>
               <div class="rotary-actions">
@@ -121,8 +109,8 @@
             <aside class="pinned-wires-overlay" aria-label="Breaking City Wire Slips">
               <div class="wire-pin-header">
                 <span class="pin-tack"></span>
-                <span>BREAKING WIRE SLIPS (CLICK TO DISPATCH)</span>
-                <strong id="leads-count">3 ACTIVE</strong>
+                <span>WIRE</span>
+                <strong id="leads-count"></strong>
               </div>
               <div id="lead-list" class="lead-slip-stack"></div>
             </aside>
@@ -134,22 +122,19 @@
           <!-- 4 Manila Press-Pass Cards -->
           <div class="press-corps-rack">
             <div class="rack-header">
-              <span>PRESS CORPS CREDENTIALS — CLICK PASS OR PRESS [1–4], THEN CLICK ANY CITY LEAD</span>
+              <span>STAFF</span>
               <div class="desk-actions">
                 <button type="button" id="act-wiretap" class="btn-action" title="Intercept 2 fresh police-band leads [Q]">
-                  <span>📞 [Q] Wiretap</span>
-                  <b class="act-cost">$65</b>
+                  [Q] Wiretap $65
                 </button>
                 <button type="button" id="act-bribe" class="btn-action" title="Take syndicate hush-money (-10% Cred, -16% Heat) [W]">
-                  <span>💼 [W] Hush-Money</span>
-                  <b class="act-cost">+$160</b>
+                  [W] Hush +$160
                 </button>
                 <button type="button" id="act-fortify" class="btn-action" title="Repair Rotary Press to 100% &amp; repel saboteurs [E]">
-                  <span>🛡️ [E] Guard Press</span>
-                  <b class="act-cost">$75</b>
+                  [E] Guard $75
                 </button>
                 <button type="button" id="act-phone" class="btn-action" title="Answer incoming Bakelite Rotary Phone call [T]">
-                  <span>☎️ [T] Night Line</span>
+                  <span>[T] Phone</span>
                 </button>
               </div>
             </div>
@@ -158,13 +143,20 @@
 
           <!-- Live 1947 AP Teletype Paper Roll -->
           <div class="teletype-roll-box">
-            <div class="teletype-head">
-              <span>AP TELETYPE TAPE</span>
-              <span>1947 NIGHT WIRE</span>
-            </div>
+
             <div id="wire-log" class="wire-log"></div>
           </div>
         </div>
+        <section id="file-drawer" class="file-drawer" aria-label="File drawer">
+          <button type="button" class="file-button" id="btn-drawer" aria-expanded="false" aria-controls="drawer-body">FILES [D] · 0/6</button>
+          <div id="drawer-body" hidden>
+            <p id="drawer-status" role="status" aria-live="polite"></p>
+            <button type="button" class="file-button" id="btn-cancel-burn" hidden>Cancel spike</button>
+            <div id="drawer-files"></div>
+            <button type="button" class="file-button" id="btn-close-drawer">Close [D / Esc]</button>
+          </div>
+        </section>
+
       </section>
 
       <!-- ZONE 2 (RIGHT 40%): FULL-HEIGHT 1947 CREAM NEWSPRINT FRONT-PAGE PASTE-UP SHEET -->
@@ -173,30 +165,28 @@
           <!-- Authentic 1947 Newspaper Masthead -->
           <div class="broadsheet-masthead">
             <div class="paper-ears">
-              <div class="ear-box">WEATHER<br><strong>HEAVY RAIN</strong></div>
+
               <div class="masthead-title-block">
-                <span class="paper-motto">“ALL THE NEWS THAT SURVIVES THE NIGHT” · EST. 1889</span>
-                <h2>THE EVENING STAR</h2>
+
+                <h2>The Evening Star</h2>
               </div>
-              <div class="ear-box">LATE FINAL<br><strong>FIVE CENTS</strong></div>
             </div>
             <div class="paper-subbar">
-              <span id="paper-edition-label">VOL. LVIII · LATE NIGHT EDITION #1</span>
-              <span>METROPOLIS, OCT. 1947</span>
-              <span id="paper-projected-readers" class="red-stamp-inline">EST. +0 READERS</span>
+              <span id="paper-edition-label"></span>
+
+              <span id="paper-projected-readers" class="red-stamp-inline"></span>
             </div>
           </div>
 
-          <button type="button" id="btn-lock-page" class="btn-ink-stamp">Lock up the page [L]</button>
+          <button type="button" id="btn-lock-page" class="btn-ink-stamp">Lock up [L]</button>
           <div id="pasteup-controls" hidden>
-            <p>Select copy with Tab or arrows. Assign: 1/B Banner · 2/F Fold · 3/P Photo · 4/E Editorial · 5/I Inside · 6/S Spike. U returns placed copy to tray.</p>
             <div id="layout-destinations">
-              <button type="button" class="btn-ink-stamp" data-slot-id="inside">[5/I] Inside · ¼ value &amp; heat</button>
+              <button type="button" class="btn-ink-stamp" data-slot-id="inside">[5/I] Inside · ¼</button>
               <button type="button" class="btn-ink-stamp" data-slot-id="spike">[6/S] Spike</button>
-              <button type="button" id="btn-unplace" class="btn-ink-stamp">Return to tray [U]</button>
+              <button type="button" id="btn-unplace" class="btn-ink-stamp">Tray [U]</button>
             </div>
             <div id="inside-stories" role="group" aria-label="Inside stories"></div>
-            <p><span id="spiked-count">0 SPIKED</span> · <span id="assist-note">MANUAL PASTE-UP</span></p>
+            <p><span id="spiked-count" class="rubber-stamp"></span> · <span id="assist-note"></span></p>
           </div>
           <p id="layout-status" role="status" aria-live="polite"></p>
 
@@ -206,9 +196,9 @@
           <!-- Verified Scoop Paste-Up Tray (Sitting on the bottom margin of the newsprint sheet) -->
           <div class="pasteup-scoop-strip">
             <div class="pasteup-strip-head">
-              <span>COPY DESK · SELECT COPY, THEN A SLOT</span>
+              <span>PAGE ONE · Tab / arrows</span>
               <button type="button" id="btn-auto-layout" class="btn-ink-stamp" title="Optional assist: fill empty slots; costs 500 readers [A]">
-                [A] ASSIST (−500 READERS)
+                [A] Assist −500
               </button>
             </div>
             <div id="scoop-tray" class="scoop-tray"></div>
@@ -217,24 +207,20 @@
           <!-- Bottom Rotary Press Ledger & Syndicate Circulation Standings Printed in Footer -->
           <div class="broadsheet-footer-ledger">
             <div class="pressroom-summary">
-              <img
-                src="assets/sprites/masthead_press.png"
-                alt="1947 Rotary Printing Press"
-                class="press-illustration"
-              >
+
               <div class="press-stats">
-                <div class="ledger-title">ROTARY PRESS RUN PROJECTION</div>
+
                 <div class="proj-grid">
-                  <div><span>READERS:</span> <strong id="proj-circ">+0</strong></div>
-                  <div><span>REVENUE:</span> <strong id="proj-cash">+$110</strong></div>
-                  <div><span>TRUST:</span> <strong id="proj-cred">+0%</strong></div>
-                  <div><span>MOB HEAT:</span> <strong id="proj-heat">+0%</strong></div>
+                  <div><strong title="READERS" id="proj-circ"></strong></div>
+                  <div><strong title="REVENUE" id="proj-cash"></strong></div>
+                  <div><strong title="TRUST" id="proj-cred"></strong></div>
+                  <div><strong title="HEAT" id="proj-heat"></strong></div>
                 </div>
               </div>
             </div>
 
             <div class="rival-ledger">
-              <div class="ledger-title">CITY CIRCULATION STANDINGS</div>
+
               <div id="rival-standings" class="rival-standings"></div>
             </div>
           </div>
@@ -242,26 +228,15 @@
       </aside>
     </main>
 
-    <section id="file-drawer" class="file-drawer" aria-label="File drawer">
-      <button type="button" class="file-button" id="btn-drawer" aria-expanded="false" aria-controls="drawer-body">FILE DRAWER [D] · 0/6</button>
-      <div id="drawer-body" hidden>
-        <p id="drawer-status" role="status" aria-live="polite">Ink buys readers. Silence buys favors.</p>
-        <button type="button" class="file-button" id="btn-cancel-burn" hidden>Cancel spike</button>
-        <div id="drawer-files"></div>
-        <button type="button" class="file-button" id="btn-close-drawer">Close drawer [D / Esc]</button>
-      </div>
-    </section>
-
     <!-- Edition reports and the final stop-press telegram share a focus boundary. -->
     <p id="save-status" role="status"></p>
     <div id="edition-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-subtitle">
       <div class="modal-dialog">
-        <div class="modal-kicker" id="modal-kicker">ROTARY PRESS REPORT</div>
-        <h2 id="modal-title">EXTRA! EXTRA! EDITION #1 HITS THE STREETS</h2>
+        <div class="modal-kicker" id="modal-kicker"></div>
+        <h2 id="modal-title">PRESS REPORT</h2>
         <p id="modal-subtitle" class="modal-subtitle"></p>
         <div id="modal-metrics" class="modal-metrics"></div>
         <section id="final-front-page" class="final-front-page" aria-label="Final front page" hidden>
-          <h3>THE EVENING STAR · LATE FINAL</h3>
           <div id="final-layout-slots" class="final-layout-slots"></div>
         </section>
         <div class="modal-actions">
@@ -274,34 +249,30 @@
   <section id="title-screen" class="opening-screen" aria-labelledby="title-masthead">
     <canvas id="title-city" width="1400" height="1000" aria-hidden="true"></canvas>
     <div class="title-paper">
-      <p class="opening-kicker">METROPOLIS · OCTOBER 1947 · LATE FINAL</p>
-      <h1 id="title-masthead">THE EVENING STAR</h1>
-      <p>All the news that survives the night.</p>
-      <p id="title-best">Best circulation: 0</p>
+      <p class="opening-kicker">OCTOBER 1947</p>
+      <h1 id="title-masthead">The Evening Star</h1>
+
+      <p id="title-best"></p>
       <p id="title-save-notice" role="status"></p>
       <button type="button" id="btn-continue-run" hidden>Continue the run</button>
       <button type="button" id="btn-start-shift">Start the night shift</button>
-      <p class="opening-kicker">ENTER TO TAKE THE DESK</p>
     </div>
   </section>
 
   <section id="cold-open" class="opening-screen" aria-labelledby="cold-open-title" hidden>
     <div class="call-paper">
       <span class="opening-phone" aria-hidden="true">☎</span>
-      <p class="opening-kicker">INCOMING CALL · MANAGING EDITOR</p>
       <h2 id="cold-open-title">Lou Vance on the line</h2>
       <div id="lou-lines" role="group" aria-label="Lou’s assignment"></div>
-      <p>Your clock starts with your first dispatch.</p>
+
       <button type="button" id="btn-skip-intro">Skip [Esc]</button>
     </div>
   </section>
 
   <section id="desk-too-small" class="opening-screen" aria-labelledby="desk-small-title" hidden>
     <div class="call-paper">
-      <p class="opening-kicker">NOTE FROM THE COMPOSING ROOM</p>
       <h2 id="desk-small-title">The desk is too small</h2>
       <p>The desk is too small — widen the window to at least 1280x720</p>
-      <p>The night will wait. Your place is held.</p>
     </div>
   </section>
 
