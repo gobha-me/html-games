@@ -2,7 +2,7 @@ import { PALETTE, alpha as withAlpha } from './palette.js';
 import { CITY_SEED, generateDistrict, generateSkyline, rooftopSignGeometry, districtSignPosition, shadowVector } from './city.js';
 import { mulberry32 } from './rng.js';
 import { drawSilhouette, FIGURE_SCALE, MARKER_SCALE, figureBox } from './silhouettes.js';
-import { placeLabel } from './label-placement.js';
+import { boxesIntersect, placeLabel } from './label-placement.js';
 // ============================================================================
 // LATE EDITION // 1947 — 2.5D Rain-Slicked Noir Metropolis Renderer
 // ============================================================================
@@ -82,6 +82,8 @@ export class NoirCityRenderer {
       key,
       driftFog,
       signs: null,
+      leadLabels: new Map(),
+      labelLayout: null,
       city: layer((ctx) => {
         this._drawWetAsphaltBase(ctx);
         this._drawStreetNetwork(ctx);
@@ -562,7 +564,16 @@ export class NoirCityRenderer {
   _layoutLeadLabels(ctx, sim) {
     const obstacles = this._leadLabelObstacles(sim);
     const allIdle = sim.operatives.every((op) => !op.targetLeadId && !op.targetRivalId);
-    return sim.leads.map((lead) => {
+    const signature = JSON.stringify(sim.leads.map((lead) => [lead.uid, lead.x, lead.y,
+      lead.headline, lead.baseValue, lead.seriesBadge,
+      allIdle && lead.uid === sim.selectedLeadId && sim.scoopsTotal === 0]));
+    const cached = this.cache?.labelLayout;
+    // Keep detached labels stationary while units move unless a real obstacle
+    // enters their box. Unlike a timer/bucket, this cannot allow an overlap
+    // between refreshes, and avoids continuously rasterizing moving glyphs.
+    if (cached?.signature === signature && cached.placements.every(({ box }) =>
+      !obstacles.some((obstacle) => boxesIntersect(box, obstacle)))) return cached.placements;
+    const placements = sim.leads.map((lead) => {
       const prompt = allIdle && lead.uid === sim.selectedLeadId && sim.scoopsTotal === 0;
       ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
       let width = Math.max(86, ctx.measureText(`$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`).width + 16);
@@ -581,10 +592,28 @@ export class NoirCityRenderer {
       obstacles.push(placement.box);
       return { ...placement, top };
     });
+    if (this.cache) this.cache.labelLayout = { signature, placements };
+    return placements;
+  }
+
+  _labelSprite(width, height, paint) {
+    const canvas = document.createElement('canvas');
+    // Cache at the actual displayed resolution; a world-sized sprite needlessly
+    // uploads more pixels on the narrow map. Rebuilt with all layers on DPR/size.
+    canvas.width = Math.max(1, Math.ceil(width * this.canvas.width / WORLD_W));
+    canvas.height = Math.max(1, Math.ceil(height * this.canvas.height / WORLD_H));
+    const ctx = canvas.getContext('2d');
+    ctx.scale(canvas.width / width, canvas.height / height);
+    paint(ctx);
+    return canvas;
   }
 
   _drawStoryLeads(ctx, sim) {
     const placements = this._layoutLeadLabels(ctx, sim);
+    // Bound sprite retention to live leads, including last-lead removal/restart.
+    for (const uid of this.cache.leadLabels.keys()) {
+      if (!sim.leads.some((lead) => lead.uid === uid)) this.cache.leadLabels.delete(uid);
+    }
     for (const [index, lead] of sim.leads.entries()) {
       const isSelected = lead.uid === sim.selectedLeadId;
       const isHovered = lead.uid === this.hoverLeadId;
@@ -668,80 +697,104 @@ export class NoirCityRenderer {
         ctx.lineTo(Math.max(box.x, Math.min(lead.x, box.x + box.w)),
           Math.max(box.y, Math.min(lead.y, box.y + box.h))); ctx.stroke();
       }
+      const key = JSON.stringify([lead.beat, lead.headline, lead.baseValue, lead.seriesBadge,
+        lead.photoVerified, lead.scoopedByRival, isSelected, box.w, top]);
+      let cached = this.cache.leadLabels.get(lead.uid);
+      if (cached?.key !== key) {
+        const height = 12 - top;
+        const sprite = this._labelSprite(box.w, height, (labelCtx) => {
+          labelCtx.translate(box.w / 2, -top);
+          this._paintLeadLabel(labelCtx, lead, isSelected);
+        });
+        cached = { key, sprite, height };
+        this.cache.leadLabels.set(lead.uid, cached);
+      }
+      ctx.drawImage(cached.sprite, box.x, box.y, box.w, cached.height);
       ctx.translate(box.x + box.w / 2, box.y - top);
-      // The telegram moves as one group; the address/rings above stay fixed.
-      ctx.strokeStyle = PALETTE.brass;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -24); ctx.stroke();
-      ctx.fillStyle = PALETTE.telegram;
-      polygon(ctx, [[0, -24], [29, -24], [24, -15], [29, -6], [0, -6]]);
-
-
-      // Beat label inside node
-      ctx.font = '800 10px "Courier Prime", "Courier New", monospace';
-      ctx.fillStyle = PALETTE.sodium;
-      ctx.textAlign = 'center';
-      ctx.fillStyle = PALETTE.nightInk;
-      ctx.fillText(lead.beat.slice(0, 5), 14, -12);
-
-      // Headline callout pill above node
-      const label = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
-      ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
-      const tw = ctx.measureText(label).width + 16;
-      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.94);
-      ctx.strokeStyle = isSelected ? PALETTE.newsprint : PALETTE.sodium;
-      ctx.lineWidth = 1.4;
-      ctx.fillRect(-tw / 2, -46, tw, 19);
-      ctx.strokeRect(-tw / 2, -46, tw, 19);
-
-      ctx.fillStyle = PALETTE.newsprint;
-      ctx.fillText(label, 0, -32.5);
-
-      if (lead.seriesBadge) {
-        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
-        const sw = ctx.measureText(lead.seriesBadge).width + 14;
-        ctx.fillStyle = PALETTE.stampRed;
-        ctx.strokeStyle = PALETTE.sodium;
-        ctx.lineWidth = 1.2;
-        ctx.fillRect(-sw / 2, -65, sw, 16);
-        ctx.strokeRect(-sw / 2, -65, sw, 16);
-        ctx.fillStyle = PALETTE.sodium;
-        ctx.fillText(lead.seriesBadge, 0, -54);
-      }
-
-      if (lead.photoVerified) {
-        ctx.fillStyle = PALETTE.newsprintAged;
-        ctx.fillRect(16, -22, 26, 14);
-        ctx.fillStyle = PALETTE.nightInk;
-        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
-        ctx.fillText('1.8×', 29, -12);
-      } else if (lead.scoopedByRival) {
-        ctx.fillStyle = PALETTE.stampRed;
-        ctx.fillRect(-38, -22, 24, 14);
-        ctx.fillStyle = PALETTE.newsprint;
-        ctx.font = '800 9px "Courier Prime", "Courier New", monospace';
-        ctx.fillText('0.5×', -26, -12);
-      }
 
       // First-launch onboarding prompt on the selected lead when all units are idle at HQ
       const allIdle = sim.operatives.every(
         (op) => !op.targetLeadId && !op.targetRivalId
       );
       if (allIdle && isSelected && sim.scoopsTotal === 0) {
-        const bounce = Math.sin(this.cosmeticTime * 6) * 4;
-        const prompt = '▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE';
-        ctx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
-        const pw = ctx.measureText(prompt).width + 20;
-        ctx.fillStyle = PALETTE.sodium;
-        ctx.strokeStyle = PALETTE.nightInk;
-        ctx.lineWidth = 2;
-        ctx.fillRect(-pw / 2, 34 + bounce, pw, 22);
-        ctx.strokeRect(-pw / 2, 34 + bounce, pw, 22);
-        ctx.fillStyle = PALETTE.nightInk;
-        ctx.fillText(prompt, 0, 49 + bounce);
+        if (!this.cache.dispatchPrompt) {
+          // Include the stroke in the sprite; bounce remains a cheap blit.
+          const width = box.w;
+          const sprite = this._labelSprite(width, 24, (promptCtx) => {
+            promptCtx.translate(width / 2, 0);
+            promptCtx.textAlign = 'center';
+            const prompt = '▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE';
+            promptCtx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
+            const pw = promptCtx.measureText(prompt).width + 20;
+            promptCtx.fillStyle = PALETTE.sodium;
+            promptCtx.strokeStyle = PALETTE.nightInk;
+            promptCtx.lineWidth = 2;
+            promptCtx.fillRect(-pw / 2, 1, pw, 22);
+            promptCtx.strokeRect(-pw / 2, 1, pw, 22);
+            promptCtx.fillStyle = PALETTE.nightInk;
+            promptCtx.fillText(prompt, 0, 16);
+          });
+          this.cache.dispatchPrompt = { sprite, width };
+        }
+        const { sprite, width } = this.cache.dispatchPrompt;
+        ctx.drawImage(sprite, -width / 2, 33 + Math.sin(this.cosmeticTime * 6) * 4, width, 24);
       }
 
       ctx.restore();
+    }
+  }
+
+  _paintLeadLabel(ctx, lead, isSelected) {
+    // The telegram moves as one group; the address/rings above stay fixed.
+    ctx.strokeStyle = PALETTE.brass;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -24); ctx.stroke();
+    ctx.fillStyle = PALETTE.telegram;
+    polygon(ctx, [[0, -24], [29, -24], [24, -15], [29, -6], [0, -6]]);
+
+    // Beat label inside node
+    ctx.font = '800 10px "Courier Prime", "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = PALETTE.nightInk;
+    ctx.fillText(lead.beat.slice(0, 5), 14, -12);
+
+    // Headline callout pill above node
+    const label = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
+    ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
+    const tw = ctx.measureText(label).width + 16;
+    ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.94);
+    ctx.strokeStyle = isSelected ? PALETTE.newsprint : PALETTE.sodium;
+    ctx.lineWidth = 1.4;
+    ctx.fillRect(-tw / 2, -46, tw, 19);
+    ctx.strokeRect(-tw / 2, -46, tw, 19);
+
+    ctx.fillStyle = PALETTE.newsprint;
+    ctx.fillText(label, 0, -32.5);
+
+    if (lead.seriesBadge) {
+      ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
+      const sw = ctx.measureText(lead.seriesBadge).width + 14;
+      ctx.fillStyle = PALETTE.stampRed;
+      ctx.strokeStyle = PALETTE.sodium;
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(-sw / 2, -65, sw, 16);
+      ctx.strokeRect(-sw / 2, -65, sw, 16);
+      ctx.fillStyle = PALETTE.sodium;
+      ctx.fillText(lead.seriesBadge, 0, -54);
+    }
+
+    if (lead.photoVerified) {
+      ctx.fillStyle = PALETTE.newsprintAged;
+      ctx.fillRect(16, -22, 26, 14);
+      ctx.fillStyle = PALETTE.nightInk;
+      ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
+      ctx.fillText('1.8×', 29, -12);
+    } else if (lead.scoopedByRival) {
+      ctx.fillStyle = PALETTE.stampRed;
+      ctx.fillRect(-38, -22, 24, 14);
+      ctx.fillStyle = PALETTE.newsprint;
+      ctx.font = '800 9px "Courier Prime", "Courier New", monospace';
+      ctx.fillText('0.5×', -26, -12);
     }
   }
 

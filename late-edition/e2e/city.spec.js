@@ -99,6 +99,24 @@ test('reduced motion title is pixel-static, including a live preference change',
   expect(await page.locator('#title-city').evaluate((canvas) => canvas.toDataURL())).toBe(frozen);
 });
 
+test('hidden title never renders or advances its searchlight behind the live desk', async ({ page }) => {
+  await startDesk(page);
+  const before = await page.evaluate(() => {
+    const { titleRenderer, renderer } = window.lateEditionApp;
+    window.titleCallsWhileHidden = 0;
+    const original = titleRenderer.renderTitle;
+    titleRenderer.renderTitle = function (...args) {
+      window.titleCallsWhileHidden++;
+      return original.apply(this, args);
+    };
+    return { title: titleRenderer.cosmeticTime, desk: renderer.cosmeticTime };
+  });
+  await expect.poll(() => page.evaluate(() => window.lateEditionApp.renderer.cosmeticTime)).toBeGreaterThan(before.desk);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => ({ calls: window.titleCallsWhileHidden,
+    time: window.lateEditionApp.titleRenderer.cosmeticTime }))).toEqual({ calls: 0, time: before.title });
+});
+
 test('title depth values stay distinct and the sodium beam survives foreground compositing', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.evaluate(() => document.fonts.ready);

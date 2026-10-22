@@ -260,6 +260,98 @@ test('label offsets try above, right, left, below before a detached leader fallb
   assert.throws(() => placeLabel(anchor, size, [{ x: 0, y: 0, w: 0, h: 10 }]), RangeError);
 });
 
+test('warm label sprites reject stale in-place copy, selection and verification; removed leads release sprites', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  renderer.render(sim, 0);
+  const lead = sim.leads[0];
+  const first = renderer.cache.leadLabels.get(lead.uid);
+  calls.length = 0;
+  lead.timeLeft -= 10;
+  lead.progress = 50;
+  lead.rivalProgress = 90;
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.equal(renderer.cache.leadLabels.get(lead.uid), first);
+  assert.equal(calls.filter(([name]) => name === 'measureText' || name === 'fillText').length, 0,
+    'Live arcs/countdown must not measure or rasterize unchanged label text');
+  for (const [field, value] of Object.entries({ beat: 'GRAFT', headline: 'CHANGED IN PLACE',
+    baseValue: 0, seriesBadge: 'PART III/III', photoVerified: true, scoopedByRival: true })) {
+    const previous = renderer.cache.leadLabels.get(lead.uid);
+    lead[field] = value;
+    renderer._drawStoryLeads(renderer.ctx, sim);
+    assert.notEqual(renderer.cache.leadLabels.get(lead.uid), previous, field);
+  }
+  const previous = renderer.cache.leadLabels.get(lead.uid);
+  sim.selectedLeadId = sim.selectedLeadId === lead.uid ? null : lead.uid;
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.notEqual(renderer.cache.leadLabels.get(lead.uid), previous, 'Selection changes the pill border');
+  lead.photoVerified = false;
+  calls.length = 0;
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.ok(calls.some(([name, text]) => name === 'fillText' && text === '0.5×'),
+    'Removing photo verification must expose the rival stamp');
+  const uid = lead.uid;
+  lead.uid = 'replacement-at-same-address';
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.equal(renderer.cache.leadLabels.has(uid), false);
+  assert.equal(renderer.cache.leadLabels.size, sim.leads.length);
+  sim.leads = [];
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.equal(renderer.cache.leadLabels.size, 0);
+});
+
+test('cached placement detects incoming obstacles immediately and keeps detached leaders tied to edited addresses', (t) => {
+  const { canvas } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  sim.edition = 4;
+  sim.scoopsTotal = 1;
+  renderer.render(sim, 0);
+  const first = renderer._layoutLeadLabels(renderer.ctx, sim);
+  sim.leads[0].progress += 1;
+  assert.equal(renderer._layoutLeadLabels(renderer.ctx, sim), first);
+  // An actor entering an old label must invalidate even with identical lead
+  // membership/copy. A timer or a cache keyed only by leads would miss this.
+  const { box } = first[0];
+  const op = sim.operatives[0];
+  op.x = box.x + box.w / 2;
+  op.y = box.y + box.h;
+  op.targetX = op.x;
+  op.targetY = op.y;
+  const moved = renderer._layoutLeadLabels(renderer.ctx, sim);
+  assert.notEqual(moved, first);
+  const verify = (placements) => {
+    const obstacles = renderer._leadLabelObstacles(sim);
+    for (const { box, leader } of placements) {
+      assert.ok(obstacles.every((obstacle) => !boxesIntersect(box, obstacle)));
+      obstacles.push(box);
+      if (leader) assert.ok(sim.leads.some((lead) => lead.x === leader.from.x && lead.y === leader.from.y));
+    }
+  };
+  verify(moved);
+  // Availability, hover/selection rings, target rings, and stunned rivals all
+  // enter via current obstacle geometry rather than an incomplete cache key.
+  const incoming = (change) => {
+    const before = renderer._layoutLeadLabels(renderer.ctx, sim);
+    change(before[0].box);
+    assert.notEqual(renderer._layoutLeadLabels(renderer.ctx, sim), before);
+    verify(renderer._layoutLeadLabels(renderer.ctx, sim));
+  };
+  incoming((box) => { op.targetX = box.x + box.w / 2; op.targetY = box.y + box.h / 2; });
+  incoming((box) => { sim.rivals = [{ x: box.x + box.w / 2, y: box.y + box.h, stunTimer: 1 }]; });
+  incoming((box) => { renderer.cache.signs.positions[0] = { x: box.x, y: box.y + 19, width: box.w }; });
+  sim.leads[0].x += 17;
+  sim.leads[0].y += 19;
+  const edited = renderer._layoutLeadLabels(renderer.ctx, sim);
+  verify(edited);
+  assert.notEqual(edited, moved);
+  const sprites = renderer.cache.leadLabels;
+  globalThis.window.devicePixelRatio = 2;
+  renderer.render(sim, 0);
+  assert.notEqual(renderer.cache.leadLabels, sprites, 'DPR must invalidate label raster resolution');
+});
+
 test('street figures, number badges and ground rings grow together by 1.4x', (t) => {
   const { canvas, calls } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas);
