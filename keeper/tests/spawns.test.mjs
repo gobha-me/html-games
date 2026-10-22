@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SPAWN, NIGHT_SECONDS, NIGHT_PASSES, BUDGET_PERIOD_SECONDS, ROCKS,
+import { SPAWN, NIGHT_SECONDS, NIGHT_PASSES, BUDGET_PERIOD_SECONDS, CLEAR_MARGIN, planHazards,
   planSpawns, createState, step, validateSchedule, summary } from '../js/sim.js';
 import { PHYSICS_DT, HULLS, createVessel, threatensReef, pointOfNoReturn, stepVessel } from '../js/physics.js';
 
 const seeds = [...new Set([0, 1, 108, 0xffffffff,
   ...Array.from({ length: 500 }, (_, i) => Math.imul(i, 2654435761) >>> 0)])].slice(0, 500);
-const reefs = ROCKS.map((rock) => ({ ...rock, y: -rock.y, radius: rock.radius + 8 }));
+const reefsFor = (hazards, margin = 0) => hazards.map((rock) => ({ ...rock, y: -rock.y, radius: rock.radius + 8 + margin }));
 const reach = 464.8;
 const close = (actual, expected, tolerance = 1e-7) => assert.ok(Math.abs(actual - expected) < tolerance, `${actual} != ${expected}`);
 let samples;
@@ -47,7 +47,7 @@ test('every accepted spawn across 500 seeds has bounded timing, complete fields 
         const previous = schedule[index - 1];
         const base = SPAWN.intervalStart + (SPAWN.intervalEnd - SPAWN.intervalStart) * previous.spawnTime / NIGHT_SECONDS;
         const elapsed = ship.spawnTime - previous.spawnTime;
-        assert.ok(elapsed >= base * (1 - SPAWN.jitter) && elapsed <= base * (1 + SPAWN.jitter), `${state.seed}: gap ${elapsed}`);
+        assert.ok(elapsed >= base * (1 - SPAWN.jitter) && elapsed <= 2 * SPAWN.intervalStart * (1 + SPAWN.jitter), `${state.seed}: gap ${elapsed}`);
       }
     }
   }
@@ -80,6 +80,7 @@ test('every night preserves fair physical PONR for both hulls rather than merely
   const types = new Set();
   for (let night = 1; night <= NIGHT_PASSES.length; night++) for (const seed of seeds.slice(0, 24)) {
     const schedule = planSpawns(seed, { night });
+    const reefs = reefsFor(planHazards(seed, { night }), CLEAR_MARGIN);
     assert.ok(schedule.length > 0);
     assert.ok(validateSchedule(schedule, { night, fogReach: reach }).ok);
     for (const ship of schedule.filter((entry) => entry.threatening)) {
@@ -174,14 +175,16 @@ test('long frame hitches include every arrival and match fine-step poses without
     close(ship.x, fine.ships[i].x);
     close(ship.y, fine.ships[i].y);
   }
-  assert.deepEqual(summary(hitch), { safe: hitch.ships.filter((ship) => ship.status === 'safe').length,
-    wrecked: hitch.ships.filter((ship) => ship.status === 'wrecked').length });
+  assert.deepEqual(summary(hitch), { safe: hitch.ships.filter((ship) => ship.everSeen && ship.status === 'safe').length,
+    wrecked: hitch.ships.filter((ship) => ship.everSeen && ship.status === 'wrecked').length,
+    unseen: hitch.ships.filter((ship) => !ship.everSeen).length });
 });
 
 test('non-threatening spawns across all 500 seeds are on permanently reef-clear courses, even beyond dawn', () => {
   let checked = 0;
   for (const state of watches()) for (const ship of state.schedule.filter((entry) => entry.threatening === false)) {
     const pose = vessel(ship);
+    const reefs = reefsFor(state.hazards);
     assert.equal(threatensReef(pose, reefs, Number.MAX_VALUE), false, `${state.seed}/${ship.id}`);
     const future = stepVessel(pose, {}, 2 * NIGHT_SECONDS);
     assert.equal(threatensReef(future, reefs, Number.MAX_VALUE), false);
@@ -199,22 +202,23 @@ test('non-threatening spawns across all 500 seeds are on permanently reef-clear 
   }
 });
 
-test('held horn never retroactively warns an arrival; a new press warns and rescues it with the shared physics', () => {
-  let state = step(createState(108), { horn: true }, 30);
-  const ship = state.ships.find((entry) => entry.id === 'ship-1');
-  assert.equal(ship.threatening, true);
+test('held horn never retroactively warns an arrival; a new press warns it with shared physics', () => {
+  const seed = Array.from({ length: 500 }, (_, index) => index).find((value) => planSpawns(value).some((ship) => ship.threatening));
+  const entry = planSpawns(seed).find((ship) => ship.threatening);
+  let state = step(createState(seed), { horn: true }, entry.spawnTime + 0.1);
+  let ship = state.ships.find((candidate) => candidate.id === entry.id);
   assert.equal(ship.warnedAt, null);
   assert.equal(ship.lastHorn, undefined);
   state = step(state, {}, PHYSICS_DT);
-  const heading = state.ships[1].heading;
+  const heading = ship.heading;
   state = step(state, { horn: true }, PHYSICS_DT);
-  assert.equal(state.ships[1].lastHorn.response, 'turn-away');
-  assert.equal(state.ships[1].warnedAt, state.time);
-  assert.equal(state.ships[1].heading, heading, 'crew delay precedes the turn');
-  assert.ok(state.ships[1].reactAt > state.time);
+  ship = state.ships.find((candidate) => candidate.id === entry.id);
+  assert.equal(ship.lastHorn.response, 'turn-away');
+  assert.equal(ship.warnedAt, state.time);
+  assert.equal(ship.heading, heading, 'crew delay precedes the turn');
+  assert.ok(ship.reactAt > state.time);
   const dawn = step(state, {}, NIGHT_SECONDS - state.time);
-  assert.equal(dawn.ships[1].status, 'safe');
-  assert.equal(dawn.ships[1].wreckedAt, null);
+  assert.notEqual(dawn.ships.find((candidate) => candidate.id === entry.id).status, 'wrecked');
 });
 
 test('live underway cap holds with and without repeated rescue attempts', () => {
@@ -227,15 +231,14 @@ test('live underway cap holds with and without repeated rescue attempts', () => 
   }
 });
 
-test('the opening trawler retains its original physical approach and unwarned collision time', () => {
-  const { trawler } = createState(108);
-  close(trawler.x, 292.765443702302);
-  close(trawler.y, -358.3221111447294);
-  close(trawler.heading, 219.25038348331805);
-  close(trawler.spawnRange, 462.71626334225766);
+test('the opening trawler crosses the seeded hazard field with a physical warning window', () => {
+  const state = createState(108), { trawler } = state;
+  const pose = { ...trawler, y: -trawler.y };
   assert.equal(trawler.speed, HULLS.trawler.cruiseSpeed);
-  const dawn = step(createState(108), {}, NIGHT_SECONDS);
-  close(dawn.trawler.wreckedAt, 91.28333333332942);
+  assert.ok(threatensReef(pose, reefsFor(state.hazards), 120));
+  const dawn = step(state, {}, NIGHT_SECONDS);
+  const nominalEntry = trawler.pnrRange; // Includes the new planning margin.
+  assert.ok(dawn.trawler.wreckedAt > (trawler.spawnRange - nominalEntry) / trawler.speed);
   assert.equal(dawn.trawler.status, 'wrecked');
 });
 

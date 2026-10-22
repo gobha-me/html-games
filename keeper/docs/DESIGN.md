@@ -104,7 +104,7 @@ Reduced motion removes the fade transition.
 ## 6. Ships & behaviours
 
 All ships start on seeded deterministic courses and use the same physical
-maneuvering model. The first watch opens with its original trawler and adds
+maneuvering model. The first watch opens with a trawler on a seeded hazard lane and adds
 seeded traffic; the simulation, horn and renderer operate on a fleet, with
 independent responses for each ship.
 
@@ -116,65 +116,90 @@ independent responses for each ship.
 | **Lifeboat / boat in distress** | small, flare or lamp flashing SOS | Drifts toward the rocks; flashes `SOS` in Morse. | Light it (so the shore boat can find it), signal `K`-style acknowledgement, and log it. Unlit too long → lost. |
 | **Swimmer / wreckage** (mystery nights) | tiny, only visible in beam | Drifts. | See it. Log it. |
 
-### Seeded additional traffic (kspawn)
+### Seeded hazards and fleet traffic (kfleet-ISSUE)
 
-`planSpawns(seed, { night = 1 } = {})` returns only the extra approaches,
-ordered by spawn time, with consecutive unique ids `ship-1`, `ship-2`, etc.
-Seeds must be integers in [0, 2³²−1]; invalid seeds or nights outside 1–5
-throw `RangeError`. Planning uses a private seeded LCG, never the wall clock
-or `Math.random`, and cannot be changed by mutating a previous result.
-`createState(seed)` keeps its original seed validation and opening trawler
-trajectory, then stores `[trawler, ...extras]` in `state.schedule`.
+`planHazards(seed, { night = 1 } = {})` returns new chart-space discs
+`{ kind: 'reef'|'shoal'|'wreck', x, y, radius }`. Its private LCG stream mixes
+seed and night; repeated calls cannot share mutable objects. Both it and
+`planSpawns` require uint32 seeds and integer nights 1–5 (`RangeError` for
+invalid inputs). `createState(seed = 108)` retains its `TypeError` seed
+contract, installs the night-one hazards in `state.hazards`, and stores the
+opening trawler plus extras in `state.schedule`. Pure modules use no DOM,
+wall clock or `Math.random`.
 
-All public pacing tunables live in the frozen `SPAWN` export:
+The frozen `HAZARD` export lists every generation bound:
 
 | Tunable | Default | Meaning |
 |---|---:|---|
-| `firstMin` | 24 s | Earliest first extra arrival, at the second default revolution. |
-| `firstMax` | 36 s | Latest first extra arrival, at the third default revolution. |
-| `intervalStart` | 40 s | Unjittered gap at the beginning of the 180 s watch. |
-| `intervalEnd` | 18 s | Unjittered gap at dawn; the ramp uses the entire watch duration. |
-| `jitter` | 0.25 | Each gap is multiplied by a seeded factor in [0.75, 1.25]. |
-| `maxActive` | 3 | Maximum overlapping inclusive active windows, including the opener. |
-| `lastSpawn` | 120 s | Latest allowed arrival; the final minute introduces no new ships. |
-| `minBearingGap` | 20° | Minimum circular bearing separation for overlapping windows. |
-| `threatShare` | 0.6 | Probability that a candidate takes a reef-threatening course, before rejection. |
+| `minCount`, `maxCount` | 5, 9 | Inclusive number of hazards. |
+| `minRadius`, `maxRadius` | 6 m, 34 m | Inclusive permitted radii. |
+| `smallCount`, `smallMaxRadius` | 2, 10 m | First two hazards have radii in [6,10]. |
+| `minCentre`, `maxCentre` | 160 m, 300 m | Radial centre sampling interval. |
+| `angleJitter` | 4° | Independent ± jitter around equal angular sectors. |
 
-The first extra time is drawn within [`firstMin`, `firstMax`]. After an
-accepted arrival at time `t`, the next gap is
+A seeded phase covers 0–360°. Equal sectors with jitter spread hazards over
+at least three chart quadrants. The minimum angular separation is 32°;
+`2 × 160 × sin(16°) > 2 × 34` guarantees nonoverlapping discs without retries.
+These conservative sampling bounds satisfy the external limits: centres
+within **430 m**, edges at least **90 m** from the lighthouse (the generator
+actually guarantees at least 126 m). Kinds are selected uniformly. Rendering
+uses the existing dotted chart ink with reef crosses, shoal waves and wreck
+hulls; overhead view, compass, labels, chart transform and layout are fixed.
+No live system reads legacy `ROCKS`: collisions, threat checks, horn response,
+physical PONR, avoidance and rendering all consume `state.hazards`.
+
+`planSpawns(seed, { night = 1 } = {})` returns only extras, ordered by time,
+with unique consecutive ids `ship-1`, `ship-2`, etc. The opener aims through
+the outermost hazard (centre range plus radius). The frozen `SPAWN` export:
+
+| Tunable | Default | Meaning |
+|---|---:|---|
+| `firstMin`, `firstMax` | 24 s, 36 s | First extra's arrival interval. |
+| `intervalStart`, `intervalEnd` | 40 s, 18 s | Unjittered gap ramped across the full 180 s watch. |
+| `jitter` | 0.25 | Gap multiplier sampled in [0.75,1.25]. |
+| `maxActive` | 3 | Inclusive overlapping reservations, opener included. |
+| `lastSpawn` | 120 s | Last possible slot. |
+| `minBearingGap` | 20° | Circular separation for overlapping reservations. |
+| `threatShare` | 0.6 | Threat probability before rejection, except fallback candidate. |
+
+The frozen `TRAFFIC` export supplies admission details:
+
+| Tunable | Default | Meaning |
+|---|---:|---|
+| `attempts` | 8 | Maximum candidates per slot; final candidate is clear outbound traffic in the widest available bearing gap. |
+| `lateAfter` | 80 s | Admit additional long-lived threatening approaches only after this time. |
+| `maxThreats` | 2 | Maximum dawn-long threat reservations including the opener. |
+| `bearingJitter` | 3° | ± offset around a seeded hazard's bearing for threatening extras. |
+| `openingJitter` | 0.5° | ± offset around the outermost hazard for the opener. |
+
+After **every slot** at `t`, accepted or exhausted, advance by
 `(intervalStart + (intervalEnd − intervalStart) × t / NIGHT_SECONDS) × jitterFactor`.
-Each slot tries at most **eight** seeded candidates. Capacity, separation and
-fairness are never relaxed. An exhausted slot ends the plan: accepting a
-later slot could violate the maximum gap between consecutive accepted ships.
-Rejection can change the final proportion of threatening traffic.
+Exhausting eight candidates never ends planning. Capacity, separation and
+fairness remain mandatory. Early rotating berths use outbound coasters;
+their faster exits avoid filling all berths with dawn-long trawlers. The
+final clear candidate prevents random rejection alone from silencing traffic.
+Across seeds 0–499, every night has an arrival after 80 s, and consecutive
+accepted gaps (including opener to first extra) never exceed
+**2 × intervalStart × (1 + jitter) = 100 s**. Skipped slots can exceed the
+single-slot jitter envelope; the two-slot bound applies to accepted traffic.
+Rejection and fallback change the final threatening share.
 
-Threatening traffic approaches the isolated north-west rock on bearings
-within ±3° of its centre. This separates it from the opening trawler's
-north-east lane. It uses the hull's cruise speed, maximum crew delay and
-physics-derived maneuver allowance. Four-pass nights use trawlers for these
-approaches because a coaster's full turn and warning window do not fit the
-464.8 m horizon; later nights can admit coasters too. Clear traffic can use
-either hull and sails **outward** from 464.8 m, beyond every inflated reef
-disc. Its entire straight course remains clear even beyond dawn; no collision
-immunity or special horn response is needed. Both use the shared ship physics.
+Threatening extras aim through a seeded hazard. Four-pass nights use
+trawlers; later nights may admit coasters if their entire physical warning
+budget fits the worst-fog horizon, **464.8 m**. Clear traffic starts at that
+horizon and sails outward beyond every hazard. Every entry declares `type`,
+`spawnTime`, `bearing`, `speed`, `threatening`, `responseSeconds`, `turnRadius`,
+`pnrRange`, `spawnRange`, `exitTime`. Reservations cover inclusive
+`[spawnTime, exitTime]`: threats through dawn, outbound coasters through the
+600 m exit plus two fixed ticks, capped at dawn. Terminal hulls remain in the
+fleet for perception and records without extending reservations.
 
-Every entry declares `type`, `spawnTime`, `bearing`, `speed`, `threatening`,
-`responseSeconds`, `turnRadius`, `pnrRange`, `spawnRange` and `exitTime`.
-The inclusive active window is **[spawnTime, exitTime]**. The opener and
-threatening traffic conservatively reserve capacity until dawn, since a
-warning can prevent their projected impact and prolong their voyage. Clear
-traffic reserves its outbound trip to the 590 m chart boundary, plus two
-fixed ticks to cover arrival/exit quantization, or until dawn if earlier.
-Terminal ships remain in the fleet for wrecks, afterimages and the morning
-summary; their continued presence does not reuse a reserved window early.
-
-A planned ship joins `state.ships` on the first fixed tick whose time reaches
-its spawn time, with status `underway`. It travels only the portion of that
-tick after arrival, and can hear a fresh horn on that tick. A horn already
-held at arrival sends no new broadcast. The existing renderer visits every
-fleet member through `perception`; unseen future ships have no live hull.
-Morning records use version 2 for multiple safe/wrecked outcomes while still
-reading legacy one-ship version 1 records from the existing storage key.
+An arrival enters `state.ships` on the first tick reaching its spawn time,
+travels only that tick's post-spawn fraction, and starts with `everSeen: false`
+and an explicit off-chart `destination`. A held horn never sends a fresh
+broadcast to later arrivals. The renderer visits the fleet through perception.
+Version 2 morning records retain safe/wrecked counts (including zero/zero);
+legacy version 1 records still require exactly one outcome.
 
 ### Horn broadcast and directed lamp
 
@@ -187,8 +212,8 @@ broadcast; holding sustains its sound, releasing and pressing sends another.
 
 Each honest captain projects its straight track against the reef discs over
 **`THREAT_HORIZON_SECONDS = 120` seconds** (including the exact endpoint).
-An endangered ship turns toward safe water, away from the nearest reef; a safe
-ship holds course. A reef 10 km down the track beyond that horizon does not
+An endangered honest ship plans the smallest physically clear course offset
+and later resumes its destination; a clear ship holds course. A reef 10 km down the track beyond that horizon does not
 make the ship endangered, for either horn response or trust. A dark smuggler
 deterministically ignores the horn or veers onto a course away from the
 lighthouse. Seeded crew delays vary within the hull's reaction band below;
@@ -253,9 +278,9 @@ continuous turns and reversals instead of snapping the bow to a new bearing.
 At zero speed there is no steerage or rotation. Linear thrust and drag give
 acceleration/deceleration: full throttle settles at cruise speed in straight
 water, while full rudder adds 25% drag (80% cruise equilibrium). Integration
-uses midpoint yaw/translation. A delayed escape helm turns away from the
-reef, then anticipates rudder/yaw inertia to settle onto the reciprocal
-course. The renderer rotates the hull and running lights from this physical
+uses midpoint yaw/translation. The delayed navigation helm reserves remaining
+yaw and rudder-slew travel before adding more helm, settling smoothly onto
+the avoidance course. The renderer rotates the hull and running lights from this physical
 heading; remembered poses retain the last observed heading.
 
 The tactical diameter is measured by starting straight at cruise, applying
@@ -269,33 +294,70 @@ change, including rudder/yaw startup and speed loss. Tuned measurements:
 | Speedboat | 6 | 6 | 90 | 1.2 | 0.35 | 1–1.4 | **16.44 / 2.74** |
 | Lifeboat | 8 | 3 | 55 | 0.45 | 0.7 | 1.1–1.7 | **21.92 / 2.74** |
 
+### Destinations and minimal avoidance
+
+Every spawned vessel's destination is **1600 m along its initial course**,
+which places it more than 600 m from the lighthouse for every generated
+spawn. Honest captains initially sail straight toward it. A warning schedules
+crew reaction once; at that instant the planner starts from the actual hull
+pose, rudder, yaw and speed, so the crew delay is physically included.
+
+`CLEAR_MARGIN = 20` m is exported. Search heading offsets in **1° steps**,
+checking both sides of each angle (port breaks equal-angle ties), through
+179°. Each candidate uses `stepVessel` at **1/60 s**, the same helm as live
+navigation, and **every** hazard inflated by the 8 m hull allowance plus the
+20 m margin. The first physically clear complete maneuver wins. It holds one
+outbound avoidance course until the originally threatening discs are astern
+of the original course with their full clearance. Once a direct destination
+track also clears every padded disc, it turns once toward its destination.
+The return leg is also physically checked against all discs.
+A settled leg is checked for infinite straight-track threats; there is no
+unchecked jump past an obstacle. No candidate may depend on a later zig-zag.
+
+The helm permits one rudder direction per leg, unwinding to zero to settle
+without oscillation. The return helm has the opposite sign, so actual heading
+changes flip sign **at most once** over the maneuver (rudder braking is not
+an extra commanded course). Repeated horns do not restart or replan it.
+If no candidate clears, the original collision course continues normally;
+there is no collision immunity or synthetic rescue. The smuggler's separately
+seeded ignore/veer response remains outside the honest-captain planner.
+
+The frozen `NAVIGATION` export contains all navigation tunables:
+
+| Tunable | Default | Meaning |
+|---|---:|---|
+| `exitRange` | 600 m | Safe only beyond this distance **and heading outward**. |
+| `destinationLeg` | 1600 m | Initial course distance from spawn to destination. |
+| `maxOffset`, `searchStep` | 179°, 1° | Both-sided minimal heading search. |
+| `predictionSeconds` | 2400 s | Maximum physical trajectory lookahead per candidate, independent of the shorter watch. |
+| `settleDegrees`, `settleYaw` | 0.05°, 0.01°/s | Settled-leg tolerances before the infinite straight-track check. |
+| `helmGain` | 1.5 | Heading error gain after reserving coast from yaw and rudder slew. |
+
+Hull allowance is **8 m**. Crew, rudder, yaw and cruise tunables remain in
+`HULLS` above. Watch duration is `NIGHT_SECONDS = 180`; fog ramps linearly
+from 0.08 to `NIGHT_FOG_MAX = 0.16` over that watch, giving the 464.8 m planning
+horizon. Wrecks use the 8 m allowance; planned safe maneuvers and schedule
+budgets additionally reserve `CLEAR_MARGIN`.
+
 ### Physical point of no return
 
-`pointOfNoReturn(vessel, rocks)` returns a conservative warning lead in
-seconds **before projected straight-track impact** (zero for a clear track
-or stationary vessel). It simulates maximum crew delay and both full-rudder
-escape turns, measuring their maximum forward travel. A separating plane
-before every forward reef disc includes neighbours beside the initial track;
-clearing that plane prevents steering into an adjacent rock. The lead also
-reserves two fixed ticks for scheduling/integration. The simulation uses
-identical reef discs, inflated by its 8 m hull clearance, for prediction,
-PONR and collision.
+`pointOfNoReturn(vessel, rocks)` returns conservative warning seconds before
+projected straight-track entry (zero for a clear track or stationary hull).
+It simulates maximum crew delay and both full-rudder turns, measuring maximum
+forward travel. A separating plane before every forward disc accounts for
+neighbours outside the original track, with two fixed ticks reserved for
+scheduling/integration. Rotationally invariant straight-at-cruise excursions
+are measured once per hull; noncruise or turning hulls are measured live.
 
-Each radial approach still declares spawn time, bearing, speed, response
-seconds, `turnRadius`, reef-entry `pnrRange` and spawn range. The generic
-sweep-budget API remains compatible with #118: for live physical approaches,
-`responseSeconds` is the hull's maximum crew delay and `turnRadius` is the
-**effective maneuver allowance**, `speed × (pointOfNoReturn − responseSeconds)`,
-rather than the old constant angular-rate circle radius. The radial reef
-entry is computed from the actual lane/disc intersection. Thus the budget's
-warning boundary is exactly `pnrRange + speed × pointOfNoReturn`.
-
-At seed 108, the trawler's reef entry is **362.31 m**, physical lead **31.28 s**,
-warning boundary **396.72 m**, and derived spawn **462.72 m**. It has **60 s**
-before PONR and wrecks unwarned near **91.28 s**. Cruise was tuned to 1.1 m/s
-to fit the full physical turn and default sweep quota inside the watch's
-shortest fog reach (464.8 m). A ship that has turned onto a clear escape
-track counts safe and continues sailing, even if still on the chart at dawn.
+For generated approaches the input discs include **8 + 20 m** clearance.
+`pnrRange` is the actual radial entry into those padded discs, and
+`turnRadius = speed × (pointOfNoReturn − responseSeconds)` carries the physical
+maneuver allowance rather than a constant angular-rate circle. Thus schedule
+warning boundaries include the new margin as well as crew/rudder/yaw delay.
+The opening approach still budgets **60 s** before PONR on night one; its
+lane, range and unwarned impact clock now vary with the seeded layout.
+A clear maneuver still on the chart at dawn remains `underway`, even when
+it has been observed and warned; only an outward exit beyond 600 m is safe.
 
 Fast vessels (**speed ≥ `FAST_SHIP_SPEED`, currently 8 chart m/s**) expose
 `perception(state).engineCue = { bearing, intensity }` while underway and
@@ -308,8 +370,14 @@ lands in #115. It reveals no hull pose, and is not credited as a beam pass.
 
 - **No game over mid-night.** Wrecks happen and are remembered — the sea goes
   on. This is a quiet game; failure is a weight, not a reset.
-- A night ends at dawn. Morning summary: ships passed safely, wrecked,
-  distress answered, entries logged.
+- A night ends at dawn. `summary(state)` returns `{ safe, wrecked, unseen }`.
+  Safe/wrecked count **only ever-seen ships**. Each arrival starts unseen;
+  any tick with beam illumination or visible running lights permanently latches
+  `everSeen = true`. Horn hearing, engine cues and unobserved maneuvers never
+  imply a sighting. Never-seen ships of **any status** count in `unseen`.
+  The dawn panel shows observed safe/wrecked outcomes and, when nonzero,
+  “n passed unseen”. Observed underway ships are not credited as safe.
+  Distress answered and entries logged remain later milestones.
 - **The lamp-keeper's record**: three wrecks across the run and the Board
   relieves you after the night (soft ending, "Relieved of duty"); you may
   restart the night.
@@ -333,6 +401,7 @@ default clockwise revolution. `spawnRangeFor` derives the minimum range:
 warningBoundary = pnrRange + speed × responseSeconds + turnRadius
                 = pnrRange + speed × pointOfNoReturn  # live physical approaches
 minimumSpawnRange = warningBoundary + speed × (N + 1) × 12
+# pnrRange and pointOfNoReturn both use discs padded by 8 + CLEAR_MARGIN
 ```
 
 The extra revolution covers worst-case phase: a ship just behind the beam
@@ -349,7 +418,11 @@ phase (285°). Its PNR is strictly after first visibility. The extra revolution
 also protects other beam phases; tests independently enumerate crossings for
 every scheduled ship across 500 seeds. Capacity and bearing separation apply
 to every overlapping pair, including the opening trawler, and never divide
-the individual warning budget. Clear outbound traffic has no reef PNR;
+the individual warning budget. The opening lane follows the selected night’s hazards, and every threatened
+candidate derives PONR from that layout rather than legacy fixed rocks.
+The adversarial suite checks hazard bounds and schedule validity over
+500 seeds × five nights, alongside independent physical budget tests.
+Clear outbound traffic has no reef PNR;
 its nonnegative radial budget fields keep full-schedule validation compatible.
 
 The pure `validateSchedule(schedule, { night, fogReach, period, phase0 })`

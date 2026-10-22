@@ -1,4 +1,4 @@
-import { CONE_DEGREES, fogReach, ROCKS, perception, hornRings } from './sim.js';
+import { CONE_DEGREES, fogReach, perception, hornRings } from './sim.js';
 const RAD = Math.PI / 180;
 const ORIGIN = { x: 640, y: 478 };
 const SCALE = 0.86;
@@ -65,7 +65,7 @@ function beamAndFog(ctx, state, reduced) {
   }
   ctx.restore();
 }
-function chart(ctx) {
+function chart(ctx, hazards) {
   ctx.strokeStyle = '#202b2c'; ctx.fillStyle = '#58615c'; ctx.lineWidth = 0.7;
   ctx.font = '10px "Courier New", monospace'; ctx.textAlign = 'center';
   const radius = 452;
@@ -78,10 +78,20 @@ function chart(ctx) {
   }
   // These symbols are ink on the chart overlay, never rock silhouettes in unlit sea.
   ctx.setLineDash([2, 5]);
-  for (const rock of ROCKS) {
+  for (const rock of hazards) {
     ctx.beginPath(); ctx.arc(rock.x, rock.y, rock.radius, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rock.x - 3, rock.y - 3); ctx.lineTo(rock.x + 3, rock.y + 3);
-    ctx.moveTo(rock.x + 3, rock.y - 3); ctx.lineTo(rock.x - 3, rock.y + 3); ctx.stroke();
+    ctx.beginPath();
+    if (rock.kind === 'shoal') {
+      ctx.moveTo(rock.x - 5, rock.y); ctx.lineTo(rock.x - 2, rock.y - 2);
+      ctx.lineTo(rock.x + 2, rock.y + 2); ctx.lineTo(rock.x + 5, rock.y);
+    } else if (rock.kind === 'wreck') {
+      ctx.moveTo(rock.x - 5, rock.y - 2); ctx.lineTo(rock.x + 5, rock.y - 2);
+      ctx.lineTo(rock.x + 2, rock.y + 3); ctx.lineTo(rock.x - 2, rock.y + 3); ctx.closePath();
+    } else {
+      ctx.moveTo(rock.x - 3, rock.y - 3); ctx.lineTo(rock.x + 3, rock.y + 3);
+      ctx.moveTo(rock.x + 3, rock.y - 3); ctx.lineTo(rock.x - 3, rock.y + 3);
+    }
+    ctx.stroke();
   }
   ctx.setLineDash([]); ctx.fillStyle = '#56605c';
   ctx.fillText('T H E  T E E T H', 264, -284);
@@ -213,7 +223,7 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, 1280, 720);
       const transform = chartTransform(canvas);
       ctx.save(); ctx.setTransform(transform.scaleX, 0, 0, transform.scaleY, transform.x, transform.y);
-      chart(ctx); skerryRock(ctx, state, reduced); beamAndFog(ctx, state, reduced);
+      chart(ctx, state.hazards); skerryRock(ctx, state, reduced); beamAndFog(ctx, state, reduced);
       // All vessel drawing goes through the perception boundary.
       for (const ship of state.ships) {
         const view = perception(state, ship);

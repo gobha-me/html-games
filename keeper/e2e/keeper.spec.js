@@ -111,21 +111,21 @@ test('keyboard drives clockwise speed and hold, overlapping keys cannot reverse;
 
 test('unwarned watch wrecks, continues to dawn and persists its morning record', async ({ page }) => {
   await openWatch(page);
-  await advance(page, 100);
+  await advance(page, 120);
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
   await expect(page.locator('#dawn-panel')).toBeHidden();
-  await advance(page, 80);
-  await expect(page.locator('#summary')).toHaveText('1 ship passed safely. 2 ships wrecked.');
+  await advance(page, 60);
+  await expect(page.locator('#summary')).toHaveText('0 ships passed safely. 1 ship wrecked. 3 passed unseen.');
   expect((await snapshot(page)).time).toBe(180);
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
-  expect(record).toEqual({ version: 2, seed: 108, safe: 1, wrecked: 2 });
+  expect(record).toEqual({ version: 2, seed: 108, safe: 0, wrecked: 1 });
   await page.reload();
-  await expect(page.locator('#previous-record')).toHaveText('Last watch: 1 safe · 2 wrecked');
+  await expect(page.locator('#previous-record')).toHaveText('Last watch: 0 safe · 1 wrecked');
   await page.getByRole('button', { name: 'Take the watch' }).click();
   expect((await snapshot(page)).time).toBe(0);
 });
 
-test('spot, hold and horn saves the trawler; dawn reports safe and restart clears held inputs', async ({ page }) => {
+test('spot, hold and horn keeps the trawler clear; dawn avoids premature safe credit and restart clears held inputs', async ({ page }) => {
   await openWatch(page);
   await findTrawler(page);
   await page.keyboard.down('Space'); await page.keyboard.down('h');
@@ -134,21 +134,23 @@ test('spot, hold and horn saves the trawler; dawn reports safe and restart clear
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await page.keyboard.up('h'); await page.keyboard.up('Space');
   await advance(page, 180);
-  await expect(page.locator('#summary')).toHaveText('2 ships passed safely. 1 ship wrecked.');
+  await expect(page.locator('#summary')).toHaveText('0 ships passed safely. 0 ships wrecked. 3 passed unseen.');
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
-  expect(record.safe).toBe(2);
+  expect(record.safe).toBe(0);
+  expect((await snapshot(page)).trawler.status).toBe('underway');
+  expect((await snapshot(page)).trawler.wreckedAt).toBeNull();
   await page.getByRole('button', { name: 'Keep the light again' }).click();
   expect((await snapshot(page)).trawler.warnedAt).toBeNull();
   expect((await snapshot(page)).horn).toBe(false);
 });
 
-test('an off-beam broadcast saves the trawler; warning just before impact is too late', async ({ page }) => {
+test('an off-beam broadcast keeps the trawler clear; warning just before impact is too late', async ({ page }) => {
   await openWatch(page);
   expect((await snapshot(page)).trawler.afterimage).toBe(0);
   await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await advance(page, 180);
-  await expect(page.locator('#summary')).toHaveText('2 ships passed safely. 1 ship wrecked.');
+  await expect(page.locator('#summary')).toHaveText('0 ships passed safely. 0 ships wrecked. 3 passed unseen.');
   await page.getByRole('button', { name: 'Keep the light again' }).click();
   // Compute the collision clock from the physical approach, never a stale magic time.
   const collisionTime = step(createState(108), {}, 180).trawler.wreckedAt;
@@ -161,8 +163,8 @@ test('an off-beam broadcast saves the trawler; warning just before impact is too
 });
 
 test('scheduled arrivals stay absent until due, render through the fleet loop, and hear a fresh horn', async ({ page }) => {
-  await openWatch(page);
-  const entry = planSpawns(108)[0];
+  await openWatch(page, '?e2e=1&seed=0');
+  const entry = planSpawns(0)[0];
   await advance(page, entry.spawnTime - 0.0001);
   expect((await snapshot(page)).ships.map((ship) => ship.id)).toEqual(['trawler']);
   await advance(page, 0.0002);
@@ -192,8 +194,8 @@ test('scheduled arrivals stay absent until due, render through the fleet loop, a
   await page.screenshot({ path: 'test-results/keeper-spawn-lit.png' });
   await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
   const warned = (await snapshot(page)).ships.find((ship) => ship.id === entry.id);
-  expect(warned.lastHorn.response).toBe('turn-away');
-  expect(warned.warnedAt).not.toBeNull();
+  expect(warned.lastHorn.response).toBe('hold');
+  expect(warned.warnedAt).toBeNull();
   await advance(page, 180);
   const dawn = await snapshot(page);
   expect(dawn.ships.map((ship) => ship.id)).toEqual(dawn.schedule.map((ship) => ship.id));
@@ -264,7 +266,7 @@ test('corrupted or blocked storage never stops a watch or its summary', async ({
     Storage.prototype.setItem = () => { throw new DOMException('Storage blocked', 'SecurityError'); };
   });
   await advance(page, 180);
-  await expect(page.locator('#summary')).toContainText('2 ships wrecked');
+  await expect(page.locator('#summary')).toContainText('1 ship wrecked');
   await expect(page.locator('#record-status')).toContainText('could not keep');
 });
 
@@ -363,7 +365,7 @@ test('horn reaction renders the continuous physics heading, without an instant b
   expect(pending.rudder).toBe(0);
   await advance(page, pending.reactAt - (await snapshot(page)).time + 0.5);
   let prior = (await snapshot(page)).trawler;
-  expect(prior.rudder).toBeGreaterThan(0);
+  expect(Math.abs(prior.rudder)).toBeGreaterThan(0);
   for (let index = 0; index < 10; index++) {
     await advance(page, PHYSICS_DT);
     const next = (await snapshot(page)).trawler;
@@ -371,7 +373,7 @@ test('horn reaction renders the continuous physics heading, without an instant b
     expect(Math.abs(change)).toBeLessThanOrEqual(HULLS.trawler.K * HULLS.trawler.maxRudderDeg * PHYSICS_DT + 1e-8);
     prior = next;
   }
-  await advance(page, 35);
+  await advance(page, 10);
   // Follow the normal sweep to the turning ship, then inspect actual canvas rotations.
   const rendered = await page.evaluate(() => {
     const context = document.getElementById('sea').getContext('2d');

@@ -156,6 +156,18 @@ export function pointOfNoReturn(vessel, rocks) {
     const along = (rock.x - vessel.x) * east + (rock.y - vessel.y) * north;
     if (along + rock.radius >= 0) plane = Math.min(plane, along - rock.radius);
   }
+  // Cruise-state turns are rotationally invariant. Reuse their measured
+  // excursion when planning thousands of seeded lanes; arbitrary live helms
+  // still run the full physical measurement.
+  const excursion = vessel.speed === spec.cruiseSpeed && vessel.rudder === 0 && vessel.yawRate === 0
+    ? CRUISE_EXCURSIONS[vessel.type] : forwardExcursion(vessel);
+  // Two ticks reserve reaction scheduling/integration error at the boundary.
+  return Math.max(0, (impact - plane + excursion) / vessel.speed + 2 * PHYSICS_DT);
+}
+
+function forwardExcursion(vessel) {
+  const spec = HULLS[vessel.type];
+  const east = Math.sin(vessel.heading * RAD), north = Math.cos(vessel.heading * RAD);
   let excursion = 0;
   for (const sign of [-1, 1]) {
     let turning = { ...vessel, x: 0, y: 0 };
@@ -171,6 +183,8 @@ export function pointOfNoReturn(vessel, rocks) {
       elapsed += PHYSICS_DT;
     }
   }
-  // Two ticks reserve reaction scheduling/integration error at the boundary.
-  return Math.max(0, (impact - plane + excursion) / vessel.speed + 2 * PHYSICS_DT);
+  return excursion;
 }
+
+const CRUISE_EXCURSIONS = Object.freeze(Object.fromEntries(Object.keys(HULLS).map((type) =>
+  [type, forwardExcursion(createVessel(type, { x: 0, y: 0, heading: 0 }))])));

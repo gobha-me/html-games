@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, step, wrapBearing, clampSpeed, fogReach, isLit, perception, bearingTo, summary, validateSchedule, NIGHT_SECONDS, SPEED, AFTERIMAGE_SECONDS, FAST_SHIP_SPEED } from '../js/sim.js';
 import { HULLS, PHYSICS_DT, createVessel, pointOfNoReturn, hornRange } from '../js/physics.js';
-import { ROCKS } from '../js/sim.js';
+import { CLEAR_MARGIN } from '../js/sim.js';
 import { KEYS, actionFor, heldInput } from '../js/keys.js';
 import { parseRecord } from '../js/record.js';
 
@@ -78,15 +78,15 @@ test('running light points obey half reach and disappear on a wreck', () => {
   assert.equal(perception(s).runningLights, false);
 });
 
-test('unwarned trawler wrecks at 60–100s; no mid-night game over; dawn at three minutes', () => {
-  const s = step(createState(), {}, 100);
+test('unwarned trawler wrecks after its warning budget; no mid-night game over; dawn at three minutes', () => {
+  const s = step(createState(), {}, 120);
   assert.equal(s.trawler.status, 'wrecked');
-  assert.ok(s.trawler.wreckedAt > 60 && s.trawler.wreckedAt < 100);
+  assert.ok(s.trawler.wreckedAt > 60 && s.trawler.wreckedAt < 120);
   assert.equal(s.phase, 'night');
-  const dawn = step(s, {}, 80);
+  const dawn = step(s, {}, 60);
   assert.equal(dawn.time, NIGHT_SECONDS);
   assert.equal(dawn.phase, 'dawn');
-  assert.deepEqual(summary({ ships: [dawn.trawler] }), { safe: 0, wrecked: 1 });
+  assert.deepEqual(summary({ ships: [dawn.trawler] }), { safe: 0, wrecked: 1, unseen: 0 });
   assert.deepEqual(step(dawn, { horn: true, fast: true }, 3), dawn);
 });
 
@@ -106,7 +106,7 @@ test('live radial approach and worst-fog schedule deliver at least four sighting
   }
 });
 
-test('a horn warns with seeded crew delay, turns smoothly and passes safely', () => {
+test('a horn warns with seeded crew delay and turns clear without premature safe credit', () => {
   let s = step(createState(), {}, 24);
   const heading = s.trawler.heading;
   s = step(aim(s), { hold: true, horn: true }, 0.2);
@@ -114,8 +114,8 @@ test('a horn warns with seeded crew delay, turns smoothly and passes safely', ()
   assert.equal(s.trawler.heading, heading, 'crew delay precedes rudder movement');
   s = step(s, {}, 155.8);
   assert.equal(s.phase, 'dawn');
-  assert.equal(s.trawler.status, 'safe');
-  assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 1, wrecked: 0 });
+  assert.equal(s.trawler.status, 'underway');
+  assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 0, wrecked: 0, unseen: 0 });
   assert.ok(Math.abs(((s.trawler.heading - s.trawler.targetHeading + 540) % 360) - 180) < 0.1);
 });
 
@@ -128,16 +128,16 @@ test('warning on the collision boundary is too late, even when lit and held', ()
   assert.equal(s.trawler.status, 'wrecked');
 });
 
-test('warning at the budgeted PNR turns clear and counts safe by dawn, while safe vessels keep moving', () => {
+test('warning at the budgeted PNR turns clear and keeps moving without off-chart safe credit', () => {
   for (const seed of [0, 108, 997, 0xffffffff]) {
     let s = step(createState(seed), {}, 60);
     s = step(aim(s), { hold: true, horn: true }, 0.1);
     s = step(s, {}, 59.9);
-    assert.equal(s.trawler.status, 'safe');
-    const y = s.trawler.y;
+    assert.equal(s.trawler.status, 'underway');
+    const pose = { x: s.trawler.x, y: s.trawler.y };
     s = step(s, {}, 60);
-    assert.ok(s.trawler.y < y);
-    assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 1, wrecked: 0 });
+    assert.ok(Math.hypot(s.trawler.x - pose.x, s.trawler.y - pose.y) > 30);
+    assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 0, wrecked: 0, unseen: 0 });
   }
 });
 
@@ -240,9 +240,9 @@ test('corrupt, old, oversized and impossible dawn records are rejected', () => {
 
 
 test('live PONR and spawn budget derive from the physics, including maximum crew delay', () => {
-  const reefs = ROCKS.map((r) => ({ x: r.x, y: -r.y, radius: r.radius + 8 }));
   for (const seed of [0, 108, 997, 0xffffffff]) {
     let state = createState(seed);
+    const reefs = state.hazards.map((r) => ({ x: r.x, y: -r.y, radius: r.radius + 8 + CLEAR_MARGIN }));
     const approach = state.schedule[0];
     const lead = pointOfNoReturn({ ...state.trawler, y: -state.trawler.y }, reefs);
     assert.ok(Math.abs(approach.responseSeconds + approach.turnRadius / approach.speed - lead) < 1e-8);
@@ -258,7 +258,7 @@ test('live PONR and spawn budget derive from the physics, including maximum crew
         Math.hypot(state.trawler.x - rock.x, -state.trawler.y - rock.y) - rock.radius);
     }
     assert.ok(minimumClearance > 0, `seed ${seed}: clearance ${minimumClearance}`);
-    assert.equal(state.trawler.status, 'safe');
+    assert.equal(state.trawler.status, 'underway');
   }
 });
 
