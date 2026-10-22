@@ -33,6 +33,22 @@
   browser regression for night values, ink-only corners and every district’s signs.
   The browser report attaches review screenshots; gameplay and input are unchanged.
 
+### CI performance follow-up (PR #101)
+- Trace 4× CPU/1080p SwiftShader with render/UI User Timing and browser raster,
+  paint, style/layout and compositor events. Two-core runs reproduced 66 frames
+  even with weather disabled: raster flush stalls dominate that failure shape.
+- Cache street-sign measurements/collision positions with in-place lead-edit
+  invalidation and DPR-sized drifting fog sprites. Bake the existing SVG paper
+  grain to an equivalent 120×120 PNG; retain its filter source/rebuild command.
+- Require 150 fixed-dt render samples plus five seconds of live render timings:
+  p95 <8ms normally, <16ms at CDP 4× CPU. Measure live pacing before the batch so
+  queued benchmark raster work cannot contaminate it. Keep frame p95 <20ms when
+  independent empty-page/full-viewport-canvas calibration sustains ≥55fps/<20ms;
+  never waive render budgets or use an environment flag to waive frame pacing.
+- Adversarial tests reject corrupt/missing calibration, force slow raster-shaped
+  rAF starvation and over-budget rendering, and attack stale sign/fog caches.
+  Local diagnosis and measurements are recorded in `docs/PERFORMANCE.md`.
+
 ### Verification
 - Add adversarial cosmetic-generation/cache/DPR/nonfinite-delta tests; compare
   gameplay hash/RNG before and after rendering without changing the golden fixture.
@@ -41,7 +57,7 @@
   errors, and compare title pixels under live reduced-motion preference changes.
 - Five-second 1080p live SwiftShader smoke asserts rAF frame p95 <20ms and render
   CPU p95 <8ms, with metrics attached to the browser report. Initial local sample:
-  16.7ms frame / 0.5ms render p95; remote CI must run the same assertions.
+  16.7ms frame / 0.5ms render p95; superseded by the calibrated checks above.
 
 ## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
 

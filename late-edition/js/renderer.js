@@ -63,8 +63,23 @@ export class NoirCityRenderer {
       paint(ctx);
       return canvas;
     };
+    // Rasterize the small drifting haze at its displayed resolution once. Three
+    // radial-gradient fills per frame waste software-raster work; only its
+    // position changes. Rain already shares one stroked path and needs no sprite.
+    const driftFog = document.createElement('canvas');
+    driftFog.width = Math.max(1, Math.round(width / WORLD_W * 840));
+    driftFog.height = Math.max(1, Math.round(height / WORLD_H * 98));
+    const fogCtx = driftFog.getContext('2d');
+    fogCtx.scale(driftFog.width / 280, driftFog.height / 280);
+    const fog = fogCtx.createRadialGradient(140, 140, 0, 140, 140, 140);
+    fog.addColorStop(0, withAlpha(PALETTE.mahogany, 0.10));
+    fog.addColorStop(1, withAlpha(PALETTE.mahogany, 0));
+    fogCtx.fillStyle = fog;
+    fogCtx.fillRect(0, 0, 280, 280);
     this.cache = {
       key,
+      driftFog,
+      signs: null,
       city: layer((ctx) => {
         this._drawWetAsphaltBase(ctx);
         this._drawStreetNetwork(ctx);
@@ -358,6 +373,21 @@ export class NoirCityRenderer {
   _drawDistrictSigns(ctx, sim) {
     ctx.save();
     ctx.font = '12px "Courier Prime", monospace';
+    // Text measurement crosses into browser font/layout code. Lead progress and
+    // rain change every frame, but sign collision boxes only change with these
+    // display fields. Snapshot values (not live objects): debug tools/tests can
+    // move or edit an existing lead in place without changing its identity.
+    const fields = ['x', 'y', 'baseValue', 'headline', 'seriesBadge'];
+    const previous = this.cache.signs;
+    if (!previous || previous.leads.length !== sim.leads.length ||
+        sim.leads.some((lead, i) => fields.some((field) => lead[field] !== previous.leads[i][field]))) {
+      this.cache.signs = this._layoutDistrictSigns(ctx, sim, fields);
+    }
+    for (const { text, x, y, width } of this.cache.signs.positions) drawSign(ctx, text, x, y, false, width);
+    ctx.restore();
+  }
+
+  _layoutDistrictSigns(ctx, sim, fields) {
     // Reserve the entire flag/headline/series badge, not just the lead hit point.
     const obstacles = sim.leads.map((lead) => {
       const headline = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
@@ -365,13 +395,13 @@ export class NoirCityRenderer {
         lead.seriesBadge ? (ctx.measureText(lead.seriesBadge).width + 14) / 2 : 0);
       return { x: lead.x - half - 8, y: lead.y - 74, w: half * 2 + 16, h: 142 };
     });
-    for (const d of DISTRICTS) {
+    const positions = DISTRICTS.map((d) => {
       const text = STREET_SIGNS[d.id];
       const width = ctx.measureText(text).width + 12;
       const { x, y } = districtSignPosition(d, width, obstacles);
-      drawSign(ctx, text, x, y);
-    }
-    ctx.restore();
+      return { text, x, y, width };
+    });
+    return { leads: sim.leads.map((lead) => Object.fromEntries(fields.map((field) => [field, lead[field]]))), positions };
   }
 
   _drawLandmark(ctx, d, b) {
@@ -748,13 +778,7 @@ export class NoirCityRenderer {
     for (let i = 0; i < 3; i++) {
       const x = 150 + i * 530 + Math.sin(this.cosmeticTime * 0.08 + i) * 90;
       const y = i % 2 === 0 ? 950 : 40;
-      ctx.save();
-      ctx.translate(x, y); ctx.scale(3, 0.35);
-      const fog = ctx.createRadialGradient(0, 0, 0, 0, 0, 140);
-      fog.addColorStop(0, withAlpha(PALETTE.mahogany, 0.10));
-      fog.addColorStop(1, withAlpha(PALETTE.mahogany, 0));
-      ctx.fillStyle = fog; ctx.fillRect(-140, -140, 280, 280);
-      ctx.restore();
+      ctx.drawImage(this.cache.driftFog, x - 420, y - 49, 840, 98);
     }
     ctx.restore();
   }
@@ -804,10 +828,10 @@ function polygon(ctx, points) {
   points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
   ctx.closePath(); ctx.fill();
 }
-function drawSign(ctx, text, x, y, rooftop = false) {
+function drawSign(ctx, text, x, y, rooftop = false, measuredWidth) {
   ctx.save();
   ctx.font = rooftop ? '22px "League Gothic", Impact, sans-serif' : '12px "Courier Prime", monospace';
-  const width = ctx.measureText(text).width + 12;
+  const width = measuredWidth ?? ctx.measureText(text).width + 12;
   ctx.strokeStyle = PALETTE.smoke; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(x + 3, y); ctx.lineTo(x + 3, y + 25); ctx.stroke();
   ctx.fillStyle = PALETTE.nightInk; ctx.fillRect(x, y - 18, width, 23);

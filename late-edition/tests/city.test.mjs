@@ -39,8 +39,8 @@ test('cosmetic generator rejects corrupt geometry and invalid seeds', () => {
 function canvasFixture(t) {
   const calls = [];
   const ctx = new Proxy({}, { get: (_, key) => {
-    if (key === 'measureText') return (text) => ({ width: text.length * 7 });
-    if (String(key).startsWith('create')) return () => ({ addColorStop() {} });
+    if (key === 'measureText') return (text) => { calls.push([key, text]); return { width: text.length * 7 }; };
+    if (String(key).startsWith('create')) return (...args) => { calls.push([key, ...args]); return { addColorStop() {} }; };
     return (...args) => calls.push([key, ...args]);
   }, set: () => true });
   const rect = { left: 12, top: 34, width: 1000, height: 650 };
@@ -113,6 +113,44 @@ test('initial font loading cannot bake fallback signs; font failure still permit
   renderer.render(sim);
   assert.ok(renderer.cache);
   assert.ok(fixture.calls.some(([name]) => name === 'fillText'));
+});
+
+test('warm weather/sign caches survive ticks but invalidate for in-place lead edits and DPR', (t) => {
+  const fixture = canvasFixture(t);
+  const renderer = new NoirCityRenderer(fixture.canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  renderer.render(sim);
+  const fog = renderer.cache.driftFog;
+  const signs = renderer.cache.signs;
+  fixture.calls.length = 0;
+  sim.leads[0].progress += 1;
+  sim.leads[0].timeLeft -= 1;
+  renderer.render(sim);
+  assert.equal(renderer.cache.signs, signs, 'Countdown/progress never remeasure sign obstacles');
+  fixture.calls.length = 0;
+  renderer._drawRainAndVignette(renderer.ctx, 1 / 60);
+  assert.equal(fixture.calls.filter(([name]) => name === 'createRadialGradient').length, 0,
+    'Steady-state weather must not rasterize fog gradients (lead auras remain dynamic)');
+  // Call the sign pass alone: dynamic lead labels elsewhere still measure text.
+  fixture.calls.length = 0;
+  renderer._drawDistrictSigns(renderer.ctx, sim);
+  assert.equal(fixture.calls.filter(([name]) => name === 'measureText').length, 0);
+  for (const [field, value] of Object.entries({ x: 10, y: 20, headline: 'Changed in place',
+    baseValue: 9999, seriesBadge: 'A much wider series badge' })) {
+    const previous = renderer.cache.signs;
+    sim.leads[0][field] = value;
+    renderer.render(sim);
+    assert.notEqual(renderer.cache.signs, previous, field);
+    assert.equal(renderer.cache.signs.positions.length, DISTRICTS.length);
+    assert.equal(renderer.cache.driftFog, fog);
+  }
+  const beforeRemoval = renderer.cache.signs;
+  sim.leads.length = 0;
+  renderer.render(sim);
+  assert.notEqual(renderer.cache.signs, beforeRemoval, 'Last lead removed');
+  globalThis.window.devicePixelRatio = 2;
+  renderer.render(sim);
+  assert.notEqual(renderer.cache.driftFog, fog, 'Fog resolution follows backing size/DPR');
 });
 
 

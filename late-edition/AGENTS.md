@@ -118,7 +118,7 @@ bash late-edition/scripts/check-docs.test.sh
 
 Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`. Bad fixtures test production configs.
 The docs checker skips `node_modules`, exempts direction/changelog history and accepts a fixture directory. Shell/lint/unit/Chromium checks run in GitHub CI.
-Area/fuzz/economy tests cover gameplay; perf e2e uses SwiftShader (1080p/5s, frame p95 <20ms, render p95 <8ms). Run all checks;
+Area/fuzz/economy tests cover gameplay; perf e2e uses SwiftShader (1080p/5s, 150 renders <8ms p95; 4× CPU <16ms; calibrated frame gate). Run all checks;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 

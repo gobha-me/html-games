@@ -5,6 +5,12 @@ procedural Canvas2D art in `../js/renderer.js`, `../js/city.js` and
 `../js/silhouettes.js`. All colors derive from `../js/palette.js`; cosmetic
 seed 1947 never advances gameplay randomness. There are no runtime unit images.
 
+`paper-grain.png` is the original #88 monochrome SVG turbulence filter baked at
+120×120 once with Chromium Canvas2D, then tiled at the same 0.065 opacity over
+palette-colored paper. No third-party artwork. Rebuild from the retained filter
+source with `node e2e/bake-paper-grain.js` from this directory's parent. This
+removes runtime filter evaluation on paper repaints without changing the grain.
+
 The four retired `unit_*.png` pixel sprites were deleted in 2.10.0 (#89).
 `sprite` fields in historical saves/roster records remain harmless compatibility
 metadata; rendering uses operative roles, without changing saved gameplay state.

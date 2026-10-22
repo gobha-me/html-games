@@ -488,15 +488,25 @@ and reject console errors and all `unit_*.png` network requests. The 1600×900 r
 regression also rejects smoke-grey distant pixels and brightened corners, forces
 flags onto every district’s usual sign position and attaches title/map screenshots.
 
-The performance scenario explicitly launches Chromium with ANGLE **SwiftShader**;
-other browser scenarios retain Playwright’s default backend. The 1080p combat
-smoke samples real `requestAnimationFrame` timestamps for **at least five seconds**,
-requires more than 100 frames/render calls with live gameplay and stable caches,
-and asserts **p95 frame interval <20ms** plus **p95 `renderer.render()` cost <8ms**.
-Both metrics are attached as `swiftshader-frame-budget` JSON. The initial local run
-measured **16.7ms frame p95 / 0.5ms render p95** (3.3ms / 7.5ms budget headroom).
-No slower-CI fallback is enabled: both budgets remain required. Renderer timing
-measures CPU submission, while frame intervals include software raster/compositing.
-The existing app clamps catch-up to 50ms; a host stall can discard simulation time,
-so the test measures its five-second duration with rAF time, separately from proving
-that the game clock advances. These are local measurements, not a claim of remote CI.
+The performance scenarios launch Chromium with ANGLE **SwiftShader** at 1080p.
+They record five seconds of live rAF intervals/render costs, then invoke the real
+renderer 150 times synchronously with fixed dt. Both live and deterministic render
+p95 must be **<8ms**, or **<16ms with CDP 4× CPU throttling**. The batch follows
+live sampling so its queued raster work cannot bias presentation measurements.
+Gameplay hash/RNG and warm-cache identity must remain unchanged by the batch.
+
+Frame p95 **<20ms** remains mandatory on the unthrottled run when independent
+foreground calibration (empty page, then a blank full-viewport canvas) achieves
+**≥55fps and p95 <20ms**. Slow or software rendering hosts still enforce renderer
+budgets; no environment variable or game frame rate can waive them. Calibration,
+render costs, frame intervals and waiver reasons are attached to the browser report.
+Missing/corrupt calibration fails, and an adversarial test starves rAF while making
+the real renderer exceed its budget to verify that the batch still collects 150
+samples and exposes the slow calls.
+
+Paper grain uses the original SVG turbulence baked once to a 120×120 PNG tile;
+small drifting-fog sprites follow displayed resolution/DPR, and street-sign widths
+and collision positions are cached until lead display geometry changes. Rain
+remains one stroked path; no per-frame shadow blur or resolution cap was added.
+See [profiling notes](docs/PERFORMANCE.md) for the PR #101 diagnosis, trace commands,
+local before/after measurements and the limits of CPU submission timing.

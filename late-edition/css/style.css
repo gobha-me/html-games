@@ -288,7 +288,8 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 }
 
 /* Single top-left lamp: all paper casts its shadow down and right.
-   The monochrome turbulence is composited at low opacity over token-colored stock. */
+   The original monochrome turbulence is baked once into a small PNG tile
+   (e2e/bake-paper-grain.js); repainting paper must not rerun an SVG filter. */
 .lead-item, .op-card, .broadsheet-paper, .paper-slot, .scoop-chip, .dossier,
 .teletype-roll-box, .modal-dialog, .call-paper, .drag-copy {
   position: relative;
@@ -308,7 +309,7 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   pointer-events: none;
   opacity: 0.065;
   mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.72' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpath filter='url(%23g)' d='M0 0h120v120H0z'/%3E%3C/svg%3E");
+  background-image: url('../assets/paper-grain.png');
 }
 
 .lead-item {
