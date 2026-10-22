@@ -23,6 +23,7 @@ import {
 } from './config.js';
 
 import { mulberry32 } from './rng.js';
+import { SAVE_FIELDS, SAVE_FORMAT, SAVE_VERSION, MAX_SAVE_LENGTH, decodeSaveState } from './save.js';
 import { createAudioAdapter, sanitizeBestScore } from './adapters.js';
 import { presentation } from './presentation.js';
 
@@ -184,6 +185,47 @@ export class LateEditionSim {
     this.spawnLead('docks');
     this.spawnLead('redlight');
     this.selectedLeadId = this.leads[0] ? this.leads[0].uid : null;
+  }
+
+  canSave() {
+    // Mid-edition snapshots would enable replaying dispatches/burn rolls after
+    // seeing their outcomes. Only completed editions are deterministic checkpoints.
+    return this.phase === 'desk' && this.edition > 1 && this.clockSec === 0 &&
+      !this.editionSummary && !this.gameOver && this.credibility > 0 && this.pressHp > 0;
+  }
+
+  serialize() {
+    if (!this.canSave()) throw new Error('Save only between editions');
+    // An arbitrary injected stream has no promised Mulberry32 restore contract.
+    if (this.injectedRng) throw new Error('Cannot save an injected RNG');
+    const state = Object.fromEntries(SAVE_FIELDS.map((key) => [key, this[key]]));
+    // Validate before stringify: JSON would otherwise silently turn NaN into null.
+    const decoded = decodeSaveState(state);
+    const json = JSON.stringify({ format: SAVE_FORMAT, version: SAVE_VERSION,
+      seed: this.seed, rngState: this.rng.getState(), state: decoded });
+    if (json.length > MAX_SAVE_LENGTH) throw new Error('Save exceeds storage size limit');
+    return json;
+  }
+
+  static deserialize(json, ports = {}) {
+    const damaged = { ok: false, reason: 'The morgue file is damaged. Start a new run.' };
+    try {
+      if (typeof json !== 'string' || json.length > MAX_SAVE_LENGTH) return damaged;
+      const save = JSON.parse(json);
+      if (!save || save.format !== SAVE_FORMAT) return damaged;
+      // v0 had no defined save format; refuse rather than invent lost run state.
+      if (save.version === 0) return { ok: false, reason: 'This older morgue file (version 0) cannot be continued. Start a new run.' };
+      if (save.version !== SAVE_VERSION) return { ok: false, reason: 'This morgue file version is not supported. Start a new run.' };
+      if (!Number.isSafeInteger(save.seed) || !Number.isInteger(save.rngState) ||
+        save.rngState < 0 || save.rngState > 0xffffffff) return damaged;
+      const state = decodeSaveState(save.state);
+      const sim = new LateEditionSim({ seed: save.seed, storage: ports.storage, audio: ports.audio, now: ports.now });
+      for (const key of SAVE_FIELDS) sim[key] = state[key];
+      sim.rng = mulberry32(save.rngState);
+      return { ok: true, sim };
+    } catch {
+      return damaged;
+    }
   }
 
   startNightShift() {
@@ -838,7 +880,7 @@ export class LateEditionSim {
 
   publishEdition() {
     if (!['desk', 'paste-up'].includes(this.phase) || this.deskTooSmall || this.awaitingFirstDispatch) return false;
-    if (this.gameOver || this.pressHp <= 0 || this.lastPublishedTime === this.time) return false;
+    if (this.gameOver || this.editionSummary || this.pressHp <= 0 || this.lastPublishedTime === this.time) return false;
     // Claim this tick before calling ports: repeated/reentrant inputs print once.
     this.lastPublishedTime = this.time;
     const { cashDelta: editionCash, circDelta, credDelta, heatDelta, platedCount } = this.calculateEditionProjection();
@@ -932,6 +974,11 @@ export class LateEditionSim {
       4.5
     );
 
+    if (this.credibility <= 0) {
+      this.gameOver = true;
+      this.gameOverReason = 'PUBLIC TRUST COLLAPSED — READERS ABANDONED THE EVENING STAR';
+    }
+
     // Ensure fresh leads on map for the new edition
     while (this.leads.length < 3) {
       this.spawnLead();
@@ -940,17 +987,17 @@ export class LateEditionSim {
   }
 
   step(dt) {
-    if (!Number.isFinite(dt) || dt <= 0 || this.paused || this.gameOver || !['desk', 'paste-up'].includes(this.phase) ||
+    if (!Number.isFinite(dt) || dt <= 0 || this.paused || this.gameOver || this.editionSummary || !['desk', 'paste-up'].includes(this.phase) ||
       this.deskTooSmall || (this.edition === 1 && this.awaitingFirstDispatch)) return;
     // Consume up to 10 seconds in <=50 ms slices, never a teleport-sized tick.
     // The catch-up cap prevents hostile finite deltas from monopolizing the loop.
     const elapsed = Math.min(dt, MAX_CATCHUP_SEC);
     const fullSteps = Math.floor(elapsed / MAX_SUBSTEP_SEC);
-    for (let i = 0; i < fullSteps && !this.paused && !this.gameOver; i++) {
+    for (let i = 0; i < fullSteps && !this.paused && !this.gameOver && !this.editionSummary; i++) {
       this._step(MAX_SUBSTEP_SEC);
     }
     const remainder = elapsed - fullSteps * MAX_SUBSTEP_SEC;
-    if (remainder > 0 && !this.paused && !this.gameOver) this._step(remainder);
+    if (remainder > 0 && !this.paused && !this.gameOver && !this.editionSummary) this._step(remainder);
   }
 
   _step(dt) {

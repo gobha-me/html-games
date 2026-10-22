@@ -1736,3 +1736,23 @@ button:focus-visible,
   color: #0e0d0c;
   border-color: #6b655c;
 }
+
+/* Keep save failures legible without covering the desk's pointer targets. */
+#save-status {
+  position: fixed;
+  bottom: 4px;
+  left: 16px;
+  z-index: 60;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 2px 6px;
+  color: #d9cba8;
+  background: #0e0d0c;
+  font: 12px 'Courier New', monospace;
+  pointer-events: none;
+}
+
+#save-status:empty,
+#title-save-notice:empty {
+  display: none;
+}

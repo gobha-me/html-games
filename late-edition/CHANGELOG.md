@@ -1,5 +1,33 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.8.0] — 2026-10-21 (#87 — Save/load the run)
+
+### Added
+- Version 1 `late-edition-save` checkpoints with seed, exact Mulberry32 state,
+  next edition/unlock night, gameplay state, drawer, arcs, source status, raid
+  protection and scheduled burned-source consequences. Pure `serialize()` and
+  static `deserialize(json) → {ok, sim|reason}` validate an explicit allowlist.
+- Autosave through the storage adapter after dismissing a press report, and on
+  `beforeunload` only between editions. Mid-edition saves are excluded to preserve
+  deterministic checkpoints and avoid replaying outcomes. Failed storage writes
+  retain the previous checkpoint and warn without interrupting play.
+- Title Continue with the next edition number, direct desk resumption and New run
+  overwrite confirmation. Corruption, unsupported future versions and undefined
+  v0 saves show a useful notice and permit fresh play. Game over deletes the run;
+  the separate best circulation survives.
+- Strict rejection of malformed/non-finite/out-of-range values, oversized drawers,
+  duplicate UIDs, counter collisions and non-boundary snapshots; unknown and
+  prototype-pollution keys are ignored. Bounded decoding never restores browser
+  ports or instance methods from stored keys.
+- Adversarial unit and browser tests for round-trip and continued-play equality,
+  malformed/tampered/versioned saves, blocked/quota storage, overwrite cancellation,
+  boundary-only unload, retained drawer and game-over cleanup.
+
+### Changed
+- Press reports freeze time and remaining catch-up substeps. Publication that
+  exhausts trust folds the paper immediately, before it can become a checkpoint.
+- Updated README and the local agent guide with the save contract and boundaries.
+
 ## [2.7.0] — 2026-10-21 (#86 — The file drawer)
 
 ### Added

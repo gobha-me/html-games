@@ -18,6 +18,7 @@ test('plating an arc out of order preserves the highest published part', () => {
   assert.equal(sim.editionSummary.cashDelta, 880);
   assert.equal(sim.editionSummary.circDelta, 12620);
   assert.equal(sim.editionSummary.heatDelta, 22, 'Finale reduces heat by 12');
+  sim.editionSummary = null; // Dismiss the report before the next edition can advance.
   sim.step(0.05);
   sim.scoopedStories.push(arcStory(1));
   sim.lockUp();
@@ -40,6 +41,7 @@ test('parts 1 and 2 get exact bonuses and unlock only after publication', () => 
     assert.equal(sim.arcProgress[arc.id], part);
     assert.equal(sim.editionSummary.cashDelta, projection.cashDelta);
     assert.equal(sim.editionSummary.circDelta, projection.circDelta);
+    sim.editionSummary = null; // Dismiss each report before printing the next part.
     sim.step(0.05);
   }
 });

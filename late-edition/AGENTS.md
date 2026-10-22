@@ -1,9 +1,7 @@
 # AGENTS.md — Late Edition
 
-Read [the repo rules](../AGENTS.md), [README.md](README.md), and
-[docs/DIRECTION.md](docs/DIRECTION.md) before changing this game.
-The direction document is the art bible; locked decisions describe the target, not necessarily today’s implementation.
-Keep work inside this game unless the task explicitly permits shared files.
+Read [the repo rules](../AGENTS.md), [README.md](README.md), and [docs/DIRECTION.md](docs/DIRECTION.md) before changing this game.
+The direction document is the art bible; locked decisions describe the target, not necessarily today’s implementation. Keep work inside this game unless explicitly permitted.
 
 ## Current module map
 Static HTML/CSS with native ES modules, no bundler or external runtime dependencies. Serve over HTTP.
@@ -17,8 +15,9 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup and modal focus handling. |
 | `js/hotkeys.js` | Shared `HOTKEYS` action/key/phase table and lookup. Keep all application shortcuts here; Node tests reject duplicate keys per phase, including injected collisions. |
 | `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
+| `js/save.js` | Version 1 save allowlist, strict validation and bounded decoding; ignores pollution/unknown keys. |
 | `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
-| `js/adapters.js` | Safe best-score persistence, optional audio ports and URL seed parsing. |
+| `js/adapters.js` | Safe run/best-score persistence, optional audio ports and URL seed parsing. |
 | `js/dom.js` | Keyed recursive DOM reconciliation with text-only dynamic copy; preserves unchanged nodes and input. |
 | `js/opening.js` | Pure 30-second Lou Vance dialogue clock; reduced-motion text reveal. |
 | `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
@@ -40,7 +39,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   `main.js`; Canvas2D drawing belongs in `renderer.js`.
 - The constructor accepts `{ seed, rng, storage, audio, now }`. `main.js` creates
   browser adapters and parses `?seed=N`, falling back to a wall-clock seed.
-  Storage uses `readBest`/`writeBest`; audio has optional named cues. Display
+  Storage uses `readBest`/`writeBest` and `readRun`/`writeRun`/`clearRun`; audio has optional named cues. Display
   formatting lives in `presentation.js`. Keep browser APIs out of sim logic.
 - Scoops stay in the tray. `lockUp()` or 11 PM enters `paste-up`; `placeStory`,
   `unplace`, `spike` return `{ok, reason}`. Occupied/duplicate placements reject.
@@ -50,10 +49,15 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 - Drawer: `useFile(uid, favor|squeeze|print-later, target?)`, `shredFile(uid)` return
   `{ok, reason, effects}`. D toggles it in desk/paste-up; Fold uses F/2. Re-filing preserves age/exposure
   and original value. `subjectStates`, `subjectProgress`, `pendingBurns`,
-  `raidBlocked` and dossiers are hashed run state; disk saves remain #87.
+  `raidBlocked` and dossiers are hashed and saved run state (#87).
 
 ## Determinism rules
 
+- `serialize()` / static `deserialize(json) → {ok, sim|reason}` use format `late-edition-save`, v1.
+  Save only after report dismissal or boundary unload; never mid-edition (replaying known outcomes is an exploit).
+  Reports freeze the sim. Save includes RNG state, next edition/unlocks, drawer/arcs and scheduled burns.
+  v0 (no format) and future versions refuse with a message; invalid values reject, unknown/pollution keys drop.
+  UI owns autosave/Continue/overwrite confirmation and game-over deletion; storage failure is non-fatal.
 - Equal seeds, elapsed-time steps and ordered inputs produce equal gameplay
   hashes, pinned after each of five editions in the golden replay test.
 - All gameplay randomness uses injected mulberry32. ESLint and source tests ban
@@ -107,19 +111,15 @@ bash late-edition/scripts/check-docs.sh
 bash late-edition/scripts/check-docs.test.sh
 ```
 
-Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`
-from this directory. Bad fixtures are excluded from normal lint discovery;
-tests feed their contents through the production configurations deliberately.
+Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`. Bad fixtures test production configs.
 
 The docs checker skips `node_modules`, exempts direction/changelog history and accepts a fixture directory. Shell/lint/unit/Chromium checks run in GitHub CI.
 Area suites, 50-seed fuzzing and 20-seed × 20-night greedy/ink bots cover gameplay. Run all tests/linters before finishing;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 
-Tests must force unhappy paths, including checker rejection and clean acceptance.
-The planned sim suite must exercise invalid dispatch, empty/double publishing,
-timeouts, insufficient funds, stat bounds, destroyed presses, out-of-order arcs
-and simultaneous rival/player completion, rather than only successful play.
+Tests must force unhappy paths: invalid orders, empty/double print, timeouts, insufficient funds, stat bounds,
+destroyed presses, out-of-order arcs, simultaneous completions, bad saves and storage failures.
 
 ## Best-practice exceptions and reasons
 

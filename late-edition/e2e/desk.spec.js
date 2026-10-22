@@ -62,6 +62,9 @@ test('folding over an edition report preserves the last printed page', async ({ 
     app._syncFullUI();
   });
   await expect(page.getByRole('dialog')).toContainText('EDITION #1 HITS THE STREETS');
+  // Reports freeze the sim. Dismiss the model report without repainting so the
+  // forced trust collapse still replaces the rendered report with the telegram.
+  await page.evaluate(() => { window.lateEditionApp.sim.editionSummary = null; });
   await fold(page);
   await expect(page.locator('#final-front-page')).toContainText('FINAL PRINTED EXCLUSIVE');
   await expect(page.getByRole('dialog')).toContainText('EDITION REACHED#2');
