@@ -103,23 +103,33 @@ const schema = {
     angle: number(-Math.PI, Math.PI), speed: choice(78, 90), hp: choice(80, 100),
     stunTimer: number(-0.05, 4.5), targetLeadId: nullable(text),
   }), 1000),
-  rivalStandings: array(object({ id: choice('herald', 'observer', 'gazette'), name: text,
+  rivalStandings: array(object({ id: choice('herald', 'observer'), name: text,
     circulation: number(8000), color: text,
-  }), 3, 3),
+  }), 2, 2),
 };
 
 export const SAVE_FIELDS = Object.keys(schema);
 
-export function decodeSaveState(value) {
+export function decodeSaveState(value, { allowLegacyStandings = false } = {}) {
+  // PR 100: keep existing v1 checkpoints usable without reviving the removed row.
+  // Accept only its exact historical identity and validate it before discarding;
+  // current serialization still requires exactly the two canonical rivals.
+  if (allowLegacyStandings && Array.isArray(value?.rivalStandings) && value.rivalStandings.length === 3) {
+    object({ id: choice('gazette'), name: choice('The Daily Herald (Midtown)'),
+      circulation: number(8000), color: text })(value.rivalStandings[2]);
+    value = { ...value, rivalStandings: value.rivalStandings.slice(0, 2) };
+  }
   const state = object(schema)(value);
   if (state.edition !== state.editionsPrinted + 1 || state.lastPublishedTime > state.time ||
     state.peakCirculation < state.circulation || Object.values(state.frontPage).some(Boolean)) invalid();
+  const names = { herald: 'The Daily Herald', observer: 'The Observer Syndicate' };
+  if (state.rivalStandings.some((row) => row.name !== names[row.id])) invalid();
   // Each live story has one owner. Nested source snapshots and printed history
   // intentionally repeat their owner's UID and are not independent inventory.
   const inventory = [...state.leads, ...state.scoopedStories, ...state.spikedStories];
   const ids = inventory.map((entry) => entry.uid);
   if (new Set(ids).size !== ids.length || new Set(state.rivals.map((rival) => rival.id)).size !== state.rivals.length ||
-    new Set(state.rivalStandings.map((rival) => rival.id)).size !== 3) invalid();
+    new Set(state.rivalStandings.map((rival) => rival.id)).size !== 2) invalid();
   for (const entry of inventory) {
     const match = /^lead_([1-9]\d*)$/.exec(entry.uid);
     if (!match || Number(match[1]) >= state.nextLeadUid) invalid();

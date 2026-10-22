@@ -84,8 +84,6 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | Photographer | Clara Reyes | `photog_1`. |
 | Street fixer | "Knuckles" Malone | `fixer_1`. |
 
-Legacy `gazette` labels a Herald (Midtown) row, not another paper.
-
 ## Art and audio direction
 
 Follow [the art bible](docs/DIRECTION.md#art-bible). CSS `:root` has exactly ten
@@ -98,7 +96,9 @@ masthead-only UnifrakturMaguntia; licenses/provenance in [font credits](assets/f
 Use the pinned fonttools/Brotli venv rebuild script; never add a font CDN.
 Paper rotations are deterministic; motion respects reduced motion. #89 owns city geometry/silhouettes.
 #88 removes cosmetics from hashes with a one-time golden repin. Every seed-81 replay print must match
-`tests/fixtures/pre88-gameplay.json` from `2c8b14e` (economy, HP, edition, scoops, drawer); never regenerate from current code.
+`tests/fixtures/pre88-gameplay.json` from `2c8b14e` (economy, HP, edition, scoops, drawer);
+never regenerate from current code. #100 removes the duplicate rival row, repins hashes
+and reserves its RNG draw.
 
 ## Verification
 

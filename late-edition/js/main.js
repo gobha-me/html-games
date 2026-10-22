@@ -548,6 +548,7 @@ class LateEditionApp {
     const handle = document.getElementById('btn-drawer');
     handle.textContent = `FILES [D] · ${this.sim.spikedStories.length}/${FILE_DRAWER.capacity}`;
     handle.setAttribute('aria-expanded', String(this.drawerOpen));
+    document.getElementById('file-drawer').classList.toggle('open', this.drawerOpen);
     document.getElementById('drawer-body').hidden = !this.drawerOpen;
     document.getElementById('btn-cancel-burn').hidden = !this.pendingSpike;
     const actions = [['favor', 'tip', 'Favor: police tip'], ['favor', 'stop', 'Favor: stop goon / raid'],
@@ -753,7 +754,7 @@ class LateEditionApp {
     document.getElementById('proj-heat').textContent =
       `${proj.heatDelta >= 0 ? '+' : ''}${proj.heatDelta}%`;
 
-    const inkColorMap = { herald: PALETTE.brass, observer: PALETTE.stampRed, gazette: PALETTE.smoke };
+    const inkColorMap = { herald: PALETTE.brass, observer: PALETTE.stampRed };
     const allPapers = [
       { id: 'player', name: '★ The Evening Star (You)', circulation: this.sim.circulation, inkColor: PALETTE.stampRed },
       ...this.sim.rivalStandings.map((r) => ({ ...r, inkColor: inkColorMap[r.id] || PALETTE.smoke })),

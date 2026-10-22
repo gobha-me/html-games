@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { makeSim, rival, parkOperatives, arrive } from './helpers.mjs';
@@ -77,4 +78,19 @@ test('a rival without any remaining leads leaves; spawns honor type and populati
   sim.spawnRivalAgent();
   sim.spawnRivalAgent();
   assert.equal(sim.rivals.length, 3);
+});
+
+test('standings names are unique canonical papers from the lore table, including after reset', () => {
+  const lore = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
+  const papers = [...lore.matchAll(/\| (?:Player paper|Rival paper|Mob-backed syndicate\/tabloid) \| \*\*([^*]+)\*\*/g)]
+    .map(([, name]) => name);
+  assert.equal(papers.length, 3, 'Read the actual three-paper lore table');
+  const sim = makeSim();
+  for (let reset = 0; reset < 2; reset++) {
+    const names = ['The Evening Star', ...sim.rivalStandings.map((row) => row.name)];
+    assert.equal(new Set(names).size, names.length, 'Duplicate papers cannot masquerade as district editions');
+    assert.deepEqual([...names].sort(), [...papers].sort(), 'No missing or extra lore papers');
+    assert.deepEqual(sim.rivalStandings.map((row) => row.id), ['herald', 'observer']);
+    sim.reset();
+  }
 });

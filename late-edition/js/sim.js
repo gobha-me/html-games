@@ -178,7 +178,6 @@ export class LateEditionSim {
     this.rivalStandings = [
       { id: 'herald', name: 'The Daily Herald', circulation: 21500, color: PALETTE.sodium },
       { id: 'observer', name: 'The Observer Syndicate', circulation: 19800, color: PALETTE.stampRed },
-      { id: 'gazette', name: 'The Daily Herald (Midtown)', circulation: 15200, color: PALETTE.newsprintAged },
     ];
 
     this.logWire('NIGHT DESK OPEN — Rotary presses warmed for the 12:00 AM deadline.', 'ops');
@@ -221,7 +220,7 @@ export class LateEditionSim {
       if (save.version !== SAVE_VERSION) return { ok: false, reason: 'This morgue file version is not supported. Start a new run.' };
       if (!Number.isSafeInteger(save.seed) || !Number.isInteger(save.rngState) ||
         save.rngState < 0 || save.rngState > 0xffffffff) return damaged;
-      const state = decodeSaveState(save.state);
+      const state = decodeSaveState(save.state, { allowLegacyStandings: true });
       const sim = new LateEditionSim({ seed: save.seed, storage: ports.storage, audio: ports.audio, now: ports.now });
       for (const key of SAVE_FIELDS) sim[key] = state[key];
       sim.rng = mulberry32(save.rngState);
@@ -941,6 +940,10 @@ export class LateEditionSim {
     for (const rv of this.rivalStandings) {
       rv.circulation = Math.max(8000, rv.circulation + Math.round((this.nextFloat() - 0.35) * 2400));
     }
+
+    // PR 100: reserve the removed third standings row's draw. Dropping it would
+    // shift all subsequent leads/combat and change the player's seeded economy.
+    this.nextFloat();
 
     this.logWire(
       presentation.editionPrinted(printedEditionNum, circDelta, editionCash),

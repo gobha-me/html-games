@@ -87,8 +87,9 @@ Reports move focus to their action and restore the previous control on dismissal
 ## The file drawer — ink or leverage (#86)
 
 Spike copy during paste-up to file its subject, tags and evidence. **D** (desk
-drawer) or the brass drawer handle opens the manila drawer at the bottom of the
-desk; **D / Esc** closes it. D works at the desk and during paste-up; **F / 2**
+drawer) or the tab at the left desk edge slides a manila folder over the map
+(up to 420px wide), keeping the whole broadsheet visible; **D / Esc** closes it.
+The slide lasts 180ms and is immediate with reduced motion. D works at the desk and during paste-up; **F / 2**
 assigns Fold during paste-up. An open drawer blocks page/desk shortcuts.
 Tab/Shift+Tab reach every action; Enter/Space uses the focused button. Carbon dots
 show nights remaining; red pinholes count exposure. The drawer holds **six files**.
@@ -223,7 +224,10 @@ See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint,
 enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
 for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
 and art bible. Manual layout, the file drawer and the desk art pass are implemented;
-city geometry and silhouettes remain #89.
+city geometry and silhouettes remain #89. At 1280×720 and larger, all four
+front-page slots stay visible together in both desk and paste-up. Grid tracks
+share the available height; compact slot excerpts yield to complete headlines.
+Only the copy tray and Inside list scroll when crowded, not the page or slots.
 
 ## Deterministic runs
 
@@ -263,6 +267,12 @@ applies to the entire projection and preserves ordered arrays. The same replay a
 checks every print's circulation, funds, credibility, heat, press HP, edition, scoops
 and drawer against [a snapshot](tests/fixtures/pre88-gameplay.json) recorded by
 running pre-#88 commit `2c8b14e` and verifying its original goldens. Gameplay is unchanged.
+#100 removes the duplicate Herald district standings row and repins the hashes.
+A reserved publish-time RNG draw preserves all later seeded gameplay. The
+pre-#88 snapshot compares player state only (no rival rows) and remains untouched.
+Standings now contain only the Herald and Observer alongside the player paper;
+save validation rejects unknown/duplicate rivals. Existing v1 checkpoints discard
+only the validated historical third row when loaded; new saves contain two rivals.
 Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
 zero. Blocked reads and quota-exceeded writes never interrupt play; the current
 run's best is retained in memory.
@@ -399,9 +409,11 @@ Wiegel). The pinned google/fonts TTFs are converted to Latin WOFF2 by
 venv. No font or runtime asset uses an external origin. Unifraktur is reserved
 for mixed-case The Evening Star mastheads; the fallback stacks are Impact/Arial Narrow,
 Georgia and Courier New. The title masthead stays on one line at supported
-sizes. The broadsheet slot grid scrolls independently above the copy tray; body
-excerpts end in an ellipsis after two lines (one on short desks). Headlines are
-never clamped, and crowded paper furniture can scroll with the column.
+sizes. All four broadsheet slots fit together without scrolling at supported
+desk sizes; grid tracks share available height. Body excerpts end in an ellipsis
+after two lines (one in compact slots), with secondary decks/bylines omitted in
+compact slots. Headlines remain complete. At 200% zoom, the document reflows
+and scrolls with intrinsic slot heights to keep controls reachable.
 
 The ten CSS root colors mirror `PALETTE` in `js/palette.js`. The custom stylelint
 plugin runs core `color-no-hex` and `function-disallowed-list` rules outside root

@@ -52,10 +52,10 @@ test('five-edition scripted replay matches the golden gameplay hashes', () => {
   const first = playFiveEditions();
   assert.deepEqual(first.hashes, playFiveEditions().hashes);
   assert.deepEqual(first.hashes, [
-    // One-time #88 repin: cosmetic fields (including district accents) left
-    // the hash; recursive filtering preserves ordered arrays. Gameplay and
-    // replay inputs are unchanged, proven by the separate pre-#88 snapshot.
-    '6272a4a7', 'ed7c32d1', 'a2325d9b', 'fbd2f1dc', '9570141b',
+    // #100 repin: the duplicate standings row leaves hashed state. Its reserved
+    // RNG draw preserves later gameplay; the independent pre-#88 snapshot below
+    // still pins ALL recorded player numbers and drawer contents.
+    '241194eb', '4091c6f9', 'b3b51606', '8f4e27d9', 'a4a8dd46',
   ]);
   assert.notEqual(first.sim.getStateHash(), playFiveEditions({ seed: 82 }).sim.getStateHash());
 });
@@ -65,6 +65,8 @@ test('five-edition replay preserves the recorded pre-#88 gameplay numbers and dr
   // detached temporary worktree, verifying its original five golden hashes first.
   // Keep this fixture independent of hash repins. This script never spikes copy,
   // so an empty drawer after EVERY print is part of the recorded contract.
+  // Compare player state only: rivalStandings is deliberately outside this
+  // projection because #100 removes a duplicate rival, not player gameplay.
   const baseline = JSON.parse(readFileSync(new URL('./fixtures/pre88-gameplay.json', import.meta.url), 'utf8'));
   assert.deepEqual(playFiveEditions({ seed: baseline.seed }).snapshots, baseline.snapshots,
     `Gameplay diverged from pre-#88 commit ${baseline.sourceCommit}`);

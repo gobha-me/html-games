@@ -114,7 +114,7 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   gap: 10px;
   height: 100dvh;
   min-height: 720px;
-  padding: 10px 12px 42px;
+  padding: 10px 12px;
 }
 
 .brass-rail, .rail-brand, .rail-controls, .speed-group, .brass-ledger-plate {
@@ -228,6 +228,7 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 }
 
 .dispatch-blotter {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(180px, 1fr) 170px;
   gap: 10px;
@@ -524,16 +525,16 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 12px;
+  gap: clamp(3px, 0.6dvh, 7px);
+  padding: clamp(6px, 1dvh, 12px);
   background: var(--newsprint);
   color: var(--night-ink);
-  overflow: auto;
   rotate: none;
 }
 
-/* Fixed paper furniture keeps its height; only the slot grid yields space.
-   The column itself can also scroll for unusually tall controls or zoom. */
+/* The whole page is the decision: furniture stays in flow and the slot grid
+   shares the remaining height. Height-aware type/excerpts preserve full headlines
+   without scaling hit targets or introducing a second scrollable reading surface. */
 .broadsheet-paper > :not(.broadsheet-slots) {
   flex-shrink: 0;
 }
@@ -547,9 +548,9 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 }
 
 .masthead-title-block h2 {
-  font: 36px/1.15 UnifrakturMaguntia, Georgia, serif;
+  font: clamp(26px, 4dvh, 36px)/1.05 UnifrakturMaguntia, Georgia, serif;
   white-space: nowrap;
-  padding-bottom: 5px;
+  padding-bottom: 3px;
 }
 
 .paper-subbar {
@@ -564,18 +565,17 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 .broadsheet-slots {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  grid-template-rows: repeat(3, minmax(min-content, 1fr));
-  gap: 7px;
-  min-height: 320px;
+  grid-template-rows: minmax(0, 1fr) repeat(2, minmax(0, 1.15fr));
+  gap: clamp(3px, 0.6dvh, 7px);
+  min-height: 0;
   flex: 1 1 0;
-  overflow: auto;
-  padding: 4px;
 }
 
 .paper-slot {
-  align-self: start;
+  container: page-slot / size;
   min-width: 0;
-  padding: 7px;
+  min-height: 0;
+  padding: clamp(3px, 0.6dvh, 7px);
   border: 1px solid var(--smoke);
   background: var(--newsprint);
   overflow-wrap: anywhere;
@@ -618,11 +618,11 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 }
 
 .slot-headline {
-  font: 22px/1.05 'League Gothic', Impact, 'Arial Narrow', sans-serif;
+  font: clamp(16px, 2.4dvh, 22px)/1.05 'League Gothic', Impact, 'Arial Narrow', sans-serif;
 }
 
 .paper-slot[data-slot-id='banner'] .slot-headline {
-  font-size: 28px;
+  font-size: clamp(20px, 3dvh, 28px);
 }
 
 .slot-deck {
@@ -683,7 +683,7 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 .pasteup-scoop-strip {
   background: var(--newsprint-aged);
   border-block: 2px solid var(--night-ink);
-  padding-block: 6px;
+  padding-block: 3px;
 }
 
 .pasteup-strip-head {
@@ -697,7 +697,7 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  max-height: 140px;
+  max-height: clamp(36px, calc(25dvh - 144px), 110px);
   overflow: auto;
   padding: 3px;
 }
@@ -768,6 +768,11 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   margin-block: 4px;
 }
 
+#inside-stories {
+  max-height: 24px;
+  overflow: auto;
+}
+
 .paste-up-active {
   grid-template-columns: minmax(0, 0.65fr) minmax(0, 1.4fr);
 }
@@ -791,31 +796,55 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   max-width: 360px;
 }
 
+/* Anchor the folder to the map column, including during paste-up. Its tab
+   remains at the desk edge when the folder is translated offscreen. */
 .file-drawer {
-  position: fixed;
+  position: absolute;
   z-index: 40;
-  bottom: 0;
-  left: 12px;
-  width: min(760px, calc(100% - 24px));
+  top: 0;
+  bottom: 180px;
+  left: -12px;
+  width: min(420px, calc(100% + 12px));
+  transform: translateX(-100%);
+  transition: transform 180ms ease-out;
   border: 2px solid var(--brass);
+  border-radius: 0 6px 6px 0;
+  box-shadow: 5px 6px 12px color-mix(in srgb, var(--night-ink) 65%, transparent);
   color: var(--night-ink);
-  background: var(--mahogany);
+  background: var(--newsprint-aged);
+}
+
+.file-drawer.open {
+  transform: translateX(0);
 }
 
 #btn-drawer {
-  width: 100%;
+  position: absolute;
+  top: 12px;
+  left: calc(100% + 2px);
+  width: 146px;
+  padding: 9px 6px;
+  border-radius: 0 8px 8px 0;
+  background: var(--newsprint-aged);
+  border: 2px solid var(--brass);
+  border-left: 0;
+  white-space: nowrap;
+  transition: transform 180ms ease-out;
+}
+
+.file-drawer.open #btn-drawer {
+  transform: translateX(-100%);
 }
 
 #drawer-body {
-  max-height: 60dvh;
+  height: 100%;
   overflow: auto;
-  padding: 12px;
-  background: var(--newsprint-aged);
+  padding: 56px 12px 12px;
 }
 
 #drawer-files {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   margin-block: 18px;
 }
@@ -1151,6 +1180,17 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
     height: auto;
   }
 
+  /* Zoom reflows into a scrolling document: restore intrinsic slot sizing
+     because an auto-height page has no fixed grid height to contain. */
+  .broadsheet-slots {
+    flex: none;
+    grid-template-rows: repeat(3, minmax(min-content, 1fr));
+  }
+
+  .paper-slot {
+    container-type: normal;
+  }
+
   .opening-screen {
     place-items: start center;
   }
@@ -1160,7 +1200,9 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   }
 }
 
-@media (height <= 780px) {
+/* Query each slot, rather than viewport height: a tall, narrow desk needs
+   shorter excerpts too. Fixed grid tracks make size containment safe here. */
+@container page-slot (height <= 400px) {
   .slot-body-copy {
     -webkit-line-clamp: 1;
     line-clamp: 1;
@@ -1170,8 +1212,24 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
     height: 48px;
   }
 
-  .scoop-tray {
-    max-height: 96px;
+  /* Decks are secondary excerpts; retain the full headline and one body line.
+     Compact metadata avoids spending two lines on stamps at the minimum desk. */
+  .slot-deck {
+    display: none;
+  }
+
+  .slot-meta {
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+  }
+
+  .paper-slot .rubber-stamp, .paper-slot .galley-stamp, .paper-slot .series-stamp {
+    font-size: 12px;
+    border-width: 1px;
+  }
+
+  .slot-byline {
+    display: none;
   }
 }
 

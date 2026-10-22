@@ -22,17 +22,30 @@
 - Paper slap and stamp hit last 120ms; reduced motion disables all CSS motion.
   A container query reflows the magnified desk; scrolling retains core actions.
 
-### Art director review fixes
-- Set both blackletter mastheads to **The Evening Star**, preserving that
-  accessible name; the title stays on one line at 1280×720 and larger.
-- Bound the slot grid within the flex column and keep the copy tray in normal
-  flow. Body excerpts use a multiline ellipsis, while complete headlines remain
-  reachable by scrolling. Straighten the grid papers so adjacent cards cannot
-  rotate into each other; shorten excerpts/photo plates on short desks.
-- Browser regressions cover title/broadsheet line fit and accessible names,
-  tray intersection and unclipped headline text at 1280×720, 1600×900 and
-  1920×1080, with the drawer closed in desk and paste-up. Crowded fixtures add
-  twelve scoops, an unlocked photo plate, series stamps and long headlines.
+### Art director review fixes (#100)
+- Keep **The Evening Star** mastheads in mixed case with their accessible names.
+- Show all four front-page slots together in desk and paste-up, without paper or
+  slot-grid scrolling. Height-sharing grid tracks, clamped type/spacing and
+  per-slot size queries shorten secondary excerpts; full headlines keep priority.
+  Slot size (not viewport height) controls excerpts so tall, narrow desks also fit.
+  Crowded copy trays and Inside lists scroll independently in bounded space.
+- Move the drawer to the map column as a left-sliding manila folder, up to 420px
+  wide, with an always-visible FILES tab. Transform motion takes 180ms (none under
+  reduced motion). Keep keyboard operations, close/focus restoration and internal
+  file scrolling; the folder and tab cannot cover the broadsheet.
+- Replace the scroll-per-headline regression with simultaneous slot, viewport,
+  grid/paper bounds, no-scroll, headline clipping and copy-tray checks in both
+  phases at 1280×720, 1366×768, 1600×900 and 1920×1080. Crowded fixtures include
+  twelve scoops, long headlines, photo plates and series stamps. Full-folder tests
+  cover both phases at 1280×720/1920×1080 and reduced-motion/keyboard operation.
+- Remove the duplicate Herald district row from simulation, UI and lore. Validate
+  exactly two distinct canonical rivals on save/load. Existing v1 checkpoints
+  discard only the validated historical third row; new saves contain two rivals.
+  Unit tests require unique standings names matching the three-paper lore table.
+- Repin golden hashes for the removed rival state, preserving its publish-time
+  random draw so all later seeded gameplay stays unchanged. The original pre-#88
+  player snapshot remains untouched: every recorded economy/HP/edition/scoop/file
+  field still matches; rival rows intentionally fall outside that comparison.
 
 ### Verification and compatibility
 - Stylelint runs core `color-no-hex` and `function-disallowed-list` outside root
