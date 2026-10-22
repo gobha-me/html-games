@@ -1,4 +1,4 @@
-import { CONE_DEGREES, fogReach, ROCKS, perception } from './sim.js';
+import { CONE_DEGREES, fogReach, ROCKS, perception, hornRings } from './sim.js';
 const RAD = Math.PI / 180;
 const ORIGIN = { x: 640, y: 478 };
 const SCALE = 0.86;
@@ -85,7 +85,7 @@ function runningLights(ctx, ship) {
   disc(ctx, 6, -4, 1.25, '#62ac86');
   ctx.restore();
 }
-function lighthouse(ctx, beam, horn) {
+function lighthouse(ctx, beam) {
   ctx.fillStyle = '#0e1517';
   ctx.beginPath(); ctx.moveTo(-48, 28); ctx.lineTo(-25, -3); ctx.lineTo(7, -13);
   ctx.lineTo(37, 5); ctx.lineTo(51, 31); ctx.lineTo(23, 48); ctx.lineTo(-24, 44); ctx.closePath(); ctx.fill();
@@ -99,12 +99,18 @@ function lighthouse(ctx, beam, horn) {
   disc(ctx, 0, 0, 15, glint); disc(ctx, 0, 0, 2, '#fff0c9');
   ctx.font = '10px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#707974';
   ctx.fillText('S K E R R Y  R O C K', 0, 70);
-  if (horn) {
-    ctx.strokeStyle = '#8f805a';
-    for (const radius of [58, 67, 76]) {
-      ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke();
-    }
+}
+
+function drawHornRings(ctx, state) {
+  ctx.save();
+  ctx.lineWidth = 2;
+  for (const ring of hornRings(state)) {
+    ctx.globalAlpha = ring.alpha * (ring.ignored ? 0.35 : 0.8);
+    ctx.strokeStyle = '#d9c18a';
+    ctx.setLineDash(ring.ignored ? [6, 8] : []);
+    ctx.beginPath(); ctx.arc(0, 0, ring.radius, 0, Math.PI * 2); ctx.stroke();
   }
+  ctx.restore();
 }
 
 export function createRenderer(canvas) {
@@ -129,7 +135,8 @@ export function createRenderer(canvas) {
         if (view.hull) hull(ctx, view.hull, view.opacity);
         if (!ship.smuggler && (view.runningLights || (view.lit && ship.status !== 'wrecked'))) runningLights(ctx, ship);
       }
-      lighthouse(ctx, state.beam, state.horn);
+      drawHornRings(ctx, state);
+      lighthouse(ctx, state.beam);
       ctx.restore();
     },
   };

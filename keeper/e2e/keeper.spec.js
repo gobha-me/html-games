@@ -352,3 +352,96 @@ test('horn reaction renders the continuous physics heading, without an instant b
   expect(rendered.rotations.some((angle) => Math.abs(angle - rendered.heading * Math.PI / 180) < 1e-10)).toBe(true);
   await page.screenshot({ path: 'test-results/keeper-physics-turn.png' });
 });
+
+// Sample the expected eastward ring edge in the real canvas, away from the beam,
+// chart and lighthouse. Inspect the stroke too so a solid ignored ring cannot pass.
+async function hornRingCanvas(page) {
+  return page.evaluate(() => {
+    const state = window.__keeper.state;
+    const blastTime = state.blasts.at(-1);
+    const age = state.time - blastTime;
+    const radius = (700 - 350 * state.fog) * age / 2;
+    const canvas = document.getElementById('sea'), ctx = canvas.getContext('2d');
+    const strokes = [], arc = ctx.arc, stroke = ctx.stroke;
+    let circle;
+    ctx.arc = function (x, y, r, start, end) { circle = { x, y, radius: r, start, end }; return arc.call(this, x, y, r, start, end); };
+    ctx.stroke = function () {
+      if (circle && circle.x === 0 && circle.y === 0 && Math.abs(circle.radius - radius) < 1e-8) {
+        strokes.push({ ...circle, alpha: this.globalAlpha, dash: this.getLineDash() });
+      }
+      circle = undefined;
+      return stroke.call(this);
+    };
+    try { window.__keeper.advance(0); }
+    finally { ctx.arc = arc; ctx.stroke = stroke; }
+    const x = Math.round((640 + radius * 0.86) * canvas.width / 1280);
+    const y = Math.round(478 * canvas.height / 720);
+    // Include enough circumference for at least one dash plus its gap.
+    const pixels = ctx.getImageData(x - 3, y - 12, 7, 25).data;
+    let peak = 0;
+    for (let i = 0; i < pixels.length; i += 4) peak = Math.max(peak, pixels[i], pixels[i + 1], pixels[i + 2]);
+    return { radius, peak, strokes };
+  });
+}
+
+test('muted horn draws expanding rings after release; spam is dimmed/dashed and trust recovers in HUD', async ({ page }) => {
+  await openWatch(page);
+  await page.getByRole('button', { name: 'Mute horn', exact: true }).click();
+  await page.keyboard.down('Space');
+  await page.keyboard.down('h'); await advance(page, 0.5); await page.keyboard.up('h');
+  await advance(page, 0.1);
+  await expect(page.locator('#horn-state')).toHaveText('Horn silent');
+  await expect(page.locator('#trust-state')).toHaveText('Skipper trust · 100%');
+  const first = await hornRingCanvas(page);
+  expect(first.radius).toBeGreaterThan(150);
+  expect(first.peak).toBeGreaterThan(80);
+  expect(first.strokes).toHaveLength(1);
+  expect(first.strokes[0].dash).toEqual([]);
+  expect(first.strokes[0].end - first.strokes[0].start).toBeCloseTo(2 * Math.PI, 10);
+  await advance(page, 0.4);
+  const expanded = await hornRingCanvas(page);
+  expect(expanded.radius).toBeGreaterThan(first.radius + 100);
+  expect(expanded.strokes[0].alpha).toBeLessThan(first.strokes[0].alpha);
+  for (let index = 0; index < 3; index++) {
+    await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
+    await advance(page, PHYSICS_DT);
+  }
+  const spam = await snapshot(page);
+  expect(spam.blasts).toHaveLength(4);
+  expect(spam.hornIgnoredUntil).toBeGreaterThan(spam.time + 29);
+  expect(spam.trust).toBeGreaterThanOrEqual(0.75);
+  expect(spam.trust).toBeLessThan(0.76);
+  await advance(page, 0.4);
+  const ignored = await hornRingCanvas(page);
+  expect(ignored.strokes).toHaveLength(1);
+  expect(ignored.strokes[0].dash.length).toBeGreaterThan(0);
+  expect(ignored.strokes[0].alpha).toBeLessThan(0.35);
+  expect(ignored.peak).toBeGreaterThan(20);
+  expect(ignored.peak).toBeLessThan(first.peak);
+  await expect(page.locator('#trust-state')).toHaveText(`Skipper trust · ${Math.round((await snapshot(page)).trust * 100)}%`);
+  await page.screenshot({ path: 'test-results/keeper-horn-ignored.png' });
+  const lowTrust = (await snapshot(page)).trust;
+  await advance(page, 3);
+  expect((await hornRingCanvas(page)).strokes).toEqual([]);
+  expect((await snapshot(page)).trust).toBeCloseTo(lowTrust + 0.03, 8);
+  await expect(page.locator('#trust-state')).toHaveText(`Skipper trust · ${Math.round((await snapshot(page)).trust * 100)}%`);
+  await page.keyboard.up('Space');
+});
+
+test('paused horn presses create no blast, ring or trust change; resume and repress sends a new blast', async ({ page }) => {
+  await openWatch(page);
+  await page.keyboard.down('h'); await advance(page, 0.1);
+  expect((await snapshot(page)).blasts).toHaveLength(1);
+  await page.keyboard.press('p');
+  expect((await snapshot(page)).horn).toBe(false);
+  await page.keyboard.up('h');
+  const frozen = await snapshot(page);
+  await page.keyboard.down('h'); await page.clock.runFor(500); await advance(page, 3);
+  expect(await snapshot(page)).toEqual(frozen);
+  await page.keyboard.up('h'); await page.keyboard.press('p');
+  await advance(page, 2.1);
+  expect((await hornRingCanvas(page)).strokes).toEqual([]);
+  await page.keyboard.down('h'); await advance(page, 0.5); await page.keyboard.up('h');
+  expect((await snapshot(page)).blasts).toHaveLength(2);
+  expect((await hornRingCanvas(page)).peak).toBeGreaterThan(80);
+});

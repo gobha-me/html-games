@@ -69,6 +69,7 @@ function draw() {
   $('lens-state').textContent = mode === 'play' ? (heldInput(pressed).hold ? 'Lens held' : 'Lens turning clockwise') : 'Lens at rest';
   $('horn-state').textContent = state.horn ? 'Horn sounding' : 'Horn silent';
   $('horn-state').classList.toggle('sounding', state.horn);
+  $('trust-state').textContent = `Skipper trust · ${Math.round(state.trust * 100)}%`;
   audio.set(mode === 'play' && state.horn);
 }
 function advance(seconds) {
