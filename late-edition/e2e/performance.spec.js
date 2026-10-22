@@ -26,9 +26,9 @@ for (const rate of [1, 4]) {
       await page.evaluate(() => document.fonts.ready);
       await expect.poll(() => page.evaluate(() => Boolean(window.lateEditionApp.renderer.cache))).toBe(true);
       // Steady-state budget: first wait for 30 consecutive on-budget frames.
-      // CI SwiftShader showed a one-off multi-second startup stall (first
-      // texture uploads) on the first test only; the 4x run after it sampled
-      // 301 frames. Startup is gated separately below so it cannot hide.
+      // Cache preparation completes before the first desk frame. Record its
+      // cost and navigation-to-steady time too: moving work before this probe
+      // must not conceal a slow load behind a short post-preparation warm-up.
       const warmupMs = await page.evaluate(() => new Promise((resolve) => {
         const t0 = performance.now(); let last = t0, streak = 0;
         const tick = (t) => {
@@ -38,9 +38,18 @@ for (const rate of [1, 4]) {
         requestAnimationFrame(tick);
       }));
       console.log(`perf-warmup cpu${rate}x ${Math.round(warmupMs)}ms`);
-      expect(warmupMs, 'desk must reach a steady 60 fps within 6 s of loading').toBeLessThan(6000);
+      const startup = await page.evaluate(() => ({
+        navigationToSteadyMs: performance.now(),
+        cityPreparationMs: performance.getEntriesByName('late-edition:city-raster-ready').map(({ duration }) => duration),
+      }));
+      console.log(`perf-startup cpu${rate}x ${JSON.stringify(startup)}`);
+      expect(warmupMs, 'desk must reach a steady 60 fps within 2 s of cache preparation').toBeLessThan(2000);
+      // Total cold load is gated too so the fence cannot just relocate the stall:
+      // 43d7940 measured ~5.2 s warm-up alone; 6 s total is that plus margin (#102).
+      // 4x throttle is a stress case; total cold load is gated at real CPU speed.
+      if (rate === 1) expect(startup.navigationToSteadyMs, 'navigation to steady 60 fps').toBeLessThan(6000);
       const { deterministic, live, frames, ...state } = await page.evaluate(sampleRenderCosts);
-      const metrics = { ...state, cpuRate: rate, calibration, frameBudgetSupported,
+      const metrics = { ...state, cpuRate: rate, calibration, frameBudgetSupported, warmupMs, startup,
         deterministic: summarize(deterministic), live: summarize(live), frames: summarize(frames) };
       await testInfo.attach('swiftshader-frame-budget', { body: JSON.stringify(metrics, null, 2), contentType: 'application/json' });
       // Echo to stdout so CI logs show the numbers without downloading artifacts.

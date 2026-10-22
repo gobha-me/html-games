@@ -92,6 +92,40 @@ test('rendering cold/warm/resized/DPR layers preserves gameplay and exact coordi
   assert.deepEqual(renderer.screenToWorld(12, 34), { x: 0, y: 0 });
 });
 
+test('cold city completes raster before first sampling; warm/title frames never read back', (t) => {
+  const { canvas, calls, rect } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  renderer.render(sim, 0);
+  const read = calls.findIndex(([name]) => name === 'getImageData');
+  assert.ok(read >= 0 && read < calls.findIndex(([name]) => name === 'drawImage'),
+    'Fence the static source before any live frame can sample a cold display list');
+  assert.deepEqual(calls[read], ['getImageData', 0, 0, 1, 1], 'Only a single pixel, never a full-map readback');
+  const cache = renderer.cache;
+  calls.length = 0;
+  // Fail immediately if any warm render attempts to hide a repeated GPU flush.
+  const context = renderer.cache.city.getContext('2d');
+  const originalGetContext = renderer.cache.city.getContext;
+  renderer.cache.city.getContext = () => new Proxy(context, { get(target, key) {
+    if (key === 'getImageData') throw new Error('Warm cache must never read back');
+    return target[key];
+  } });
+  for (let i = 0; i < 40; i++) renderer.render(sim, 1 / 60);
+  assert.equal(renderer.cache, cache);
+  assert.ok(!calls.some(([name]) => name === 'getImageData'));
+  renderer.cache.city.getContext = originalGetContext;
+  for (const change of [() => { rect.width--; }, () => { globalThis.window.devicePixelRatio = 2; }]) {
+    calls.length = 0;
+    change();
+    renderer.render(sim, 0);
+    assert.equal(calls.filter(([name]) => name === 'getImageData').length, 1, 'Rebuild prepares exactly once');
+  }
+  calls.length = 0;
+  renderer.renderTitle(0);
+  renderer.renderTitle(0);
+  assert.ok(!calls.some(([name]) => name === 'getImageData'), 'No unused desk preparation on the title path');
+});
+
 test('reduced motion freezes title geometry/rain, including after a live preference change', (t) => {
   const fixture = canvasFixture(t);
   const renderer = new NoirCityRenderer(fixture.canvas);
@@ -386,6 +420,38 @@ test('direct labels repaint stale copy, selection and verification without alloc
   sim.leads = [];
   renderer._drawStoryLeads(renderer.ctx, sim);
   assert.equal(placements.size, 0);
+});
+
+test('edge labels reclamp after copy growth and moving addresses keep their leader at the real anchor', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  sim.scoopsTotal = 1;
+  sim.leads = [{ ...sim.leads[0], x: 1400, y: 1000, headline: 'A', seriesBadge: '' }];
+  renderer.render(sim, 0);
+  const lead = sim.leads[0];
+  const contained = () => {
+    const { box, leader } = renderer.cache.labelLayout.placements.get(lead.uid);
+    assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.w <= 1400 && box.y + box.h <= 1000);
+    assert.deepEqual(leader.from, { x: lead.x, y: lead.y });
+    assert.ok(calls.some(([name, x, y], i) => name === 'moveTo' && x === lead.x && y === lead.y &&
+      calls[i + 1]?.[0] === 'lineTo' && calls[i + 1][1] === leader.to.x && calls[i + 1][2] === leader.to.y));
+    return box;
+  };
+  contained();
+  lead.seriesBadge = 'OVERSIZED SERIES '.repeat(100);
+  lead.headline = 'HEADLINE GROWS IN PLACE AT THE CANVAS EDGE';
+  calls.length = 0;
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.equal(contained().w, 1400, 'Impossible copy width must shrink to the map');
+  assert.ok(calls.some(([name, x, y]) => name === 'scale' && x > 0 && x < 1 && x === y),
+    'Scale the entire artwork, rather than reporting a contained box while drawing outside it');
+  const before = { ...contained() };
+  lead.x = -10000;
+  lead.y = 20000;
+  calls.length = 0;
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  assert.deepEqual(contained(), before, 'Moving the anchor keeps the fixed box');
 });
 
 test('a first scoop and later selection never shrink onboarding space or shift surviving artwork', (t) => {

@@ -1,4 +1,137 @@
-# PR #101: paper compositing and presentation cost
+# Late Edition rendering performance
+
+## Issue #102: cold city raster and edge labels (2026-10-22)
+
+The owner's pinned, unmodified CPU-1× runs supersede the earlier bisect claim:
+`43d7940` warmed in **4965 / 5164 ms**, while `f98b98f` warmed in
+**5390 / 5297 ms**. This stall predates that range. A fresh local `f98b98f`
+control reproduced **5551 ms**, followed by 300 intervals / 5.0165 s,
+frame p95 16.8 ms and live render p95 1.6 ms.
+
+### Cause and evidence
+
+This is deferred GPU raster/completion work, not a multi-second JavaScript
+cache constructor. A pre-navigation Chrome trace (`issue102-before.trace.json`)
+shows **5420.6 ms** in `LayerTreeHost::~LayerTreeHost → ProxyMain::Stop`,
+waiting through `ProxyImpl::FinishGLOnImplThread → RasterImplementation::Finish`
+and `CommandBufferProxyImpl::WaitForGetOffset`. The corresponding GPU
+`RendererCompositor / CommandBuffer::Flush` takes **4942.1 ms**. These nested
+waits overlap; do not add their times. A second, more detailed Skia/GPU trace
+reproduces a **3968.8 ms** teardown/completion wait, while User Timing measures
+the city building submission at only **13.6 ms** and `_ensureLayers` at 14.9 ms.
+Low Canvas2D submission cost does not mean its pixels are ready.
+
+The large city source is a cold, deferred Canvas2D display list when first desk
+frames sample it. Repeated frames can enqueue more work before that source's
+first raster finishes. Completing the city source **before its first drawImage**
+removes the subsequent multi-second desk pause. This identifies an actionable
+source-readiness dependency; the trace does not identify which internal
+SwiftShader shader or driver operation accounts for every millisecond.
+The readback also waits on shared GPU work, so its duration is not an isolated
+measurement of city geometry alone.
+
+Ablations installed before navigation retained a 2.9–4.0 s delayed interval when
+removing weather, figures, lead labels, buildings, animations, grain, filters or
+portraits individually. CPU-backed caches and ImageBitmap conversion alone also
+retained the pause. A blank HTML control had no slow intervals in six seconds.
+A live CPU canvas/frame buffer was rejected because it caused recurring slow
+frames. Flushing an entire first live frame was rejected: it still needed roughly
+1.6–1.8 s plus later settling, and puts synchronization on the live path.
+Thus neither changing art nor restoring the removed small sprite caches is the fix.
+
+### Fix, budgets and remaining cold-load cost
+
+`_ensureLayers` completes **one one-pixel getImageData on the static city source**
+after drawing it and before presenting any desk frame. Canvas2D has no portable
+completion-fence API; this deliberate synchronous exception bounds cold work at
+cache preparation. It reads no full-map pixel array, changes no pixels, creates
+no additional texture, and never reads the live canvas. It happens only when the
+city cache is built after fonts settle or size/DPR changes. Warm frames reuse the
+same cache. Title-only rendering does not build or fence a city.
+`late-edition:city-raster-ready` records the complete preparation span, including
+its GPU wait, in User Timing. No drawing, resolution, DPR, palette, shader flag,
+simulation/RNG, or steady-state budget changes.
+
+With the existing post-font/cache warm-up probe tightened from **6000 to 2000 ms**,
+three first-try CPU-1× repetitions under `taskset -c 0,1`, `--retries=0` measured:
+
+| Run | Post-preparation warm-up | City preparation | Navigation → steady | Live render p95 | Frame p95 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 824 ms | 2897 ms | 4560 ms | 0.5 ms | 16.7 ms |
+| 2 | 597 ms | 3353 ms | 4829 ms | 0.5 ms | 16.7 ms |
+| 3 | 690 ms | 2843 ms | 4468 ms | 0.4 ms | 16.8 ms |
+
+The fixed startup-inclusive trace (`issue102-after.trace.json`) places a
+**2227.3 ms** GPU readback wait inside **2253.8 ms** of cache preparation;
+`LayerTreeHost` teardown is **523.4 ms**, rather than the control's 5420.6 ms.
+Its marked live window has **299 intervals / 5.0165 s**, frame p95 16.8 ms,
+render p95 0.5 ms, and 202.6 ms of raster flush events. The screenshot
+`issue102-after.png` was inspected after tracing, without contaminating timing.
+These values describe a separate instrumented run, not the three acceptance runs.
+
+Each live window has **301 intervals / 5.0165 s**, and the fixed 150-render batch
+p95 is 0.5–1.0 ms. The unchanged <8 ms / <16 ms submission budgets and calibrated
+<20 ms frame budget still apply. The test attaches warm-up, preparation and
+navigation-to-steady times, and prints all three in logs.
+
+**This is not a sub-two-second cold navigation.** Preparation alone exceeds 2 s
+on this calibrated two-core SwiftShader run; synchronizing it before the first
+desk frame removes the delayed freeze but does not eliminate the GPU's initial
+work. The original probe starts after page load/fonts/cache, so a passing 2000 ms
+probe must not be reported as a <2000 ms total load. No total-load gate is silently
+loosened or waived. Achieving that stronger target remains unproven with identical
+art/resolution on this software GPU. These measurements establish the remaining
+limit of this fix rather than claiming that all alternative implementations are
+impossible.
+
+### Label containment and adversarial checks
+
+Keep the four deterministic offsets and last-offset fallback, then clamp the
+chosen box into the world/canvas bounds. Containment takes priority over obstacle
+clearance on a fully blocked map. Copy growth reclamps existing boxes; relocating
+an anchor updates its leader without moving its fixed label. Oversized copy gets
+a bounded box and uniform artwork scaling; simply shrinking geometry without
+scaling the ink would still clip the text. Ordinary labels keep the same size.
+
+Tests cover all edges/corners, anchors a million units outside the map, nonzero
+bounds origins, fully covered bounds, oversized copy, one-pixel/narrow canvases,
+invalid dimensions, copy growth and a moved address. Recording-canvas tests force
+a failure on warm cache readback, require the single-pixel preparation before the
+first source sampling, and check resize/DPR invalidation and title exclusion.
+They also require the real leader stroke and scaled artwork for oversized copy.
+
+### Verification
+
+- `npm run lint`: pass (ESLint, stylelint and html-validate).
+- `npm run test:coverage`: **343/343 pass**, sim.js **100% lines**, 99.01% branches.
+- `npm run test:e2e`: **75/75 pass**, including CPU 1×, CPU 4× and starvation.
+- Documentation checker and its **23** adversarial shell self-tests: pass.
+- `git diff --check`: pass. No CI execution is claimed.
+
+### Reproduce this investigation
+
+From `late-edition/`, with the root server on 8123 and supported Node installed:
+
+```bash
+taskset -c 0,1 node e2e/profile-performance.js issue102-control --baseline=f98b98f --cpu=1 --gpu-details --skip-screenshot
+taskset -c 0,1 node e2e/profile-performance.js issue102-fixed --cpu=1 --gpu-details --skip-screenshot
+taskset -c 0,1 npx playwright test e2e/performance.spec.js -g 'CPU 1x' --retries=0 --repeat-each=3
+npm run lint
+npm run test:coverage
+npm run test:e2e
+```
+
+The profiler instruments initial cache-building methods before module evaluation,
+including the pinned baseline renderer, and exports `startupMeasures` as well as
+the Chrome trace. `--gpu-details` adds GPU service/Skia categories (large traces).
+Artifacts and local command logs are in ignored `performance-results/`.
+
+---
+
+## Historical PR #101 investigation
+
+The sections below retain prior experiments; their bisect hypotheses are
+superseded by the Issue #102 measurements above.
 
 The blank-page and blank-canvas probes can reach 60 Hz on the failing runner.
 The game's 66–71 intervals in five seconds therefore indicate game presentation
@@ -326,3 +459,9 @@ The historical bitmap-cache measurements above describe earlier experiments.
 Adversarial tests reject warm canvas allocation and any unexpected sampled
 source, verify live copy/stamps/selection, and retain placement, ring, scale,
 DPR and gameplay-isolation checks. All performance thresholds remain unchanged.
+
+### Gates (director decision, #102)
+
+Two startup gates: post-preparation warm-up < 2000 ms, and navigation → steady
+60 fps < 6000 ms (43d7940's ~5.2 s warm-up plus margin), so the readback fence
+cannot hide the cold GPU cost by moving it before the probe.

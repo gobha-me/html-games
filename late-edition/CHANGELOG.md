@@ -1,5 +1,18 @@
 # Changelog — LATE EDITION // 1947
 
+## Unreleased — #102 startup raster and label containment
+
+- Complete the deferred static city source before its first desk frame, with a
+  single-pixel raster fence once per cache build. Preserve visuals, resolution,
+  accelerated live rendering and all steady-state budgets. Add preparation timing.
+- Tighten post-cache warm-up to 2000 ms: pinned CPU-1× runs pass 3/3 at
+  824/597/690 ms. Record the remaining 4.47–4.83 s cold navigation explicitly;
+  this removes the delayed desk freeze, not all initial GPU preparation cost.
+- Clamp blocked/edge labels and growing copy inside the map, scaling impossible
+  oversized artwork while keeping the leader attached to its original address.
+- Add adversarial geometry/cache-lifecycle tests and preserve the superseded
+  bisect hypotheses as history in `docs/PERFORMANCE.md`.
+
 ## Unreleased — PR #101 CI GPU-path experiment
 
 - Remove per-lead, figure and onboarding canvas/bitmap caches. Paint telegram text,
