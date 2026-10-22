@@ -227,8 +227,23 @@ Verification with Node **22.23.4**:
   reduced motion, input and the three performance scenarios.
 - Documentation shell syntax/reference checks: pass; **23 checker self-tests passed**.
 - Final two-core `taskset -c 0,1 npx playwright test e2e/performance.spec.js
-  --repeat-each=5`: running against the same verified code; results follow below.
+  --repeat-each=5`: **15 passed** in **9.4 minutes**, zero failures, retries or skips.
 
+All five CPU-1× runs passed foreground calibration and enforced the frame gate;
+none used a calibration waiver. The ranges below span the five runs of each rate.
+
+| CPU rate | Deterministic render p95 | Live render p95 | Frame p95 | Minimum live frame intervals |
+| --- | --- | --- | --- | --- |
+| 1× | 0.3–0.6 ms | 0.4–0.5 ms | 16.7–16.8 ms | 301 |
+| 4× | 3.1–7.2 ms | 5.1–5.8 ms | 16.7–16.8 ms | 296 |
+
+Every deterministic batch collected exactly 150 samples and preserved gameplay
+hash/RNG and cache identity. All five forced-starvation cases retained their
+≥10 ms measured cost and <100 live sample/frame assertions. CPU 4× frame pacing
+is recorded rather than gated, as before.
+
+The repeated-run report, command log and extracted timing JSON are retained under
+`performance-results/fixed-label-repeat/` (`metrics.json` and `summary.json`).
 The complete browser report is retained under the ignored
 `performance-results/final-e2e/` directory. Its title and crowded-map screenshots
 were visually inspected alongside the geometry/pixel assertions.

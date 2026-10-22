@@ -106,7 +106,9 @@
 - Check figure/selection/dispatch/stun-ring overlaps at most every 250 ms of wall
   time, including while paused or under reduced motion. Re-place only an
   obstructed label and reuse its bitmap. Copy/selection/verification edits refresh
-  pixels in place; address edits only retie the leader.
+  pixels in place; address edits only retie the leader. Keep onboarding collision
+  space for each label's lifetime, even after its first scoop, while tightly
+  bounding cached images around actual artwork.
 - Generate title skyline geometry/textures lazily, close bitmaps and clear canvas
   references/backing stores when leaving the title. Desk rendering never creates
   or retains title caches. Preserve unique district signs, 1.4× figures and the
