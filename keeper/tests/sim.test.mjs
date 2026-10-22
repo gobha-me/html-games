@@ -32,7 +32,7 @@ test('hold freezes bearing while time, speed changes and the ship keep moving; o
   const next = step(s, { hold: true, fast: true, slow: true, horn: true }, 3);
   assert.equal(next.beam, s.beam);
   assert.equal(next.speed, SPEED.default);
-  assert.ok(next.trawler.x < s.trawler.x);
+  assert.ok(Math.hypot(next.trawler.x, next.trawler.y) < Math.hypot(s.trawler.x, s.trawler.y));
   assert.equal(next.time > 2.99, true);
   assert.equal(step(s, { hold: true, fast: true }, 3).speed, SPEED.fast);
 });

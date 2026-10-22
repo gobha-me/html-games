@@ -4,6 +4,7 @@ import {
   CLEAR_MARGIN,
   NIGHT_SECONDS,
   SPAWN,
+  TEETH,
   createState,
   isLit,
   perception,
@@ -60,7 +61,8 @@ function collectSpawns(root) {
 
 function assertHazards(hazards, label) {
   assert.ok(Array.isArray(hazards), label);
-  assert.ok(hazards.length >= 5 && hazards.length <= 9, `${label} count ${hazards.length}`);
+  assert.ok(hazards.length >= 6 && hazards.length <= 10, `${label} count ${hazards.length}`);
+  assert.deepEqual(hazards.slice(0, TEETH.length), TEETH, label);
   let small = 0;
   const quadrants = new Set();
   for (const hazard of hazards) {
@@ -80,10 +82,12 @@ function assertHazards(hazards, label) {
   assert.ok(quadrants.size >= 3, `${label} quadrants ${[...quadrants].join(' ')}`);
   for (let i = 0; i < hazards.length; i += 1) {
     for (let j = i + 1; j < hazards.length; j += 1) {
+      if (j < TEETH.length) continue; // The fixed reef band intentionally overlaps.
       const a = hazards[i];
       const b = hazards[j];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      assert.ok(dist + 1e-6 >= a.radius + b.radius, `${label} overlap ${dist}`);
+      const margin = i < TEETH.length ? CLEAR_MARGIN : 0;
+      assert.ok(dist + 1e-6 >= a.radius + b.radius + margin, `${label} overlap ${dist}`);
     }
   }
 }

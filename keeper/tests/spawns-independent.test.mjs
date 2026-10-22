@@ -149,7 +149,8 @@ function checkSeed(seed) {
     const plan = planSpawns(seed, { night });
     assert.deepEqual(plan, planSpawns(seed, { night }));
     const hazards = planHazards(seed, { night });
-    const outermost = hazards.reduce((a, b) => Math.hypot(a.x, a.y) + a.radius > Math.hypot(b.x, b.y) + b.radius ? a : b);
+    const lanes = hazards.filter((rock) => rock.x <= 0 || rock.y >= 0);
+    const outermost = lanes.reduce((a, b) => Math.hypot(a.x, a.y) + a.radius > Math.hypot(b.x, b.y) + b.radius ? a : b);
     const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
     const nightOpener = { ...trawler, bearing: (bearingTo(outermost) + random - 0.5 + 360) % 360 };
     assertPlan(plan, nightOpener, seed, night);

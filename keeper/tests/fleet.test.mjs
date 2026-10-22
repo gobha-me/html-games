@@ -39,7 +39,7 @@ test('outbound ship can physically pass safely without ever becoming visible', (
 });
 
 // These scenarios use independent chart geometry; none relies on legacy ROCKS.
-import { CLEAR_MARGIN, NAVIGATION, SPAWN, planHazards, planSpawns, validateSchedule, fogReach } from '../js/sim.js';
+import { CLEAR_MARGIN, NAVIGATION, SPAWN, TEETH, planHazards, planSpawns, validateSchedule, fogReach } from '../js/sim.js';
 import { createVessel } from '../js/physics.js';
 
 function encounter(type = 'speedboat', options = {}) {
@@ -125,8 +125,9 @@ test('500 seeds × five nights satisfy every hazard bound, schedule fairness, an
     const where = `${seed}/${night}`;
     layouts.add(JSON.stringify(hazards));
     assert.deepEqual(hazards, planHazards(seed, { night }));
-    assert.ok(hazards.length >= 5 && hazards.length <= 9, where);
-    assert.ok(hazards.filter((hazard) => hazard.radius <= 10).length >= 2, where);
+    assert.ok(hazards.length >= 6 && hazards.length <= 10, where);
+    assert.ok(hazards.slice(TEETH.length).filter((hazard) => hazard.radius <= 10).length >= 2, where);
+    assert.deepEqual(hazards.slice(0, TEETH.length), TEETH, where);
     const quadrants = new Set();
     for (const [index, hazard] of hazards.entries()) {
       assert.ok(['reef', 'shoal', 'wreck'].includes(hazard.kind), where);
@@ -134,8 +135,10 @@ test('500 seeds × five nights satisfy every hazard bound, schedule fairness, an
       const range = Math.hypot(hazard.x, hazard.y);
       assert.ok(range <= 430 && range - hazard.radius >= 90, where);
       quadrants.add(`${hazard.x >= 0}/${hazard.y >= 0}`);
-      for (const other of hazards.slice(index + 1)) {
-        assert.ok(Math.hypot(hazard.x - other.x, hazard.y - other.y) > hazard.radius + other.radius, where);
+      for (const [offset, other] of hazards.slice(index + 1).entries()) {
+        if (index < TEETH.length && index + 1 + offset < TEETH.length) continue;
+        const margin = index < TEETH.length ? CLEAR_MARGIN : 0;
+        assert.ok(Math.hypot(hazard.x - other.x, hazard.y - other.y) > hazard.radius + other.radius + margin, where);
       }
     }
     assert.ok(quadrants.size >= 3, where);

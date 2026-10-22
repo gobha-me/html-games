@@ -20,11 +20,10 @@ export const SPAWN = Object.freeze({
 });
 export const TRAFFIC = Object.freeze({ attempts: 8, lateAfter: 80, maxThreats: 2,
   bearingJitter: 3, openingJitter: 0.5 });
-export const ROCKS = Object.freeze([
-  Object.freeze({ x: 210, y: -255, radius: 24 }),
-  Object.freeze({ x: 244, y: -238, radius: 18 }),
-  Object.freeze({ x: 274, y: -219, radius: 14 }),
-  Object.freeze({ x: -125, y: -100, radius: 12 }),
+export const TEETH = Object.freeze([
+  Object.freeze({ kind: 'reef', x: 210, y: -255, radius: 24 }),
+  Object.freeze({ kind: 'reef', x: 244, y: -238, radius: 18 }),
+  Object.freeze({ kind: 'reef', x: 274, y: -219, radius: 14 }),
 ]);
 const TICK = PHYSICS_DT;
 const RAD = Math.PI / 180;
@@ -37,8 +36,8 @@ const reefsFor = (hazards, margin = 0) => hazards.map((rock) => ({
 }));
 
 export const HAZARD = Object.freeze({
-  minCount: 5, maxCount: 9, minRadius: 6, maxRadius: 34,
-  smallMaxRadius: 10, smallCount: 2, minCentre: 160, maxCentre: 300,
+  minCount: 3, maxCount: 7, minRadius: 6, maxRadius: 34,
+  smallMaxRadius: 10, smallCount: 2, minCentre: 160, maxCentre: 250,
   angleJitter: 4,
 });
 function checkSeedNight(seed, night) {
@@ -57,16 +56,20 @@ export function planHazards(seed, { night = 1 } = {}) {
   const random = rng((seed ^ Math.imul(night, 0x9e3779b9)) >>> 0);
   const count = HAZARD.minCount + Math.floor(random() * (HAZARD.maxCount - HAZARD.minCount + 1));
   const phase = random() * 360;
-  // Equal sectors guarantee separation even at the nearest radial bound:
-  // 2 * 160 * sin((360/9 - 8)/2) > 2 * 34. No retries or fallback layout.
-  return Array.from({ length: count }, (_, index) => {
-    const angle = (phase + index * 360 / count + (random() * 2 - 1) * HAZARD.angleJitter) * RAD;
+  // Equal sectors keep seeded discs apart: 2 * 160 * sin((360/7 - 8)/2) > 2 * 34.
+  // Their outer edges are <= 284 m; every Tooth's inner edge is > 306 m,
+  // leaving CLEAR_MARGIN without retries. Four sectors omit jitter so pairs
+  // cannot cross quadrant boundaries together and leave only two quadrants.
+  const jitter = count === 4 ? 0 : HAZARD.angleJitter;
+  const seeded = Array.from({ length: count }, (_, index) => {
+    const angle = (phase + index * 360 / count + (random() * 2 - 1) * jitter) * RAD;
     const range = HAZARD.minCentre + random() * (HAZARD.maxCentre - HAZARD.minCentre);
     const maximum = index < HAZARD.smallCount ? HAZARD.smallMaxRadius : HAZARD.maxRadius;
     const radius = HAZARD.minRadius + random() * (maximum - HAZARD.minRadius);
     return { kind: ['reef', 'shoal', 'wreck'][Math.floor(random() * 3)],
       x: Math.sin(angle) * range, y: -Math.cos(angle) * range, radius };
   });
+  return [...TEETH.map((rock) => ({ ...rock })), ...seeded];
 }
 const physical = (ship) => ({ ...ship, y: -ship.y });
 const fleet = (state) => state.ships ?? [state.trawler];
@@ -155,7 +158,11 @@ export function isLit(state, object = state.trawler) {
 
 function firstApproach(seed, hazards, night) {
   const reefs = reefsFor(hazards, CLEAR_MARGIN);
-  const outermost = hazards.reduce((a, b) => Math.hypot(a.x, a.y) + a.radius > Math.hypot(b.x, b.y) + b.radius ? a : b);
+  // An opening lane through the distant Teeth cannot fit four visible passes
+  // inside worst-night fog. Three seeded quadrants guarantee a nearer lane
+  // outside their north-east quadrant, with the same physical warning budget.
+  const lanes = hazards.filter((rock) => rock.x <= 0 || rock.y >= 0);
+  const outermost = lanes.reduce((a, b) => Math.hypot(a.x, a.y) + a.radius > Math.hypot(b.x, b.y) + b.radius ? a : b);
   // One LCG draw determines the approach lane; the course always crosses the reef.
   const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
   const bearing = wrapBearing(bearingTo(outermost) + (random * 2 - 1) * TRAFFIC.openingJitter);

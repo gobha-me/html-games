@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased — Fixed Teeth landmark (#108)
+
+- Export deeply frozen `TEETH`: three reef discs at (210, −255, 24),
+  (244, −238, 18) and (274, −219, 14), in south-positive chart coordinates.
+  Every hazard plan and initial state starts with fresh copies in that order.
+  Keep the existing Teeth label, overhead view, compass and layout; isolated
+  rocks remain seeded.
+- Add 3–7 seeded hazards (6–10 total), including two radii ≤10 m. Sample
+  centres at 160–250 m so their outer edges stay below the Teeth's inner
+  edges by more than the required 20 m. Equal sectors keep seeded discs
+  nonoverlapping and in at least three quadrants; four-sector charts omit
+  jitter to preserve quadrant coverage. The fixed reef band's intentional
+  internal overlap is exempt from seeded separation checks.
+- Aim the opening trawler at the outermost seeded hazard outside the Teeth's
+  north-east quadrant. A direct approach to the distant landmark cannot fit
+  four visible passes inside worst-case fog. Retain physical PONR, hull and
+  clearance padding, pass quotas, and all traffic admission rules.
+- Add `tests/teeth.test.mjs` with literal landmark, deep-freeze, mutation
+  isolation, uint32 edges, forced cardinal phases, invalid input, live
+  south-positive collision, scattered-seed geometry and 500-seed/all-night
+  schedule checks. Update tests that assumed every disc was seeded, the
+  opening vessel always moved left, or seed 108 retained its old dawn totals
+  and turn size. Update DESIGN §6/§7 and player/session documentation.
+- Verification (Node 22.22.2): `npm run lint` passes with zero warnings;
+  `npm run test:coverage` passes 190 tests (sim 99.49%, physics and Morse
+  100% line coverage); `npm run test:e2e` passes all 27 browser tests.
+  Visually checked the rendered chart: fixed Teeth beneath their existing label.
+
 ## Unreleased — Directed Morse signal lamp (#110)
 
 - Add the pure International Morse alphabet/codec, adaptive keying decoder,
