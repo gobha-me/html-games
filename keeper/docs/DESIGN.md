@@ -447,19 +447,58 @@ adding zero passes. The validator never pretends a held beam is sweeping.
 The lamp is a **directed channel** to the vessel currently in the beam; the
 omnidirectional horn is the separate broadcast warning channel (§6).
 
-- Real International Morse. `K` down < **250 ms** = dot, ≥ 250 ms = dash
-  (threshold adapts slightly to the player's own average dot length,
-  bounded 150–400 ms). Letter gap ≥ 3 dot-units, word gap ≥ 7.
-- Lamp flashes are visible on screen as the shutter opening; a sliding
-  strip shows what was sent, decoded live (`·−·` → `R`). Unrecognised
-  sequences show as `?` — no autocorrect.
-- Ships signal back in Morse at a readable speed (≈ 8 WPM in v1), visible as
-  a blinking point that the player must read; an optional **reference card**
-  (`?`) shows the alphabet. A setting slows incoming to 5 WPM.
+- Real International Morse, keyed by `K` through the shared bindings table.
+  Initial dot-unit **125 ms**: down < **250 ms** = dot, ≥ 250 ms = dash.
+  After each dot, the unit becomes the mean of the most recent five dots
+  (or all dots so far). Threshold = clamp(2 × unit, 150, 400) ms. Dashes
+  never adapt the unit. Gaps use the unit before the next press: < 3 units
+  continues a letter, ≥ 3 separates letters, ≥ 7 separates words.
+- The keyed lantern housing and open/shuttered indicator show outgoing
+  flashes. The strip decodes live, including a provisional held symbol
+  (`·−·` → `R`); unrecognised sequences show `?`, with no autocorrect.
+  Long messages scroll to their latest symbols/text within the strip.
+- After ≥ 7 idle units, select **one underway ship lit at completion**.
+  No illuminated recipient means no effect or reply, even if a ship has an
+  afterimage or lies within horn range. The strip retains the last sent
+  message and indicates whether a vessel was addressed. Starting another
+  message resets adaptation to 125 ms. Pause, help, focus loss, restart and
+  dawn shutter the lamp; mode changes discard incomplete keying so a held
+  key never becomes a synthetic dash or sends a partial warning on resume.
+- **Word-gap clarification for #110:** the same 7-unit gap cannot both
+  finish an arbitrary message and introduce its next word. Reserve the
+  unfinished vocabulary prefixes `WHAT` and `STEER` through that gap, until
+  a second word completes them. All other text dispatches at the normal
+  idle boundary. Opening help cancels an abandoned prefix.
+- Honest ships reply at **8 WPM**, or **5 WPM** selected under `?` controls.
+  The setting applies to future replies and survives watch restart within
+  the page. Flash units are 1200/WPM ms: dots 1u, dashes 3u; dark gaps 1u
+  within letters, 3u between letters, 7u between words. Reply points are
+  visible through the full fog reach, including off beam, without exposing
+  an unobserved hull. Wrecked or dark ships never flash. Replies carry no
+  on-screen translation; read the blinking point. The optional reference
+  card under `?` lists all 36 letters/digits and the vocabulary and can stay
+  open during play. Neither signal changes the chart, compass or layout.
 - Vocabulary v1 (small, fixed): `SOS`, `K` (go ahead), `R` (received), `AR`
   (end), `WHAT LIGHT` / station code `SKR`, `ROCKS`, `STEER N|S|E|W`,
-  `WHO`. Ships respond to a parsed message; nonsense gets `?` back or nothing.
-- Pure, deterministic decoder in its own module, exhaustively tested.
+  `WHO`. Honest replies: `WHO` → callsign, `WHAT LIGHT` → `SKR`, `K` → `K`,
+  `ROCKS`/`STEER`/`SKR` → `R`; `R`/`AR` → silence; `SOS`/nonsense → `?`.
+  Smugglers always stay silent. Only `ROCKS` changes navigation: if the
+  addressed honest captain is endangered within the existing 120 s horizon,
+  warn once, allow the hull's maximum crew delay, then run §6's same minimal
+  avoidance and return to destination. No horn blast, trust cost, broadcast,
+  spam suppression or trust-dependent refusal applies to the lamp. `STEER`
+  currently acknowledges only; it does not replace the avoidance controller.
+- Pure `js/morse.js`, with no DOM, wall clock or randomness: frozen `MORSE`,
+  strict letters/digits `encode`, `decodeLetter`, `decodeKeying`, exact
+  uppercase `parseMessage`, `keyingFor` and `shipReply`. Times are milliseconds;
+  event arrays require finite 0 ≤ down < up and each down > previous up.
+  Empty input decodes to empty text; unknown sequences decode to `?`.
+  `encode` rejects punctuation; `keyingFor('?')` alone additionally supports
+  the standard `..--..` error reply. Coverage includes Morse alongside sim
+  and physics. Exhaustive unit tests exercise all symbols, vocabulary,
+  ±1 ms gap/press edges, adaptation bounds, invalid events and garbage;
+  integration/browser tests cover directed delivery, no recipient, pause
+  cancellation, multiword commands, live decoding and actual reply blinking.
 
 ## 9. The log & the mystery
 
