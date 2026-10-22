@@ -18,6 +18,21 @@
 - Cache static layers at displayed resolution/DPR; per-frame work is dynamic art.
   Simulation, gameplay RNG, world hit targets and golden hashes stay unchanged.
 
+### Art director review round 1 (#89)
+- Darken distant skyline masses into low-contrast night haze over an ink-to-faint
+  mahogany/sodium horizon; keep near silhouettes ink-black with sparse windows.
+  Replace grey corner fog with subtle ink-only shading. Place a slow, low-alpha
+  sodium searchlight behind the near buildings so its beam reads against the sky.
+- Give map buildings lighter oblique roofs, dark fronts, setbacks/parapets/cornices
+  and soft street shadows cast away from the nearest lamp. Restrict mahogany to
+  a faint tint near lamps; use solid tanks/roofs/legs and substantial pier cranes.
+- Enlarge street staff/rivals 1.6×, retain number badges and add long cast shadows
+  and a more readable camera. Retain all eight district street signs with curb
+  offsets around telegram flags, headlines and series badges.
+- Add adversarial coincident-lamp/shadow and obstructed-sign checks plus a 1600×900
+  browser regression for night values, ink-only corners and every district’s signs.
+  The browser report attaches review screenshots; gameplay and input are unchanged.
+
 ### Verification
 - Add adversarial cosmetic-generation/cache/DPR/nonfinite-delta tests; compare
   gameplay hash/RNG before and after rendering without changing the golden fixture.

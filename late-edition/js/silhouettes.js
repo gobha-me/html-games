@@ -6,7 +6,9 @@ export function drawSilhouette(ctx, role = 'reporter', { bob = 0, herald = false
   ctx.save();
   ctx.fillStyle = alpha(PALETTE.nightInk, 0.65);
   ctx.beginPath();
-  ctx.ellipse(19, 9, 31, 5, 0.35, 0, Math.PI * 2);
+  ctx.moveTo(-7, 0); ctx.lineTo(7, 0);
+  ctx.lineTo(64, 19); ctx.lineTo(57, 24); ctx.lineTo(4, 4);
+  ctx.closePath();
   ctx.fill();
   ctx.translate(0, bob);
   const broad = role === 'fixer' || goon;
@@ -39,9 +41,12 @@ export function drawSilhouette(ctx, role = 'reporter', { bob = 0, herald = false
   ctx.fillRect(-6, -35, 11, 1);
   if (role === 'photographer') {
     ctx.fillStyle = PALETTE.smoke;
-    ctx.fillRect(3, -23, 14, 9);
+    ctx.fillRect(2, -24, 17, 12);
+    ctx.fillRect(5, -28, 5, 4);
     ctx.fillStyle = PALETTE.nightInk;
-    ctx.fillRect(7, -21, 6, 6);
+    ctx.fillRect(8, -22, 9, 8);
+    ctx.fillStyle = PALETTE.newsprintAged;
+    ctx.fillRect(10, -20, 4, 4);
     ctx.fillStyle = PALETTE.newsprintAged;
     ctx.beginPath();
     ctx.arc(16, -29, 4, 0, Math.PI * 2);

@@ -1,5 +1,5 @@
 import { PALETTE, alpha as withAlpha } from './palette.js';
-import { CITY_SEED, generateDistrict } from './city.js';
+import { CITY_SEED, generateDistrict, districtSignPosition, shadowVector } from './city.js';
 import { mulberry32 } from './rng.js';
 import { drawSilhouette } from './silhouettes.js';
 // ============================================================================
@@ -98,6 +98,7 @@ export class NoirCityRenderer {
     this._drawTrafficCabs(ctx, sim);
     this._drawSyndicateStringBoard(ctx, sim);
     this._drawDispatchVectors(ctx, sim);
+    this._drawDistrictSigns(ctx, sim);
     this._drawStoryLeads(ctx, sim);
     this._drawRivals(ctx, sim);
     this._drawOperatives(ctx, sim);
@@ -127,29 +128,44 @@ export class NoirCityRenderer {
     const ctx = this.ctx;
     ctx.fillStyle = PALETTE.nightInk;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.cache.skyline.forEach((layer, depth) => {
-      const offset = Math.sin(time * 0.06) * (depth + 1) * 5;
-      ctx.drawImage(layer, offset, 0);
-    });
+    // Paint the beam between the distant haze and near silhouettes so it lights
+    // the sky without washing the foreground roofs or title lettering.
+    ctx.drawImage(this.cache.skyline[0], Math.sin(time * 0.06) * 5, 0);
     ctx.save();
     ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
-    // A municipal searchlight: police blue is reserved for actual raids below.
     ctx.save();
-    ctx.translate(980, 750);
-    ctx.rotate(-0.4 + Math.sin(time * 0.12) * 0.45);
-    const light = ctx.createLinearGradient(0, 0, 0, -650);
-    light.addColorStop(0, withAlpha(PALETTE.newsprint, 0.09));
-    light.addColorStop(1, withAlpha(PALETTE.newsprint, 0));
+    ctx.translate(1150, 790);
+    ctx.rotate(-0.48 + Math.sin(time * 0.12) * 0.32);
+    const light = ctx.createLinearGradient(0, 0, 0, -850);
+    light.addColorStop(0, withAlpha(PALETTE.sodium, 0.085));
+    light.addColorStop(0.65, withAlpha(PALETTE.sodium, 0.055));
+    light.addColorStop(1, withAlpha(PALETTE.sodium, 0));
     ctx.fillStyle = light;
-    polygon(ctx, [[0, 0], [-190, -650], [130, -650]]);
+    polygon(ctx, [[0, 0], [-170, -850], [100, -850]]);
     ctx.restore();
+    ctx.restore();
+    for (const depth of [1, 2]) {
+      ctx.drawImage(this.cache.skyline[depth], Math.sin(time * 0.06) * (depth + 1) * 5, 0);
+    }
+    ctx.save();
+    ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
     this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt);
     ctx.restore();
     ctx.drawImage(this.cache.fog, 0, 0);
   }
 
   _drawSkyline(ctx, depth) {
-    const mass = [withAlpha(PALETTE.smoke, 0.55), PALETTE.mahogany, PALETTE.nightInk][depth];
+    if (depth === 0) {
+      const sky = ctx.createLinearGradient(0, 0, 0, WORLD_H);
+      sky.addColorStop(0, PALETTE.nightInk);
+      sky.addColorStop(0.55, mix(PALETTE.nightInk, PALETTE.mahogany, 0.35));
+      sky.addColorStop(0.8, mix(PALETTE.nightInk, PALETTE.sodium, 0.07));
+      sky.addColorStop(1, PALETTE.nightInk);
+      ctx.fillStyle = sky;
+      ctx.fillRect(-20, 0, WORLD_W + 40, WORLD_H);
+    }
+    const mass = [mix(PALETTE.nightInk, PALETTE.smoke, 0.10),
+      mix(PALETTE.nightInk, PALETTE.mahogany, 0.18), PALETTE.nightInk][depth];
     const skylineRng = mulberry32(CITY_SEED + depth);
     ctx.fillStyle = mass;
     const baseline = 610 + depth * 150;
@@ -165,8 +181,8 @@ export class NoirCityRenderer {
         ctx.fillRect(x + 15, top - 30, width - 30, 12);
       }
       if (i % 5 === 1) polygon(ctx, [[x, top], [x + width / 2, top - 28], [x + width, top]]);
-      if (i % 4 === 0) drawWaterTower(ctx, x + 30, top);
-      ctx.fillStyle = withAlpha(PALETTE.sodium, depth === 0 ? 0.2 : 0.55);
+      if (i % 4 === 0) drawWaterTower(ctx, x + 30, top, mass);
+      ctx.fillStyle = withAlpha(PALETTE.sodium, depth === 0 ? 0.06 : depth === 1 ? 0.17 : 0.5);
       for (let j = 0; j < 12; j++) {
         if ((i * 7 + j * 13 + depth) % 5 === 0) ctx.fillRect(x + 10 + (j % 3) * 15, top + 18 + Math.floor(j / 3) * 25, 4, 7);
       }
@@ -174,11 +190,19 @@ export class NoirCityRenderer {
       // Anchor the sign to a foreground roof outside the central title paper.
       if (depth === 2 && i === 17) drawSign(ctx, 'EVENING STAR', x + 3, top - 5, true);
     }
+    if (depth < 2) {
+      const haze = ctx.createLinearGradient(0, baseline - 240, 0, baseline + 160);
+      haze.addColorStop(0, withAlpha(PALETTE.mahogany, 0));
+      haze.addColorStop(0.6, withAlpha(PALETTE.mahogany, depth === 0 ? 0.12 : 0.05));
+      haze.addColorStop(1, withAlpha(PALETTE.sodium, depth === 0 ? 0.035 : 0.015));
+      ctx.fillStyle = haze;
+      ctx.fillRect(-20, baseline - 240, WORLD_W + 40, WORLD_H - baseline + 240);
+    }
     if (depth === 2) {
       ctx.save();
       ctx.translate(0, 180);
-      ctx.strokeStyle = PALETTE.smoke;
-      ctx.lineWidth = 5;
+      ctx.strokeStyle = PALETTE.nightInk;
+      ctx.lineWidth = 7;
       ctx.beginPath();
       ctx.moveTo(0, 650); ctx.lineTo(650, 650);
       ctx.moveTo(120, 660); ctx.lineTo(120, 410);
@@ -202,8 +226,8 @@ export class NoirCityRenderer {
       WORLD_H * 0.5,
       920
     );
-    grad.addColorStop(0, PALETTE.nightInk);
-    grad.addColorStop(0.65, PALETTE.nightInk);
+    grad.addColorStop(0, mix(PALETTE.nightInk, PALETTE.smoke, 0.08));
+    grad.addColorStop(0.65, mix(PALETTE.nightInk, PALETTE.smoke, 0.04));
     grad.addColorStop(1, PALETTE.nightInk);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
@@ -323,11 +347,31 @@ export class NoirCityRenderer {
   }
 
   _drawDistrictBuildings25D(ctx) {
+    // Shadows belong on the street beneath every mass, including adjacent roofs.
+    for (const { buildings } of this.city) for (const b of buildings) drawBuildingShadow(ctx, b);
     for (const { district: d, buildings } of this.city) {
       for (const b of buildings) drawBuilding(ctx, b);
       this._drawLandmark(ctx, d, buildings[4]);
-      drawSign(ctx, STREET_SIGNS[d.id], d.x + 8, d.y + d.h - 4);
     }
+  }
+
+  _drawDistrictSigns(ctx, sim) {
+    ctx.save();
+    ctx.font = '12px "Courier Prime", monospace';
+    // Reserve the entire flag/headline/series badge, not just the lead hit point.
+    const obstacles = sim.leads.map((lead) => {
+      const headline = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
+      const half = Math.max(48, (ctx.measureText(headline).width + 16) / 2,
+        lead.seriesBadge ? (ctx.measureText(lead.seriesBadge).width + 14) / 2 : 0);
+      return { x: lead.x - half - 8, y: lead.y - 74, w: half * 2 + 16, h: 142 };
+    });
+    for (const d of DISTRICTS) {
+      const text = STREET_SIGNS[d.id];
+      const width = ctx.measureText(text).width + 12;
+      const { x, y } = districtSignPosition(d, width, obstacles);
+      drawSign(ctx, text, x, y);
+    }
+    ctx.restore();
   }
 
   _drawLandmark(ctx, d, b) {
@@ -340,13 +384,20 @@ export class NoirCityRenderer {
       ctx.beginPath(); ctx.arc(x, y, 29, Math.PI, 0); ctx.fill(); ctx.stroke();
       ctx.fillRect(x - 3, y - 40, 6, 16);
     } else if (d.id === 'docks') {
-      ctx.fillStyle = PALETTE.mahogany;
+      ctx.fillStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.12);
       ctx.fillRect(d.x, d.y + d.h - 25, d.w, 13);
       for (const craneX of [d.x + 44, d.x + 205]) {
-        ctx.beginPath();
-        ctx.moveTo(craneX, y + 45); ctx.lineTo(craneX, y - 75);
-        ctx.lineTo(craneX + 65, y - 100); ctx.lineTo(craneX + 80, y - 100);
-        ctx.moveTo(craneX + 65, y - 100); ctx.lineTo(craneX + 65, y - 20); ctx.stroke();
+        ctx.fillStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.22);
+        polygon(ctx, [[craneX - 13, y + 45], [craneX - 5, y - 75],
+          [craneX + 6, y - 75], [craneX + 15, y + 45]]);
+        polygon(ctx, [[craneX - 20, y - 66], [craneX + 66, y - 106],
+          [craneX + 83, y - 99], [craneX - 20, y - 52]]);
+        ctx.fillRect(craneX - 17, y - 77, 34, 23);
+        ctx.strokeStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.35);
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(craneX + 65, y - 99);
+        ctx.lineTo(craneX + 65, y - 20); ctx.stroke();
+        ctx.fillRect(craneX + 60, y - 22, 11, 7);
       }
     } else if (d.id === 'herald_hq') {
       ctx.fillRect(x - 18, y - 80, 36, 85);
@@ -599,11 +650,13 @@ export class NoirCityRenderer {
         polygon(ctx, [[0, 0], [90, -28], [90, 28]]);
         ctx.restore();
       }
+      ctx.save(); ctx.scale(1.6, 1.6);
       drawSilhouette(ctx, goon ? 'fixer' : 'reporter', { herald: !goon, goon,
         bob: rv.stunTimer > 0 ? 0 : Math.sin(this.cosmeticTime * 10 + rv.x * 0.01) * 1.5 });
+      ctx.restore();
       if (rv.stunTimer > 0) {
         ctx.strokeStyle = PALETTE.newsprint;
-        ctx.beginPath(); ctx.arc(0, -22, 27, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, -35, 43, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     }
@@ -617,8 +670,9 @@ export class NoirCityRenderer {
       if (op.id === sim.selectedOpId || op.id === this.hoverOperativeId) {
         ctx.strokeStyle = PALETTE.sodium;
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(0, 3, 24, 11, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 5, 38, 17, 0, 0, Math.PI * 2); ctx.stroke();
       }
+      ctx.scale(1.6, 1.6);
       const walking = Math.hypot(op.targetX - op.x, op.targetY - op.y) > 10;
       drawSilhouette(ctx, op.role, { bob: walking ? Math.sin(this.cosmeticTime * 10 + i) * 1.5 : 0 });
       ctx.fillStyle = PALETTE.sodium;
@@ -697,8 +751,8 @@ export class NoirCityRenderer {
       ctx.save();
       ctx.translate(x, y); ctx.scale(3, 0.35);
       const fog = ctx.createRadialGradient(0, 0, 0, 0, 0, 140);
-      fog.addColorStop(0, withAlpha(PALETTE.smoke, 0.13));
-      fog.addColorStop(1, withAlpha(PALETTE.smoke, 0));
+      fog.addColorStop(0, withAlpha(PALETTE.mahogany, 0.10));
+      fog.addColorStop(1, withAlpha(PALETTE.mahogany, 0));
       ctx.fillStyle = fog; ctx.fillRect(-140, -140, 280, 280);
       ctx.restore();
     }
@@ -706,11 +760,11 @@ export class NoirCityRenderer {
   }
 
   _drawFogEdges(ctx) {
-    // Opaque edges obscure the outskirts; transparent center keeps addresses clear.
+    // Ink-only falloff: smoke at the corners reads as a dirty lens on the title.
     const fog = ctx.createRadialGradient(700, 500, 330, 700, 500, 830);
-    fog.addColorStop(0, withAlpha(PALETTE.smoke, 0));
-    fog.addColorStop(0.75, withAlpha(PALETTE.smoke, 0.12));
-    fog.addColorStop(1, withAlpha(PALETTE.smoke, 0.75));
+    fog.addColorStop(0, withAlpha(PALETTE.nightInk, 0));
+    fog.addColorStop(0.75, withAlpha(PALETTE.nightInk, 0.04));
+    fog.addColorStop(1, withAlpha(PALETTE.nightInk, 0.25));
     ctx.fillStyle = fog;
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   }
@@ -762,40 +816,87 @@ function drawSign(ctx, text, x, y, rooftop = false) {
   ctx.fillText(text, x + 6, y);
   ctx.restore();
 }
-function drawWaterTower(ctx, x, y) {
+function mix(base, tint, amount) {
+  return `color-mix(in srgb, ${base}, ${tint} ${amount * 100}%)`;
+}
+function drawWaterTower(ctx, x, y, mass = PALETTE.nightInk) {
   ctx.save();
-  ctx.fillStyle = PALETTE.nightInk; ctx.strokeStyle = PALETTE.smoke; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(x - 9, y); ctx.lineTo(x - 7, y - 18);
-  ctx.moveTo(x + 9, y); ctx.lineTo(x + 7, y - 18); ctx.stroke();
+  ctx.fillStyle = mass;
+  polygon(ctx, [[x - 10, y], [x - 7, y - 20], [x - 3, y - 20], [x - 6, y]]);
+  polygon(ctx, [[x + 6, y], [x + 3, y - 20], [x + 7, y - 20], [x + 10, y]]);
   ctx.fillRect(x - 12, y - 36, 24, 20);
   polygon(ctx, [[x - 15, y - 36], [x, y - 44], [x + 15, y - 36]]);
-  ctx.strokeRect(x - 12, y - 36, 24, 20);
   ctx.restore();
+}
+function nearestStreetlamp(x, y) {
+  return STREETLAMPS.reduce((best, lamp) =>
+    Math.hypot(lamp.x - x, lamp.y - y) < Math.hypot(best.x - x, best.y - y) ? lamp : best);
+}
+function drawBuildingShadow(ctx, { x, y, width: w, depth: d, height: h }) {
+  const skew = d * 0.577, cx = x + (w + skew) / 2, cy = y - d / 2;
+  const shadow = shadowVector(cx, cy, h * 1.6, nearestStreetlamp(cx, cy));
+  const footprint = [[x, y], [x + w, y], [x + w + skew, y - d], [x + skew, y - d]];
+  const points = [...footprint, ...footprint.map(([px, py]) => [px + shadow.x, py + shadow.y])];
+  // Include the rear footprint: a lamp south of a building must cast beyond its
+  // north edge rather than hiding the entire shadow beneath its roof.
+  const sorted = points.toSorted(([ax, ay], [bx, by]) => ax - bx || ay - by);
+  const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const half = (list) => {
+    const edge = [];
+    for (const point of list) {
+      while (edge.length > 1 && cross(edge.at(-2), edge.at(-1), point) <= 0) edge.pop();
+      edge.push(point);
+    }
+    return edge.slice(0, -1);
+  };
+  // Cached gradients soften shadows without a per-frame blur/filter. Extend
+  // the fade beyond the footprint so short shadows remain visible on streets.
+  const reach = 1 + Math.hypot(w + skew, d) / (2 * Math.hypot(shadow.x, shadow.y));
+  const shade = ctx.createLinearGradient(cx, cy, cx + shadow.x * reach, cy + shadow.y * reach);
+  shade.addColorStop(0, withAlpha(PALETTE.nightInk, 0.8));
+  shade.addColorStop(1, withAlpha(PALETTE.nightInk, 0));
+  ctx.fillStyle = shade;
+  polygon(ctx, [...half(sorted), ...half(sorted.toReversed())]);
 }
 function drawBuilding(ctx, b) {
   const { x, y, width: w, depth: d, height: h } = b;
   const skew = d * 0.577; // 30-degree oblique roof, purely cosmetic projection.
-  ctx.fillStyle = PALETTE.mahogany;
+  const nearest = nearestStreetlamp(x + (w + skew) / 2, y - d / 2);
+  const distance = Math.hypot(nearest.x - x - (w + skew) / 2, nearest.y - y + d / 2);
+  const warmth = Math.max(0, 1 - distance / 230);
+  ctx.fillStyle = mix(mix(PALETTE.nightInk, PALETTE.smoke, 0.045), PALETTE.mahogany, warmth * 0.22);
   polygon(ctx, [[x, y], [x + w, y], [x + w, y - h], [x, y - h]]);
   ctx.fillStyle = PALETTE.nightInk;
   polygon(ctx, [[x + w, y], [x + w + skew, y - d], [x + w + skew, y - d - h], [x + w, y - h]]);
-  ctx.fillStyle = PALETTE.nightInk;
+  ctx.fillStyle = mix(mix(PALETTE.nightInk, PALETTE.smoke, 0.24), PALETTE.mahogany, warmth * 0.15);
   polygon(ctx, [[x, y - h], [x + skew, y - h - d], [x + w + skew, y - h - d], [x + w, y - h]]);
-  ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.65); ctx.lineWidth = 1;
+  ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.45); ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(x, y - h + 3); ctx.lineTo(x + w, y - h + 3);
   ctx.lineTo(x + w + skew, y - h - d + 3); ctx.stroke();
   if (b.setback) {
-    ctx.fillStyle = PALETTE.mahogany;
-    ctx.fillRect(x + skew + 4, y - h - d + 4, w * 0.6, 9);
+    // A real second extrusion, rather than a rectangle pasted onto the roof.
+    const sx = x + skew * 0.55 + 8, sy = y - h - d * 0.3;
+    const sw = w * 0.56, rise = 12, sd = d * 0.32;
+    ctx.fillStyle = PALETTE.nightInk;
+    polygon(ctx, [[sx, sy], [sx + sw, sy], [sx + sw, sy - rise], [sx, sy - rise]]);
+    ctx.fillStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.3);
+    polygon(ctx, [[sx, sy - rise], [sx + sd * 0.577, sy - sd - rise],
+      [sx + sw + sd * 0.577, sy - sd - rise], [sx + sw, sy - rise]]);
+  } else {
+    ctx.strokeStyle = mix(PALETTE.nightInk, PALETTE.smoke, 0.35);
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x, y - h - 3); ctx.lineTo(x + w, y - h - 3);
+    ctx.lineTo(x + w + skew, y - h - d - 3); ctx.stroke();
   }
-  if (b.tank) drawWaterTower(ctx, x + w / 2 + skew, y - h - d / 2);
+  if (b.tank) drawWaterTower(ctx, x + w / 2 + skew * 0.5, y - h - d / 2);
   b.windows.forEach((lit, i) => {
     if (!lit) return;
-    ctx.fillStyle = withAlpha(i % 4 === 0 ? PALETTE.telegram : PALETTE.sodium, 0.65);
+    ctx.fillStyle = withAlpha(PALETTE.sodium, 0.5);
     ctx.fillRect(x + 7 + (i % 5) * (w - 12) / 5, y - h + 10 + Math.floor(i / 5) * (h - 15) / 3, 3, 4);
   });
   if (b.escape) {
     ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.5);
+    ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i < 3; i++) {
       const top = y - h + 13 + i * 13;

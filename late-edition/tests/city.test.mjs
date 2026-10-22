@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateDistrict, CITY_SEED } from '../js/city.js';
+import { generateDistrict, CITY_SEED, districtSignPosition, shadowVector } from '../js/city.js';
 import { DISTRICTS } from '../js/config.js';
 import { NoirCityRenderer } from '../js/renderer.js';
 import { LateEditionSim } from '../js/sim.js';
@@ -113,4 +113,39 @@ test('initial font loading cannot bake fallback signs; font failure still permit
   renderer.render(sim);
   assert.ok(renderer.cache);
   assert.ok(fixture.calls.some(([name]) => name === 'fillText'));
+});
+
+
+test('building shadows point away from the lamp, including a coincident light', () => {
+  for (const lamp of [{ x: -10, y: -20 }, { x: 10, y: 20 }, { x: 0, y: 20 }]) {
+    const shadow = shadowVector(0, 0, 60, lamp);
+    assert.ok(Math.abs(Math.hypot(shadow.x, shadow.y) - 60) < 1e-10);
+    assert.ok(shadow.x * -lamp.x + shadow.y * -lamp.y > 0);
+  }
+  assert.deepEqual(shadowVector(8, 12, 60, { x: 8, y: 12 }), { x: 0, y: 60 });
+});
+
+test('all eight district signs escape flags, headlines and series badges on their usual curb', () => {
+  assert.equal(DISTRICTS.length, 8);
+  const overlaps = (point, width, b) => point.x < b.x + b.w && point.x + width > b.x &&
+    point.y - 18 < b.y + b.h && point.y + 25 > b.y;
+  for (const d of DISTRICTS) {
+    const width = 100;
+    const original = districtSignPosition(d, width, []);
+    const obstacles = [{ x: original.x - 40, y: original.y - 74, w: 240, h: 142 }];
+    const snapshot = structuredClone({ d, obstacles });
+    const shifted = districtSignPosition(d, width, obstacles);
+    assert.notDeepEqual(shifted, original, `${d.id} must move away from the telegram`);
+    assert.ok(obstacles.every((b) => !overlaps(shifted, width, b)), d.id);
+    assert.deepEqual({ d, obstacles }, snapshot, 'Placement cannot mutate gameplay inputs');
+    const crowded = [0, 1, 2, 3].map((i) => ({ x: d.x - 50,
+      y: d.y - 75 + i * 65, w: d.w + 100, h: 142 }));
+    const street = districtSignPosition(d, width, crowded);
+    assert.ok(crowded.every((b) => !overlaps(street, width, b)), `${d.id}: four flags cover both curbs`);
+    // A fully covered district still keeps exactly one finite, stable sign.
+    const blocked = [{ x: -1000, y: -1000, w: 4000, h: 4000 }];
+    const fallback = districtSignPosition(d, width, blocked);
+    assert.ok(Number.isFinite(fallback.x) && Number.isFinite(fallback.y));
+    assert.deepEqual(districtSignPosition(d, width, blocked), fallback);
+  }
 });

@@ -443,11 +443,16 @@ the hash unchanged while changes to gameplay values must still be detected.
 ## Silhouette city and performance (#89, 2.10.0)
 
 The Weegee / *The Big Clock* / *Sweet Smell of Success* map uses 30-degree oblique
-roofs, ink/mahogany building masses, smoke cornices and fire escapes, water towers,
+roofs with lighter top faces over ink-dark fronts, lamp-directed soft street shadows,
+setbacks/parapets, smoke cornices and fire escapes, solid water-tower silhouettes,
 sparse sodium windows and wet lamp reflections. Each neighbourhood has one landmark:
 City Hall dome, Pier 14 cranes/pier, Herald clock tower, Observer warehouse sign,
 Evening Star press room/rooftop sign, trust bank columns, meatpacking stacks and the
-Velvet marquee. Small street signs replace floating district marketing captions.
+Velvet marquee. Pier cranes have solid masts, booms and counterweights. Mahogany
+only warms masses near lamps. All eight small street signs slide along their district curbs to avoid
+telegram flags, headlines and series badges, stepping into an adjoining street when
+four flags cover both curbs. An impossible fixture covering the whole map retains
+one stable sign at the least occluded curb position.
 Rain and drifting edge fog obscure the outskirts without changing gameplay visibility.
 
 `js/city.js` derives six buildings per district from fixed seed **1947** and district
@@ -455,18 +460,21 @@ identity. The stream is separate from simulation RNG, and generation order does 
 matter. `js/silhouettes.js` draws the same fedora/trench coat figures on the map and
 staff passes: camera/flash reflector for Clara, broad shoulders for Knuckles, brass
 hats for Herald men and a red cigarette ember for Observer goons. Selected staff have
-a sodium ground ring and small number badges. Telegram flags are pinned exactly at
-lead coordinates, with sodium glow; arc yarn remains red. Herald sedans use sodium
+a sodium ground ring and small number badges. Map figures are scaled 1.6×, with long
+cast shadows and a larger camera/flash reflector; pass portraits retain their scale. Telegram flags are
+pinned exactly at lead coordinates, with sodium glow; arc yarn remains red. Herald sedans use sodium
 headlights; only Observer raids use police-blue cones. Scoops get a brief Weegee
 flash; the photographer's existing snap produces a flashbulb star. No unit PNG is
 loaded; the editor portrait and press plate remain in use (see asset notes).
 
-`NoirCityRenderer` caches city geometry/lamps/signs, edge fog, and three title depth
+`NoirCityRenderer` caches city geometry/lamps, ink-only edge shading, and three title depth
 layers on detached canvases at the displayed size × DPR. Caches rebuild on size/DPR
 changes only, after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
-threads, weather and callouts. Title layers add a bridge, water towers, lit windows,
-Evening Star sign, slow parallax and municipal searchlight. Reduced motion freezes
-rain, fog, bob and parallax and suppresses scoop/camera flashes; title pixels remain
+threads, collision-offset street signs, weather and callouts. Title layers dissolve
+into an ink-to-faint-mahogany/sodium horizon through low-contrast dark haze, with an
+ink-black near skyline, bridge, solid water towers and sparse windows. The Evening
+Star sign, slow parallax and a low-alpha sodium municipal searchlight complete it.
+Reduced motion freezes rain, fog, bob and parallax and suppresses scoop/camera flashes; title pixels remain
 identical across frames, including after changing the preference during play.
 
 The presentation never writes simulation state or changes coordinates, hit radii,
@@ -476,7 +484,9 @@ RNG state before/after real cold-cache, warm-cache, resize and DPR rendering. In
 cosmetic seeds/geometry reject; outputs never share mutable building/window arrays.
 Browser cases click ten distinct actual addresses at both 1280×720 and 1920×1080,
 exercise inside/outside hit boundaries, unit priority and closed-dispatch rejection,
-and reject console errors and all `unit_*.png` network requests.
+and reject console errors and all `unit_*.png` network requests. The 1600×900 review
+regression also rejects smoke-grey distant pixels and brightened corners, forces
+flags onto every district’s usual sign position and attaches title/map screenshots.
 
 The performance scenario explicitly launches Chromium with ANGLE **SwiftShader**;
 other browser scenarios retain Playwright’s default backend. The 1080p combat
