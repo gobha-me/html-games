@@ -9,7 +9,7 @@ their crews to turn away. Failure stays with you until morning.
 
 Open `keeper/` from the arcade using a static server at the repository root.
 Select **Take the watch**. The first watch lasts three real minutes; the
-unwarned trawler reaches the reef around 91 seconds. The default 12-second
+unwarned trawler reaches the seeded hazards around 107 seconds (seed 108). The default 12-second
 sweep guarantees at least four passes before the last safe warning time.
 Slowing or holding deliberately trades those chances for attention elsewhere.
 
@@ -78,8 +78,15 @@ visual rings and a trust readout.
 The kspawn pacing change adds seeded arrivals from 24–36 seconds onward,
 with jittered gaps, at most three overlapping active windows, separated
 bearings and independent warning budgets. Traffic stops arriving by 120
-seconds; clear outbound ships never cross reefs. Fleet outcomes persist in
+seconds; clear outbound ships never cross reefs. Observed fleet outcomes persist in
 the morning record. All pacing tunables are documented in DESIGN §6.
+
+The kfleet fixes generate a different deterministic hazard chart per seed/night.
+Warned honest captains take the smallest physically clear course change, then
+resume their off-chart destinations. A ship is safe only after heading outward
+beyond 600 m; a clear hull still underway at dawn is not a saved outcome. Dawn
+counts only ships observed in the beam or by running lights, and reports
+unseen arrivals separately. Rejected spawn slots no longer end traffic.
 
 ## File layout
 

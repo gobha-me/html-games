@@ -1,12 +1,46 @@
 # Changelog
 
-## Unreleased — Honest dawn tally (kfleet-ISSUE)
+## Unreleased — Fleet fixes (kfleet-ISSUE)
 
-- Track permanent `everSeen` history from beam illumination or running lights.
-  Count only observed ships as safe/wrecked; report all other arrivals as
-  passed unseen. Horn hearing and engine cues never imply a sighting.
-- Fix the unobserved outbound/assisted ship credited by the old status-only
-  summary. Avoid claiming all hands safe when the keeper lacks that evidence.
+- Latch `everSeen` from beam illumination or running lights. Dawn counts only
+  observed safe/wrecked ships and shows never-seen arrivals separately. Horns
+  and engine cues never imply a sighting. The old status-only summary credited
+  unseen outbound or horn-assisted ships; the first fix commit records that
+  root cause. Permit zero/zero version 2 morning records without weakening
+  legacy record validation.
+- Give each ship an off-chart destination. Honest warned captains search both
+  sides in 1° steps for the smallest physically clear offset, reserving exported
+  `CLEAR_MARGIN = 20` m beyond the 8 m hull allowance. Use the live fixed-tick
+  hull/controller for candidate tracks and their return to destination. Turn
+  once out and once back after hazards are astern; never replan on repeated
+  horns or oscillate. Impossible warnings still wreck. Safe now requires an
+  outward crossing beyond 600 m; observed hulls still underway at dawn do not
+  count as saved.
+- Export pure seeded `planHazards(seed, { night })`: 5–9 nonoverlapping reef,
+  shoal and wreck discs over at least three quadrants, radii 6–34 m including
+  two small hazards ≤10 m. Conservatively sample centres at 160–300 m inside
+  the required 430 m limit and keep edges beyond the required 90 m exclusion.
+  Use these discs for collisions, horn/threat/PONR, avoidance and chart glyphs.
+  Keep the overhead view, compass, labels and layout fixed.
+- Include the new clearance in physical schedule budgets. Reuse rotationally
+  invariant cruise-turn excursions for seeded planning; keep arbitrary live
+  hull measurements physical. Tests no longer assume fixed ROCKS trajectories,
+  reciprocal turns, or early safe credit.
+- Advance after exhausted spawn slots. Keep rotating coaster berths early,
+  admit additional long-lived threats after 80 s, and reserve the last seeded
+  candidate for clear traffic in the widest available bearing gap. Preserve
+  capacity, bearing separation and independent fairness. Document all HAZARD,
+  SPAWN, TRAFFIC and NAVIGATION tunables in DESIGN §6 and tally/fairness in §7.
+- Add `tests/fleet.test.mjs`: unseen outcome exclusions, permanent sightings,
+  clear-and-resume with neighbouring hazards on either side, heading sign flips
+  ≤1, unavoidable wrecks, outward exits and destinations, hazard rejection and
+  isolation, plus 500 seeds × five nights of geometry, schedule and spawn-gap
+  checks. Browser tests cover honest dawn text, unseen counts, persistence,
+  arrival rendering and smooth physical headings. A full-maneuver regression
+  checks clearance through the distant return after the outward chart exit.
+- Verification (Node 22.23.4): `npm run lint` passes with zero warnings;
+  `npm run test:coverage` passes 145 tests (sim.js 99.41%, physics.js 100%
+  line coverage); `npm run test:e2e` passes all 22 browser tests.
 
 ## Unreleased — Seeded additional ships (kspawn)
 
