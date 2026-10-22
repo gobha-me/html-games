@@ -1,12 +1,13 @@
 // Reproducible diagnostic, separate from Playwright's regression suite.
 // Start the root static server on 8123, then run:
-// node e2e/profile-performance.js before [--baseline=REV] [--no-grain] [--no-weather]
+// node e2e/profile-performance.js before [--baseline=REV] [--cpu=1] [--paint-flashing]
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 
 const name = process.argv[2] || 'profile';
 const directory = 'performance-results';
+const cpuRate = Number(process.argv.find((arg) => arg.startsWith('--cpu='))?.split('=')[1] || 4);
 const baselineArg = process.argv.find((arg) => arg === '--baseline' || arg.startsWith('--baseline='));
 // Resolve once: another session may commit while a diagnostic is running.
 const baselineRevision = baselineArg ? execFileSync('git',
@@ -26,15 +27,32 @@ try {
     }
   }
   const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  const layers = new Map(), paints = [];
+  cdp.on('LayerTree.layerTreeDidChange', ({ layers: current = [] }) => {
+    for (const layer of current) layers.set(layer.layerId, layer);
+  });
+  cdp.on('LayerTree.layerPainted', (paint) => paints.push(paint));
+  await cdp.send('DOM.enable');
+  await cdp.send('LayerTree.enable');
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
   await page.goto('http://127.0.0.1:8123/late-edition/?seed=89&preview=combat');
   await page.evaluate(() => document.fonts.ready);
   if (process.argv.includes('--no-grain')) await page.addStyleTag({ content: '*::after { background-image: none !important; }' });
   if (process.argv.includes('--no-weather')) await page.evaluate(() => { window.lateEditionApp.renderer._drawRainAndVignette = () => {}; });
+  if (process.argv.includes('--no-blend')) await page.addStyleTag({ content: '*::after { mix-blend-mode: normal !important; }' });
+  if (process.argv.includes('--isolate-map')) await page.addStyleTag({ content: '#city-canvas { will-change: transform; }' });
+  if (process.argv.includes('--no-ui')) await page.evaluate(() => { window.lateEditionApp._syncFullUI = () => {}; });
   await page.waitForTimeout(1000);
+  if (process.argv.includes('--paint-flashing')) {
+    // Flashing is diagnostic only: its own overlay must not bias timed pacing.
+    await cdp.send('Overlay.setShowPaintRects', { result: true });
+    await page.waitForTimeout(250);
+  }
   await page.screenshot({ path: `${directory}/${name}.png` });
+  await cdp.send('Overlay.setShowPaintRects', { result: false });
+  paints.length = 0;
   await cdp.send('Tracing.start', {
-    categories: 'devtools.timeline,blink.user_timing,cc,gpu,disabled-by-default-devtools.timeline',
+    categories: 'devtools.timeline,blink.user_timing,cc,gpu,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.paint,disabled-by-default-cc.debug',
     transferMode: 'ReturnAsStream',
   });
   const metrics = await page.evaluate(async () => {
@@ -76,14 +94,8 @@ try {
     const stats = (values) => ({ count: values.length,
       total: values.reduce((a, b) => a + b, 0),
       p95: values.toSorted((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1] });
-    const deterministic = [];
-    for (let i = 0; i < 150; i++) {
-      const start = performance.now();
-      app.renderer.render(app.sim, 1 / 60);
-      deterministic.push(performance.now() - start);
-    }
     return { ...Object.fromEntries(Object.entries(costs).map(([key, values]) => [key, stats(values)])),
-      deterministic: stats(deterministic), frames: stats(frames),
+      frames: stats(frames),
       canvas: [app.renderer.canvas.width, app.renderer.canvas.height], dpr: devicePixelRatio };
   });
   const complete = new Promise((resolve) => cdp.once('Tracing.tracingComplete', resolve));
@@ -97,6 +109,21 @@ try {
   }
   await cdp.send('IO.close', { handle: stream });
   await writeFile(`${directory}/${name}.trace.json`, trace);
+  metrics.cpuRate = cpuRate;
+  metrics.layers = [];
+  for (const layer of layers.values()) {
+    let node;
+    if (layer.backendNodeId) {
+      try { node = (await cdp.send('DOM.describeNode', { backendNodeId: layer.backendNodeId })).node; }
+      catch { /* Removed layers can refer to detached DOM nodes. */ }
+    }
+    const layerPaints = paints.filter((paint) => paint.layerId === layer.layerId);
+    let reasons;
+    try { reasons = await cdp.send('LayerTree.compositingReasons', { layerId: layer.layerId }); }
+    catch { /* A layer removed during the trace has no current reasons. */ }
+    metrics.layers.push({ ...layer, node: node && { name: node.nodeName, attributes: node.attributes },
+      reasons, paints: layerPaints.length, clips: layerPaints.slice(0, 8).map((paint) => paint.clip) });
+  }
   // Thread work can overlap: these are per-event totals, not additive wall time.
   metrics.baselineRevision = baselineRevision;
   metrics.traceWorkMs = {};
