@@ -31,6 +31,58 @@ test('arcade card opens Keeper, normal visits have no debug hook, back link retu
   expect(errors).toEqual([]);
 });
 
+test('title controls and first eight seconds of watch show the shared bindings; restart restores the overlay', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-01-01T18:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T18:00:01Z'));
+  await page.goto('/keeper/?e2e=1');
+  await expect(page.locator('#title-controls li')).toHaveCount(6);
+  for (const key of ['← / A', '→ / D', 'Space', 'H · horn', 'Esc / P', '? · controls']) {
+    await expect(page.locator('#title-controls')).toContainText(key);
+  }
+  await page.screenshot({ path: 'test-results/keeper-title-controls.png' });
+  await page.getByRole('button', { name: 'Take the watch' }).click();
+  const overlay = page.locator('#watch-controls');
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveAttribute('aria-hidden', 'false');
+  expect(await page.locator('#watch-controls-list li').allTextContents()).toEqual(await page.locator('#title-controls li').allTextContents());
+  await page.clock.runFor(400);
+  await page.screenshot({ path: 'test-results/keeper-watch-controls.png' });
+  await advance(page, 7.7 - (await snapshot(page)).time);
+  await expect(overlay).toBeVisible();
+  await advance(page, 0.4);
+  await page.clock.runFor(400);
+  await expect(overlay).toBeHidden();
+  await expect(page.locator('#controls-hint')).toBeVisible();
+  await advance(page, 180);
+  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveAttribute('aria-hidden', 'false');
+});
+
+test('first keyboard or pointer input fades controls without changing held-input behavior', async ({ page }) => {
+  await openWatch(page);
+  const overlay = page.locator('#watch-controls');
+  await page.keyboard.down('h');
+  await advance(page, 0.1);
+  expect((await snapshot(page)).horn).toBe(true);
+  await page.clock.runFor(400);
+  await expect(overlay).toBeHidden();
+  await page.keyboard.up('h');
+  await advance(page, 1);
+  await expect(overlay).toBeHidden();
+  for (const input of ['pointer', 'unbound-key']) {
+    await page.reload();
+    await page.getByRole('button', { name: 'Take the watch' }).click();
+    await expect(overlay).toBeVisible();
+    if (input === 'pointer') await page.mouse.click(50, 300);
+    else await page.keyboard.press('z');
+    await page.clock.runFor(400);
+    await expect(overlay).toBeHidden();
+    expect((await snapshot(page)).time).toBeLessThan(2);
+    await expect(page.locator('#controls-hint')).toBeVisible();
+  }
+});
+
 test('keyboard drives clockwise speed and hold, overlapping keys cannot reverse; pointer never aims', async ({ page }) => {
   await openWatch(page);
   const initial = await snapshot(page);
@@ -46,7 +98,7 @@ test('keyboard drives clockwise speed and hold, overlapping keys cannot reverse;
   await page.mouse.move(20, 20); await advance(page, 1);
   await expect(page.locator('#lens-state')).toHaveText('Lens held');
   expect((await snapshot(page)).beam).toBe(held.beam);
-  expect((await snapshot(page)).trawler.x).toBeGreaterThan(held.trawler.x);
+  expect((await snapshot(page)).trawler.x).toBeLessThan(held.trawler.x);
   await page.keyboard.down('ArrowLeft'); await page.keyboard.down('ArrowRight');
   await advance(page, 2);
   expect((await snapshot(page)).speed).toBe(12);
@@ -93,16 +145,44 @@ test('late or unlit distant horn cannot rescue a ship', async ({ page }) => {
   await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
   // Initial beam is deliberately outside the 14° cone of the trawler.
   expect((await snapshot(page)).trawler.warnedAt).toBeNull();
-  // Let the lens reach the reef's bearing, then clutch it until danger arrives.
-  await advance(page, 3.55);
+  await findTrawler(page);
   await page.keyboard.down('Space');
-  await advance(page, 68.85);
+  // Collision is at ~64.63s on this lane. A two-second reaction cannot save it now.
+  await advance(page, 64.4 - (await snapshot(page)).time);
   expect((await snapshot(page)).trawler.status).toBe('underway');
   await page.keyboard.down('h'); await advance(page, 0.1);
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await advance(page, 5);
   await page.keyboard.up('h'); await page.keyboard.up('Space');
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
+});
+
+test('invalid schedules visibly refuse to start at load and on the start-time recheck', async ({ page }) => {
+  // Serve a broken content fixture through the real loader, without a production debug bypass.
+  await page.route('**/keeper/js/sim.js', async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace('const spawnRange = spawnRangeFor(approach);', 'const spawnRange = approach.pnrRange;');
+    await route.fulfill({ response, body });
+  });
+  await page.goto('/keeper/?e2e=1');
+  await expect(page.getByRole('alert')).toContainText('Cannot start watch: invalid ship schedule');
+  await expect(page.getByRole('button', { name: 'Take the watch' })).toBeDisabled();
+  expect((await snapshot(page)).time).toBe(0);
+  expect(await page.evaluate(() => window.__keeper.mode)).toBe('start');
+  await page.unroute('**/keeper/js/sim.js');
+  await page.route('**/keeper/js/sim.js', async (route) => {
+    const response = await route.fetch();
+    // First construction loads valid content; the next construction imitates a bad restart/load.
+    const body = 'let constructions = 0;\n' + (await response.text()).replace('const spawnRange = spawnRangeFor(approach);',
+      'const spawnRange = ++constructions === 1 ? spawnRangeFor(approach) : approach.pnrRange;');
+    await route.fulfill({ response, body });
+  });
+  await page.reload();
+  await expect(page.getByRole('alert')).toBeHidden();
+  await page.getByRole('button', { name: 'Take the watch' }).click();
+  await expect(page.getByRole('alert')).toContainText('Cannot start watch');
+  expect(await page.evaluate(() => window.__keeper.mode)).toBe('start');
+  expect((await snapshot(page)).time).toBe(0);
 });
 
 test('pause/help/blur freeze the world and release horn + clutch; autorepeat cannot toggle pause', async ({ page }) => {
@@ -175,18 +255,30 @@ test('1280×720 layout, resize and reduced motion keep controls usable with no o
 
 test('canvas conceals unseen hulls, reveals a lit silhouette and fades its remembered pose', async ({ page }) => {
   await openWatch(page);
+  const unseen = (await snapshot(page)).trawler;
+  // The retuned lane crosses chart ink. Compare with its unlit pixels so chart
+  // marks cannot masquerade as a visible hull or a lingering afterimage.
+  const baseline = await page.evaluate((ship) => {
+    const canvas = document.getElementById('sea');
+    const x = Math.round((640 + ship.x * 0.86) * canvas.width / 1280) - 40;
+    const y = Math.round((478 + ship.y * 0.86) * canvas.height / 720) - 40;
+    return { x, y, pixels: Array.from(canvas.getContext('2d').getImageData(x, y, 80, 80).data) };
+  }, unseen);
   async function brightness(pose) {
-    return page.evaluate((ship) => {
+    return page.evaluate(({ ship, baseline }) => {
       const canvas = document.getElementById('sea');
       const x = Math.round((640 + ship.x * 0.86) * canvas.width / 1280);
       const y = Math.round((478 + ship.y * 0.86) * canvas.height / 720);
       const pixels = canvas.getContext('2d').getImageData(x - 16, y - 16, 32, 32).data;
       let peak = 0;
-      for (let i = 0; i < pixels.length; i += 4) peak = Math.max(peak, pixels[i], pixels[i + 1], pixels[i + 2]);
+      for (let i = 0; i < pixels.length; i += 4) {
+        const column = (i / 4) % 32, row = Math.floor(i / 4 / 32);
+        const prior = ((y - 16 + row - baseline.y) * 80 + x - 16 + column - baseline.x) * 4;
+        for (let color = 0; color < 3; color++) peak = Math.max(peak, pixels[i + color] - baseline.pixels[prior + color]);
+      }
       return peak;
-    }, pose);
+    }, { ship: pose, baseline });
   }
-  const unseen = (await snapshot(page)).trawler;
   expect(await brightness(unseen)).toBeLessThan(15);
   await findTrawler(page);
   const lit = (await snapshot(page)).trawler;

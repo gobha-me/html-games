@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, step, wrapBearing, clampSpeed, fogReach, isLit, perception, bearingTo, summary, NIGHT_SECONDS, SPEED, AFTERIMAGE_SECONDS } from '../js/sim.js';
+import { createState, step, wrapBearing, clampSpeed, fogReach, isLit, perception, bearingTo, summary, validateSchedule, NIGHT_SECONDS, SPEED, AFTERIMAGE_SECONDS, FAST_SHIP_SPEED } from '../js/sim.js';
 import { KEYS, actionFor, heldInput } from '../js/keys.js';
 import { parseRecord } from '../js/record.js';
 
@@ -30,7 +30,7 @@ test('hold freezes bearing while time, speed changes and the ship keep moving; o
   const next = step(s, { hold: true, fast: true, slow: true, horn: true }, 3);
   assert.equal(next.beam, s.beam);
   assert.equal(next.speed, SPEED.default);
-  assert.ok(next.trawler.x > s.trawler.x);
+  assert.ok(next.trawler.x < s.trawler.x);
   assert.equal(next.time > 2.99, true);
   assert.equal(step(s, { hold: true, fast: true }, 3).speed, SPEED.fast);
 });
@@ -88,24 +88,28 @@ test('unwarned trawler wrecks at 60–90s; no mid-night game over; dawn at three
   assert.deepEqual(step(dawn, { horn: true, fast: true }, 3), dawn);
 });
 
-test('default sweep reveals the moving trawler at least twice before danger across seeds', () => {
+test('live radial approach and worst-fog schedule deliver at least four sightings before PNR across seeds', () => {
   for (const seed of [0, 1, 108, 997, 0xffffffff]) {
     let s = createState(seed), sightings = 0, wasLit = false;
+    assert.deepEqual(validateSchedule(s.schedule, s.nightParams), { ok: true, violations: [] });
+    const original = s;
     while (s.time < 60) {
       s = step(s, {}, 1 / 20);
       const lit = isLit(s);
       if (lit && !wasLit) sightings++;
       wasLit = lit;
     }
-    assert.ok(sightings >= 2, `seed ${seed}: only ${sightings} sightings`);
+    assert.ok(sightings >= 4, `seed ${seed}: only ${sightings} sightings`);
+    assert.ok(Math.abs(Math.hypot(s.trawler.x, s.trawler.y) - (original.trawler.spawnRange - s.time * original.trawler.speed)) < 1e-6);
   }
 });
 
 test('a held horn warns when illuminated, turns away and passes safely', () => {
   let s = step(createState(), {}, 24);
+  const heading = s.trawler.heading;
   s = step(aim(s), { hold: true, horn: true }, 0.2);
   assert.notEqual(s.trawler.warnedAt, null);
-  assert.equal(s.trawler.heading, 90, 'reaction takes two seconds');
+  assert.equal(s.trawler.heading, heading, 'reaction takes two seconds');
   s = step(s, {}, 155.8);
   assert.equal(s.phase, 'dawn');
   assert.equal(s.trawler.status, 'safe');
@@ -114,11 +118,50 @@ test('a held horn warns when illuminated, turns away and passes safely', () => {
 });
 
 test('warning on the collision boundary is too late, even when lit and held', () => {
-  let s = step(createState(), {}, 72.5);
+  const collisionTime = step(createState(), {}, 90).trawler.wreckedAt;
+  let s = step(createState(), {}, collisionTime - 0.2);
   s = step(aim(s), { hold: true, horn: true }, 0.1);
   assert.notEqual(s.trawler.warnedAt, null);
   s = step(s, { horn: true }, 20);
   assert.equal(s.trawler.status, 'wrecked');
+});
+
+test('warning at the budgeted PNR turns clear and counts safe by dawn, while safe vessels keep moving', () => {
+  for (const seed of [0, 108, 997, 0xffffffff]) {
+    let s = step(createState(seed), {}, 60);
+    s = step(aim(s), { hold: true, horn: true }, 0.1);
+    s = step(s, {}, 39.9);
+    assert.equal(s.trawler.status, 'safe');
+    const y = s.trawler.y;
+    s = step(s, {}, 80);
+    assert.ok(s.trawler.y < y);
+    assert.deepEqual(summary(s), { safe: 1, wrecked: 0 });
+  }
+});
+
+test('fast ships expose only a deterministic engine bearing and intensity before fog visibility', () => {
+  const s = createState();
+  assert.equal(perception(s).engineCue, null);
+  s.trawler.speed = FAST_SHIP_SPEED;
+  s.trawler.x = 0; s.trawler.y = -fogReach(s.fog) * 2;
+  s.beam = 0;
+  const distant = perception(s);
+  assert.equal(distant.hull, null);
+  assert.equal(distant.runningLights, false);
+  assert.deepEqual(distant.engineCue, { bearing: 0, intensity: 1 / 3 });
+  assert.deepEqual(perception(s), distant);
+  s.trawler.y = -fogReach(s.fog) * 1.5;
+  assert.ok(perception(s).engineCue.intensity > distant.engineCue.intensity);
+  s.trawler.speed = FAST_SHIP_SPEED - 0.001;
+  assert.equal(perception(s).engineCue, null);
+  s.trawler.speed = FAST_SHIP_SPEED + 10;
+  s.trawler.status = 'wrecked';
+  assert.equal(perception(s).engineCue, null);
+  s.trawler.status = 'safe';
+  assert.equal(perception(s).engineCue, null);
+  s.trawler.status = 'underway'; s.trawler.y = -200;
+  assert.equal(perception(s).lit, true);
+  assert.equal(perception(s).engineCue, null);
 });
 
 test('unlit + far horn has no effect; an afterimage is not a valid warning target', () => {

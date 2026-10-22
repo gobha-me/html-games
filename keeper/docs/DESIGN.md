@@ -64,6 +64,9 @@ mystery according to what the keeper actually recorded.
 - Afterimage: a lit object stays faintly visible for **~1.5 s** after the beam
   leaves (fading phosphor-like), so the player can track motion between
   sweeps without seeing everything.
+- Warning budgets use the **12 s default revolution**, regardless of the
+  player's current speed. Fast adds opportunities; slow and hold deliberately
+  spend them. See **Fairness: sweep budget** in §7.
 
 ## 4. Controls (desktop, keyboard-first)
 
@@ -80,6 +83,10 @@ mystery according to what the keeper actually recorded.
 
 One shared key table in code; a test fails on any duplicate binding (the
 Late Edition F/D lesson). Gamepad is a non-goal for v1.
+Controls appear on the title card, in the persistent bottom bar, and in a
+watch overlay for the first **8 s of simulation time**. First keyboard or
+pointer input fades that overlay; pause stops its clock, restart restores it.
+Reduced motion removes the fade transition.
 
 ## 5. The sea, the rocks, the fog
 
@@ -112,6 +119,23 @@ the horn within its *warning window* turns away. Horn spam has a cost:
 each blast after the third in 20 s makes nearby honest skippers ignore it
 for a while ("the light's crying wolf").
 
+Each radial approach declares spawn time, bearing, speed, response seconds,
+turn radius, reef/PNR range and spawn range. PNR is the last warning boundary:
+`pnrRange + speed × responseSeconds + turnRadius`. Courses and warning
+parameters must match the live simulation, not just a validation fixture.
+The first-watch trawler now approaches the Teeth radially at **1.5 chart m/s**;
+its turn radius is speed divided by angular turn rate (22°/s in radians).
+Its derived spawn range is about **459.25 m**, yielding 60 s to PNR and an
+unwarned wreck near 65 s. A vessel that turns north clear of all charted reefs
+counts safe and continues sailing, even if it has not left the chart by dawn.
+
+Fast vessels (**speed ≥ `FAST_SHIP_SPEED`, currently 8 chart m/s**) expose
+`perception(state).engineCue = { bearing, intensity }` while underway and
+unlit, including beyond fog reach. Intensity is `1 / (1 + range / fogReach)`,
+increasing toward the listener. Lit, safe, wrecked or slower ships return
+`null`. This is a deterministic audio hook only; engine synthesis/panning
+lands in #115. It reveals no hull pose, and is not credited as a beam pass.
+
 ## 7. Failure & success
 
 - **No game over mid-night.** Wrecks happen and are remembered — the sea goes
@@ -123,6 +147,48 @@ for a while ("the light's crying wolf").
   restart the night.
 - Success is surviving all five nights; the *ending* depends on the log (§9).
 - Scoring is deliberately understated: no points on screen during play.
+- An invalid ship schedule **refuses to start**: the title card displays the
+  offending ship index, reason and pass count, and disables Take the watch.
+  Validation runs at load and again on every start/restart.
+
+### Fairness: sweep budget
+
+Each ship independently gets at least **N beam passes** from its first
+visible moment (entry into fog reach, or spawn if already inside) through
+PNR. Nights 1–5 require **4, 4, 3, 3, 2** passes. Concurrent ships never
+divide or share this budget; later pressure comes from concurrency.
+
+The guarantee is budgeted against **`BUDGET_PERIOD_SECONDS = 12`**, the
+default clockwise revolution. `spawnRangeFor` derives the minimum range:
+
+```
+warningBoundary = pnrRange + speed × responseSeconds + turnRadius
+minimumSpawnRange = warningBoundary + speed × (N + 1) × 12
+```
+
+The extra revolution covers worst-case phase: a ship just behind the beam
+waits nearly 12 s for its first pass. **Fog reach must extend at least to
+this minimum range too.** Moving a ship farther outside the fog cannot buy
+visible warning time. If the horizon cannot fit the budget, reduce speed or
+adjust the approach/visibility; spawning farther away alone is insufficient.
+Night 1 validates against its shortest reach over the entire watch (464.8 m).
+
+The pure `validateSchedule(schedule, { night, fogReach, period, phase0 })`
+computes each radial ship's first-visible and PNR times, then uses
+`passesBetween` to count centre-line crossings in **(firstVisible, PNR]**.
+The opening instant is excluded, the closing instant included; **exactly N
+is valid, N−1 is rejected**. Missing/non-finite or impossible physical fields,
+PNR before visibility, and insufficient passes produce indexed violations.
+Invalid night parameters throw rather than silently weakening the budget.
+
+The design guarantee assumes the player leaves the lens at default speed.
+Accelerating toward a **6 s** revolution adds passes. Slowing toward **30 s**
+or holding the beam trades attention to one bearing for darkness elsewhere;
+those deliberate choices are **not covered** by the guarantee. A speed
+change mid-window does not change the schedule's 12 s design budget.
+`passesBetween` describes a constant period; tests of piecewise periods
+carry the actual beam phase into each new segment, with held segments
+adding zero passes. The validator never pretends a held beam is sweeping.
 
 ## 8. Morse signal lamp
 

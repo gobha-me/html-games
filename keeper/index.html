@@ -30,6 +30,8 @@
       <h2>Keep a weather eye.</h2>
       <p>A trawler is making for the Teeth.<br>The light finds her. Your horn can turn her.</p>
       <p class="small">The lens turns one way. To look back, go round.<br>Hold Space to keep her in the light; hold H to warn.</p>
+      <ul id="title-controls" class="control-list" aria-label="Watch controls"></ul>
+      <p id="schedule-error" role="alert" hidden></p>
       <button id="start" type="button">Take the watch <span>→</span></button>
       <p class="footnote">One watch · three minutes · headphones optional</p>
       <p class="previous" id="previous-record" hidden></p>
@@ -54,6 +56,10 @@
       <p id="record-status" class="small"></p>
       <button id="restart" type="button">Keep the light again <span>→</span></button>
     </div>
+    <aside id="watch-controls" class="watch-controls is-faded" aria-label="Watch controls" aria-hidden="true">
+      <p class="eyebrow">Work the light · hold H to warn a lit vessel</p>
+      <ul id="watch-controls-list" class="control-list"></ul>
+    </aside>
     <footer>
       <p id="controls-hint"></p>
       <div class="footer-actions">
