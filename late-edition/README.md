@@ -397,8 +397,11 @@ Courier Prime (Alan Dague-Greene) and UnifrakturMaguntia (j. 'mach' wust / Peter
 Wiegel). The pinned google/fonts TTFs are converted to Latin WOFF2 by
 [scripts/build-fonts.py](scripts/build-fonts.py), using fonttools and Brotli in a
 venv. No font or runtime asset uses an external origin. Unifraktur is reserved
-for THE EVENING STAR mastheads; the fallback stacks are Impact/Arial Narrow,
-Georgia and Courier New.
+for mixed-case The Evening Star mastheads; the fallback stacks are Impact/Arial Narrow,
+Georgia and Courier New. The title masthead stays on one line at supported
+sizes. The broadsheet slot grid scrolls independently above the copy tray; body
+excerpts end in an ellipsis after two lines (one on short desks). Headlines are
+never clamped, and crowded paper furniture can scroll with the column.
 
 The ten CSS root colors mirror `PALETTE` in `js/palette.js`. The custom stylelint
 plugin runs core `color-no-hex` and `function-disallowed-list` rules outside root

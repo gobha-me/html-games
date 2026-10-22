@@ -22,6 +22,18 @@
 - Paper slap and stamp hit last 120ms; reduced motion disables all CSS motion.
   A container query reflows the magnified desk; scrolling retains core actions.
 
+### Art director review fixes
+- Set both blackletter mastheads to **The Evening Star**, preserving that
+  accessible name; the title stays on one line at 1280×720 and larger.
+- Bound the slot grid within the flex column and keep the copy tray in normal
+  flow. Body excerpts use a multiline ellipsis, while complete headlines remain
+  reachable by scrolling. Straighten the grid papers so adjacent cards cannot
+  rotate into each other; shorten excerpts/photo plates on short desks.
+- Browser regressions cover title/broadsheet line fit and accessible names,
+  tray intersection and unclipped headline text at 1280×720, 1600×900 and
+  1920×1080, with the drawer closed in desk and paste-up. Crowded fixtures add
+  twelve scoops, an unlocked photo plate, series stamps and long headlines.
+
 ### Verification and compatibility
 - Stylelint runs core `color-no-hex` and `function-disallowed-list` outside root
   token declarations via a selector-scoped plugin; adversarial fixtures prove

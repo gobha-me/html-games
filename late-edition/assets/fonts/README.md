@@ -16,7 +16,7 @@ width 100. Subsets retain Latin and Latin Extended, punctuation, arrows, the eur
 minus and carbon dot; other symbols fall through to the platform fallback stack.
 Font display is `swap`. Explicit line heights and intrinsic grid tracks keep
 Impact/Arial Narrow, Georgia and Courier New usable when every font request fails.
-The blackletter face is used only for THE EVENING STAR mastheads.
+The blackletter face is used only for mixed-case The Evening Star mastheads.
 
 The Unifraktur Latin subset's internal primary and PostScript names are renamed
 to Evening Star Fraktur Latin to respect its Reserved Font Name. Its original
