@@ -2,6 +2,27 @@ import { CONE_DEGREES, fogReach, ROCKS, perception, hornRings } from './sim.js';
 const RAD = Math.PI / 180;
 const ORIGIN = { x: 640, y: 478 };
 const SCALE = 0.86;
+export const LAMP = Object.freeze({ x: 0, y: 0 });
+
+export function beamOrigin(beamDegrees) {
+  if (!Number.isFinite(beamDegrees)) throw new TypeError('Beam bearing must be finite.');
+  return LAMP;
+}
+
+function chartTransform({ width, height }) {
+  return {
+    x: ORIGIN.x * width / 1280,
+    y: ORIGIN.y * height / 720,
+    scaleX: SCALE * width / 1280,
+    scaleY: SCALE * height / 720,
+  };
+}
+
+// Dimensions are backing pixels: callers include DPR when starting from CSS sizes.
+export function toScreen(point, size) {
+  const transform = chartTransform(size);
+  return { x: transform.x + point.x * transform.scaleX, y: transform.y + point.y * transform.scaleY };
+}
 
 function disc(ctx, x, y, radius, colour) {
   ctx.fillStyle = colour;
@@ -15,7 +36,9 @@ function cone(ctx, beam, reach) {
 }
 function beamAndFog(ctx, state, reduced) {
   const reach = fogReach(state.fog);
-  ctx.save(); cone(ctx, state.beam, reach); ctx.clip();
+  const origin = beamOrigin(state.beam);
+  ctx.save(); ctx.translate(origin.x, origin.y);
+  cone(ctx, state.beam, reach); ctx.clip();
   const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, reach);
   glow.addColorStop(0, 'rgba(255,223,158,0.68)');
   glow.addColorStop(0.12, 'rgba(240,205,132,0.26)');
@@ -92,11 +115,13 @@ function lighthouse(ctx, beam) {
   ctx.strokeStyle = '#202b2b'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = '#242d2c'; ctx.fillRect(-8, -3, 16, 22);
   ctx.fillStyle = '#3a4039'; ctx.fillRect(-9, -6, 18, 6);
+  ctx.save(); ctx.translate(LAMP.x, LAMP.y);
   ctx.save(); ctx.rotate((beam - 90) * RAD);
-  ctx.fillStyle = '#a18b5c'; ctx.fillRect(-3, -3, 10, 6); ctx.restore();
+  ctx.fillStyle = '#a18b5c'; ctx.fillRect(-5, -3, 10, 6); ctx.restore();
   const glint = ctx.createRadialGradient(0, 0, 0, 0, 0, 15);
   glint.addColorStop(0, 'rgba(255,232,183,0.55)'); glint.addColorStop(1, 'rgba(255,232,183,0)');
   disc(ctx, 0, 0, 15, glint); disc(ctx, 0, 0, 2, '#fff0c9');
+  ctx.restore();
   ctx.font = '10px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#707974';
   ctx.fillText('S K E R R Y  R O C K', 0, 70);
 }
@@ -127,7 +152,8 @@ export function createRenderer(canvas) {
     draw(state, reduced = false) {
       ctx.setTransform(canvas.width / 1280, 0, 0, canvas.height / 720, 0, 0);
       ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, 1280, 720);
-      ctx.save(); ctx.translate(ORIGIN.x, ORIGIN.y); ctx.scale(SCALE, SCALE);
+      const transform = chartTransform(canvas);
+      ctx.save(); ctx.setTransform(transform.scaleX, 0, 0, transform.scaleY, transform.x, transform.y);
       chart(ctx); beamAndFog(ctx, state, reduced);
       // All vessel drawing goes through the perception boundary.
       for (const ship of state.ships) {
