@@ -9,6 +9,11 @@ export const BUDGET_PERIOD_SECONDS = 12;
 export const NIGHT_PASSES = Object.freeze([4, 4, 3, 3, 2]);
 export const FAST_SHIP_SPEED = 8; // Chart metres / second; audio adapter hook for #115.
 export const SPEED = Object.freeze({ slow: 12, default: 30, fast: 60 });
+export const SPAWN = Object.freeze({
+  firstMin: 24, firstMax: 36,
+  intervalStart: 40, intervalEnd: 18, jitter: 0.25,
+  maxActive: 3, lastSpawn: 120, minBearingGap: 20, threatShare: 0.6,
+});
 export const ROCKS = Object.freeze([
   Object.freeze({ x: 210, y: -255, radius: 24 }),
   Object.freeze({ x: 244, y: -238, radius: 18 }),
@@ -135,12 +140,78 @@ function firstApproach(seed) {
   return { ...approach, spawnRange };
 }
 
-function arrive(approach, type = 'trawler') {
+// A warning can prolong a threatened approach. Reserve its berth through dawn,
+// rather than freeing capacity at an impact that the keeper might prevent.
+function openingReservation(seed) {
+  return { ...firstApproach(seed), type: 'trawler', threatening: true, exitTime: NIGHT_SECONDS };
+}
+
+export function planSpawns(seed, { night = 1 } = {}) {
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) throw new RangeError('Seed must be a uint32');
+  if (!Number.isInteger(night) || night < 1 || night > NIGHT_PASSES.length) throw new RangeError('Invalid night');
+  return extraApproaches(seed, night, openingReservation(seed));
+}
+
+function extraApproaches(seed, night, first) {
+  let bits = seed;
+  const random = () => {
+    bits = (Math.imul(bits, 1664525) + 1013904223) >>> 0;
+    return bits / 0x100000000;
+  };
+  const schedule = [first], reach = fogReach(NIGHT_FOG_MAX);
+  let spawnTime = SPAWN.firstMin + random() * (SPAWN.firstMax - SPAWN.firstMin);
+  while (spawnTime <= SPAWN.lastSpawn) {
+    let accepted = false;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const threatening = random() < SPAWN.threatShare;
+      // Four passes plus a coaster's physical turn do not fit this fog horizon.
+      const type = threatening && NIGHT_PASSES[night - 1] === 4 ? 'trawler'
+        : random() < 0.5 ? 'trawler' : 'coaster';
+      const bearing = threatening ? bearingTo(ROCKS[3]) + (random() - 0.5) * 6
+        : wrapBearing(first.bearing + SPAWN.minBearingGap + random() * (360 - 2 * SPAWN.minBearingGap));
+      const overlapping = schedule.filter((ship) => ship.exitTime >= spawnTime);
+      if (overlapping.length >= SPAWN.maxActive
+        || overlapping.some((ship) => Math.abs(((ship.bearing - bearing + 540) % 360) - 180) < SPAWN.minBearingGap)) continue;
+      const spec = HULLS[type], speed = spec.cruiseSpeed;
+      const east = Math.sin(bearing * RAD), north = Math.cos(bearing * RAD);
+      const reference = createVessel(type, { x: east * 500, y: north * 500, heading: bearing + 180 });
+      const pnrRange = threatening ? Math.max(...REEFS.map((rock) => {
+        const along = rock.x * east + rock.y * north;
+        const across = rock.x * north - rock.y * east;
+        return Math.abs(across) <= rock.radius ? along + Math.sqrt(rock.radius ** 2 - across ** 2) : 0;
+      })) : 0;
+      const lead = threatening ? pointOfNoReturn(reference, REEFS) : spec.reactionSeconds[1];
+      const approach = {
+        id: `ship-${schedule.length}`, type, spawnTime, bearing, speed, threatening,
+        responseSeconds: spec.reactionSeconds[1], turnRadius: speed * (lead - spec.reactionSeconds[1]), pnrRange,
+      };
+      // Clear traffic sails outward from the fog horizon, outside every reef.
+      // Threats approach inward using the same physical PONR budget as the opener.
+      approach.spawnRange = threatening ? spawnRangeFor({ ...approach, passes: NIGHT_PASSES[night - 1] }) : reach;
+      approach.exitTime = threatening ? NIGHT_SECONDS
+        : Math.min(NIGHT_SECONDS, spawnTime + (590 - approach.spawnRange) / speed + 2 * TICK);
+      if (approach.spawnRange > reach
+        || !validateSchedule([approach], { night, fogReach: reach, phase0: 285 }).ok) continue;
+      schedule.push(approach);
+      accepted = true;
+      break;
+    }
+    // Stop after an exhausted slot: resuming later could make the gap between
+    // accepted ships exceed the promised jitter bounds. Never weaken a constraint.
+    if (!accepted) break;
+    const gap = SPAWN.intervalStart + (SPAWN.intervalEnd - SPAWN.intervalStart) * spawnTime / NIGHT_SECONDS;
+    spawnTime += gap * (1 - SPAWN.jitter + random() * 2 * SPAWN.jitter);
+  }
+  return schedule.slice(1);
+}
+
+function arrive(approach, type = approach.type ?? 'trawler') {
   const { bearing, spawnRange } = approach;
   const east = Math.sin(bearing * RAD), north = Math.cos(bearing * RAD);
   return {
     ...approach, spawnRange,
-    ...createVessel(type, { id: approach.id, x: east * spawnRange, y: -north * spawnRange, heading: bearing + 180 }),
+    ...createVessel(type, { id: approach.id, x: east * spawnRange, y: -north * spawnRange,
+      heading: bearing + (approach.threatening === false ? 0 : 180) }),
     status: 'underway', warnedAt: null, wreckedAt: null, reactAt: null,
     targetHeading: null, turnSign: 0, response: 'none',
     afterimage: 0, lastSeen: null,
@@ -151,14 +222,14 @@ export function createState(seed = 108) {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new TypeError('Seed must be a uint32');
   }
-  const approach = firstApproach(seed);
+  const approach = openingReservation(seed);
   const trawler = arrive(approach);
   const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
   return {
     seed, time: 0, phase: 'night', beam: 285, speed: SPEED.default,
     fog: 0.08 + random * 0.04, horn: false, blasts: [], ignoredBlasts: [], hornIgnoredUntil: 0, trust: 1,
     nightParams: { night: 1, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
-    schedule: [approach],
+    schedule: [approach, ...extraApproaches(seed, 1, approach)],
     ships: [trawler], trawler,
   };
 }
@@ -234,6 +305,10 @@ function tick(state, input, dt) {
   state.fog = 0.08 + 0.08 * state.time / NIGHT_SECONDS;
   state.blasts = state.blasts.filter((time) => state.time - time < 20);
   state.ignoredBlasts = state.ignoredBlasts.filter((time) => state.time - time < 2);
+  for (const approach of state.schedule) {
+    if (approach.spawnTime > state.time - dt && approach.spawnTime <= state.time
+      && !fleet(state).some((ship) => ship.id === approach.id)) state.ships.push(arrive(approach));
+  }
   if (input.horn === true && !state.horn) blastHorn(state);
   state.horn = input.horn === true;
   for (const ship of fleet(state)) {
@@ -247,7 +322,8 @@ function tick(state, input, dt) {
         const directedError = Math.abs(error) > 150 ? ship.turnSign * Math.abs(error) : error;
         rudderCommand = (directedError - ship.yawRate * (spec.T + spec.maxRudderDeg / spec.rudderRateDegPerS / 2)) * 1.5;
       }
-      const next = stepVessel(physical(ship), { rudderCommand, throttle: 1 }, dt);
+      const shipDt = ship.spawnTime > state.time - dt ? state.time - ship.spawnTime : dt;
+      const next = shipDt > 0 ? stepVessel(physical(ship), { rudderCommand, throttle: 1 }, shipDt) : physical(ship);
       Object.assign(ship, next, { y: -next.y });
       if (ship.status === 'underway' && REEFS.some((rock) => Math.hypot(ship.x - rock.x, -ship.y - rock.y) <= rock.radius)) {
         ship.status = 'wrecked';
