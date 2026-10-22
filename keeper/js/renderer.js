@@ -102,7 +102,7 @@ function lighthouse(ctx, beam, horn) {
   if (horn) {
     ctx.strokeStyle = '#8f805a';
     for (const radius of [58, 67, 76]) {
-      ctx.beginPath(); ctx.arc(0, 0, radius, -2.1, -1.05); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke();
     }
   }
 }
@@ -124,9 +124,11 @@ export function createRenderer(canvas) {
       ctx.save(); ctx.translate(ORIGIN.x, ORIGIN.y); ctx.scale(SCALE, SCALE);
       chart(ctx); beamAndFog(ctx, state, reduced);
       // All vessel drawing goes through the perception boundary.
-      const view = perception(state);
-      if (view.hull) hull(ctx, view.hull, view.opacity);
-      if (view.runningLights || (view.lit && state.trawler.status !== 'wrecked')) runningLights(ctx, state.trawler);
+      for (const ship of state.ships) {
+        const view = perception(state, ship);
+        if (view.hull) hull(ctx, view.hull, view.opacity);
+        if (!ship.smuggler && (view.runningLights || (view.lit && ship.status !== 'wrecked'))) runningLights(ctx, ship);
+      }
       lighthouse(ctx, state.beam, state.horn);
       ctx.restore();
     },

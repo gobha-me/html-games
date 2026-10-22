@@ -22,13 +22,13 @@ test('exact hull schema, deep immutability and tactical diameter bands for every
 
 test('vessel schema and north/east coordinates, wrapping, purity and no phantom fields', () => {
   const ship = createVessel('trawler', { x: 10, y: 20, heading: -360, id: 0, smuggler: true });
-  assert.deepEqual(ship, { id: 0, type: 'trawler', smuggler: true, x: 10, y: 20, heading: 0, yawRate: 0, rudder: 0, speed: 1.5 });
+  assert.deepEqual(ship, { id: 0, type: 'trawler', smuggler: true, x: 10, y: 20, heading: 0, yawRate: 0, rudder: 0, speed: HULLS.trawler.cruiseSpeed });
   const frozen = Object.freeze(ship);
   const next = stepVessel(frozen, {}, 1);
   assert.equal(next.x, 10);
-  assert.ok(Math.abs(next.y - 21.5) < 1e-10);
+  assert.ok(Math.abs(next.y - (20 + HULLS.trawler.cruiseSpeed)) < 1e-10);
   const east = stepVessel(createVessel('trawler', { heading: 450 }), {}, 1);
-  assert.ok(east.x > 1.49 && Math.abs(east.y) < 1e-10);
+  assert.ok(east.x > HULLS.trawler.cruiseSpeed - 0.01 && Math.abs(east.y) < 1e-10);
 });
 
 test('hitches match fixed steps, rudder and yaw remain continuous through reversal and north wrap', () => {
@@ -87,6 +87,9 @@ test('straight-track projection handles tangents, horizon endpoints, behind, sta
   assert.equal(threatensReef({ ...ship, speed: 0 }, rocks, 100), false);
   assert.equal(threatensReef({ ...ship, speed: 0 }, [{ x: 0, y: 0, radius: 1 }], 0), true);
   assert.equal(threatensReef(ship, [], 100), false);
+  assert.equal(threatensReef(ship, [], Number.MAX_VALUE), false, 'large finite horizons cannot invent an impact');
+  assert.equal(broadcastHorn([ship], { ...options, rocks: [{ x: 0, y: 10000, radius: 2 }] })[0].response,
+    'turn-away', 'a distant future reef is still an endangered straight track');
 });
 
 test('broadcast is independent of beam and fleet ordering: threatened turn, safe hold, far none', () => {
@@ -150,7 +153,7 @@ test('PONR reserves worst crew delay AND helm/yaw lag, clears adjacent reefs for
 
 test('invalid numeric inputs, unknown/prototype hulls and malformed geometry throw RangeError', () => {
   const ship = createVessel('trawler');
-  for (const type of ['unknown', '__proto__', 'toString', null]) {
+  for (const type of ['unknown', '__proto__', 'toString', null, {}, ['trawler']]) {
     assert.throws(() => createVessel(type), RangeError);
     assert.throws(() => measureTacticalDiameter(type), RangeError);
   }

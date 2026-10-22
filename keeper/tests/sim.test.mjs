@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, step, wrapBearing, clampSpeed, fogReach, isLit, perception, bearingTo, summary, validateSchedule, NIGHT_SECONDS, SPEED, AFTERIMAGE_SECONDS, FAST_SHIP_SPEED } from '../js/sim.js';
+import { HULLS, PHYSICS_DT, createVessel, pointOfNoReturn, hornRange } from '../js/physics.js';
+import { ROCKS } from '../js/sim.js';
 import { KEYS, actionFor, heldInput } from '../js/keys.js';
 import { parseRecord } from '../js/record.js';
 
@@ -76,12 +78,12 @@ test('running light points obey half reach and disappear on a wreck', () => {
   assert.equal(perception(s).runningLights, false);
 });
 
-test('unwarned trawler wrecks at 60–90s; no mid-night game over; dawn at three minutes', () => {
-  const s = step(createState(), {}, 90);
+test('unwarned trawler wrecks at 60–100s; no mid-night game over; dawn at three minutes', () => {
+  const s = step(createState(), {}, 100);
   assert.equal(s.trawler.status, 'wrecked');
-  assert.ok(s.trawler.wreckedAt > 60 && s.trawler.wreckedAt < 90);
+  assert.ok(s.trawler.wreckedAt > 60 && s.trawler.wreckedAt < 100);
   assert.equal(s.phase, 'night');
-  const dawn = step(s, {}, 90);
+  const dawn = step(s, {}, 80);
   assert.equal(dawn.time, NIGHT_SECONDS);
   assert.equal(dawn.phase, 'dawn');
   assert.deepEqual(summary(dawn), { safe: 0, wrecked: 1 });
@@ -104,21 +106,21 @@ test('live radial approach and worst-fog schedule deliver at least four sighting
   }
 });
 
-test('a held horn warns when illuminated, turns away and passes safely', () => {
+test('a horn warns with seeded crew delay, turns smoothly and passes safely', () => {
   let s = step(createState(), {}, 24);
   const heading = s.trawler.heading;
   s = step(aim(s), { hold: true, horn: true }, 0.2);
   assert.notEqual(s.trawler.warnedAt, null);
-  assert.equal(s.trawler.heading, heading, 'reaction takes two seconds');
+  assert.equal(s.trawler.heading, heading, 'crew delay precedes rudder movement');
   s = step(s, {}, 155.8);
   assert.equal(s.phase, 'dawn');
   assert.equal(s.trawler.status, 'safe');
   assert.deepEqual(summary(s), { safe: 1, wrecked: 0 });
-  assert.equal(s.trawler.heading, 0);
+  assert.ok(Math.abs(((s.trawler.heading - s.trawler.targetHeading + 540) % 360) - 180) < 0.1);
 });
 
 test('warning on the collision boundary is too late, even when lit and held', () => {
-  const collisionTime = step(createState(), {}, 90).trawler.wreckedAt;
+  const collisionTime = step(createState(), {}, 180).trawler.wreckedAt;
   let s = step(createState(), {}, collisionTime - 0.2);
   s = step(aim(s), { hold: true, horn: true }, 0.1);
   assert.notEqual(s.trawler.warnedAt, null);
@@ -130,10 +132,10 @@ test('warning at the budgeted PNR turns clear and counts safe by dawn, while saf
   for (const seed of [0, 108, 997, 0xffffffff]) {
     let s = step(createState(seed), {}, 60);
     s = step(aim(s), { hold: true, horn: true }, 0.1);
-    s = step(s, {}, 39.9);
+    s = step(s, {}, 59.9);
     assert.equal(s.trawler.status, 'safe');
     const y = s.trawler.y;
-    s = step(s, {}, 80);
+    s = step(s, {}, 60);
     assert.ok(s.trawler.y < y);
     assert.deepEqual(summary(s), { safe: 1, wrecked: 0 });
   }
@@ -164,32 +166,42 @@ test('fast ships expose only a deterministic engine bearing and intensity before
   assert.equal(perception(s).engineCue, null);
 });
 
-test('unlit + far horn has no effect; an afterimage is not a valid warning target', () => {
+test('unlit vessels hear a broadcast; an afterimage neither enables nor blocks it', () => {
   let s = createState(); s.beam = 180;
-  s = step(s, { hold: true, horn: true }, 3);
-  assert.equal(s.trawler.warnedAt, null);
-  s = step(aim(s), { hold: true }, 0.1);
-  s.beam = 180;
   s = step(s, { hold: true, horn: true }, 0.1);
-  assert.equal(s.trawler.warnedAt, null);
-  assert.ok(s.trawler.afterimage > 0);
+  assert.notEqual(s.trawler.warnedAt, null);
+  assert.equal(perception(s).lit, false);
+  assert.equal(s.trawler.lastHorn.response, 'turn-away');
+  let ghost = step(aim(createState()), { hold: true }, 0.1);
+  ghost.beam = 180;
+  ghost = step(ghost, { hold: true, horn: true }, 0.1);
+  assert.notEqual(ghost.trawler.warnedAt, null);
+  assert.ok(ghost.trawler.afterimage > 0);
+  const far = createState();
+  far.trawler.x *= 2; far.trawler.y *= 2;
+  assert.equal(step(far, { horn: true }, 0.1).trawler.warnedAt, null);
 });
 
-test('near vessel hears off-beam horn; fourth blast in 20 seconds is ignored', () => {
-  let s = createState(); s.beam = 180; s.trawler.x = 0; s.trawler.y = -100;
-  assert.notEqual(step(s, { hold: true, horn: true }, 0.1).trawler.warnedAt, null);
-  s = createState(); s.beam = 180;
-  for (let i = 0; i < 3; i++) {
-    s = step(s, { hold: true, horn: true }, 0.1);
-    s = step(s, { hold: true }, 0.1);
+test('only false alarms reduce trust; held horn is one broadcast and low trust can ignore danger', () => {
+  let honest = createState();
+  honest = step(honest, { horn: true }, 0.1);
+  assert.equal(honest.trust, 1);
+  const warnedAt = honest.trawler.warnedAt;
+  honest = step(honest, { horn: true }, 25);
+  assert.equal(honest.trawler.warnedAt, warnedAt);
+  assert.equal(honest.blasts.length, 0, 'held horn is one blast, not one per frame');
+  let s = createState();
+  s.trawler.heading = wrapBearing(s.trawler.heading + 180); // Safe outward track.
+  for (let index = 0; index < 4; index++) {
+    s = step(s, { horn: true }, 0.1);
+    assert.equal(s.trawler.lastHorn.response, 'hold');
+    s = step(s, {}, 0.1);
   }
-  s = step(aim(s), { hold: true, horn: true }, 0.1);
+  assert.equal(s.trust, 0);
+  s.trawler.heading = wrapBearing(s.trawler.heading + 180);
+  s = step(s, { horn: true }, 0.1);
+  assert.equal(s.trawler.lastHorn.response, 'ignore');
   assert.equal(s.trawler.warnedAt, null);
-  assert.ok(s.ignoreUntil > s.time);
-  s = step(s, { hold: true, horn: true }, 21);
-  assert.equal(s.blasts.length, 0, 'held horn is one blast, not one per frame');
-  s = step(aim(s), { hold: true, horn: true }, 0.1);
-  assert.notEqual(s.trawler.warnedAt, null);
 });
 
 test('deterministic seed/input replay and long-frame collision cannot tunnel through reef', () => {
@@ -231,4 +243,76 @@ test('corrupt, old, oversized and impossible dawn records are rejected', () => {
     '{"version":1,"seed":4294967296,"safe":1,"wrecked":0}', '{"version":1,"seed":108,"safe":1,"wrecked":1}',
     '{"version":1,"seed":108,"safe":"1","wrecked":0}']) assert.equal(parseRecord(raw), null);
   assert.deepEqual(parseRecord('{"version":1,"seed":108,"safe":1,"wrecked":0}'), { version: 1, seed: 108, safe: 1, wrecked: 0 });
+});
+
+
+test('live PONR and spawn budget derive from the physics, including maximum crew delay', () => {
+  const reefs = ROCKS.map((r) => ({ x: r.x, y: -r.y, radius: r.radius + 8 }));
+  for (const seed of [0, 108, 997, 0xffffffff]) {
+    let state = createState(seed);
+    const approach = state.schedule[0];
+    const lead = pointOfNoReturn({ ...state.trawler, y: -state.trawler.y }, reefs);
+    assert.ok(Math.abs(approach.responseSeconds + approach.turnRadius / approach.speed - lead) < 1e-8);
+    const pnrTime = (approach.spawnRange - approach.pnrRange) / approach.speed - lead;
+    assert.ok(Math.abs(pnrTime - 60) < 1e-8);
+    state = step(state, {}, pnrTime);
+    state = step(state, { horn: true }, PHYSICS_DT);
+    state.trawler.reactAt = state.trawler.warnedAt + HULLS.trawler.reactionSeconds[1];
+    let minimumClearance = Infinity;
+    while (state.time < 179.99) {
+      state = step(state, {}, 0.1);
+      for (const rock of reefs) minimumClearance = Math.min(minimumClearance,
+        Math.hypot(state.trawler.x - rock.x, -state.trawler.y - rock.y) - rock.radius);
+    }
+    assert.ok(minimumClearance > 0, `seed ${seed}: clearance ${minimumClearance}`);
+    assert.equal(state.trawler.status, 'safe');
+  }
+});
+
+test('broadcast and physics handle multiple ships independently; safe, distant, dark and wrecked ships', () => {
+  let state = createState(120);
+  const extra = (type, options) => ({ ...structuredClone(state.trawler),
+    ...createVessel(type, options), afterimage: 0, lastSeen: null });
+  const threatened = extra('coaster', { id: 'coaster', x: state.trawler.x, y: state.trawler.y, heading: state.trawler.heading });
+  const safe = extra('lifeboat', { id: 'safe', x: -100, y: -150, heading: 180 });
+  const far = extra('speedboat', { id: 'far', x: 0, y: -hornRange(state.fog) - 5, heading: 0 });
+  const dark = extra('speedboat', { id: 'dark', x: 40, y: -100, heading: 0, smuggler: true });
+  const wrecked = { ...extra('trawler', { id: 'wrecked' }), status: 'wrecked' };
+  state.ships.push(threatened, safe, far, dark, wrecked);
+  const prior = structuredClone(state);
+  state.beam = 180;
+  state = step(state, { horn: true, hold: true }, 0.1);
+  assert.equal(state.trawler, state.ships[0], 'legacy handle aliases the fleet vessel');
+  assert.deepEqual(state.ships.slice(0, 4).map((s) => s.lastHorn.response), ['turn-away', 'turn-away', 'hold', 'none']);
+  assert.ok(['ignore', 'veer'].includes(state.ships[4].lastHorn.response));
+  assert.equal(perception(state, state.ships[4]).runningLights, false);
+  assert.equal(state.ships[5].warnedAt, null);
+  state = step(state, {}, 10);
+  assert.notEqual(state.ships[0].heading, prior.ships[0].heading);
+  assert.notEqual(state.ships[1].heading, prior.ships[1].heading);
+  assert.equal(state.ships[2].heading, prior.ships[2].heading);
+  assert.equal(state.ships[3].heading, prior.ships[3].heading);
+  assert.equal(state.ships[5].x, prior.ships[5].x);
+  assert.equal(summary(state).wrecked, 1);
+  assert.equal(prior.ships[0].warnedAt, null, 'prior fleet remains untouched');
+});
+
+test('dark launch captains deterministically ignore or veer toward water away from the light', () => {
+  for (const [seed, expected] of [[0, 'veer'], [2, 'ignore']]) {
+    let state = createState(seed);
+    state.trawler.smuggler = true;
+    const originalHeading = state.trawler.heading;
+    state = step(state, { horn: true }, 0.1);
+    assert.equal(state.trawler.lastHorn.response, expected);
+    if (expected === 'veer') {
+      const radial = bearingTo(state.trawler);
+      const error = ((state.trawler.targetHeading - radial + 540) % 360) - 180;
+      assert.ok(Math.abs(error) <= 30.01, 'escape course points away from the lighthouse');
+      state = step(state, {}, 15);
+      assert.notEqual(state.trawler.heading, originalHeading);
+    } else {
+      state = step(state, {}, 15);
+      assert.equal(state.trawler.heading, originalHeading);
+    }
+  }
 });

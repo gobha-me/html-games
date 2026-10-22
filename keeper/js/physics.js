@@ -6,7 +6,7 @@ const hull = (length, cruiseSpeed, maxRudderDeg, rudderRateDegPerS, K, T, reacti
   Object.freeze({ length, cruiseSpeed, maxRudderDeg, rudderRateDegPerS, K, T,
     reactionSeconds: Object.freeze(reactionSeconds) });
 export const HULLS = Object.freeze({
-  trawler: hull(14, 1.5, 35, 7.5, 0.09, 4.5, [1.8, 2.5]),
+  trawler: hull(12, 1.1, 35, 7.5, 0.08, 4.5, [1.8, 2.5]),
   coaster: hull(30, 3, 35, 5, 0.05, 8, [2, 2.5]),
   speedboat: hull(6, 6, 35, 90, 1.2, 0.35, [1, 1.4]),
   lifeboat: hull(8, 3, 35, 55, 0.45, 0.7, [1.1, 1.7]),
@@ -17,7 +17,7 @@ function finite(...values) {
   if (!values.every(Number.isFinite)) throw new RangeError('Expected finite numbers');
 }
 function parameters(type) {
-  if (!Object.hasOwn(HULLS, type)) throw new RangeError('Unknown hull type');
+  if (typeof type !== 'string' || !Object.hasOwn(HULLS, type)) throw new RangeError('Unknown hull type');
   return HULLS[type];
 }
 function checkVessel(vessel) {
@@ -113,7 +113,7 @@ export function threatensReef(vessel, rocks, horizonSeconds) {
   checkVessel(vessel); checkRocks(rocks); finite(horizonSeconds);
   if (horizonSeconds < 0) throw new RangeError('Negative horizon');
   const entry = impactDistance(vessel, rocks);
-  return entry === 0 || (vessel.speed > 0 && entry <= vessel.speed * horizonSeconds);
+  return entry === 0 || (vessel.speed > 0 && Number.isFinite(entry) && entry / vessel.speed <= horizonSeconds);
 }
 
 // Each ship gets a stable independent stream (no dependence on fleet order).
@@ -135,7 +135,7 @@ export function broadcastHorn(ships, { origin, fogDensity, time, seed, trust = 1
     if (!heard) return { id: vessel.id, heard: false, response: 'none', reactAt: null };
     const [min, max] = spec.reactionSeconds;
     const delay = min + (max - min) * (1 - trust * (1 - draw(seed, vessel.id, 17)));
-    const endangered = threatensReef(vessel, rocks, 600);
+    const endangered = threatensReef(vessel, rocks, Number.MAX_VALUE);
     const response = vessel.smuggler ? (draw(seed, vessel.id, 71) < 0.5 ? 'ignore' : 'veer')
       : !endangered ? 'hold' : draw(seed, vessel.id, 37) >= trust ? 'ignore' : 'turn-away';
     return { id: vessel.id, heard: true, response, reactAt: time + delay };

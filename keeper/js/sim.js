@@ -1,3 +1,5 @@
+import { PHYSICS_DT, HULLS, createVessel, stepVessel, broadcastHorn, threatensReef, pointOfNoReturn } from './physics.js';
+
 // World units are chart metres; bearings increase clockwise from north.
 // No wall clock, DOM, storage, or unseeded randomness belongs in this module.
 export const NIGHT_SECONDS = 180;
@@ -13,12 +15,17 @@ export const ROCKS = Object.freeze([
   Object.freeze({ x: 274, y: -219, radius: 14 }),
   Object.freeze({ x: -125, y: -100, radius: 12 }),
 ]);
-const TICK = 1 / 60;
+const TICK = PHYSICS_DT;
 const RAD = Math.PI / 180;
-const TURN_DEGREES_PER_SECOND = 22;
 const SHIP_RADIUS = 8;
 const NIGHT_FOG_MAX = 0.16;
-const REEF_NORTH_EDGE = Math.min(...ROCKS.map((rock) => rock.y - rock.radius - SHIP_RADIUS));
+// The canvas chart points south; the pure physics API points north. Inflate
+// collision discs by the hull clearance, consistently for horns, PONR and wrecks.
+const REEFS = Object.freeze(ROCKS.map((rock) => Object.freeze({
+  x: rock.x, y: -rock.y, radius: rock.radius + SHIP_RADIUS,
+})));
+const physical = (ship) => ({ ...ship, y: -ship.y });
+const fleet = (state) => state.ships ?? [state.trawler];
 
 function checkPeriod(period) {
   if (!Number.isFinite(period) || period <= 0) throw new RangeError('Period must be finite and positive');
@@ -108,40 +115,51 @@ export function createState(seed = 108) {
   }
   // One LCG draw determines the approach lane; the course always crosses the reef.
   const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
+  const bearing = bearingTo(ROCKS[0]) + (random - 0.5);
+  const east = Math.sin(bearing * RAD), north = Math.cos(bearing * RAD);
+  // Outermost intersection of the incoming radial lane with an inflated reef.
+  const pnrRange = Math.max(...REEFS.map((rock) => {
+    const along = rock.x * east + rock.y * north;
+    const across = rock.x * north - rock.y * east;
+    return Math.abs(across) <= rock.radius ? along + Math.sqrt(rock.radius ** 2 - across ** 2) : 0;
+  }));
+  const spec = HULLS.trawler;
+  const reference = createVessel('trawler', { x: east * 500, y: north * 500, heading: bearing + 180 });
+  const lead = pointOfNoReturn(reference, REEFS);
   const approach = {
-    id: 'trawler', spawnTime: 0, bearing: bearingTo(ROCKS[0]) + (random - 0.5),
-    speed: 1.5, responseSeconds: 2, turnRadius: 1.5 / (TURN_DEGREES_PER_SECOND * RAD),
-    pnrRange: Math.hypot(ROCKS[0].x, ROCKS[0].y) + ROCKS[0].radius + SHIP_RADIUS,
-    passes: NIGHT_PASSES[0],
+    id: 'trawler', spawnTime: 0, bearing,
+    speed: spec.cruiseSpeed, responseSeconds: spec.reactionSeconds[1],
+    // Preserve the generic budget API: turnRadius now carries the additional
+    // maneuver distance measured by PONR, including rudder and yaw lag.
+    turnRadius: spec.cruiseSpeed * (lead - spec.reactionSeconds[1]),
+    pnrRange, passes: NIGHT_PASSES[0],
   };
   const spawnRange = spawnRangeFor(approach);
+  const trawler = {
+    ...approach, spawnRange,
+    ...createVessel('trawler', { x: east * spawnRange, y: -north * spawnRange, heading: bearing + 180 }),
+    status: 'underway', warnedAt: null, wreckedAt: null, reactAt: null,
+    targetHeading: null, turnSign: 0, response: 'none',
+    afterimage: 0, lastSeen: null,
+  };
   return {
     seed, time: 0, phase: 'night', beam: 285, speed: SPEED.default,
-    fog: 0.08 + random * 0.04, horn: false, blasts: [], ignoreUntil: 0,
-    // Budget against the shortest reach during the watch, not just the starting fog.
+    fog: 0.08 + random * 0.04, horn: false, blasts: [], trust: 1,
     nightParams: { night: 1, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
     schedule: [{ ...approach, spawnRange }],
-    trawler: {
-      ...approach, spawnRange,
-      x: Math.sin(approach.bearing * RAD) * spawnRange,
-      y: -Math.cos(approach.bearing * RAD) * spawnRange,
-      heading: wrapBearing(approach.bearing + 180),
-      status: 'underway', warnedAt: null, wreckedAt: null,
-      afterimage: 0, lastSeen: null,
-    },
+    ships: [trawler], trawler,
   };
 }
 
 // Returns only the pose the keeper has actually observed; no live off-beam hull.
-export function perception(state) {
-  const ship = state.trawler;
-  const lit = isLit(state);
+export function perception(state, ship = state.trawler) {
+  const lit = isLit(state, ship);
   return {
     lit,
     hull: lit ? { x: ship.x, y: ship.y, heading: ship.heading, status: ship.status }
       : ship.afterimage > 0 ? ship.lastSeen : null,
     opacity: lit ? 1 : 0.30 * ship.afterimage / AFTERIMAGE_SECONDS,
-    runningLights: ship.status !== 'wrecked' && Math.hypot(ship.x, ship.y) <= fogReach(state.fog) / 2,
+    runningLights: !ship.smuggler && ship.status !== 'wrecked' && Math.hypot(ship.x, ship.y) <= fogReach(state.fog) / 2,
     // Stub only: no live hull pose leaks through this bearing/intensity audio hook.
     engineCue: !lit && ship.status === 'underway' && ship.speed >= FAST_SHIP_SPEED
       ? { bearing: bearingTo(ship), intensity: 1 / (1 + Math.hypot(ship.x, ship.y) / fogReach(state.fog)) }
@@ -158,34 +176,69 @@ function tick(state, input, dt) {
   state.blasts = state.blasts.filter((time) => state.time - time < 20);
   if (input.horn === true && !state.horn) {
     state.blasts.push(state.time);
-    if (state.blasts.length > 3) state.ignoreUntil = state.time + 20;
+    const ships = fleet(state).filter((ship) => ship.status === 'underway' || ship.status === 'safe');
+    const responses = broadcastHorn(ships.map(physical), {
+      origin: { x: 0, y: 0 }, fogDensity: state.fog, time: state.time,
+      seed: (state.seed + state.blasts.length) >>> 0, trust: state.trust, rocks: REEFS,
+    });
+    // Only false alarms erode trust. A real warning to any endangered listener
+    // is useful even when another captain is already on a safe track (#109).
+    if (!ships.some((ship, index) => responses[index].heard && threatensReef(physical(ship), REEFS, Number.MAX_VALUE))) {
+      state.trust = Math.max(0, state.trust - 0.25);
+    }
+    for (let index = 0; index < ships.length; index++) {
+      const ship = ships[index], response = responses[index];
+      ship.lastHorn = response;
+      if (ship.warnedAt !== null || !['turn-away', 'veer'].includes(response.response)) continue;
+      ship.warnedAt = state.time;
+      ship.reactAt = response.reactAt;
+      ship.response = response.response;
+      const pose = physical(ship);
+      // Steer away from the nearest reef; dark launches instead veer away
+      // from the lighthouse. The rudder controller sails the reciprocal track.
+      const obstacle = response.response === 'veer' ? { x: 0, y: 0 }
+        : REEFS.reduce((a, b) => Math.hypot(a.x - pose.x, a.y - pose.y) - a.radius
+          < Math.hypot(b.x - pose.x, b.y - pose.y) - b.radius ? a : b);
+      const starboard = (obstacle.x - pose.x) * Math.cos(pose.heading * RAD)
+        - (obstacle.y - pose.y) * Math.sin(pose.heading * RAD);
+      ship.turnSign = starboard > 0 ? -1 : 1;
+      ship.targetHeading = response.response === 'veer'
+        ? wrapBearing(bearingTo(ship) + ship.turnSign * 30) : wrapBearing(ship.heading + 180);
+      if (response.response === 'veer') {
+        const error = ((ship.targetHeading - ship.heading + 540) % 360) - 180;
+        ship.turnSign = error < 0 ? -1 : 1;
+      }
+    }
   }
   state.horn = input.horn === true;
-  const ship = state.trawler;
-  if (ship.status === 'underway' || ship.status === 'safe') {
-    const near = Math.hypot(ship.x, ship.y) < fogReach(state.fog) * 0.4;
-    if (ship.status === 'underway' && state.horn && state.time >= state.ignoreUntil && ship.warnedAt === null && (isLit(state) || near)) {
-      ship.warnedAt = state.time;
+  for (const ship of fleet(state)) {
+    if (ship.status === 'underway' || ship.status === 'safe') {
+      const spec = HULLS[ship.type];
+      let rudderCommand = 0;
+      if (ship.reactAt !== null && state.time >= ship.reactAt) {
+        const error = ((ship.targetHeading - ship.heading + 540) % 360) - 180;
+        // Full helm through the early turn; anticipate yaw/helm inertia when
+        // settling onto the escape course, without snapping the rendered bow.
+        const directedError = Math.abs(error) > 150 ? ship.turnSign * Math.abs(error) : error;
+        rudderCommand = (directedError - ship.yawRate * (spec.T + spec.maxRudderDeg / spec.rudderRateDegPerS / 2)) * 1.5;
+      }
+      const next = stepVessel(physical(ship), { rudderCommand, throttle: 1 }, dt);
+      Object.assign(ship, next, { y: -next.y });
+      if (ship.status === 'underway' && REEFS.some((rock) => Math.hypot(ship.x - rock.x, -ship.y - rock.y) <= rock.radius)) {
+        ship.status = 'wrecked';
+        ship.wreckedAt = state.time;
+      } else if (Math.hypot(ship.x, ship.y) > 590
+        || (ship.warnedAt !== null && Math.abs(((ship.targetHeading - ship.heading + 540) % 360) - 180) < 120
+          && !threatensReef(physical(ship), REEFS, Number.MAX_VALUE))) {
+        ship.status = 'safe';
+      }
     }
-    // A real response delay and turning circle make a last-second horn too late.
-    if (ship.warnedAt !== null && state.time - ship.warnedAt >= ship.responseSeconds) {
-      ship.heading = Math.max(0, ship.heading - TURN_DEGREES_PER_SECOND * dt);
+    if (isLit(state, ship)) {
+      ship.afterimage = AFTERIMAGE_SECONDS;
+      ship.lastSeen = { x: ship.x, y: ship.y, heading: ship.heading, status: ship.status };
+    } else {
+      ship.afterimage = Math.max(0, ship.afterimage - dt);
     }
-    ship.x += Math.sin(ship.heading * RAD) * ship.speed * dt;
-    ship.y -= Math.cos(ship.heading * RAD) * ship.speed * dt;
-    if (ship.status === 'underway' && ROCKS.some((rock) => Math.hypot(ship.x - rock.x, ship.y - rock.y) <= rock.radius + SHIP_RADIUS)) {
-      ship.status = 'wrecked';
-      ship.wreckedAt = state.time;
-    } else if (Math.hypot(ship.x, ship.y) > 590
-      || (ship.warnedAt !== null && ship.heading === 0 && ship.y < REEF_NORTH_EDGE)) {
-      ship.status = 'safe';
-    }
-  }
-  if (isLit(state)) {
-    ship.afterimage = AFTERIMAGE_SECONDS;
-    ship.lastSeen = { x: ship.x, y: ship.y, heading: ship.heading, status: ship.status };
-  } else {
-    ship.afterimage = Math.max(0, ship.afterimage - dt);
   }
   if (state.time >= NIGHT_SECONDS) {
     state.phase = 'dawn';
@@ -222,5 +275,6 @@ export function step(previous, input = {}, seconds = TICK) {
 }
 
 export function summary(state) {
-  return { safe: state.trawler.status === 'safe' ? 1 : 0, wrecked: state.trawler.status === 'wrecked' ? 1 : 0 };
+  return { safe: fleet(state).filter((ship) => ship.status === 'safe').length,
+    wrecked: fleet(state).filter((ship) => ship.status === 'wrecked').length };
 }
