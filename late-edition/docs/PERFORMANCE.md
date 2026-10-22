@@ -1,143 +1,130 @@
-# PR #101: software-rendering performance
+# PR #101: paper compositing and presentation cost
 
-The old test required >100 rAF callbacks in five seconds. GitHub's 2-vCPU
-SwiftShader runner supplied 66–81, so it failed before checking renderer cost.
-CPU submission and software presentation need separate measurements.
+The blank-page and blank-canvas probes can reach 60 Hz on the failing runner.
+The game's 66–71 intervals in five seconds therefore indicate game presentation
+work. A cheap Canvas2D submission is not evidence that raster/compositing is cheap.
+The existing >100 intervals / frame p95 <20 ms assertion is unchanged.
 
-## Diagnosis (local, 2026-10-21)
+## Paint and layer diagnosis (2026-10-21)
 
-Chromium/ANGLE SwiftShader, 1920×1080, DPR 1, seed 89 combat preview, CDP
-`Emulation.setCPUThrottlingRate: 4`. CPU affinity was additionally limited to two
-cores (`taskset -c 0,1`). Displayed map backing size was 595×789, not the entire
-viewport; no DPR cap was needed. The existing city/title/edge layers are already
-cached, rain already shares one stroked path, and no per-frame `shadowBlur` exists.
+Profiles use Chromium/ANGLE SwiftShader, 1920×1080, DPR 1, seed 89 combat preview,
+with the browser and its children restricted to two cores by `taskset`. The
+profiler now collects CDP `LayerTree` dimensions, backend DOM identities and
+compositing reasons, `Overlay.setShowPaintRects` screenshots, and `Tracing` with
+`disabled-by-default-devtools.timeline.paint`, `cc` and
+`disabled-by-default-cc.debug`. Flashing is disabled before timed sampling.
+The trace contains only the live five-second window, without the synchronous
+150-render batch that used to add unrelated raster work afterward.
 
-The trace includes `late-edition:render` and `late-edition:ui` User Timing measures,
-weather/sign/cache subpasses, browser layout/paint, raster flush and draw events.
-Times below are local observations, not claims about remote CI:
+The actual regions and surfaces were:
 
-| 4× CPU diagnostic (`before-pinned` / `after-final`) | Before | After |
-| --- | ---: | ---: |
-| 150 deterministic render calls, p95 | 5.5ms | 4.8ms |
-| Live render submission, p95 | 10.8ms | 9.0ms |
-| Live sign pass, accumulated CPU time | 110.0ms / 286 calls | 45.5ms / 289 calls |
-| Live weather pass, accumulated CPU time | 63.0ms / 286 calls | 29.3ms / 289 calls |
-| Live UI update, p95 | 9.1ms | 6.1ms |
-| Five-second rAF intervals | 285 | 288 |
-| rAF p95 | 16.8ms | 16.8ms |
-| Layout / paint event totals | 26.3 / 19.4ms | 23.3 / 22.4ms |
-| Raster flush / compositor draw event totals | 293.6 / 172.6ms | 261.8 / 297.3ms |
+| Region | Observed size | Evidence |
+| --- | --- | --- |
+| Live city canvas | 595×789 | LayerTree identifies an accelerated Canvas texture; flashing covers the map each frame. |
+| Broadsheet paper | 1309×1027, including shadow | Unconditional UI text replacements invalidate page regions on the 250 ms tick. |
+| Broadsheet grain `::after` | 1286×997 | Separate multiply-blended surface; cc snapshots retain whole-surface invalidation. |
+| Photo-slot grain `::after` | 584×435 | Another retained multiply surface over the photo/content. |
+| Lead slips, staff passes, wire roll | Smaller local rectangles | Further paper blend/isolation surfaces; lead countdown/progress updates really change. |
 
-These instrumented traces include the subsequent deterministic batch. Event totals
-on different threads and nested events overlap; **do not add them as wall time**.
-Subpass User Timing adds overhead, and host scheduling varies substantially. An
-initial pair measured deterministic render p95 5.4→3.9ms; the confirmation pair
-above measured 5.5→4.8ms. The targeted sign/weather work decreased, but there is
-**no reliable overall renderer speedup claim** from these noisy traces. The UI
-code was unchanged; its p95 variation is not an optimization claim.
+The baseline has **15 compositor render surfaces** on each draw. Every changing
+map texture still requires composition through the paper/overlap surface tree;
+`mix-blend-mode: multiply` prevents flattening paper grain into normal paint.
+Static paper is not all newly painted by Blink on every frame: the trace has few
+`Paint`/`RasterTask` events, while deferred raster flushes stall. In particular,
+cc snapshots retain invalidation rectangles; a rectangle present in 302 snapshots
+is **not** proof of 302 new raster tasks. This distinction explains why small JS
+and Paint timings missed the cost.
 
-An ablation disabling the entire weather pass reproduced **66 rAF intervals** in
-5.08s, frame p95 883.2ms. It spent **3210.2ms in raster flushes**, versus 121.6ms
-total render submission, 7.3ms layout and 0.6ms paint. Disabling grain alone still
-stalled (133 intervals, raster flushes 3590.4ms). Thus neither weather nor grain
-alone explains the CI failure shape: software raster/flush scheduling dominates
-the stalled traces. The original local suite passed all 68 scenarios, which is
-why the CI frame-count failure was easy to miss.
+An initial two-core 1× trace (`paint-before`) reproduced **55 intervals in 5.50 s**,
+frame p95 **1233.3 ms**, **3358.7 ms** of raster flushes, and only **30.1 ms** of
+render submission. Disabling only CSS multiply (`paint-no-blend`) gave **301
+intervals / 16.7 ms p95**, **256.8 ms** of flushes, and **3 render surfaces**.
+The original failure is intermittent locally: the initial five-repeat performance
+run failed one repetition at **33.4 ms** frame p95; a later pinned baseline trace
+also reached 301 intervals. These are observations, not a claim that every old
+run stalls or a comparison of matching per-frame raster costs.
 
-## Changes
+Other suspected sources were ruled out:
 
-- Snapshot lead display geometry and cache sign widths/collision positions.
-  In-place position/headline/value/series edits, removal and DPR changes invalidate
-  the cache; progress/countdown ticks don't. This removes repeated font measurement.
-- Bake drifting fog into a small sprite at displayed size/DPR, retaining its
-  world-space movement and tint. Rain stays batched. Existing static city and edge
-  layers, gameplay RNG/state and hit targets remain unchanged.
-- Bake the original SVG turbulence into `assets/paper-grain.png` once. It retains
-  the 120×120 tile, monochrome values, opacity and blend mode without runtime
-  turbulence evaluation when paper repaints. Source/provenance and regeneration
-  instructions live in `assets/README.md` and `e2e/bake-paper-grain.js`.
+- The backing store already matches the map's CSS box, rather than the viewport.
+  No map DPR cap or reduced resolution was needed for this DPR-1 failure.
+- The title renderer already runs only while the title is visible. Detached city,
+  fog and skyline cache canvases are not additional full-viewport DOM surfaces.
+- There is no per-frame canvas shadow blur; static geometry is already cached.
+  Removing weather in the earlier investigation still reproduced 66 intervals
+  and 3210.2 ms of raster flushes. Baking SVG turbulence alone did not remove
+  its destination-dependent CSS blend operation.
 
-## Regression contract
+## Fix and regression protection
 
-The real live combat renderer is sampled for five seconds. **After** that live
-window, ten warm-up calls precede 150 synchronous calls with fixed 1/60s dt and
-no simulation stepping. Putting the batch first would queue raster work that
-contaminates live pacing. The batch must preserve gameplay hash/RNG and cache
-identity. Deterministic **and live** render p95 must be <8ms normally, <16ms with
-CDP 4× CPU throttling, regardless of presentation rate. Canvas timing measures CPU
-submission (and any synchronous flush), not deferred GPU execution.
+`assets/paper-grain.png` now encodes the original monochrome grain as black with
+alpha `originalAlpha × (1 − luminance)`. With the same CSS opacity, normal
+source-over gives the same `destination × (1 − opacity × alpha × (1 − grain))`
+as the old monochrome multiply. CSS no longer requests a blend surface for each
+paper object. The image remains a 120×120 tile and keeps its provenance and
+rebuild script in `assets/README.md` and `e2e/bake-paper-grain.js`.
 
-Before loading the game, the same foreground page/browser/viewport/DPR measures
-at least 1.5s of idle rAF and at least 1.5s with a blank, full-viewport canvas
-alternating opaque fills, after 15 warm-up frames per probe. Slow probes extend
-until they have 30 intervals. The canvas probe includes basic software
-raster/compositing that an empty page can avoid. Both probes must supply valid
-data (≥30 intervals, ≥1s, finite timings), otherwise the test **fails**.
+`js/dom.js` exports `setText`: unchanged values do nothing; changed values update
+an existing sole text node in place. Both keyed reconciliation and direct UI
+labels use it. Repeated identical UI refreshes now cause **zero text mutations**,
+instead of replacing page, ledger, drawer and title labels every 250 ms.
 
-When both probes achieve ≥55fps and p95 <20ms, the unthrottled game must also
-achieve frame p95 <20ms and >100 live intervals. Otherwise only that presentation
-assertion is waived and annotated; all renderer/sample/cache/gameplay assertions
-remain mandatory. The game's frame rate and environment variables never control
-the waiver. At 4× CPU only renderer budgets apply, and frame pacing is recorded.
-The simulation's 50ms catch-up cap makes a minimum *game-second* count dependent on
-presentation, so live simulation must advance but isn't required to advance a
-fixed number of seconds. All calibration/cost/frame measurements are attached as
-`swiftshader-frame-budget` JSON in the Playwright report.
+`e2e/presentation.spec.js` compares the real shipped tile against the original SVG
+multiply on all ten palette colors, including dark ink, allowing at most one
+8-bit channel step of rounding. It rejects flat/grey/opaque/inverted grain and
+restored blend modes. The UI test observes real mutation records, forces a
+zero-cash update, and checks empty values, rich-child replacement, keyed text-node
+identity and hostile HTML copy rendered literally. Existing simulation/RNG/cache,
+input, reduced-motion and adversarial starvation tests remain in force.
 
-Adversarial tests reject missing/nonfinite/short calibration, require both probes
-to be validated even after a slow first probe, preserve p95 tail spikes, and force
-<100 rAF samples plus a deliberately >10ms renderer. That test must still collect
-150 deterministic calls and expose the excessive cost. Cache tests attack in-place
-edits and lead removal, and reject radial-gradient recreation in warm weather.
+A final two-core trace with **CDP 2× CPU throttling** (`final-2x`) measured **301
+intervals / 16.8 ms p95**, **3 render surfaces**, render p95 **1.2 ms**, and
+**201.8 ms** of raster flushes. An unthrottled fixed trace measured **301 intervals
+/ 16.7 ms p95** and **198.6 ms** of flushes. Trace event totals can overlap on
+multiple threads and must not be added as wall time. Tracing/User Timing adds
+cost; the repeated, uninstrumented regression tests below determine acceptance.
+
+## Performance contract
+
+Before loading any game content, the foreground page samples idle and opaque
+full-viewport-canvas rAF for at least 1.5 s each, after 15 warm-up frames. Both
+probes must contain valid finite measurements (≥30 intervals / ≥1 s). When both
+reach ≥55 fps and p95 <20 ms, CPU 1× game pacing must exceed 100 intervals in five
+seconds with p95 <20 ms. Calibration cannot depend on game frame rate or an
+environment variable. Invalid calibration fails. CPU 4× records pacing and
+requires its renderer budget.
+
+Live rendering is sampled first, then ten warm-up renders and 150 synchronous
+fixed-dt real renders without stepping the sim. Deterministic **and live** render
+p95 must be <8 ms normally, <16 ms at CPU 4×. Gameplay hash/RNG and warm-cache
+identity must survive the batch. The starvation regression forces <100 live
+intervals and >10 ms renders and still requires 150 deterministic measurements.
+Every performance scenario attaches its calibration, timings and gating decision
+as `swiftshader-frame-budget` JSON.
 
 ## Reproduce
 
-Use a supported Node version (see `package.json`). Start the repo's root HTTP
-server on port 8123, then from `late-edition/`:
+Use Node 22.22+ (22.x) or 24.8+ and installed Playwright Chromium. Start the repo
+root HTTP server on 8123; from `late-edition/` run:
 
 ```bash
-taskset -c 0,1 node e2e/profile-performance.js before-pinned --baseline=351a5f5
-taskset -c 0,1 node e2e/profile-performance.js after
-taskset -c 0,1 node e2e/profile-performance.js no-weather --baseline=351a5f5 --no-weather
-taskset -c 0,1 node e2e/profile-performance.js no-grain --baseline=351a5f5 --no-grain
-npx playwright test e2e/performance.spec.js
+taskset -c 0,1 node e2e/profile-performance.js before --baseline=a076942 --cpu=1 --paint-flashing
+taskset -c 0,1 node e2e/profile-performance.js no-blend --baseline=a076942 --cpu=1 --no-blend
+taskset -c 0,1 node e2e/profile-performance.js after --cpu=2
+PLAYWRIGHT_JSON_OUTPUT_FILE=performance-results/repeat-1x.json taskset -c 0,1 \
+  npx playwright test e2e/performance.spec.js --grep 'CPU 1x' --repeat-each=5 --reporter=list,json
+npm run lint
+npm run test:coverage
+npm run test:e2e
 ```
 
-`--baseline=REV` serves that committed renderer/CSS through Playwright routes
-using read-only `git show`; it never checks out or modifies files. The revision
-is resolved once at startup. Bare `--baseline` means the current HEAD: pin the
-original revision for before/after comparisons if another session may commit.
-The original source for this task is `351a5f5`; a concurrent process created
-`c6a760a` during verification, so a moving-HEAD comparison was discarded. Omit `taskset` on
-platforms without Linux CPU affinity, or choose two available core IDs. Run
-profiles without other tests/browsers competing for those cores. The ignored
-`performance-results/` directory retains `.trace.json` (Chrome/Perfetto), metric
-JSON and before/after screenshots; Playwright can clear `test-results/` without
-deleting those diagnostic artifacts.
-
-## Verification (Node 22.22.0, local)
-
-| Check | Before | After |
-| --- | ---: | ---: |
-| `npm run lint` (ESLint/stylelint/HTML) | pass | pass |
-| `npm run test:coverage` | 323/323 pass | 326/326 pass |
-| sim line / branch coverage | 100% / 99.01% | 100% / 99.01% |
-| `npm run test:e2e` | 68/68 pass | 70/70 pass |
-
-Documentation syntax/reference checks and all 23 checker self-tests also pass.
-Final e2e metrics (uninstrumented by CDP Tracing):
-
-| 1080p SwiftShader | Normal CPU | 4× CPU |
-| --- | ---: | ---: |
-| Deterministic render calls | 150 | 150 |
-| Deterministic render p95 | 0.4ms (<8) | 1.5ms (<16) |
-| Live render calls | 163 | 302 |
-| Live render p95 | 0.6ms (<8) | 3.4ms (<16) |
-| Five-second rAF intervals / p95 | 162 / 16.7ms | 301 / 16.7ms |
-
-Both empty-page and canvas calibrations sustained approximately 60fps with p95
-16.7–16.8ms. The normal frame assertion was enforced and passed. The 4× run
-records pacing while enforcing its renderer budget. JSON metrics are retained
-as `performance-results/final-test-1x.json` and `final-test-4x.json`, alongside the
-Playwright report. GitHub Actions must still execute the revised contract on its
-actual runner.
+Choose two available core IDs on other hosts. `--baseline=REV` uses read-only
+`git show` routes for renderer, controller, DOM helper, CSS and grain, including
+binary asset bytes; it never changes the worktree. The revision is pinned at
+startup. Bare `--baseline` uses HEAD, which can move if another session commits.
+For UI ablation use `--no-ui`; `--no-grain`, `--no-weather` and `--isolate-map` also
+remain available. The ignored `performance-results/` directory retains trace
+JSON, metrics, layer identities/regions, screenshots and command logs. Layer IDs
+are per-session and should be matched by backend DOM identity. LayerTree's paint
+notifications may be absent for accelerated canvas updates; use the cc snapshots
+and actual raster events alongside flashing rather than counting notifications.

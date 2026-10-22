@@ -4,6 +4,7 @@
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { sampleFrameIntervals, summarize } from './performance-metrics.js';
 
 const name = process.argv[2] || 'profile';
 const directory = 'performance-results';
@@ -19,6 +20,20 @@ const browser = await chromium.launch({ args: [
 ] });
 try {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  await page.addInitScript(({ softwareCaches, softwareCanvas }) => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (kind, options) {
+      if (kind === '2d' && ((softwareCaches && !this.isConnected) ||
+          (softwareCanvas && this.id === 'city-canvas'))) {
+        return original.call(this, kind, { ...options, willReadFrequently: true });
+      }
+      return original.call(this, kind, options);
+    };
+  }, { softwareCaches: process.argv.includes('--software-caches'), softwareCanvas: process.argv.includes('--software-canvas') });
+  const calibration = {};
+  for (const key of ['empty', 'canvas']) {
+    calibration[key] = summarize(await page.evaluate(sampleFrameIntervals, { durationMs: 1500, draw: key === 'canvas' }));
+  }
   if (baselineRevision) {
     // Compare committed source without checkout/stash or touching the worktree.
     for (const [path, contentType] of [['js/renderer.js', 'text/javascript'], ['js/main.js', 'text/javascript'],
@@ -36,6 +51,12 @@ try {
   await cdp.send('DOM.enable');
   await cdp.send('LayerTree.enable');
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
+  // Capture startup too: screenshots/readbacks before the live sample flush
+  // deferred raster work and can conceal the exact regression being measured.
+  await cdp.send('Tracing.start', {
+    categories: 'devtools.timeline,blink.user_timing,cc,gpu,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.paint,disabled-by-default-cc.debug',
+    transferMode: 'ReturnAsStream',
+  });
   await page.goto('http://127.0.0.1:8123/late-edition/?seed=89&preview=combat');
   // LayerTree notifications need the inspected document, not just DOM.enable.
   await cdp.send('DOM.getDocument');
@@ -47,19 +68,9 @@ try {
   if (process.argv.includes('--no-blend')) await page.addStyleTag({ content: '*::after { mix-blend-mode: normal !important; }' });
   if (process.argv.includes('--isolate-map')) await page.addStyleTag({ content: '#city-canvas { will-change: transform; }' });
   if (process.argv.includes('--no-ui')) await page.evaluate(() => { window.lateEditionApp._syncFullUI = () => {}; });
-  await page.waitForTimeout(1000);
-  if (process.argv.includes('--paint-flashing')) {
-    // Flashing is diagnostic only: its own overlay must not bias timed pacing.
-    await cdp.send('Overlay.setShowPaintRects', { result: true });
-    await page.waitForTimeout(250);
-  }
-  await page.screenshot({ path: `${directory}/${name}.png` });
-  await cdp.send('Overlay.setShowPaintRects', { result: false });
+  await page.waitForFunction(() => Boolean(window.lateEditionApp.renderer.cache));
+  await page.waitForTimeout(500);
   paints.length = 0;
-  await cdp.send('Tracing.start', {
-    categories: 'devtools.timeline,blink.user_timing,cc,gpu,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.paint,disabled-by-default-cc.debug',
-    transferMode: 'ReturnAsStream',
-  });
   const metrics = await page.evaluate(async () => {
     const app = window.lateEditionApp;
     const costs = { render: [], ui: [] };
@@ -114,6 +125,13 @@ try {
   }
   await cdp.send('IO.close', { handle: stream });
   await writeFile(`${directory}/${name}.trace.json`, trace);
+  if (process.argv.includes('--paint-flashing')) {
+    await cdp.send('Overlay.setShowPaintRects', { result: true });
+    await page.waitForTimeout(250);
+  }
+  await page.screenshot({ path: `${directory}/${name}.png` });
+  await cdp.send('Overlay.setShowPaintRects', { result: false });
+  metrics.calibration = calibration;
   metrics.cpuRate = cpuRate;
   metrics.layers = [];
   for (const layer of layers.values()) {
