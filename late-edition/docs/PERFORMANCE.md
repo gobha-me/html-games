@@ -16,21 +16,25 @@ The trace includes `late-edition:render` and `late-edition:ui` User Timing measu
 weather/sign/cache subpasses, browser layout/paint, raster flush and draw events.
 Times below are local observations, not claims about remote CI:
 
-| 4× CPU diagnostic | Before | After |
+| 4× CPU diagnostic (`before-pinned` / `after-final`) | Before | After |
 | --- | ---: | ---: |
-| 150 deterministic render calls, p95 | 5.4ms | 3.9ms |
-| Live render submission, p95 | 7.8ms | 6.5ms |
-| Live sign pass, accumulated CPU time | 109.7ms / 295 calls | 59.0ms / 300 calls |
-| Live UI update, p95 | 13.1ms | 7.3ms |
-| Five-second rAF intervals | 294 | 299 |
+| 150 deterministic render calls, p95 | 5.5ms | 4.8ms |
+| Live render submission, p95 | 10.8ms | 9.0ms |
+| Live sign pass, accumulated CPU time | 110.0ms / 286 calls | 45.5ms / 289 calls |
+| Live weather pass, accumulated CPU time | 63.0ms / 286 calls | 29.3ms / 289 calls |
+| Live UI update, p95 | 9.1ms | 6.1ms |
+| Five-second rAF intervals | 285 | 288 |
 | rAF p95 | 16.8ms | 16.8ms |
-| Layout / paint event totals | 16.3 / 32.1ms | 23.4 / 11.8ms |
-| Raster flush / compositor draw event totals | 247.8 / 152.1ms | 252.2 / 157.9ms |
+| Layout / paint event totals | 26.3 / 19.4ms | 23.3 / 22.4ms |
+| Raster flush / compositor draw event totals | 293.6 / 172.6ms | 261.8 / 297.3ms |
 
 These instrumented traces include the subsequent deterministic batch. Event totals
 on different threads and nested events overlap; **do not add them as wall time**.
-Subpass User Timing adds overhead, and host scheduling varies substantially.
-The UI code was unchanged; its p95 variation is not an optimization claim.
+Subpass User Timing adds overhead, and host scheduling varies substantially. An
+initial pair measured deterministic render p95 5.4→3.9ms; the confirmation pair
+above measured 5.5→4.8ms. The targeted sign/weather work decreased, but there is
+**no reliable overall renderer speedup claim** from these noisy traces. The UI
+code was unchanged; its p95 variation is not an optimization claim.
 
 An ablation disabling the entire weather pass reproduced **66 rAF intervals** in
 5.08s, frame p95 883.2ms. It spent **3210.2ms in raster flushes**, versus 121.6ms
@@ -64,8 +68,9 @@ CDP 4× CPU throttling, regardless of presentation rate. Canvas timing measures 
 submission (and any synchronous flush), not deferred GPU execution.
 
 Before loading the game, the same foreground page/browser/viewport/DPR measures
-1.5s of idle rAF and 1.5s with a blank, full-viewport canvas alternating opaque
-fills, after 15 warm-up frames per probe. The canvas probe includes basic software
+at least 1.5s of idle rAF and at least 1.5s with a blank, full-viewport canvas
+alternating opaque fills, after 15 warm-up frames per probe. Slow probes extend
+until they have 30 intervals. The canvas probe includes basic software
 raster/compositing that an empty page can avoid. Both probes must supply valid
 data (≥30 intervals, ≥1s, finite timings), otherwise the test **fails**.
 
@@ -91,21 +96,48 @@ Use a supported Node version (see `package.json`). Start the repo's root HTTP
 server on port 8123, then from `late-edition/`:
 
 ```bash
-taskset -c 0,1 node e2e/profile-performance.js before --baseline
+taskset -c 0,1 node e2e/profile-performance.js before-pinned --baseline=351a5f5
 taskset -c 0,1 node e2e/profile-performance.js after
-taskset -c 0,1 node e2e/profile-performance.js no-weather --baseline --no-weather
-taskset -c 0,1 node e2e/profile-performance.js no-grain --baseline --no-grain
+taskset -c 0,1 node e2e/profile-performance.js no-weather --baseline=351a5f5 --no-weather
+taskset -c 0,1 node e2e/profile-performance.js no-grain --baseline=351a5f5 --no-grain
 npx playwright test e2e/performance.spec.js
 ```
 
-`--baseline` serves the committed renderer/CSS through Playwright routes using
-read-only `git show`; it never checks out or modifies files. Omit `taskset` on
+`--baseline=REV` serves that committed renderer/CSS through Playwright routes
+using read-only `git show`; it never checks out or modifies files. The revision
+is resolved once at startup. Bare `--baseline` means the current HEAD: pin the
+original revision for before/after comparisons if another session may commit.
+The original source for this task is `351a5f5`; a concurrent process created
+`c6a760a` during verification, so a moving-HEAD comparison was discarded. Omit `taskset` on
 platforms without Linux CPU affinity, or choose two available core IDs. Run
 profiles without other tests/browsers competing for those cores. The ignored
 `performance-results/` directory retains `.trace.json` (Chrome/Perfetto), metric
 JSON and before/after screenshots; Playwright can clear `test-results/` without
 deleting those diagnostic artifacts.
 
-Baseline checks: lint passed; 323/323 unit tests, sim line coverage 100%, branches
-99.01%; 68/68 e2e scenarios passed. Final verification is reported with the change;
-GitHub Actions must still execute the revised contract on its actual runner.
+## Verification (Node 22.22.0, local)
+
+| Check | Before | After |
+| --- | ---: | ---: |
+| `npm run lint` (ESLint/stylelint/HTML) | pass | pass |
+| `npm run test:coverage` | 323/323 pass | 326/326 pass |
+| sim line / branch coverage | 100% / 99.01% | 100% / 99.01% |
+| `npm run test:e2e` | 68/68 pass | 70/70 pass |
+
+Documentation syntax/reference checks and all 23 checker self-tests also pass.
+Final e2e metrics (uninstrumented by CDP Tracing):
+
+| 1080p SwiftShader | Normal CPU | 4× CPU |
+| --- | ---: | ---: |
+| Deterministic render calls | 150 | 150 |
+| Deterministic render p95 | 0.4ms (<8) | 1.5ms (<16) |
+| Live render calls | 163 | 302 |
+| Live render p95 | 0.6ms (<8) | 3.4ms (<16) |
+| Five-second rAF intervals / p95 | 162 / 16.7ms | 301 / 16.7ms |
+
+Both empty-page and canvas calibrations sustained approximately 60fps with p95
+16.7–16.8ms. The normal frame assertion was enforced and passed. The 4× run
+records pacing while enforcing its renderer budget. JSON metrics are retained
+as `performance-results/final-test-1x.json` and `final-test-4x.json`, alongside the
+Playwright report. GitHub Actions must still execute the revised contract on its
+actual runner.

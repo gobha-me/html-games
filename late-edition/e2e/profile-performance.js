@@ -1,22 +1,27 @@
 // Reproducible diagnostic, separate from Playwright's regression suite.
 // Start the root static server on 8123, then run:
-// node e2e/profile-performance.js before [--baseline] [--no-grain] [--no-weather]
+// node e2e/profile-performance.js before [--baseline=REV] [--no-grain] [--no-weather]
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 
 const name = process.argv[2] || 'profile';
 const directory = 'performance-results';
+const baselineArg = process.argv.find((arg) => arg === '--baseline' || arg.startsWith('--baseline='));
+// Resolve once: another session may commit while a diagnostic is running.
+const baselineRevision = baselineArg ? execFileSync('git',
+  ['rev-parse', '--verify', '--end-of-options', `${baselineArg.split('=')[1] || 'HEAD'}^{commit}`],
+  { encoding: 'utf8' }).trim() : null;
 await mkdir(directory, { recursive: true });
 const browser = await chromium.launch({ args: [
   '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
 ] });
 try {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-  if (process.argv.includes('--baseline')) {
+  if (baselineRevision) {
     // Compare committed source without checkout/stash or touching the worktree.
     for (const [path, contentType] of [['js/renderer.js', 'text/javascript'], ['css/style.css', 'text/css']]) {
-      const body = execFileSync('git', ['show', `HEAD:late-edition/${path}`], { encoding: 'utf8' });
+      const body = execFileSync('git', ['show', `${baselineRevision}:late-edition/${path}`], { encoding: 'utf8' });
       await page.route(`**/late-edition/${path}`, (route) => route.fulfill({ body, contentType }));
     }
   }
@@ -93,6 +98,7 @@ try {
   await cdp.send('IO.close', { handle: stream });
   await writeFile(`${directory}/${name}.trace.json`, trace);
   // Thread work can overlap: these are per-event totals, not additive wall time.
+  metrics.baselineRevision = baselineRevision;
   metrics.traceWorkMs = {};
   for (const event of JSON.parse(trace).traceEvents) {
     if (event.ph === 'X' && /^(Paint|PrePaint|Layout|UpdateLayoutTree|RasterTask|CompositeLayers|DrawFrame|RasterDecoderImpl::DoEndRasterCHROMIUM|RasterDecoderImpl::DoRasterCHROMIUM|MainFrame.Draw|Commit)$/.test(event.name)) {
