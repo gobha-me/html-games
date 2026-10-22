@@ -31,6 +31,19 @@ test('analytic counts agree with enumeration across phases, windows and periods'
   }
 });
 
+test('fractional-bearing exact endpoints stay inclusive without rounding future crossings in', () => {
+  for (const bearing of [1, 17, 123, 231, 359]) for (const phase0 of [0, 17, 180, 359]) {
+    for (const period of [0.5, 6, 12, 30]) for (let cycle = 1; cycle < 20; cycle++) {
+      const offset = ((bearing - phase0 + 360) % 360) / 360;
+      const tEnd = (cycle + offset) * period;
+      const expected = cycle + (offset === 0 ? 0 : 1);
+      assert.equal(passesBetween({ bearing, phase0, period, tStart: 0, tEnd }), expected);
+      assert.equal(passesBetween({ bearing, phase0, period, tStart: 0, tEnd: tEnd - 1e-9 }), expected - 1);
+      assert.equal(passesBetween({ bearing, phase0, period, tStart: tEnd, tEnd: tEnd + period / 2 }), 0);
+    }
+  }
+});
+
 test('invalid periods, reversed windows and non-finite sweep values throw', () => {
   for (const period of [0, -12, NaN, Infinity, -Infinity, '12', null]) {
     assert.throws(() => passesBetween({ bearing: 0, tStart: 0, tEnd: 12, period }), RangeError);

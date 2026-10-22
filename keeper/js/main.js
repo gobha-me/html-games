@@ -1,4 +1,4 @@
-import { createState, step, summary, NIGHT_SECONDS } from './sim.js';
+import { createState, step, summary, validateSchedule, NIGHT_SECONDS } from './sim.js';
 import { KEYS, CONTROL_LABELS, actionFor, heldInput } from './keys.js';
 import { createRenderer } from './renderer.js';
 import { createHorn } from './audio.js';
@@ -73,7 +73,16 @@ function advance(seconds) {
   draw();
 }
 function start() {
-  audio.unlock(); state = createState(seed); recorded = false; setMode('play'); draw();
+  state = createState(seed);
+  if (!checkSchedule()) { setMode('start'); draw(); return; }
+  audio.unlock(); recorded = false; setMode('play'); draw();
+}
+function checkSchedule() {
+  const result = validateSchedule(state.schedule, state.nightParams);
+  $('schedule-error').hidden = result.ok;
+  $('schedule-error').textContent = result.ok ? '' : `Cannot start watch: invalid ship schedule (${result.violations.map((v) => `${v.index + 1}: ${v.reason}, ${v.passes}/${v.required} passes`).join('; ')}).`;
+  $('start').disabled = !result.ok;
+  return result.ok;
 }
 function toggleHelp() {
   if (mode === 'help') setMode(helpReturn);
@@ -131,4 +140,4 @@ function frame(timestamp) {
   if (mode === 'play') advance(elapsed);
   requestAnimationFrame(frame);
 }
-setMode('start'); draw(); requestAnimationFrame(frame);
+checkSchedule(); setMode('start'); draw(); requestAnimationFrame(frame);

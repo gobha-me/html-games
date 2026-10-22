@@ -5,6 +5,7 @@ export const AFTERIMAGE_SECONDS = 1.5;
 export const CONE_DEGREES = 14;
 export const BUDGET_PERIOD_SECONDS = 12;
 export const NIGHT_PASSES = Object.freeze([4, 4, 3, 3, 2]);
+export const FAST_SHIP_SPEED = 8; // Chart metres / second; audio adapter hook for #115.
 export const SPEED = Object.freeze({ slow: 12, default: 30, fast: 60 });
 export const ROCKS = Object.freeze([
   Object.freeze({ x: 210, y: -255, radius: 24 }),
@@ -14,6 +15,10 @@ export const ROCKS = Object.freeze([
 ]);
 const TICK = 1 / 60;
 const RAD = Math.PI / 180;
+const TURN_DEGREES_PER_SECOND = 22;
+const SHIP_RADIUS = 8;
+const NIGHT_FOG_MAX = 0.16;
+const REEF_NORTH_EDGE = Math.min(...ROCKS.map((rock) => rock.y - rock.radius - SHIP_RADIUS));
 
 function checkPeriod(period) {
   if (!Number.isFinite(period) || period <= 0) throw new RangeError('Period must be finite and positive');
@@ -27,7 +32,14 @@ export function passesBetween({ bearing, tStart, tEnd, period = BUDGET_PERIOD_SE
     throw new RangeError('Sweep window and bearings must be finite and ordered');
   }
   const offset = wrapBearing(wrapBearing(bearing) - wrapBearing(phase0)) / 360;
-  return Math.floor(tEnd / period - offset) - Math.floor(tStart / period - offset);
+  const lastCrossing = (time) => {
+    const cycle = Math.floor(time / period - offset);
+    // Division/subtraction can round an exact endpoint into the adjacent cycle.
+    // Compare actual crossing times, without an epsilon that admits future passes.
+    if ((cycle + offset) * period > time) return cycle - 1;
+    return (cycle + 1 + offset) * period <= time ? cycle + 1 : cycle;
+  };
+  return lastCrossing(tEnd) - lastCrossing(tStart);
 }
 
 // Fog reach must ALSO extend at least this far: extra travel outside fog is not warning time.
@@ -96,11 +108,24 @@ export function createState(seed = 108) {
   }
   // One LCG draw determines the approach lane; the course always crosses the reef.
   const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
+  const approach = {
+    id: 'trawler', spawnTime: 0, bearing: bearingTo(ROCKS[0]) + (random - 0.5),
+    speed: 1.5, responseSeconds: 2, turnRadius: 1.5 / (TURN_DEGREES_PER_SECOND * RAD),
+    pnrRange: Math.hypot(ROCKS[0].x, ROCKS[0].y) + ROCKS[0].radius + SHIP_RADIUS,
+    passes: NIGHT_PASSES[0],
+  };
+  const spawnRange = spawnRangeFor(approach);
   return {
     seed, time: 0, phase: 'night', beam: 285, speed: SPEED.default,
     fog: 0.08 + random * 0.04, horn: false, blasts: [], ignoreUntil: 0,
+    // Budget against the shortest reach during the watch, not just the starting fog.
+    nightParams: { night: 1, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
+    schedule: [{ ...approach, spawnRange }],
     trawler: {
-      x: -310, y: -255 + (random - 0.5) * 10, heading: 90,
+      ...approach, spawnRange,
+      x: Math.sin(approach.bearing * RAD) * spawnRange,
+      y: -Math.cos(approach.bearing * RAD) * spawnRange,
+      heading: wrapBearing(approach.bearing + 180),
       status: 'underway', warnedAt: null, wreckedAt: null,
       afterimage: 0, lastSeen: null,
     },
@@ -117,6 +142,10 @@ export function perception(state) {
       : ship.afterimage > 0 ? ship.lastSeen : null,
     opacity: lit ? 1 : 0.30 * ship.afterimage / AFTERIMAGE_SECONDS,
     runningLights: ship.status !== 'wrecked' && Math.hypot(ship.x, ship.y) <= fogReach(state.fog) / 2,
+    // Stub only: no live hull pose leaks through this bearing/intensity audio hook.
+    engineCue: !lit && ship.status === 'underway' && ship.speed >= FAST_SHIP_SPEED
+      ? { bearing: bearingTo(ship), intensity: 1 / (1 + Math.hypot(ship.x, ship.y) / fogReach(state.fog)) }
+      : null,
   };
 }
 
@@ -133,21 +162,22 @@ function tick(state, input, dt) {
   }
   state.horn = input.horn === true;
   const ship = state.trawler;
-  if (ship.status === 'underway') {
+  if (ship.status === 'underway' || ship.status === 'safe') {
     const near = Math.hypot(ship.x, ship.y) < fogReach(state.fog) * 0.4;
-    if (state.horn && state.time >= state.ignoreUntil && ship.warnedAt === null && (isLit(state) || near)) {
+    if (ship.status === 'underway' && state.horn && state.time >= state.ignoreUntil && ship.warnedAt === null && (isLit(state) || near)) {
       ship.warnedAt = state.time;
     }
     // A real response delay and turning circle make a last-second horn too late.
-    if (ship.warnedAt !== null && state.time - ship.warnedAt >= 2) {
-      ship.heading = Math.max(0, ship.heading - 22 * dt);
+    if (ship.warnedAt !== null && state.time - ship.warnedAt >= ship.responseSeconds) {
+      ship.heading = Math.max(0, ship.heading - TURN_DEGREES_PER_SECOND * dt);
     }
-    ship.x += Math.sin(ship.heading * RAD) * 6.6 * dt;
-    ship.y -= Math.cos(ship.heading * RAD) * 6.6 * dt;
-    if (ROCKS.some((rock) => Math.hypot(ship.x - rock.x, ship.y - rock.y) <= rock.radius + 8)) {
+    ship.x += Math.sin(ship.heading * RAD) * ship.speed * dt;
+    ship.y -= Math.cos(ship.heading * RAD) * ship.speed * dt;
+    if (ship.status === 'underway' && ROCKS.some((rock) => Math.hypot(ship.x - rock.x, ship.y - rock.y) <= rock.radius + SHIP_RADIUS)) {
       ship.status = 'wrecked';
       ship.wreckedAt = state.time;
-    } else if (Math.hypot(ship.x, ship.y) > 590) {
+    } else if (Math.hypot(ship.x, ship.y) > 590
+      || (ship.warnedAt !== null && ship.heading === 0 && ship.y < REEF_NORTH_EDGE)) {
       ship.status = 'safe';
     }
   }
