@@ -1,4 +1,5 @@
 import { PHYSICS_DT, THREAT_HORIZON_SECONDS, HULLS, hornRange, createVessel, stepVessel, broadcastHorn, threatensReef, pointOfNoReturn } from './physics.js';
+import { decodeKeying, parseMessage, keyingFor, shipReply } from './morse.js';
 
 // World units are chart metres; bearings increase clockwise from north.
 // No wall clock, DOM, storage, or unseeded randomness belongs in this module.
@@ -258,6 +259,8 @@ function arrive(approach, type = approach.type ?? 'trawler') {
     destination: { x: east * (spawnRange + (approach.threatening === false ? 1 : -1) * NAVIGATION.destinationLeg),
       y: -north * (spawnRange + (approach.threatening === false ? 1 : -1) * NAVIGATION.destinationLeg) },
     navigation: null,
+    callsign: approach.id === 'trawler' ? 'T108' : `S${approach.id.replace('ship-', '')}`,
+    reply: null,
     status: 'underway', warnedAt: null, wreckedAt: null, reactAt: null,
     targetHeading: null, turnSign: 0, response: 'none',
     afterimage: 0, lastSeen: null, everSeen: false,
@@ -276,6 +279,7 @@ export function createState(seed = 108) {
   return {
     seed, time: 0, phase: 'night', beam: 285, speed: SPEED.default,
     fog: 0.08 + random * 0.04, horn: false, blasts: [], ignoredBlasts: [], hornIgnoredUntil: 0, trust: 1,
+    lamp: false, morse: newKeying(), settings: { incomingWpm: 8 },
     nightParams: { night: 1, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
     hazards,
     schedule: [approach, ...extraApproaches(seed, 1, approach, hazards)],
@@ -292,11 +296,70 @@ export function perception(state, ship = state.trawler) {
       : ship.afterimage > 0 ? ship.lastSeen : null,
     opacity: lit ? 1 : 0.30 * ship.afterimage / AFTERIMAGE_SECONDS,
     runningLights: !ship.smuggler && ship.status !== 'wrecked' && Math.hypot(ship.x, ship.y) <= fogReach(state.fog) / 2,
+    signal: !ship.smuggler && ship.status !== 'wrecked' && Math.hypot(ship.x, ship.y) <= fogReach(state.fog)
+      && Boolean(ship.reply?.flashes.some(({ on, off }) => {
+        const elapsed = (state.time - ship.reply.startedAt) * 1000;
+        return elapsed >= on && elapsed < off;
+      })),
     // Stub only: no live hull pose leaks through this bearing/intensity audio hook.
     engineCue: !lit && ship.status === 'underway' && ship.speed >= FAST_SHIP_SPEED
       ? { bearing: bearingTo(ship), intensity: 1 / (1 + Math.hypot(ship.x, ship.y) / fogReach(state.fog)) }
       : null,
   };
+}
+
+function newKeying() {
+  return { events: [], down: null, ...decodeKeying([]), lastMessage: null };
+}
+
+// Mode changes cancel unfinished keying, including a press held during pause.
+// Completed strip history stays readable; no synthetic key-up can send it again.
+export function resetLamp(previous) {
+  const state = structuredClone(previous);
+  state.lamp = false;
+  state.morse = { ...newKeying(), lastMessage: state.morse.lastMessage };
+  return state;
+}
+
+function sendLamp(state) {
+  const keying = state.morse;
+  // One recipient, selected now (not at key-down or from an afterimage).
+  const ship = fleet(state).find((candidate) => candidate.status === 'underway' && isLit(state, candidate));
+  keying.lastMessage = { text: keying.text, symbols: keying.symbols, recipient: ship?.id ?? null, time: state.time };
+  keying.events = [];
+  if (!ship) return;
+  const message = parseMessage(keying.text);
+  const endangered = threatensReef(physical(ship), reefsFor(state.hazards), THREAT_HORIZON_SECONDS);
+  if (message?.type === 'ROCKS' && endangered && !ship.smuggler && ship.warnedAt === null) {
+    ship.warnedAt = state.time;
+    // Honest captains receive directed warnings regardless of horn spam/trust.
+    ship.reactAt = state.time + HULLS[ship.type].reactionSeconds[1];
+    ship.response = 'turn-away';
+  }
+  const reply = shipReply({ ...ship, endangered }, message);
+  if (reply !== null) ship.reply = { startedAt: state.time, flashes: keyingFor(reply, state.settings.incomingWpm) };
+}
+
+function keyLamp(state, input, dt) {
+  const keying = state.morse;
+  // Timestamp input edges at the start of this substep; round nanosecond noise
+  // so exact 3u gaps survive accumulated floating-point simulation seconds.
+  const edge = Math.round((state.time - dt) * 1e9) / 1e6;
+  const held = input.lamp === true;
+  if (held && !state.lamp) {
+    if (!keying.events.length) Object.assign(keying, newKeying(), { lastMessage: keying.lastMessage });
+    keying.down = edge;
+  } else if (!held && state.lamp) {
+    if (edge > keying.down) {
+      keying.events.push({ down: keying.down, up: edge });
+      Object.assign(keying, decodeKeying(keying.events));
+    }
+    keying.down = null;
+  }
+  state.lamp = held;
+  if (!held && keying.events.length && state.time * 1000 - keying.events.at(-1).up >= 7 * keying.unit - 1e-7) {
+    sendLamp(state);
+  }
 }
 
 function blastHorn(state) {
@@ -418,6 +481,7 @@ function tick(state, input, dt) {
   }
   if (input.horn === true && !state.horn) blastHorn(state);
   state.horn = input.horn === true;
+  keyLamp(state, input, dt);
   for (const ship of fleet(state)) {
     if (ship.status === 'underway' || ship.status === 'safe') {
       let rudderCommand = 0;
@@ -458,6 +522,7 @@ function tick(state, input, dt) {
   if (state.time >= NIGHT_SECONDS) {
     state.phase = 'dawn';
     state.horn = false;
+    state.lamp = false;
   }
 }
 
@@ -470,7 +535,7 @@ export function step(previous, input = {}, seconds = TICK) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new TypeError('Input must be an action object');
   }
-  for (const key of ['slow', 'fast', 'hold', 'horn']) {
+  for (const key of ['slow', 'fast', 'hold', 'horn', 'lamp']) {
     if (Object.hasOwn(input, key) && typeof input[key] !== 'boolean') throw new TypeError(`Invalid ${key}`);
   }
   const state = structuredClone(previous);
@@ -485,6 +550,7 @@ export function step(previous, input = {}, seconds = TICK) {
     state.time = NIGHT_SECONDS;
     state.phase = 'dawn';
     state.horn = false;
+    state.lamp = false;
   }
   return state;
 }
