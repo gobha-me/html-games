@@ -4,7 +4,7 @@ import { PALETTE } from './palette.js';
 // ============================================================================
 
 import { h, reconcile, setText } from './dom.js';
-import { FILE_DRAWER, FRONT_PAGE_SLOTS, isUnlocked, deskFits } from './config.js';
+import { FILE_DRAWER, FRONT_PAGE_SLOTS, EDITION_DURATION_SEC, isUnlocked, deskFits } from './config.js';
 import { LateEditionSim } from './sim.js';
 import { NoirCityRenderer } from './renderer.js';
 import { drawSilhouette } from './silhouettes.js';
@@ -59,6 +59,7 @@ class LateEditionApp {
     this.lastFrameTime = performance.now();
     this.uiTickAccum = 0;
     this.modalMode = null;
+    this.pressElapsed = 0;
     this.focusBeforeModal = null;
 
     this._bindEvents();
@@ -189,7 +190,7 @@ class LateEditionApp {
       if (target.dataset.dispatchOp) {
         const uid = this.sim.selectedLeadId || this.sim.leads[0]?.uid;
         if (uid) this.sim.dispatchOperativeToLead(opId, uid);
-      } else this.audio.typewriter();
+      } else this.audio.emit('typewriter');
     });
     delegate('scoop-tray', '[data-story-uid]', (target) => {
       this.selectedStoryUid = target.dataset.storyUid;
@@ -245,9 +246,14 @@ class LateEditionApp {
     document.getElementById('btn-skip-intro').addEventListener('click', () => this._skipIntro());
     window.addEventListener('resize', () => this._updateDeskSize());
     this._bindListEvents();
-    const unlockAudio = () => this.audio.resume();
-    window.addEventListener('pointerdown', unlockAudio, { once: true });
-    window.addEventListener('keydown', unlockAudio, { once: true });
+    const unlockAudio = (event) => {
+      if (event.isTrusted) void this.audio.resume();
+    };
+    // Capture unlocks before the gesture's command emits a cue. Keep listening
+    // so a rejected autoplay/device resume can retry on a later real gesture.
+    window.addEventListener('pointerdown', unlockAudio, { capture: true });
+    window.addEventListener('keydown', unlockAudio, { capture: true });
+    document.addEventListener('visibilitychange', () => this._syncAudioPause());
 
     this.canvas.addEventListener('mousemove', (e) => {
       const pt = this.renderer.screenToWorld(e.clientX, e.clientY);
@@ -281,7 +287,7 @@ class LateEditionApp {
         if (!this.sim.operativeAvailable(op)) continue;
         if (Math.hypot(op.x - pt.x, op.y - pt.y) <= 30) {
           if (!this.sim.selectOperative(op.id)) return;
-          this.audio.typewriter();
+          this.audio.emit('typewriter');
           this._syncFullUI();
           return;
         }
@@ -310,7 +316,7 @@ class LateEditionApp {
         op.targetX = this.sim.hq.x + this.sim.hq.w * 0.5;
         op.targetY = this.sim.hq.y + this.sim.hq.h + 24;
         op.state = 'RETURNING TO HQ';
-        this.audio.dispatch();
+        this.audio.emit('dispatch');
         this._syncFullUI();
       }
     });
@@ -332,10 +338,16 @@ class LateEditionApp {
 
     const btnAudio = document.getElementById('btn-audio');
     btnAudio.addEventListener('click', () => {
-      const muted = this.audio.toggleMute();
-      setText(btnAudio, muted ? 'SOUND: OFF' : 'SOUND: ON');
-      btnAudio.classList.toggle('active', !muted);
+      this.audio.toggleMute();
+      this._syncAudioControls();
     });
+    for (const channel of ['music', 'ambience', 'sfx']) {
+      document.getElementById(`volume-${channel}`).addEventListener('input', (event) => {
+        this.audio.setVolume(channel, Number(event.target.value) / 100);
+        this._syncAudioControls();
+      });
+    }
+    this._syncAudioControls();
 
     document.getElementById('btn-lock-page').addEventListener('click', () => {
       this.sim.lockUp();
@@ -477,7 +489,7 @@ class LateEditionApp {
       } else if (action?.startsWith('select-operative:')) {
         const idx = Number(action.slice('select-operative:'.length));
         if (this.sim.selectOperative(this.sim.operatives[idx]?.id)) {
-          this.audio.typewriter();
+          this.audio.emit('typewriter');
           this._syncFullUI();
         }
       } else if (action === 'assist') {
@@ -505,8 +517,8 @@ class LateEditionApp {
         this.sim.paused = !this.sim.paused;
         this._syncSpeedButtons();
       } else if (action === 'mute') {
-        const muted = this.audio.toggleMute();
-        setText(btnAudio, muted ? 'SOUND: OFF' : 'SOUND: ON');
+        this.audio.toggleMute();
+        this._syncAudioControls();
       } else if (action === 'publish') {
         e.preventDefault();
         if (this.sim.editionSummary) {
@@ -638,6 +650,7 @@ class LateEditionApp {
   }
 
   _syncSpeedButtons() {
+    this._syncAudioPause();
     document
       .getElementById('btn-pause')
       .classList.toggle('active', this.sim.paused);
@@ -873,6 +886,11 @@ class LateEditionApp {
     const mode = folded ? 'folded' : sum ? 'summary' : null;
     if (folded && this.modalMode !== 'folded') this._discardSave();
     const changed = mode !== this.modalMode;
+    if (sum !== this.shownPressSummary) {
+      if (this.shownPressSummary) this.audio.cancel('press');
+      this.shownPressSummary = sum;
+      this.pressElapsed = 0;
+    }
     if (mode && !this.modalMode) this.focusBeforeModal = document.activeElement;
     modal.classList.toggle('hidden', !mode);
     modal.classList.toggle('paper-folded', folded);
@@ -884,6 +902,27 @@ class LateEditionApp {
     if (!mode) {
       if (changed && this.focusBeforeModal?.isConnected) this.focusBeforeModal.focus();
       return;
+    }
+    const elapsed = this.motionPreference.matches ? 4 : this.pressElapsed;
+    const stage = elapsed < 0.6 ? 'plates' : elapsed < 1.5 ? 'rolling' : elapsed < 2.25 ? 'papers' : elapsed < 3.25 ? 'extra' : 'morning';
+    const show = document.getElementById('press-show');
+    show.hidden = folded;
+    show.dataset.stage = stage;
+    setText(document.getElementById('press-caption'), {
+      plates: 'PLATES LOCKED · THE ROTARY PRESS TAKES THE PAGE',
+      rolling: 'ROLLERS TURN · THE PRESS GATHERS SPEED',
+      papers: 'FRESH INK · PAPERS FLY OFF THE ROLL',
+      extra: 'NEWSBOY: “EXTRA! EXTRA!”',
+      morning: 'DAWN · THE RIVAL PAPER IS ON THE STAND',
+    }[stage]);
+    const morning = document.getElementById('morning-after');
+    morning.hidden = folded || stage !== 'morning';
+    if (sum && !folded) {
+      const herald = this.sim.rivalStandings.find((paper) => paper.id === 'herald');
+      setText(document.getElementById('rival-headline'), herald.circulation >= sum.totalCirculation ?
+        'HERALD LEADS THE MORNING STREET SALES' : 'EVENING STAR STEALS A MARCH ON THE HERALD');
+      setText(document.getElementById('rival-deck'),
+        `The Daily Herald · ${herald.circulation.toLocaleString()} readers. The Evening Star · ${sum.totalCirculation.toLocaleString()} readers. The city remembers edition #${sum.edition}.`);
     }
     setText(document.getElementById('modal-kicker'), folded ? 'THE EVENING STAR // STOP PRESS TELEGRAM' : `ROTARY PRESS REPORT // EDITION #${sum.edition}`);
     setText(document.getElementById('modal-title'), folded ? 'PAPER FOLDED' : `EXTRA! EXTRA! EDITION #${sum.edition} HITS THE STREETS`);
@@ -931,6 +970,9 @@ class LateEditionApp {
   }
 
   _syncFullUI() {
+    this._syncAudioPause();
+    this.audio.setScene({ active: this.sim.phase !== 'title' && !this.sim.editionSummary && !this.sim.gameOver,
+      progress: this.sim.clockSec / EDITION_DURATION_SEC });
     const layout = this.sim.phase === 'paste-up';
     document.querySelector('.desk-workspace').classList.toggle('paste-up-active', layout);
     document.getElementById('pasteup-controls').hidden = !layout;
@@ -1038,6 +1080,22 @@ class LateEditionApp {
     if (!tooSmall && this.focusBeforeResize?.isConnected) this.focusBeforeResize.focus();
   }
 
+  _syncAudioControls() {
+    const button = document.getElementById('btn-audio');
+    setText(button, this.audio.muted ? 'SOUND: OFF [M]' : 'SOUND: ON [M]');
+    button.classList.toggle('active', !this.audio.muted);
+    button.setAttribute('aria-pressed', String(this.audio.muted));
+    for (const channel of ['music', 'ambience', 'sfx']) {
+      const value = String(Math.round(this.audio.settings[channel] * 100));
+      document.getElementById(`volume-${channel}`).value = value;
+      setText(document.getElementById(`volume-${channel}-value`), `${value}%`);
+    }
+  }
+
+  _syncAudioPause() {
+    void this.audio.setSuspended(document.hidden || this.sim.deskTooSmall || this.sim.paused);
+  }
+
   _renderOpening() {
     const { phase, deskTooSmall } = this.sim;
     if (phase !== 'title' || deskTooSmall) this.titleRenderer.releaseTitle();
@@ -1071,6 +1129,7 @@ class LateEditionApp {
     const rawDt = Math.max(0.001, Math.min(0.05, (now - this.lastFrameTime) / 1000));
     this.lastFrameTime = now;
     const dt = rawDt * (this.sim.speed || 1);
+    if (this.sim.editionSummary && !document.hidden && !this.sim.deskTooSmall && !this.sim.paused) this.pressElapsed += rawDt;
 
     if (this.sim.phase === 'cold-open' && !this.sim.deskTooSmall) {
       if (this.coldOpen.advance(rawDt)) this._skipIntro();

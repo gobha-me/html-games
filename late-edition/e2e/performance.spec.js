@@ -23,6 +23,10 @@ for (const rate of [1, 4]) {
     try {
       await cdp.send('Emulation.setCPUThrottlingRate', { rate });
       await page.goto('/late-edition/?seed=89&preview=combat');
+      // Budget the shipped sound bed too: preview setup is programmatic and
+      // cannot unlock WebAudio; a real gesture must do that before profiling.
+      await page.keyboard.press('Shift');
+      await expect.poll(() => page.evaluate(() => window.lateEditionApp.audio.ctx?.state)).toBe('running');
       await page.evaluate(() => document.fonts.ready);
       await expect.poll(() => page.evaluate(() => Boolean(window.lateEditionApp.renderer.cache))).toBe(true);
       // Steady-state budget: first wait for 30 consecutive on-budget frames.

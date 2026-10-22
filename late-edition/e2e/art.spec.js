@@ -234,17 +234,26 @@ test('static caption text nodes and words are each cut at least in half', async 
     const source = await (await fetch('index.html')).text();
     const doc = new DOMParser().parseFromString(source, 'text/html');
     const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
-    const labels = [];
+    const labels = [], soundLabels = [];
     while (walker.nextNode()) {
       const node = walker.currentNode;
       const dynamic = dynamicIds.some((id) => node.parentElement.closest(`[id="${id}"]`));
-      if (!dynamic && !node.parentElement.closest('script, style') && node.textContent.trim()) labels.push(node.textContent.trim());
+      if (!dynamic && !node.parentElement.closest('script, style') && node.textContent.trim()) {
+        // #90 adds three mixer controls and a press report absent from the
+        // pre-#88 fixture. Budget those additions separately; retain the original
+        // 50% caption reduction gate on every pre-existing desk surface.
+        const sound = node.parentElement.closest('.sound-mixer, #press-show, #morning-after');
+        (sound ? soundLabels : labels).push(node.textContent.trim());
+      }
     }
-    return { nodes: labels.length, words: labels.reduce((sum, label) => sum + label.split(/\s+/).length, 0) };
+    return { nodes: labels.length, words: labels.reduce((sum, label) => sum + label.split(/\s+/).length, 0),
+      soundNodes: soundLabels.length, soundWords: soundLabels.reduce((sum, label) => sum + label.split(/\s+/).length, 0) };
   }, baseline.dynamicIds);
   await testInfo.attach('caption-counts', { body: JSON.stringify({ baseline, after: counts }, null, 2), contentType: 'application/json' });
   expect(counts.nodes).toBeLessThanOrEqual(baseline.nodes / 2);
   expect(counts.words).toBeLessThanOrEqual(baseline.words / 2);
+  expect(counts.soundNodes).toBeLessThanOrEqual(11);
+  expect(counts.soundWords).toBeLessThanOrEqual(24);
 });
 
 test('reduced motion disables paper, stamps and phone, while sodium focus remains', async ({ page }) => {

@@ -59,9 +59,17 @@ export function createStorageAdapter(getStorage = () => null) {
 }
 
 export function createAudioAdapter(audio) {
-  return Object.fromEntries([
-    'dispatch', 'typewriter', 'wireBell', 'bribe', 'phoneRing', 'pressRun', 'shutter',
-  ].map((cue) => [cue, (...args) => audio?.[cue]?.(...args)]));
+  const emit = (event, ...args) => {
+    try {
+      const result = audio?.emit ? audio.emit(event, ...args) : audio?.[event]?.(...args);
+      // Both custom ports and browser devices may fail asynchronously. Audio is
+      // an optional event sink; neither failure may alter simulation control flow.
+      Promise.resolve(result).catch(() => {});
+    } catch { /* Missing/broken audio leaves gameplay unchanged. */ }
+  };
+  return { emit, ...Object.fromEntries([
+    'dispatch', 'typewriter', 'wireBell', 'bribe', 'phoneRing', 'pressRun', 'shutter', 'editionStart', 'deadline',
+  ].map((cue) => [cue, (...args) => emit(cue, ...args)])) };
 }
 
 export function resolveSeed(value, fallback) {

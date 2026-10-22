@@ -1239,3 +1239,81 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+.sound-mixer {
+  position: relative;
+}
+
+.sound-mixer summary {
+  cursor: pointer;
+}
+
+.sound-mixer fieldset {
+  position: absolute;
+  z-index: 70;
+  inset-inline-end: 0;
+  width: 220px;
+  padding: 12px;
+  background: var(--mahogany);
+  color: var(--newsprint);
+  border: 1px solid var(--brass);
+}
+
+.sound-mixer .mixer-label {
+  display: flex;
+  justify-content: space-between;
+}
+
+.sound-mixer input {
+  width: 100%;
+  accent-color: var(--sodium);
+}
+
+.press-show {
+  border-block: 2px solid var(--night-ink);
+  padding: 8px;
+  font: 13px/1.4 'Courier Prime', monospace;
+}
+
+.press-rollers {
+  height: 34px;
+  overflow: hidden;
+  background: repeating-linear-gradient(90deg, var(--night-ink) 0 8px, var(--smoke) 8px 10px);
+}
+
+.press-rollers span {
+  display: inline-block;
+  padding: 8px 18px;
+  color: var(--night-ink);
+  background: var(--newsprint-aged);
+}
+
+.press-show[data-stage='rolling'] .press-rollers span {
+  animation: press-paper 0.4s linear infinite;
+}
+
+.press-show[data-stage='papers'] .press-rollers span {
+  animation: press-paper 0.2s linear infinite;
+}
+
+@keyframes press-paper {
+  from { transform: translateX(-35%); }
+  to { transform: translateX(35%); }
+}
+
+.morning-after {
+  text-align: left;
+  border: 3px double var(--night-ink);
+  padding: 8px 14px;
+  margin-block: 10px;
+  background: var(--newsprint-aged);
+}
+
+.morning-after h3 {
+  font: 26px/1.1 'League Gothic', Impact, sans-serif;
+  margin-block: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press-rollers span { animation: none !important; }
+}
