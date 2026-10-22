@@ -21,7 +21,7 @@ export default [
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
-    files: ['js/sim.js', 'js/physics.js'],
+    files: ['js/sim.js', 'js/physics.js', 'js/morse.js'],
     rules: {
       'no-restricted-globals': ['error', 'Date', 'window', 'document', 'localStorage', 'performance'],
       'no-restricted-properties': ['error',
