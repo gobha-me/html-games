@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased — Seeded additional ships (kspawn)
+
+- Keep the opening trawler's lane, physical warning window and trajectory.
+  Add pure deterministic `planSpawns(seed, { night })`, unique ordered ship
+  ids, uint32/night rejection, and fixed-tick arrivals into the shared fleet.
+  New arrivals travel only their post-spawn fraction of a tick and use the
+  existing horn, trust, physics, perception and renderer paths.
+- Export frozen `SPAWN` tunables: `firstMin: 24`, `firstMax: 36` seconds;
+  `intervalStart: 40`, `intervalEnd: 18` seconds, linearly ramped over the
+  180-second watch; `jitter: 0.25` (gap factors 0.75–1.25); `maxActive: 3`
+  inclusive overlapping windows, opener included; `lastSpawn: 120` seconds;
+  `minBearingGap: 20` degrees circular separation; `threatShare: 0.6`
+  candidate probability before rejection. DESIGN §6 documents every field,
+  the exact gap formula and conservative active-window reservations.
+- Try at most eight seeded candidates per slot, rejecting capacity, bearing
+  or fairness failures. Stop at an exhausted slot to preserve accepted-gap
+  bounds. Threatening approaches fit the physical sweep budget inside the
+  464.8 m worst-fog horizon; clear traffic sails outward beyond the reefs
+  and cannot wreck unwarned. Threatening coasters require a later night's
+  smaller pass quota. DESIGN §7 records the independent fairness guarantee.
+- Persist multiple morning outcomes as version 2 while retaining legacy
+  record reads; pluralize fleet summaries. Preserve the renderer's existing
+  `state.ships` loop and verify a scheduled arrival's actual canvas pose.
+- Add adversarial spawn tests: every arrival across 500 seeds, timing/jitter,
+  all-night physical PNR, independently counted passes, inclusive capacity,
+  circular bearings, replay, exact arrival boundaries, hitches, clear routes
+  beyond dawn, held/repressed horn, rescued fleets, invalid seeds/nights and
+  the unchanged opener. Update one-ship summary fixtures to inspect the
+  original trawler independently and browser expectations to cover the fleet.
+- Verification (Node 22.22.0): `npm run lint` passes with zero warnings;
+  `npm run test:coverage` passes all 111 tests with 100% line coverage in
+  `sim.js` and `physics.js`; `npm run test:e2e` passes all 17 browser tests.
+
 ## Unreleased — Lamp anchor and island pixel detail (kbeam-ISSUE)
 
 - Export immutable chart-space `LAMP`, bearing-validated `beamOrigin()` and

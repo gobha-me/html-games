@@ -1,8 +1,9 @@
 # Keeper
 
 Keep the light on Skerry Rock through a black, fog-bound night. A trawler's
-course crosses the Teeth. Find her with the beam and broadcast the horn early
-enough for her crew to turn away. Failure stays with you until morning.
+course crosses the Teeth, followed by seeded trawler and coaster traffic.
+Find endangered ships with the beam and broadcast the horn early enough for
+their crews to turn away. Failure stays with you until morning.
 
 ## How to play
 
@@ -63,7 +64,7 @@ the helper compresses the wait for dawn without altering the course or outcome.
 Issue #108: first playable, one trawler / one three-minute watch. Start, pause,
 controls, restart, safe/wrecked dawn summary, and a versioned last-watch record
 in localStorage. Invalid or inaccessible storage never prevents play. In-progress
-resume, the keeper's log, Morse (K/L), additional ships/nights, and ambient
+resume, the keeper's log, Morse (K/L), additional nights, and ambient
 wind/sea audio belong to later milestones. The full design is in
 [docs/DESIGN.md](docs/DESIGN.md); this milestone intentionally shortens the night.
 Issue #118 adds pure sweep-budget helpers, schedule rejection on load/start,
@@ -71,9 +72,14 @@ a retuned radial trawler and a fast-ship engine-cue stub for #115. The five
 night pass minima are defined; additional nights and engine audio remain future work.
 Issue #120 adds deterministic rudder/Nomoto hull physics, broadcast horns for
 the fleet, physical PONR budgeting, and smooth rendered turns. Four hull types
-are tuned and tested; the first watch still spawns only one trawler.
+are tuned and tested.
 Issue #109 completes the foghorn trust/recovery and spam rules, with muted-play
 visual rings and a trust readout.
+The kspawn pacing change adds seeded arrivals from 24–36 seconds onward,
+with jittered gaps, at most three overlapping active windows, separated
+bearings and independent warning budgets. Traffic stops arriving by 120
+seconds; clear outbound ships never cross reefs. Fleet outcomes persist in
+the morning record. All pacing tunables are documented in DESIGN §6.
 
 ## File layout
 
