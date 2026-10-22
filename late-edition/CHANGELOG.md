@@ -1,5 +1,17 @@
 # Changelog — LATE EDITION // 1947
 
+## Unreleased — PR #101 CI GPU-path experiment
+
+- Remove per-lead, figure and onboarding canvas/bitmap caches. Paint telegram text,
+  flags, stamps, prompt and scaled silhouette paths directly each frame; retain
+  numeric text widths, fixed birth placements, leader lines and 250 ms overlap checks.
+- Restore the `43d7940` detached Canvas2D city/fog cache setup, retaining lazy title
+  creation/release and all director-note visuals. Per-frame canvas draws now only
+  sample the original city, edge fog and drifting fog sources.
+- Replace sprite-reuse assertions with adversarial allocation/blit guards, live
+  copy/verification/selection checks, fixed-placement and direct-figure regressions.
+  CI SwiftShader improvement still requires a GitHub run; local timing cannot prove it.
+
 ## [2.10.0] — 2026-10-21 (#89 — Oblique silhouette city)
 
 ### Changed

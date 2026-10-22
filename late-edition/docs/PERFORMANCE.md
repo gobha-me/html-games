@@ -303,3 +303,26 @@ and actual raster events alongside flashing rather than counting notifications.
 allow collisions and must never be used for acceptance. `--skip-screenshot`
 avoids a post-sample readback when only trace/metrics are needed. Software-canvas
 ablations affect game canvases only, leaving blank-page calibration unchanged.
+
+
+## PR #101: remove small texture sources (2026-10-22 experiment)
+
+The owner reports `43d7940` passed CPU 1×/1080p on GitHub twice on the first
+attempt; subsequent director-note/cache revisions recorded only 36–54 frames
+there while passing locally. The hypothesis is SwiftShader texture upload/flush
+cost from many per-label and per-figure canvas/bitmap sources. This remains a
+hypothesis until CI runs the experiment.
+
+This experiment removes lead, figure and onboarding raster caches entirely.
+Labels use direct text/vector drawing at stable placements with numeric width
+metadata, and figures use direct silhouette paths at `FIGURE_SCALE`. Birth
+placement, always-visible leaders and the at-most-250-ms overlap check remain.
+Large city, edge-fog and drifting-fog caches use the detached Canvas2D setup
+from `43d7940`; title caches remain lazy and are released on leaving the title.
+Comparison with that commit leaves no additional per-frame canvas-source
+`drawImage` calls: desk frames have city + edge fog + three drifting-fog draws.
+The historical bitmap-cache measurements above describe earlier experiments.
+
+Adversarial tests reject warm canvas allocation and any unexpected sampled
+source, verify live copy/stamps/selection, and retain placement, ring, scale,
+DPR and gameplay-isolation checks. All performance thresholds remain unchanged.

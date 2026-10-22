@@ -479,10 +479,10 @@ loaded; the editor portrait and press plate remain in use (see asset notes).
 `NoirCityRenderer` caches city geometry/lamps, ink-only edge shading, and three title depth
 layers on detached canvases at the displayed size × DPR. City/title geometry is
 baked only for the scene being displayed; title geometry is generated lazily and
-all title bitmaps/canvases are released when leaving the title. The city renderer
-never creates title caches. Static caches use CPU-backed bitmaps and the visible
-canvas declares its opaque background. Caches rebuild on size/DPR
-changes, after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
+all title canvases release their backing stores when leaving the title. The city renderer
+never creates title caches. Static city/fog caches use the detached Canvas2D sources
+from `43d7940`. Caches rebuild on size/DPR changes, after the initial local font
+load settles. Each frame composites these layers and draws traffic, figures, leads,
 threads, collision-offset street signs, weather and callouts. Title layers dissolve
 into an ink-to-faint-mahogany/sodium horizon through low-contrast dark haze, with an
 near skyline close to ink-black, bridge, solid water towers and sparse windows.
@@ -527,14 +527,14 @@ only mutate changed text nodes, preserving unchanged paper paint.
 Small drifting-fog sprites follow displayed resolution/DPR, and street-sign widths
 and collision positions are cached until lead display geometry changes. Rain
 remains one stroked path; no per-frame shadow blur or resolution cap was added.
-Telegram text/flags/stamps use bounded, per-lead bitmap caches. Placements remain
-stationary except when a 250 ms wall-clock check finds a figure/ring overlap.
-Warm frames neither construct collision geometry nor measure/rasterize text.
-Removed leads release their sprites; copy, verification and selection edits refresh
-pixels in place. Address edits retie the leader without moving the label; size/DPR
-changes rebuild raster resolution. The onboarding prompt bounces as a cached bitmap.
+Telegram text/flags/stamps and the bouncing onboarding prompt are drawn directly
+with text and vector paths, using cached numeric widths and fixed birth placements.
+Only a 250 ms wall-clock figure/ring overlap check may re-place an existing label;
+address edits retie its leader without moving it. Copy edits refresh dimensions in
+place; selection and verification are painted live. Removed leads release placement
+metadata. Enlarged figures use direct vector paths at `FIGURE_SCALE`, retaining
+body bob, fixed street shadows, badges and selection/stun rings. No per-label,
+per-figure or onboarding canvas/ImageBitmap sources are allocated or sampled.
 Hidden title art retains no cache or backing texture behind the desk.
-Enlarged figure bodies are cached by role/faction; their body bob, fixed street
-shadow, number badge and selection/stun rings keep their original placement.
 See [profiling notes](docs/PERFORMANCE.md) for the PR #101 diagnosis, trace commands,
 local before/after measurements and the limits of CPU submission timing.

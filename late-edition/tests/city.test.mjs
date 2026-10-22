@@ -6,6 +6,7 @@ import { NoirCityRenderer } from '../js/renderer.js';
 import { LateEditionSim } from '../js/sim.js';
 import { boxesIntersect, placeLabel } from '../js/label-placement.js';
 import { FIGURE_SCALE, MARKER_SCALE } from '../js/silhouettes.js';
+import { PALETTE } from '../js/palette.js';
 
 const district = DISTRICTS[0];
 test('cosmetic seed is repeatable, isolated from order, and changes silhouettes', () => {
@@ -44,7 +45,11 @@ function canvasFixture(t) {
     if (key === 'measureText') return (text) => { calls.push([key, text]); return { width: text.length * 7 }; };
     if (String(key).startsWith('create')) return (...args) => { calls.push([key, ...args]); return { addColorStop() {} }; };
     return (...args) => calls.push([key, ...args]);
-  }, set: () => true });
+  }, set: (_, key, value) => {
+    // Gradients are new objects each draw; their geometry is recorded above.
+    if (typeof value !== 'object') calls.push(['set', key, value]);
+    return true;
+  } });
   const rect = { left: 12, top: 34, width: 1000, height: 650 };
   const canvas = () => ({ width: 1, height: 1, getContext: () => ctx, getBoundingClientRect: () => rect });
   const oldWindow = globalThis.window, oldDocument = globalThis.document;
@@ -142,6 +147,11 @@ test('title resources are lazy, close on exit, and never exist in a desk cache',
   assert.equal(closed, 3, 'Release is idempotent');
   renderer.renderTitle(0);
   assert.notEqual(renderer.cache.skyline, skyline, 'Re-entering title builds fresh layers');
+  const canvases = renderer.cache.skyline;
+  renderer.releaseTitle();
+  assert.ok(canvases.every((source) => source.width === 0 && source.height === 0),
+    'Canvas sources must release backing stores even when an external observer retains them');
+  renderer.renderTitle(0);
   rect.width += 100;
   renderer.render(sim, 0);
   assert.ok(renderer.cache.city);
@@ -315,52 +325,67 @@ test('birth placement checks HQ, district signs and existing labels without cons
   assert.deepEqual(added[2].box, placements[1].box, 'Fully obstructed births keep the last offset');
 });
 
-test('warm label sprites reject stale in-place copy, selection and verification; removed leads release sprites', (t) => {
+test('direct labels repaint stale copy, selection and verification without allocating or blitting sprites', (t) => {
   const { canvas, calls } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas);
   const sim = new LateEditionSim({ seed: 89 });
   renderer.render(sim, 0);
+  globalThis.document.createElement = () => { throw new Error('Dynamic labels must never allocate canvases'); };
   const lead = sim.leads[0];
-  const first = renderer.cache.leadLabels.get(lead.uid);
+  const placements = renderer.cache.labelLayout.placements;
+  const first = placements.get(lead.uid);
   calls.length = 0;
   lead.timeLeft -= 10;
   lead.progress = 50;
   lead.rivalProgress = 90;
   renderer._drawStoryLeads(renderer.ctx, sim);
-  assert.equal(renderer.cache.leadLabels.get(lead.uid), first);
-  assert.equal(calls.filter(([name]) => name === 'measureText' || name === 'fillText').length, 0,
-    'Live arcs/countdown must not measure or rasterize unchanged label text');
-  for (const [field, value] of Object.entries({ beat: 'GRAFT', headline: 'CHANGED IN PLACE',
-    baseValue: 0, seriesBadge: 'PART III/III', photoVerified: true, scoopedByRival: true })) {
-    const previous = renderer.cache.leadLabels.get(lead.uid);
+  assert.equal(placements.get(lead.uid), first);
+  assert.equal(calls.filter(([name]) => name === 'measureText').length, 0,
+    'Unchanged text widths must not be measured per frame');
+  assert.ok(calls.some(([name]) => name === 'fillText'), 'Labels must draw text on every frame');
+  for (const [field, value, expected] of [
+    ['beat', 'GRAFT', 'GRAFT'], ['headline', 'CHANGED IN PLACE', '$' + lead.baseValue + ' · CHANGED IN PLACE…'],
+    ['baseValue', 0, '$0 · CHANGED IN PLACE…'], ['seriesBadge', 'PART III/III', 'PART III/III'],
+    ['photoVerified', true, '1.8×'], ['scoopedByRival', true, '1.8×'],
+  ]) {
+    const previous = placements.get(lead.uid).box;
     lead[field] = value;
+    calls.length = 0;
     renderer._drawStoryLeads(renderer.ctx, sim);
-    assert.notEqual(renderer.cache.leadLabels.get(lead.uid), previous, field);
+    assert.ok(calls.some(([name, text]) => name === 'fillText' && text === expected), field);
+    assert.equal(placements.get(lead.uid).box.x, previous.x, field);
+    assert.equal(placements.get(lead.uid).box.y, previous.y, field);
+    assert.equal(calls.filter(([name]) => name === 'drawImage').length, 0, field);
   }
-  const previous = renderer.cache.leadLabels.get(lead.uid);
-  sim.selectedLeadId = sim.selectedLeadId === lead.uid ? null : lead.uid;
-  renderer._drawStoryLeads(renderer.ctx, sim);
-  assert.notEqual(renderer.cache.leadLabels.get(lead.uid), previous, 'Selection changes the pill border');
+  // Isolate the lead so another selected headline cannot satisfy the assertion.
+  sim.leads = [lead];
+  for (const selected of [false, true, false]) {
+    sim.selectedLeadId = selected ? lead.uid : null;
+    calls.length = 0;
+    renderer._drawStoryLeads(renderer.ctx, sim);
+    const pill = calls.findIndex(([name, , y]) => name === 'strokeRect' && y === -46);
+    assert.ok(pill > 0);
+    const border = calls.slice(0, pill).filter(([name, key]) => name === 'set' && key === 'strokeStyle').at(-1);
+    assert.equal(border[2], selected ? PALETTE.newsprint : PALETTE.sodium);
+  }
   lead.photoVerified = false;
   calls.length = 0;
   renderer._drawStoryLeads(renderer.ctx, sim);
   assert.ok(calls.some(([name, text]) => name === 'fillText' && text === '0.5×'),
     'Removing photo verification must expose the rival stamp');
-  calls.length = 0;
-  renderer._drawStoryLeads(renderer.ctx, sim);
-  for (const { leader } of renderer.cache.labelLayout.placements.values()) {
+  for (const { leader } of placements.values()) {
     assert.ok(calls.some(([name, x, y], i) => name === 'moveTo' && x === leader.from.x && y === leader.from.y &&
       calls[i + 1]?.[0] === 'lineTo' && calls[i + 1][1] === leader.to.x && calls[i + 1][2] === leader.to.y &&
-      calls[i + 2]?.[0] === 'stroke'), 'Every cached label must still draw its leader on warm frames');
+      calls[i + 2]?.[0] === 'stroke'), 'Every label must draw its leader on warm frames');
   }
   const uid = lead.uid;
   lead.uid = 'replacement-at-same-address';
   renderer._drawStoryLeads(renderer.ctx, sim);
-  assert.equal(renderer.cache.leadLabels.has(uid), false);
-  assert.equal(renderer.cache.leadLabels.size, sim.leads.length);
+  assert.equal(placements.has(uid), false);
+  assert.equal(placements.size, sim.leads.length);
   sim.leads = [];
   renderer._drawStoryLeads(renderer.ctx, sim);
-  assert.equal(renderer.cache.leadLabels.size, 0);
+  assert.equal(placements.size, 0);
 });
 
 test('a first scoop and later selection never shrink onboarding space or shift surviving artwork', (t) => {
@@ -370,24 +395,18 @@ test('a first scoop and later selection never shrink onboarding space or shift s
   renderer.render(sim, 0);
   const lead = sim.leads[1];
   const placement = renderer.cache.labelLayout.placements.get(lead.uid);
-  const cached = renderer.cache.leadLabels.get(lead.uid);
-  assert.ok(cached.width < placement.box.w, 'Do not rasterize the empty prompt margin');
-  const drawPosition = (sprite) => {
-    const call = calls.find(([name, image]) => name === 'drawImage' && image === sprite);
-    assert.ok(call, 'The actual cached telegram must be blitted');
-    return call.slice(2);
-  };
-  const before = drawPosition(cached.sprite);
+  const before = [placement.box.x + placement.box.w / 2, placement.box.y - placement.top];
   sim.scoopsTotal = 1;
   sim.selectedLeadId = lead.uid;
   calls.length = 0;
   renderer._drawStoryLeads(renderer.ctx, sim);
   assert.deepEqual(renderer.cache.labelLayout.placements.get(lead.uid).box, placement.box);
-  assert.deepEqual(drawPosition(renderer.cache.leadLabels.get(lead.uid).sprite), before,
-    'A selection pixel refresh must preserve the exact image position and size after onboarding ends');
+  assert.ok(calls.some(([name, x, y]) => name === 'translate' && x === before[0] && y === before[1]),
+    'Direct artwork must keep the same origin when onboarding ends');
+  assert.equal(calls.filter(([name]) => name === 'drawImage').length, 0);
 });
 
-test('only overlapping labels move at 250 ms; warm frames never build collision geometry or repaint', (t) => {
+test('only overlapping labels move at 250 ms; warm layout never rebuilds collision geometry or measures text', (t) => {
   const { canvas, calls } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas, { reducedMotion: true });
   const sim = new LateEditionSim({ seed: 89 });
@@ -396,7 +415,6 @@ test('only overlapping labels move at 250 ms; warm frames never build collision 
   renderer.render(sim, 0);
   const start = renderer.cache.labelLayout.lastCheck = 1000;
   const first = renderer._layoutLeadLabels(renderer.ctx, sim, start);
-  const sprites = [...renderer.cache.leadLabels.values()].map(({ sprite }) => sprite);
   const { box } = first[0];
   const op = sim.operatives[0];
   Object.assign(op, { x: box.x + box.w / 2, y: box.y + box.h,
@@ -417,8 +435,6 @@ test('only overlapping labels move at 250 ms; warm frames never build collision 
     assert.ok(original(sim).every((obstacle) => !boxesIntersect(box, obstacle)));
     assert.ok(leader);
   }
-  assert.deepEqual([...renderer.cache.leadLabels.values()].map(({ sprite }) => sprite), sprites,
-    'Re-placement must reuse text/frame bitmaps');
   assert.equal(calls.filter(([name]) => name === 'measureText' || name === 'fillText').length, 0);
   renderer._layoutLeadLabels(renderer.ctx, sim, start + 499);
   assert.equal(checks, 1, 'The next check cannot run early');
@@ -442,9 +458,9 @@ test('only overlapping labels move at 250 ms; warm frames never build collision 
   assert.deepEqual(retied[0].box, added[0].box, 'Address edits only retie the thread');
   assert.deepEqual(retied[0].leader.from, { x: sim.leads[0].x, y: sim.leads[0].y });
   globalThis.window.devicePixelRatio = 2;
-  const oldSprites = renderer.cache.leadLabels;
+  const oldLayout = renderer.cache.labelLayout;
   renderer.render(sim, 0);
-  assert.notEqual(renderer.cache.leadLabels, oldSprites, 'DPR must rebuild label resolution');
+  assert.notEqual(renderer.cache.labelLayout, oldLayout, 'DPR rebuilds display geometry with static layers');
 });
 
 test('250 ms checks catch unlock, hover/selection, target and stunned-rival rings', (t) => {
@@ -509,32 +525,39 @@ test('street figures, number badges and ground rings grow together by 1.4x', (t)
   assert.ok(calls.some(([method, x, y]) => method === 'scale' && x === FIGURE_SCALE && y === FIGURE_SCALE));
 });
 
-test('figure bitmaps reuse body raster while bobbing, separate hostile factions, and rebuild at DPR changes', (t) => {
+test('warm map only samples baseline city/fog sources; all staff and hostile figures remain vector paths', (t) => {
   const { canvas, calls } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas);
-  renderer._ensureLayers();
-  renderer._drawFigure(renderer.ctx, 'reporter');
-  const first = renderer.cache.figures.get('reporter:false:false');
-  assert.ok(first);
-  calls.length = 0;
-  renderer._drawFigure(renderer.ctx, 'reporter', { bob: 1.5 });
-  assert.equal(renderer.cache.figures.get('reporter:false:false'), first);
-  assert.ok(calls.some(([name, image, x, y]) => name === 'drawImage' && image === first && x === -22 && y === -41.5));
-  assert.equal(calls.filter(([name]) => name === 'stroke' || name === 'fillRect').length, 0,
-    'Walking must not repaint body paths/camera/hat; its street shadow stays live');
-  for (const [role, options, key] of [
-    ['reporter', { herald: true }, 'reporter:true:false'],
-    ['fixer', { goon: true }, 'fixer:false:true'],
-    ['photographer', {}, 'photographer:false:false'],
-  ]) {
-    renderer._drawFigure(renderer.ctx, role, options);
-    assert.ok(renderer.cache.figures.has(key));
-    assert.notEqual(renderer.cache.figures.get(key), first, 'Factions/camera must never share the wrong art');
+  const sim = new LateEditionSim({ seed: 89 });
+  sim.edition = 4;
+  renderer.render(sim, 0);
+  const sources = new Set([renderer.cache.city, renderer.cache.fog, renderer.cache.driftFog]);
+  globalThis.document.createElement = () => { throw new Error('Warm rendering must not allocate a canvas'); };
+  sim.rivals = [{ x: 400, y: 400, angle: 0, type: 'reporter', stunTimer: 0 },
+    { x: 500, y: 400, angle: 0, type: 'goon', stunTimer: 1 }];
+  sim.operatives[0].targetX += 100;
+  for (const dt of [0, 0.1]) {
+    calls.length = 0;
+    renderer.render(sim, dt);
+    const images = calls.filter(([name]) => name === 'drawImage');
+    assert.equal(images.length, 5, 'Only city, edge fog and three drifting-fog blits remain');
+    assert.ok(images.every(([, source]) => sources.has(source)), 'Reject any new per-frame canvas source');
+    calls.length = 0;
+    renderer._drawOperatives(renderer.ctx, sim);
+    renderer._drawRivals(renderer.ctx, sim);
+    assert.equal(calls.filter(([name]) => name === 'drawImage').length, 0);
+    assert.equal(calls.filter(([name]) => name === 'stroke').length, 8, 'Six body outlines plus selection and stun rings');
+    assert.ok(calls.some(([name, x, y, w, h]) => name === 'fillRect' && x === 2 && y === -24 && w === 17 && h === 12),
+      'Photographer must retain the enlarged camera');
+    assert.ok(calls.some(([name, x, y, w, h]) => name === 'fillRect' && x === 6 && y === -28 && w === 2 && h === 2),
+      'Observer must retain its cigarette ember');
+    assert.ok(calls.some(([name, x, y]) => name === 'lineTo' && x === -14 && y === -21), 'Fixer/goon must remain broad');
+    assert.ok(calls.some(([name, key, value]) => name === 'set' && key === 'fillStyle' && value === PALETTE.brass),
+      'Herald hat must retain its faction color');
+    assert.ok(calls.some(([name, x, y]) => name === 'translate' && x === 0 && y !== 0), 'Walking body must bob');
+    assert.equal(calls.filter(([name, x, y]) => name === 'moveTo' && x === -7 && y === 0).length, 6,
+      'Every figure retains its fixed cast shadow');
   }
-  globalThis.window.devicePixelRatio = 2;
-  renderer._ensureLayers();
-  renderer._drawFigure(renderer.ctx, 'reporter');
-  assert.notEqual(renderer.cache.figures.get('reporter:false:false'), first);
 });
 
 test('title sign legs meet their generated near-building roof within one pixel', (t) => {
