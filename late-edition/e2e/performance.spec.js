@@ -62,6 +62,10 @@ for (const rate of [1, 4]) {
 }
 
 test('starved rAF still supplies 150 samples and exposes an over-budget renderer', async ({ page }) => {
+  // Match the budget cases: SwiftShader may drain their synchronous GPU batch
+  // during this context's setup. Keep that setup headroom out of timing gates;
+  // the 5 s live window, 150 samples and >=10 ms cost assertions stay mandatory.
+  test.setTimeout(60000);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/late-edition/?seed=89&preview=combat');
   await page.evaluate(() => document.fonts.ready);

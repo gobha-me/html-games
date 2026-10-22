@@ -105,7 +105,8 @@ An initial sprite-only implementation also failed the unchanged frame gate with
 Warm baseline traces can also reach 300–301 intervals, so one passing trace is
 insufficient evidence of a fix.
 
-The final renderer reduces both recurring work and deferred startup work:
+The d268489 implementation reduced recurring work and deferred startup work
+(the placement and title-retention rules below are superseded by the follow-up):
 
 - Reuse placements while every cached box is clear of **current** obstacles.
   Lead copy/address/prompt changes reflow immediately; incoming actors, unlocked
@@ -149,6 +150,75 @@ unique-sign, enlarged-figure, rooftop/searchlight, reduced-motion, input and
 gameplay/RNG checks remain in place.
 Figure tests also force faction/role changes, bobbing and DPR invalidation,
 rejecting repeated warm body-path painting and wrong-faction sprite reuse.
+
+## Owner-approved fixed-label/title lifecycle follow-up (2026-10-22)
+
+The preceding implementation still built figure/ring collision boxes and checked
+all labels every frame; the hidden title renderer also retained its previously
+visible skyline textures. This follow-up removes both recurring work and retained
+hidden title resources without changing the performance gates or director art.
+
+New labels try exactly four fixed offsets in order: above-right, above-left,
+below-right, below-left. The 104-world-pixel clearance leaves space for enlarged
+figures/rings. Initial placement checks HQ, district signs and existing labels,
+choosing the first clear candidate or the last candidate when all are obstructed.
+There is no obstacle-edge/free-space search. Every label has a thin leader line,
+including the first candidate and the all-blocked fallback.
+
+Telegram text/frame/flags/stamps are baked at display resolution once per content
+state. Warm frames blit that bitmap and draw its leader; progress/countdown do
+not measure or paint text. Copy, selection and verification changes refresh
+pixels at the existing position. Moving an address reties its leader and leaves
+the label stationary. A new lead or changed sign never reflows an existing label.
+Expired leads close their sprites; backing-size/DPR changes rebuild resolution.
+Onboarding space is reserved at birth so changing selection cannot cause reflow.
+That empty margin belongs only to collision geometry: each cached image is tightly
+bounded around the actual telegram artwork, centered inside the fixed label box.
+An earlier full-margin run hit **18.2 ms** deterministic render p95 at CPU 4×
+(live p95 **7.3 ms**); the final repeated run below uses the tighter image bounds.
+
+A wall-clock check runs **at most once every 250 ms**, independently of render dt,
+simulation pause and reduced motion. Only a figure/body/badge, hover/selection,
+dispatch or stunned-rival ring overlapping a label triggers re-placement through
+the same four offsets. Unobstructed labels keep their positions and all bitmap
+pixels are reused on re-placement. Between checks the renderer constructs no
+collision obstacles and performs no collision pass. As requested, the four-offset
+fallback keeps the last candidate even in a fully obstructed artificial fixture;
+it does not resume an unbounded placement search.
+
+Skyline geometry starts null, including in the city renderer. Only a visible
+title builds the three skyline layers. Leaving it closes every retained
+ImageBitmap, clears the cache and skyline geometry, and shrinks its hidden live
+canvas backing store to 1×1. Canvas fallbacks lose all cache references too.
+Re-entering the title builds fresh layers; desk rendering and desk resize never
+build title textures. The title contrast/searchlight/rooftop sign, one sign per
+district and enlarged figures remain covered by the existing art regressions.
+
+Adversarial unit tests force 249 ms versus 250 ms boundaries, count collision-box
+construction (zero on warm frames), inject incoming actors/rings/unlocked figures,
+assert unobstructed labels stay fixed, and verify live leader strokes plus bitmap
+reuse. Browser coverage closes real ImageBitmaps on title exit, checks both
+renderers for absent title caches on the desk, resizes the desk, and re-enters and
+leaves the title again. Crowded-label tests check figure/ring clearance after the
+250 ms check; pure geometry tests pin all four candidates and blocked fallback.
+
+The first pinned acceptance attempt passed the CPU 1× and 4× timing cases but
+exceeded the starvation test's 30 s total deadline: its trace shows **23.8 s in
+Create context** following the CPU-4× batch. The starvation measurement assertions
+then passed, but setup had consumed the deadline. Retained offscreen sources and
+a separate trace-disabled diagnostic reproduced the same timeout, so neither is
+used to claim a fix. The final sources remain immutable cached bitmaps.
+
+The starvation case now uses the **same 60 s total timeout** already set by both
+budget cases. This is setup/teardown headroom for the cross-context SwiftShader
+queue, not a relaxation of the measured gates: the five-second live window,
+150 deterministic samples, renderer p95 <8/<16 ms, calibrated frame p95 <20 ms,
+and forced >=10 ms starvation assertions are unchanged. Trace capture remains
+configured. This harness change is recorded explicitly because the rendering
+simplification alone did not remove that browser-context delay.
+
+Verification results are recorded below after the required repeat run and full
+lint/unit/browser suites complete.
 
 ## Performance contract
 

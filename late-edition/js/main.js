@@ -71,7 +71,7 @@ class LateEditionApp {
     this._syncFullUI();
     // Do not submit a hidden desk's city textures while the full-screen title
     // owns presentation; the frame loop keeps the same phase-based ownership.
-    if (this.sim.phase === 'title') this.titleRenderer.renderTitle(0.016);
+    if (this.sim.phase === 'title' && !this.sim.deskTooSmall) this.titleRenderer.renderTitle(0.016);
     else this.renderer.render(this.sim, 0.016);
     requestAnimationFrame((t) => this._loop(t));
   }
@@ -1040,6 +1040,7 @@ class LateEditionApp {
 
   _renderOpening() {
     const { phase, deskTooSmall } = this.sim;
+    if (phase !== 'title' || deskTooSmall) this.titleRenderer.releaseTitle();
     document.getElementById('title-screen').hidden = phase !== 'title' || deskTooSmall;
     document.getElementById('cold-open').hidden = phase !== 'cold-open' || deskTooSmall;
     document.getElementById('desk-too-small').hidden = !deskTooSmall;
@@ -1090,7 +1091,10 @@ class LateEditionApp {
       this._renderLeadsList();
     }
     if (this.sim.phase === 'title' && !this.sim.deskTooSmall) this.titleRenderer.renderTitle(rawDt);
-    else this.renderer.render(this.sim, this.sim.deskTooSmall ? 0 : rawDt);
+    else {
+      this.titleRenderer.releaseTitle();
+      this.renderer.render(this.sim, this.sim.deskTooSmall ? 0 : rawDt);
+    }
 
     this.uiTickAccum += rawDt;
     if (this.uiTickAccum >= 0.25) {

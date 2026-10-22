@@ -208,7 +208,7 @@ late-edition/
 │   ├── opening.js      # Pure 30-second cold-open text clock and reduced-motion reveal
 │   ├── presentation.js # Display-only clock, wire, banner & status formatting
 │   ├── city.js         # Fixed-seed map/title buildings and shared rooftop sign geometry
-│   ├── label-placement.js # Pure obstacle-aware telegram placement and leader fallback
+│   ├── label-placement.js # Pure four-offset telegram placement and persistent leaders
 │   ├── silhouettes.js  # Shared Canvas2D street figures and staff portraits
 │   ├── renderer.js     # Cached oblique city/title layers, wet streets, fog & dynamic figures
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
@@ -465,9 +465,11 @@ hats for Herald men and a red cigarette ember for Observer goons. Selected staff
 a sodium ground ring and small number badges. Map figures are scaled 2.24× (1.4×
 the previous size), with proportionally enlarged rings/badges, long cast shadows
 and a larger camera/flash reflector; pass portraits retain their scale. Telegram
-flags, headlines and series/verification badges move together around figure,
-selection/dispatch-ring and street-sign boxes: try above/right/left/below, then
-choose a clear offset with a thin leader line if crowded. The address pin and
+flags, headlines and series/verification badges are placed once at birth against
+HQ, district signs and existing labels: try above-right, above-left, below-right,
+then below-left, keeping the last offset if all four are blocked. Every label has
+a thin leader line. Figure/ring collisions are checked at most every 250 ms; only
+an obstructed label is re-placed, using the same four offsets. The address pin and
 countdown/progress rings stay at the original lead coordinates with sodium glow;
 arc yarn remains red. Herald sedans use sodium
 headlights; only Observer raids use police-blue cones. Scoops get a brief Weegee
@@ -476,8 +478,10 @@ loaded; the editor portrait and press plate remain in use (see asset notes).
 
 `NoirCityRenderer` caches city geometry/lamps, ink-only edge shading, and three title depth
 layers on detached canvases at the displayed size × DPR. City/title geometry is
-baked only for the scene being displayed; static caches use CPU-backed bitmaps
-and the visible canvas declares its opaque background. Caches rebuild on size/DPR
+baked only for the scene being displayed; title geometry is generated lazily and
+all title bitmaps/canvases are released when leaving the title. The city renderer
+never creates title caches. Static caches use CPU-backed bitmaps and the visible
+canvas declares its opaque background. Caches rebuild on size/DPR
 changes, after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
 threads, collision-offset street signs, weather and callouts. Title layers dissolve
 into an ink-to-faint-mahogany/sodium horizon through low-contrast dark haze, with an
@@ -524,11 +528,12 @@ Small drifting-fog sprites follow displayed resolution/DPR, and street-sign widt
 and collision positions are cached until lead display geometry changes. Rain
 remains one stroked path; no per-frame shadow blur or resolution cap was added.
 Telegram text/flags/stamps use bounded, per-lead bitmap caches. Placements remain
-stationary while clear, and reflow immediately if current figures, rings or signs
-enter a label box or lead geometry changes. Countdown/progress changes neither
-remeasure nor rasterize label text. Removed leads release their sprites; copy,
-verification, selection and DPR edits invalidate them. The onboarding prompt
-bounces as a cached bitmap. Hidden title art never advances behind the desk.
+stationary except when a 250 ms wall-clock check finds a figure/ring overlap.
+Warm frames neither construct collision geometry nor measure/rasterize text.
+Removed leads release their sprites; copy, verification and selection edits refresh
+pixels in place. Address edits retie the leader without moving the label; size/DPR
+changes rebuild raster resolution. The onboarding prompt bounces as a cached bitmap.
+Hidden title art retains no cache or backing texture behind the desk.
 Enlarged figure bodies are cached by role/faction; their body bob, fixed street
 shadow, number badge and selection/stun rings keep their original placement.
 See [profiling notes](docs/PERFORMANCE.md) for the PR #101 diagnosis, trace commands,

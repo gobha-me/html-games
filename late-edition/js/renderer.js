@@ -2,7 +2,7 @@ import { PALETTE, alpha as withAlpha } from './palette.js';
 import { CITY_SEED, generateDistrict, generateSkyline, rooftopSignGeometry, districtSignPosition, shadowVector } from './city.js';
 import { mulberry32 } from './rng.js';
 import { drawSilhouette, drawSilhouetteShadow, FIGURE_SCALE, MARKER_SCALE, figureBox } from './silhouettes.js';
-import { boxesIntersect, placeLabel } from './label-placement.js';
+import { boxesIntersect, labelLeader, placeLabel } from './label-placement.js';
 // ============================================================================
 // LATE EDITION // 1947 — 2.5D Rain-Slicked Noir Metropolis Renderer
 // ============================================================================
@@ -22,7 +22,7 @@ export class NoirCityRenderer {
     // need not blend this texture with the desk beneath it each presentation.
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.city = DISTRICTS.map((district) => ({ district, buildings: generateDistrict(district) }));
-    this.skylines = [0, 1, 2].map((depth) => generateSkyline(depth));
+    this.skylines = null;
     this.cosmeticTime = 0;
     this.cache = null;
     this.previousLeads = [];
@@ -52,6 +52,7 @@ export class NoirCityRenderer {
     const height = Math.max(1, Math.round(rect.height * dpr));
     const key = `${width}:${height}:${dpr}`;
     if (this.cache?.key === key && (title ? this.cache.skyline : this.cache.city)) return true;
+    if (this.cache && this.cache.title !== title) this._releaseLayers();
     // Wait for the initial local font load before baking signs. Otherwise the
     // cache would retain fallback glyphs until resize; no font-triggered rebuild
     // is needed. Failed/blocked fonts settle and use the period fallback stacks.
@@ -90,11 +91,12 @@ export class NoirCityRenderer {
     }
     if (this.cache?.key !== key) this.cache = {
       key,
+      title,
       driftFog,
       signs: null,
       leadLabels: new Map(),
       figures: new Map(),
-      labelLayout: null,
+      labelLayout: { placements: new Map(), lastCheck: performance.now() },
       city: null,
       skyline: null,
       fog: layer((ctx) => this._drawFogEdges(ctx)),
@@ -102,7 +104,10 @@ export class NoirCityRenderer {
     // A desk never displays a title skyline. Avoid submitting three unused
     // canvas textures into SwiftShader's deferred raster queue at desk startup;
     // likewise, title-only renderers do not need city geometry.
-    if (title) this.cache.skyline = [0, 1, 2].map((depth) => layer((ctx) => this._drawSkyline(ctx, depth)));
+    if (title) {
+      this.skylines = [0, 1, 2].map((depth) => generateSkyline(depth));
+      this.cache.skyline = [0, 1, 2].map((depth) => layer((ctx) => this._drawSkyline(ctx, depth)));
+    }
     else this.cache.city = layer((ctx) => {
       this._drawWetAsphaltBase(ctx);
       this._drawStreetNetwork(ctx);
@@ -549,8 +554,13 @@ export class NoirCityRenderer {
     ctx.restore();
   }
 
+  _leadLabelStaticObstacles(sim) {
+    return [sim.hq, ...(this.cache?.signs?.positions ?? []).map((sign) =>
+      ({ x: sign.x - 1, y: sign.y - 19, w: sign.width + 2, h: 45 }))];
+  }
+
   _leadLabelObstacles(sim) {
-    const obstacles = sim.leads.map((lead) => ({ x: lead.x - 32, y: lead.y - 32, w: 64, h: 64 }));
+    const obstacles = [];
     for (const op of sim.operatives) {
       if (!sim.operativeAvailable(op)) continue;
       obstacles.push(figureBox(op.x, op.y));
@@ -571,45 +581,85 @@ export class NoirCityRenderer {
           w: radius * 2, h: radius * 2 });
       }
     }
-    for (const sign of this.cache?.signs?.positions ?? []) {
-      obstacles.push({ x: sign.x - 1, y: sign.y - 19, w: sign.width + 2, h: 45 });
-    }
     return obstacles;
   }
 
-  _layoutLeadLabels(ctx, sim) {
-    const obstacles = this._leadLabelObstacles(sim);
+  _layoutLeadLabels(ctx, sim, now = performance.now()) {
+    const { leadLabels, labelLayout } = this.cache;
+    const { placements } = labelLayout;
+    const live = new Set(sim.leads.map((lead) => lead.uid));
+    for (const [uid, cached] of leadLabels) {
+      if (live.has(uid)) continue;
+      cached.sprite.close?.();
+      leadLabels.delete(uid);
+      placements.delete(uid);
+    }
     const allIdle = sim.operatives.every((op) => !op.targetLeadId && !op.targetRivalId);
-    const signature = JSON.stringify(sim.leads.map((lead) => [lead.uid, lead.x, lead.y,
-      lead.headline, lead.baseValue, lead.seriesBadge,
-      allIdle && lead.uid === sim.selectedLeadId && sim.scoopsTotal === 0]));
-    const cached = this.cache?.labelLayout;
-    // Keep detached labels stationary while units move unless a real obstacle
-    // enters their box. Unlike a timer/bucket, this cannot allow an overlap
-    // between refreshes, and avoids continuously rasterizing moving glyphs.
-    if (cached?.signature === signature && cached.placements.every(({ box }) =>
-      !obstacles.some((obstacle) => boxesIntersect(box, obstacle)))) return cached.placements;
-    const placements = sim.leads.map((lead) => {
-      const prompt = allIdle && lead.uid === sim.selectedLeadId && sim.scoopsTotal === 0;
+    let staticObstacles;
+    for (const lead of sim.leads) {
+      const selected = lead.uid === sim.selectedLeadId;
+      const key = JSON.stringify([lead.beat, lead.headline, lead.baseValue, lead.seriesBadge,
+        lead.photoVerified, lead.scoopedByRival, selected]);
+      const cached = leadLabels.get(lead.uid);
+      let placement = placements.get(lead.uid);
+      if (placement && (placement.leader.from.x !== lead.x || placement.leader.from.y !== lead.y)) {
+        // Moving a gameplay address updates its thread, never its label position.
+        placement = { ...placement, leader: labelLeader(lead, placement.box) };
+        placements.set(lead.uid, placement);
+      }
+      if (cached?.key === key) continue;
       ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
       let width = Math.max(86, ctx.measureText(`$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`).width + 16);
       if (lead.seriesBadge) {
         ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
         width = Math.max(width, ctx.measureText(lead.seriesBadge).width + 14);
       }
-      if (prompt) {
+      // Cache only the artwork; onboarding's empty collision margin needs no
+      // texture pixels or per-frame upload/sampling work.
+      const artWidth = width + 4;
+      // Reserve onboarding space from birth, even if selection changes later.
+      if (sim.scoopsTotal === 0) {
         ctx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
         width = Math.max(width, ctx.measureText('▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE').width + 20);
       }
-      // Include strokes and the onboarding prompt's full bounce in the box.
       const top = lead.seriesBadge ? -67 : -48;
-      const height = (prompt ? 62 : 12) - top;
-      const placement = placeLabel(lead, { w: width + 4, h: height }, obstacles);
-      obstacles.push(placement.box);
-      return { ...placement, top };
-    });
-    if (this.cache) this.cache.labelLayout = { signature, placements };
-    return placements;
+      const size = { w: width + 4, h: (sim.scoopsTotal === 0 ? 62 : 12) - top };
+      if (!placement) {
+        staticObstacles ??= this._leadLabelStaticObstacles(sim);
+        placement = { ...placeLabel(lead, size,
+          [...staticObstacles, ...[...placements.values()].map(({ box }) => box)]), top };
+      } else {
+        // Copy/verification/selection can change in place. Refresh only pixels
+        // and dimensions; they never cause a surviving label to move.
+        const box = { ...placement.box, ...size };
+        placement = { ...placement, box, top, leader: labelLeader(lead, box) };
+      }
+      placements.set(lead.uid, placement);
+      cached?.sprite.close?.();
+      const height = 12 - top;
+      const sprite = this._labelSprite(artWidth, height, (labelCtx) => {
+        labelCtx.translate(artWidth / 2, -top);
+        this._paintLeadLabel(labelCtx, lead, selected);
+      });
+      leadLabels.set(lead.uid, { key, sprite, height, width: artWidth });
+    }
+    // Wall time keeps the 250 ms safety check alive when paused/reduced-motion.
+    // Warm frames do no obstacle construction or collision checks at all.
+    if (now - labelLayout.lastCheck >= 250) {
+      labelLayout.lastCheck = now;
+      const figures = this._leadLabelObstacles(sim);
+      for (const lead of sim.leads) {
+        const placement = placements.get(lead.uid);
+        if (!figures.some((obstacle) => boxesIntersect(placement.box, obstacle))) continue;
+        staticObstacles ??= this._leadLabelStaticObstacles(sim);
+        const others = [...placements].filter(([uid]) => uid !== lead.uid).map(([, { box }]) => box);
+        placements.set(lead.uid, { ...placeLabel(lead, placement.box,
+          [...staticObstacles, ...others, ...figures]), top: placement.top });
+      }
+    }
+    // Prompt visibility is independent of placement and never moves a label.
+    this.showDispatchPrompt = allIdle && sim.scoopsTotal === 0;
+    return sim.leads.map((lead) => placements.get(lead.uid));
   }
 
   _labelSprite(width, height, paint) {
@@ -642,7 +692,15 @@ export class NoirCityRenderer {
     return canvas.transferToImageBitmap?.() ?? canvas;
   }
 
+  releaseTitle() {
+    if (!this.cache && !this.skylines) return;
+    this._releaseLayers();
+    // Also discard the hidden live canvas backing store, not just its sources.
+    this.canvas.width = this.canvas.height = 1;
+  }
+
   _releaseLayers() {
+    this.skylines = null;
     if (!this.cache) return;
     const { city, fog, driftFog, skyline, leadLabels, figures, dispatchPrompt } = this.cache;
     for (const sprite of [city, fog, driftFog, ...(skyline ?? []),
@@ -654,13 +712,6 @@ export class NoirCityRenderer {
 
   _drawStoryLeads(ctx, sim) {
     const placements = this._layoutLeadLabels(ctx, sim);
-    // Bound sprite retention to live leads, including last-lead removal/restart.
-    for (const uid of this.cache.leadLabels.keys()) {
-      if (!sim.leads.some((lead) => lead.uid === uid)) {
-        this.cache.leadLabels.get(uid).sprite.close?.();
-        this.cache.leadLabels.delete(uid);
-      }
-    }
     for (const [index, lead] of sim.leads.entries()) {
       const isSelected = lead.uid === sim.selectedLeadId;
       const isHovered = lead.uid === this.hoverLeadId;
@@ -731,40 +782,16 @@ export class NoirCityRenderer {
       ctx.restore();
       const { box, top, leader } = placements[index];
       ctx.save();
-      if (leader) {
-        ctx.strokeStyle = withAlpha(PALETTE.brass, 0.8);
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(leader.from.x, leader.from.y);
-        ctx.lineTo(leader.to.x, leader.to.y); ctx.stroke();
-      } else {
-        // A short pin thread keeps a nearby offset telegram tied to its address.
-        ctx.strokeStyle = withAlpha(PALETTE.brass, 0.5);
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(lead.x, lead.y);
-        ctx.lineTo(Math.max(box.x, Math.min(lead.x, box.x + box.w)),
-          Math.max(box.y, Math.min(lead.y, box.y + box.h))); ctx.stroke();
-      }
-      const key = JSON.stringify([lead.beat, lead.headline, lead.baseValue, lead.seriesBadge,
-        lead.photoVerified, lead.scoopedByRival, isSelected, box.w, top]);
-      let cached = this.cache.leadLabels.get(lead.uid);
-      if (cached?.key !== key) {
-        cached?.sprite.close?.();
-        const height = 12 - top;
-        const sprite = this._labelSprite(box.w, height, (labelCtx) => {
-          labelCtx.translate(box.w / 2, -top);
-          this._paintLeadLabel(labelCtx, lead, isSelected);
-        });
-        cached = { key, sprite, height };
-        this.cache.leadLabels.set(lead.uid, cached);
-      }
-      ctx.drawImage(cached.sprite, box.x, box.y, box.w, cached.height);
+      ctx.strokeStyle = withAlpha(PALETTE.brass, 0.8);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(leader.from.x, leader.from.y);
+      ctx.lineTo(leader.to.x, leader.to.y); ctx.stroke();
+      const cached = this.cache.leadLabels.get(lead.uid);
+      ctx.drawImage(cached.sprite, box.x + (box.w - cached.width) / 2, box.y, cached.width, cached.height);
       ctx.translate(box.x + box.w / 2, box.y - top);
 
       // First-launch onboarding prompt on the selected lead when all units are idle at HQ
-      const allIdle = sim.operatives.every(
-        (op) => !op.targetLeadId && !op.targetRivalId
-      );
-      if (allIdle && isSelected && sim.scoopsTotal === 0) {
+      if (this.showDispatchPrompt && isSelected) {
         if (!this.cache.dispatchPrompt) {
           // Include the stroke in the sprite; bounce remains a cheap blit.
           const width = box.w;

@@ -98,6 +98,28 @@
   profiling with complete historical art modules, frozen-placement ablation and
   explicit live-window trace totals; record results in `docs/PERFORMANCE.md`.
 
+### Owner-approved performance simplification (PR #101)
+- Place new lead labels once at four fixed diagonal offsets against HQ, street
+  signs and existing labels; choose the first clear offset or the final offset
+  when all are blocked. Always connect telegrams to their addresses with a thin
+  leader line. Remove the recurring per-frame collision pass.
+- Check figure/selection/dispatch/stun-ring overlaps at most every 250 ms of wall
+  time, including while paused or under reduced motion. Re-place only an
+  obstructed label and reuse its bitmap. Copy/selection/verification edits refresh
+  pixels in place; address edits only retie the leader.
+- Generate title skyline geometry/textures lazily, close bitmaps and clear canvas
+  references/backing stores when leaving the title. Desk rendering never creates
+  or retains title caches. Preserve unique district signs, 1.4× figures and the
+  title depth contrast, rooftop sign and searchlight.
+- Update adversarial tests for the exact 250 ms boundary, warm-frame zero collision
+  work, persistent leaders, all-four-blocked fallback, unlock/hover/target/stun
+  rings, cache closure, desk resize and title re-entry. Record verification in
+  `docs/PERFORMANCE.md`.
+- Give the starvation scenario the same 60 s total setup/test timeout as the two
+  budget cases after reproducing a 23.8 s SwiftShader context-creation delay.
+  Keep all measured frame/render budgets and adversarial assertions unchanged;
+  document the initial failure and separate cache/trace diagnostics explicitly.
+
 ## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
 
 ### Changed

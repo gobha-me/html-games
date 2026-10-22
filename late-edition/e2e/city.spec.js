@@ -99,7 +99,12 @@ test('reduced motion title is pixel-static, including a live preference change',
   expect(await page.locator('#title-city').evaluate((canvas) => canvas.toDataURL())).toBe(frozen);
 });
 
-test('hidden title never renders or advances its searchlight behind the live desk', async ({ page }) => {
+test('desk releases every title cache and never renders a hidden searchlight', async ({ page }) => {
+  await page.evaluate(() => document.fonts.ready);
+  await expect.poll(() => page.evaluate(() => Boolean(window.lateEditionApp.titleRenderer.cache?.skyline))).toBe(true);
+  await page.evaluate(() => {
+    window.releasedSkylines = window.lateEditionApp.titleRenderer.cache.skyline;
+  });
   await startDesk(page);
   const before = await page.evaluate(() => {
     const { titleRenderer, renderer } = window.lateEditionApp;
@@ -115,6 +120,25 @@ test('hidden title never renders or advances its searchlight behind the live des
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => ({ calls: window.titleCallsWhileHidden,
     time: window.lateEditionApp.titleRenderer.cosmeticTime }))).toEqual({ calls: 0, time: before.title });
+  const caches = () => page.evaluate(() => {
+    const { titleRenderer, renderer } = window.lateEditionApp;
+    return { title: titleRenderer.cache, geometry: titleRenderer.skylines,
+      deskSkyline: renderer.cache.skyline, deskGeometry: renderer.skylines,
+      closedWidths: window.releasedSkylines.map((sprite) => sprite.width),
+      backing: [titleRenderer.canvas.width, titleRenderer.canvas.height] };
+  });
+  const released = { title: null, geometry: null, deskSkyline: null, deskGeometry: null,
+    closedWidths: [0, 0, 0], backing: [1, 1] };
+  expect(await caches()).toEqual(released);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await expect.poll(() => page.evaluate(() => window.lateEditionApp.renderer.canvas.width))
+    .toBe(await page.locator('#city-canvas').evaluate((canvas) => Math.round(canvas.getBoundingClientRect().width * devicePixelRatio)));
+  expect(await caches()).toEqual(released);
+  await page.evaluate(() => { window.lateEditionApp.sim.phase = 'title'; window.lateEditionApp._syncFullUI(); });
+  await expect.poll(() => page.evaluate(() => window.lateEditionApp.titleRenderer.cache?.skyline?.length)).toBe(3);
+  await page.evaluate(() => { window.lateEditionApp.sim.phase = 'desk'; window.lateEditionApp._syncFullUI(); });
+  expect(await caches()).toEqual(released);
+
 });
 
 test('title depth values stay distinct and the sodium beam survives foreground compositing', async ({ page }) => {
@@ -172,25 +196,20 @@ test('crowded telegram artwork keeps clear of figures and rings without moving a
     const { renderer, sim } = window.lateEditionApp;
     sim.edition = 4;
     sim.paused = true;
+    sim.scoopsTotal = 1;
     sim.operatives.forEach((op, i) => Object.assign(op, { x: 650 + i * 35, y: 530,
       targetX: 700, targetY: 500 }));
     sim.rivals = [{ x: 740, y: 440, stunTimer: 1, type: 'goon', angle: 0 },
       { x: 600, y: 475, stunTimer: 0, type: 'reporter', angle: 0 }];
-    sim.leads.forEach((lead, i) => Object.assign(lead, { x: 700 + i * 20, y: 500,
+    sim.leads.forEach((lead, i) => Object.assign(lead, { uid: `crowded-${i}`, x: 700 + i * 20, y: 500,
       headline: 'CROWDED TELEGRAM HEADLINE', seriesBadge: 'SERIES III/III (+2,500 RDRS)', photoVerified: true }));
     const before = sim.getStateHash();
-    const original = renderer._layoutLeadLabels;
-    const placements = [];
-    renderer._layoutLeadLabels = function (...args) {
-      const result = original.apply(this, args);
-      placements.push(...result);
-      return result;
-    };
-    try { renderer.render(sim, 0); } finally { renderer._layoutLeadLabels = original; }
+    renderer.render(sim, 0);
+    const placements = renderer._layoutLeadLabels(renderer.ctx, sim, renderer.cache.labelLayout.lastCheck + 251);
+    renderer.render(sim, 0);
     const obstacles = renderer._leadLabelObstacles(sim);
     const collisions = placements.filter(({ box }) => {
       const collision = obstacles.some((b) => boxesIntersect(box, b));
-      obstacles.push(box);
       return collision;
     });
     return { count: placements.length, leads: sim.leads.length, collisions,
@@ -198,7 +217,7 @@ test('crowded telegram artwork keeps clear of figures and rings without moving a
   });
   expect(results.count).toBe(results.leads);
   expect(results.collisions).toEqual([]);
-  expect(results.detached).toBeGreaterThan(0);
+  expect(results.detached).toBe(results.leads);
   expect(results.unchanged).toBe(true);
   await testInfo.attach('crowded-map', { body: await page.screenshot(), contentType: 'image/png' });
 });

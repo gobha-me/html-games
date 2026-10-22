@@ -117,26 +117,36 @@ test('initial font loading cannot bake fallback signs; font failure still permit
   assert.ok(fixture.calls.some(([name]) => name === 'fillText'));
 });
 
-test('a renderer only rasterizes the visible scene and preserves shared layers across scene changes', (t) => {
-  const { canvas } = canvasFixture(t);
+test('title resources are lazy, close on exit, and never exist in a desk cache', (t) => {
+  const { canvas, rect } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas);
   const sim = new LateEditionSim({ seed: 89 });
+  assert.equal(renderer.skylines, null, 'Construction must not even generate title geometry');
   renderer.render(sim, 0);
   assert.ok(renderer.cache.city);
-  assert.equal(renderer.cache.skyline, null, 'A desk must not queue three hidden title textures');
-  const cache = renderer.cache, city = cache.city, fog = cache.fog;
+  assert.equal(renderer.cache.skyline, null);
+  assert.equal(renderer.skylines, null);
   renderer.renderTitle(0);
-  assert.equal(renderer.cache, cache);
-  assert.equal(renderer.cache.city, city);
-  assert.equal(renderer.cache.fog, fog);
-  assert.equal(renderer.cache.skyline.length, 3);
+  assert.equal(renderer.cache.city, null, 'Title must not retain hidden city textures');
   const skyline = renderer.cache.skyline;
   renderer.renderTitle(0);
+  assert.equal(renderer.cache.skyline, skyline, 'Visible title reuses its textures');
+  let closed = 0;
+  for (const sprite of skyline) sprite.close = () => closed++;
+  renderer.releaseTitle();
+  assert.equal(closed, 3, 'Every title bitmap must close');
+  assert.equal(renderer.cache, null, 'Canvas fallbacks must lose all retained references too');
+  assert.equal(renderer.skylines, null);
+  assert.equal(canvas.width, 1, 'Release the hidden title backing store');
+  renderer.releaseTitle();
+  assert.equal(closed, 3, 'Release is idempotent');
+  renderer.renderTitle(0);
+  assert.notEqual(renderer.cache.skyline, skyline, 'Re-entering title builds fresh layers');
+  rect.width += 100;
   renderer.render(sim, 0);
-  assert.equal(renderer.cache.skyline, skyline);
-  const titleOnly = new NoirCityRenderer(canvas);
-  titleOnly.renderTitle(0);
-  assert.equal(titleOnly.cache.city, null, 'The title must not queue a hidden full-screen city');
+  assert.ok(renderer.cache.city);
+  assert.equal(renderer.cache.skyline, null, 'Resizing into desk must never create title layers');
+  assert.equal(renderer.skylines, null);
 });
 
 test('warm weather/sign caches survive ticks but invalidate for in-place lead edits and DPR', (t) => {
@@ -242,44 +252,67 @@ test('crowded labels avoid enlarged staff/rivals, badges, selection and dispatch
   sim.leads.forEach((lead, i) => Object.assign(lead, { x: 700 + i * 20, y: 500,
     headline: 'LONG CROWDED TELEGRAM HEADLINE', seriesBadge: 'SERIES PART III/III (+2,500 RDRS)' }));
   const before = sim.getStateHash();
+  renderer.render(sim, 0);
   const obstacles = renderer._leadLabelObstacles(sim);
-  const placements = renderer._layoutLeadLabels(renderer.ctx, sim);
-  assert.ok(placements.some((p) => p.leader), 'Crowding must force the fallback path');
+  const placements = renderer._layoutLeadLabels(renderer.ctx, sim, renderer.cache.labelLayout.lastCheck + 250);
+  assert.ok(placements.every((p) => p.leader), 'Every offset must have a leader line');
   for (const { box } of placements) {
     assert.ok(obstacles.every((b) => !boxesIntersect(box, b)), JSON.stringify(box));
     assert.ok(box.x >= 0 && box.x + box.w <= 1400 && box.y >= 0 && box.y + box.h <= 1000);
-    obstacles.push(box);
   }
   assert.equal(sim.getStateHash(), before);
 });
 
-test('label offsets try above, right, left, below before a detached leader fallback', () => {
+test('labels try four fixed diagonal offsets, always use leaders, and fall back to the last', () => {
   const anchor = { x: 200, y: 200 }, size = { w: 80, h: 30 };
   const bounds = { x: 0, y: 0, w: 400, h: 400 };
   const obstacles = [];
-  for (const direction of ['above', 'right', 'left', 'below']) {
+  for (const [x, y] of [[304, 66], [16, 66], [304, 304], [16, 304]]) {
     const placement = placeLabel(anchor, size, obstacles, bounds);
-    assert.equal(placement.leader, null);
-    const { box } = placement;
-    assert.ok(direction === 'above' ? box.y + box.h < anchor.y : direction === 'right' ? box.x > anchor.x :
-      direction === 'left' ? box.x + box.w < anchor.x : box.y > anchor.y);
-    obstacles.push({ ...box });
+    assert.deepEqual(placement.box, { x, y, ...size });
+    assert.deepEqual(placement.leader.from, anchor);
+    assert.deepEqual(placement.leader.to, { x: x > anchor.x ? x : x + size.w,
+      y: y > anchor.y ? y : y + size.h });
+    obstacles.push({ ...placement.box });
   }
   const snapshot = structuredClone({ anchor, size, obstacles, bounds });
   const fallback = placeLabel(anchor, size, obstacles, bounds);
+  assert.deepEqual(fallback.box, obstacles[3], 'No expensive free-space search when all four are blocked');
   assert.ok(fallback.leader);
-  assert.deepEqual(fallback.leader.from, anchor);
-  assert.ok(!obstacles.some((b) => boxesIntersect(fallback.box, b)));
   assert.deepEqual(placeLabel(anchor, size, obstacles, bounds), fallback);
   assert.deepEqual({ anchor, size, obstacles, bounds }, snapshot);
   const covered = [{ x: -1000, y: -1000, w: 4000, h: 4000 }];
-  const impossible = placeLabel(anchor, size, covered, bounds);
-  assert.ok(impossible.leader && !boxesIntersect(impossible.box, covered[0]));
+  assert.deepEqual(placeLabel(anchor, size, covered, bounds), fallback);
   for (const bad of [{ ...size, w: NaN }, { ...size, h: 0 }, { ...size, w: -1 }]) {
     assert.throws(() => placeLabel(anchor, bad, obstacles), RangeError);
   }
   assert.throws(() => placeLabel({ x: Infinity, y: 0 }, size, []), RangeError);
   assert.throws(() => placeLabel(anchor, size, [{ x: 0, y: 0, w: 0, h: 10 }]), RangeError);
+});
+
+test('birth placement checks HQ, district signs and existing labels without consulting moving figures', (t) => {
+  const { canvas } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  sim.scoopsTotal = 1;
+  sim.hq = { x: 800, y: 0, w: 400, h: 500 }; // Blocks above-right.
+  sim.leads = sim.leads.slice(0, 2).map((lead, i) => ({ ...lead, uid: `birth-${i}`, x: 700, y: 500 }));
+  renderer._ensureLayers();
+  renderer.cache.signs = { positions: [{ x: 0, y: 350, width: 600 }] }; // Blocks above-left.
+  renderer._leadLabelObstacles = () => { throw new Error('Birth must use static obstacles only'); };
+  const now = renderer.cache.labelLayout.lastCheck;
+  const placements = renderer._layoutLeadLabels(renderer.ctx, sim, now);
+  assert.ok(placements[0].box.x > 700 && placements[0].box.y > 500, 'First clear offset is below-right');
+  assert.ok(placements[1].box.x < 700 && placements[1].box.y > 500, 'Existing label reserves below-right');
+  assert.ok(!boxesIntersect(placements[0].box, placements[1].box));
+  for (const { box } of placements) {
+    assert.ok(renderer._leadLabelStaticObstacles(sim).every((obstacle) => !boxesIntersect(box, obstacle)));
+  }
+  sim.leads.push({ ...sim.leads[0], uid: 'last-offset-fallback' });
+  const added = renderer._layoutLeadLabels(renderer.ctx, sim, now + 1);
+  assert.equal(added[0], placements[0], 'An appearing label never moves an existing one');
+  assert.equal(added[1], placements[1]);
+  assert.deepEqual(added[2].box, placements[1].box, 'Fully obstructed births keep the last offset');
 });
 
 test('warm label sprites reject stale in-place copy, selection and verification; removed leads release sprites', (t) => {
@@ -313,6 +346,13 @@ test('warm label sprites reject stale in-place copy, selection and verification;
   renderer._drawStoryLeads(renderer.ctx, sim);
   assert.ok(calls.some(([name, text]) => name === 'fillText' && text === '0.5×'),
     'Removing photo verification must expose the rival stamp');
+  calls.length = 0;
+  renderer._drawStoryLeads(renderer.ctx, sim);
+  for (const { leader } of renderer.cache.labelLayout.placements.values()) {
+    assert.ok(calls.some(([name, x, y], i) => name === 'moveTo' && x === leader.from.x && y === leader.from.y &&
+      calls[i + 1]?.[0] === 'lineTo' && calls[i + 1][1] === leader.to.x && calls[i + 1][2] === leader.to.y &&
+      calls[i + 2]?.[0] === 'stroke'), 'Every cached label must still draw its leader on warm frames');
+  }
   const uid = lead.uid;
   lead.uid = 'replacement-at-same-address';
   renderer._drawStoryLeads(renderer.ctx, sim);
@@ -323,88 +363,111 @@ test('warm label sprites reject stale in-place copy, selection and verification;
   assert.equal(renderer.cache.leadLabels.size, 0);
 });
 
-test('cached placement detects incoming obstacles immediately and keeps detached leaders tied to edited addresses', (t) => {
-  const { canvas } = canvasFixture(t);
-  const renderer = new NoirCityRenderer(canvas);
+test('only overlapping labels move at 250 ms; warm frames never build collision geometry or repaint', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas, { reducedMotion: true });
   const sim = new LateEditionSim({ seed: 89 });
   sim.edition = 4;
   sim.scoopsTotal = 1;
   renderer.render(sim, 0);
-  const first = renderer._layoutLeadLabels(renderer.ctx, sim);
-  sim.leads[0].progress += 1;
-  assert.equal(renderer._layoutLeadLabels(renderer.ctx, sim), first);
-  // An actor entering an old label must invalidate even with identical lead
-  // membership/copy. A timer or a cache keyed only by leads would miss this.
+  const start = renderer.cache.labelLayout.lastCheck = 1000;
+  const first = renderer._layoutLeadLabels(renderer.ctx, sim, start);
+  const sprites = [...renderer.cache.leadLabels.values()].map(({ sprite }) => sprite);
   const { box } = first[0];
   const op = sim.operatives[0];
-  op.x = box.x + box.w / 2;
-  op.y = box.y + box.h;
-  op.targetX = op.x;
-  op.targetY = op.y;
-  const moved = renderer._layoutLeadLabels(renderer.ctx, sim);
-  assert.notEqual(moved, first);
-  const verify = (placements) => {
-    const obstacles = renderer._leadLabelObstacles(sim);
-    for (const { box, leader } of placements) {
-      assert.ok(obstacles.every((obstacle) => !boxesIntersect(box, obstacle)));
-      obstacles.push(box);
-      if (leader) assert.ok(sim.leads.some((lead) => lead.x === leader.from.x && lead.y === leader.from.y));
-    }
-  };
-  verify(moved);
-  // Target rings and stunned rivals enter via current obstacle geometry
-  // rather than an incomplete cache key.
-  const incoming = (change) => {
-    const before = renderer._layoutLeadLabels(renderer.ctx, sim);
-    change(before[0].box);
-    assert.notEqual(renderer._layoutLeadLabels(renderer.ctx, sim), before);
-    verify(renderer._layoutLeadLabels(renderer.ctx, sim));
-  };
-  incoming((box) => { op.targetX = box.x + box.w / 2; op.targetY = box.y + box.h / 2; });
-  incoming((box) => { sim.rivals = [{ x: box.x + box.w / 2, y: box.y + box.h, stunTimer: 1 }]; });
-  incoming((box) => { renderer.cache.signs.positions[0] = { x: box.x, y: box.y + 19, width: box.w }; });
+  Object.assign(op, { x: box.x + box.w / 2, y: box.y + box.h,
+    targetX: box.x + box.w / 2, targetY: box.y + box.h });
+  const original = renderer._leadLabelObstacles.bind(renderer);
+  let checks = 0;
+  renderer._leadLabelObstacles = (...args) => { checks++; return original(...args); };
+  calls.length = 0;
+  for (const elapsed of [0, 16, 125, 249]) {
+    assert.deepEqual(renderer._layoutLeadLabels(renderer.ctx, sim, start + elapsed), first);
+  }
+  assert.equal(checks, 0, 'A per-frame collision pass would fail this assertion');
+  const moved = renderer._layoutLeadLabels(renderer.ctx, sim, start + 250);
+  assert.equal(checks, 1);
+  assert.notDeepEqual(moved[0].box, first[0].box, 'An incoming figure moves its obstructed label');
+  assert.equal(moved[1], first[1], 'Unobstructed labels never reflow');
+  for (const { box, leader } of moved) {
+    assert.ok(original(sim).every((obstacle) => !boxesIntersect(box, obstacle)));
+    assert.ok(leader);
+  }
+  assert.deepEqual([...renderer.cache.leadLabels.values()].map(({ sprite }) => sprite), sprites,
+    'Re-placement must reuse text/frame bitmaps');
+  assert.equal(calls.filter(([name]) => name === 'measureText' || name === 'fillText').length, 0);
+  renderer._layoutLeadLabels(renderer.ctx, sim, start + 499);
+  assert.equal(checks, 1, 'The next check cannot run early');
+  renderer._layoutLeadLabels(renderer.ctx, sim, start + 500);
+  assert.equal(checks, 2, 'Wall-clock checks continue under reduced motion and zero render dt');
+  // Incoming signs, new leads, copy, selection and departing actors must never
+  // reflow a surviving clear label; only figure/ring overlaps may do so.
+  sim.operatives.forEach((actor) => Object.assign(actor, { x: 50, y: 950, targetX: 50, targetY: 950 }));
+  renderer.cache.signs.positions[0] = { x: moved[0].box.x, y: moved[0].box.y + 19, width: moved[0].box.w };
+  sim.leads[0].headline = 'A NEW HEADLINE IN PLACE';
+  sim.selectedLeadId = null;
+  const changed = renderer._layoutLeadLabels(renderer.ctx, sim, start + 750);
+  assert.equal(changed[0].box.x, moved[0].box.x);
+  assert.equal(changed[0].box.y, moved[0].box.y);
+  sim.leads.push({ ...sim.leads[0], uid: 'incoming', x: 700, y: 700 });
+  const added = renderer._layoutLeadLabels(renderer.ctx, sim, start + 1000);
+  assert.deepEqual(added[0], changed[0], 'New labels must respect existing placement');
   sim.leads[0].x += 17;
   sim.leads[0].y += 19;
-  const edited = renderer._layoutLeadLabels(renderer.ctx, sim);
-  verify(edited);
-  assert.notEqual(edited, moved);
-  const sprites = renderer.cache.leadLabels;
+  const retied = renderer._layoutLeadLabels(renderer.ctx, sim, start + 1001);
+  assert.deepEqual(retied[0].box, added[0].box, 'Address edits only retie the thread');
+  assert.deepEqual(retied[0].leader.from, { x: sim.leads[0].x, y: sim.leads[0].y });
   globalThis.window.devicePixelRatio = 2;
+  const oldSprites = renderer.cache.leadLabels;
   renderer.render(sim, 0);
-  assert.notEqual(renderer.cache.leadLabels, sprites, 'DPR must invalidate label raster resolution');
+  assert.notEqual(renderer.cache.leadLabels, oldSprites, 'DPR must rebuild label resolution');
 });
 
-test('availability and hover/selection rings invalidate a previously clear label without actor movement', (t) => {
+test('250 ms checks catch unlock, hover/selection, target and stunned-rival rings', (t) => {
   const { canvas } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas);
   const sim = new LateEditionSim({ seed: 89 });
   sim.scoopsTotal = 1;
+  sim.leads = [sim.leads[0]];
   renderer.render(sim, 0);
-  const placements = () => renderer._layoutLeadLabels(renderer.ctx, sim);
+  let now = renderer.cache.labelLayout.lastCheck = 1000;
+  const placements = () => renderer._layoutLeadLabels(renderer.ctx, sim, now);
   const photo = sim.operatives.find((op) => op.role === 'photographer');
-  const first = placements();
-  const box = first[0].box;
+  const first = placements()[0];
+  const box = first.box;
   Object.assign(photo, { x: box.x + box.w / 2, y: box.y + box.h,
     targetX: box.x + box.w / 2, targetY: box.y + box.h });
-  assert.equal(placements(), first, 'Locked photographer is not a visible obstacle');
+  now += 250;
+  assert.equal(placements()[0], first, 'Locked photographer is not a visible obstacle');
   sim.edition = 2;
-  assert.notEqual(placements(), first, 'Unlock makes that same figure visible');
-  for (const state of ['hover', 'selection']) {
+  now += 250;
+  assert.notEqual(placements()[0], first, 'Unlock makes that figure visible');
+  for (const state of ['hover', 'selection', 'target', 'stun']) {
+    sim.operatives.forEach((op) => Object.assign(op, { x: 50, y: 950, targetX: 50, targetY: 950 }));
+    sim.rivals = [];
     renderer.hoverOperativeId = null;
     sim.selectedOpId = sim.operatives[0].id;
+    const before = placements()[0];
+    const { box } = before;
     const op = sim.operatives[1];
-    const { box } = placements()[0];
-    // The figure ends just left of the label; its wider ground ring overlaps.
-    Object.assign(op, { x: box.x - 51, y: box.y + box.h / 2,
-      targetX: box.x - 51, targetY: box.y + box.h / 2 });
-    const clear = placements();
-    assert.ok(boxesIntersect(clear[0].box, { x: op.x - 39 * MARKER_SCALE,
-      y: op.y - 13 * MARKER_SCALE, w: 78 * MARKER_SCALE, h: 36 * MARKER_SCALE }));
-    if (state === 'hover') renderer.hoverOperativeId = op.id;
-    else sim.selectedOpId = op.id;
-    assert.notEqual(placements(), clear, state);
-    assert.ok(placements().every(({ box }) => renderer._leadLabelObstacles(sim)
-      .every((obstacle) => !boxesIntersect(box, obstacle))));
+    if (state === 'hover' || state === 'selection') {
+      // Body ends left of label; only the wider ground ring can overlap.
+      Object.assign(op, { x: box.x - 51, y: box.y + box.h / 2,
+        targetX: box.x - 51, targetY: box.y + box.h / 2 });
+      assert.ok(boxesIntersect(box, { x: op.x - 39 * MARKER_SCALE,
+        y: op.y - 13 * MARKER_SCALE, w: 78 * MARKER_SCALE, h: 36 * MARKER_SCALE }));
+      if (state === 'hover') renderer.hoverOperativeId = op.id;
+      else sim.selectedOpId = op.id;
+    } else if (state === 'target') {
+      op.targetX = box.x + box.w / 2; op.targetY = box.y + box.h / 2;
+    } else {
+      sim.rivals = [{ x: box.x + box.w / 2, y: box.y + box.h + 20, stunTimer: 1 }];
+    }
+    assert.equal(placements()[0], before, 'Never check before the 250 ms deadline');
+    now += 250;
+    const after = placements()[0];
+    assert.notDeepEqual(after.box, before.box, state);
+    assert.ok(renderer._leadLabelObstacles(sim).every((obstacle) => !boxesIntersect(after.box, obstacle)), state);
   }
 });
 
@@ -461,7 +524,7 @@ test('title sign legs meet their generated near-building roof within one pixel',
     assert.ok(Math.abs(sign.bottomY - host.roofY) <= 1);
     assert.equal(host.roofY, host.top - 5, 'The actual cornice roof, not the facade top');
     assert.ok(sign.legs.every((x) => x > host.x && x < host.x + host.width));
-    renderer.skylines[2] = buildings;
+    renderer.skylines = [null, null, buildings];
     calls.length = 0;
     renderer._drawSkyline(renderer.ctx, 2);
     for (const x of sign.legs) assert.ok(calls.some(([method, px, py]) => method === 'lineTo' && px === x && Math.abs(py - host.roofY) <= 1));
