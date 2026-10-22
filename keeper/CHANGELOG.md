@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased — Ship physics and broadcast horn (#120)
+
+- Pure public physics API with four deeply frozen hull specifications, a
+  rate-limited rudder, first-order Nomoto yaw, thrust/drag and turning speed
+  loss. Fixed 1/60 s substeps remain deterministic through frame hitches.
+- Measured tactical diameters: trawler 45.32 m / 3.78 lengths; coaster
+  197.99 m / 6.60; speedboat 16.44 m / 2.74; lifeboat 21.92 m / 2.74.
+- Horn broadcasts to every audible ship independent of illumination; fog
+  attenuates range. Threatened honest captains turn after seeded crew delay,
+  safe captains hold, dark launches ignore or veer away from the lighthouse.
+  False alarms erode trust. Horn is broadcast; future Morse lamp is directed.
+- Fleet simulation/rendering shares physical headings, preserving off-beam
+  perception and afterimages. Escape helm anticipates yaw/rudder inertia.
+- Physical PONR includes worst reaction delay, rudder/yaw lag and adjacent
+  reefs. Generic sweep-budget APIs and independent budget tests are retained;
+  live turnRadius carries the measured maneuver allowance. Retuned 1.1 m/s
+  trawler spawns at 462.72 m (seed 108), PONR stays at 60 s, unwarned impact
+  moves to 91.28 s; time/old horn fixtures updated accordingly.
+- Physics shares the sim purity lint guard and coverage gate. Adversarial
+  tests cover all hull diameter bands, rudder/yaw bounds, reversal, stationary
+  helm, hitches, invalid inputs, seeded fleet hearing, dark launches, false
+  alarms and maximum-delay PONR rescue. Browser checks verify a physical
+  turning heading reaches the canvas and off-beam broadcast rescues.
+
 ## Unreleased — Sweep-budget fairness (#118)
 
 - Pure deterministic sweep counting, backwards spawn-range derivation and

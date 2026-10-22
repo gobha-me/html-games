@@ -103,31 +103,99 @@ Reduced motion removes the fade transition.
 
 ## 6. Ships & behaviours
 
-All ships follow scripted courses (seeded, deterministic) with simple
-reactive rules.
+All ships start on seeded deterministic courses and use the same physical
+maneuvering model. The first watch contains one trawler; the simulation, horn
+and renderer operate on a fleet, with independent responses for each ship.
 
 | Ship | Look | Behaviour | What you must do |
 |---|---|---|---|
-| **Trawler** (v1 issue 1) | squat hull, mast, running lights | Plods a course that may cross the Teeth. | Light it, then sound the horn while it's lit/close → it alters course away. Unwarned → wreck. |
+| **Trawler** (v1 issue 1) | squat hull, mast, running lights | Plods a course that may cross the Teeth. | Find it with the beam; broadcast the horn early → it alters course away. Unwarned → wreck. |
 | **Steamer / coaster** | long hull, two lights | Faster, wider turning circle — warn earlier. | Horn earlier; may ask by lamp "WHAT LIGHT" — answer the station code. |
 | **Smuggler** | low dark launch, no lights | Runs dark close to the rocks, slows when lit, flees if lit for > 3 s. Never wrecks (knows the water). | Notice and **log** it (bearing, time). Holding the beam on it is a choice: you learn more, but everything else goes dark. |
 | **Lifeboat / boat in distress** | small, flare or lamp flashing SOS | Drifts toward the rocks; flashes `SOS` in Morse. | Light it (so the shore boat can find it), signal `K`-style acknowledgement, and log it. Unlit too long → lost. |
 | **Swimmer / wreckage** (mystery nights) | tiny, only visible in beam | Drifts. | See it. Log it. |
 
-Reaction to the horn: any lit-or-near (< 40 % range) lighted vessel that hears
-the horn within its *warning window* turns away. Horn spam has a cost:
-each blast after the third in 20 s makes nearby honest skippers ignore it
-for a while ("the light's crying wolf").
+### Horn broadcast and directed lamp
 
-Each radial approach declares spawn time, bearing, speed, response seconds,
-turn radius, reef/PNR range and spawn range. PNR is the last warning boundary:
-`pnrRange + speed × responseSeconds + turnRadius`. Courses and warning
-parameters must match the live simulation, not just a validation fixture.
-The first-watch trawler now approaches the Teeth radially at **1.5 chart m/s**;
-its turn radius is speed divided by angular turn rate (22°/s in radians).
-Its derived spawn range is about **459.25 m**, yielding 60 s to PNR and an
-unwarned wreck near 65 s. A vessel that turns north clear of all charted reefs
-counts safe and continues sailing, even if it has not left the chart by dawn.
+The **horn is an omnidirectional broadcast** meaning “rocks near”, never an
+aimed command. Every ship at distance ≤ `hornRange(fogDensity)` hears each
+blast: range is **700 − 350 × fogDensity metres**, strictly decreasing from
+700 m in clear air to 350 m in the densest fog. Beam illumination, running
+lights and afterimages have no bearing on hearing. Pressing H starts one
+broadcast; holding sustains its sound, releasing and pressing sends another.
+
+Each honest captain projects its straight track against the reef discs. An
+endangered ship turns toward safe water, away from the nearest reef; a safe
+ship holds course. A dark smuggler deterministically ignores the horn or
+veers onto a course away from the lighthouse. Seeded crew delays vary within
+the hull's reaction band below; fleet ordering cannot change those draws.
+A blast heard by no endangered ship reduces trust by 0.25 (floor zero).
+Lower trust increases delay within the hull's band and reduces response
+probability; useful warnings do not reduce trust. Further trust design is #109.
+
+The **Morse lamp is directed**: it addresses only the ship currently in the
+beam. A lamp message is not a broadcast horn and cannot warn unseen ships.
+The lamp/decoder remains future work (§8); this split governs its integration.
+
+### Maneuvering physics (#120)
+
+`js/physics.js` is pure: metres, seconds, north-positive y, and heading in
+degrees clockwise from north, normalized to [0,360). The canvas simulation
+converts its south-positive y at the boundary. Both run at **1/60 s**; frame
+hitches use the same fixed substeps, with a final fractional step if needed.
+No wall clock, browser globals or unseeded randomness is allowed in either
+module (the same lint guard and coverage gate apply).
+
+The commanded rudder is clamped to ±35° and swings at the hull's limited
+rate. First-order Nomoto yaw follows `T × yawAcceleration + yawRate =
+K × rudder × speed/cruiseSpeed`. The exponential yaw update preserves
+continuous turns and reversals instead of snapping the bow to a new bearing.
+At zero speed there is no steerage or rotation. Linear thrust and drag give
+acceleration/deceleration: full throttle settles at cruise speed in straight
+water, while full rudder adds 25% drag (80% cruise equilibrium). Integration
+uses midpoint yaw/translation. A delayed escape helm turns away from the
+reef, then anticipates rudder/yaw inertia to settle onto the reciprocal
+course. The renderer rotates the hull and running lights from this physical
+heading; remembered poses retain the last observed heading.
+
+The tactical diameter is measured by starting straight at cruise, applying
+full rudder, and interpolating transverse displacement at 180° heading
+change, including rudder/yaw startup and speed loss. Tuned measurements:
+
+| Hull | Length (m) | Cruise (m/s) | Rudder rate (°/s) | K (1/s) | T (s) | Reaction (s) | Diameter (m / lengths) |
+|---|---:|---:|---:|---:|---:|---|---|
+| Trawler | 12 | 1.1 | 7.5 | 0.08 | 4.5 | 1.8–2.5 | **45.32 / 3.78** |
+| Coaster | 30 | 3 | 5 | 0.05 | 8 | 2–2.5 | **197.99 / 6.60** |
+| Speedboat | 6 | 6 | 90 | 1.2 | 0.35 | 1–1.4 | **16.44 / 2.74** |
+| Lifeboat | 8 | 3 | 55 | 0.45 | 0.7 | 1.1–1.7 | **21.92 / 2.74** |
+
+### Physical point of no return
+
+`pointOfNoReturn(vessel, rocks)` returns a conservative warning lead in
+seconds **before projected straight-track impact** (zero for a clear track
+or stationary vessel). It simulates maximum crew delay and both full-rudder
+escape turns, measuring their maximum forward travel. A separating plane
+before every forward reef disc includes neighbours beside the initial track;
+clearing that plane prevents steering into an adjacent rock. The lead also
+reserves two fixed ticks for scheduling/integration. The simulation uses
+identical reef discs, inflated by its 8 m hull clearance, for prediction,
+PONR and collision.
+
+Each radial approach still declares spawn time, bearing, speed, response
+seconds, `turnRadius`, reef-entry `pnrRange` and spawn range. The generic
+sweep-budget API remains compatible with #118: for live physical approaches,
+`responseSeconds` is the hull's maximum crew delay and `turnRadius` is the
+**effective maneuver allowance**, `speed × (pointOfNoReturn − responseSeconds)`,
+rather than the old constant angular-rate circle radius. The radial reef
+entry is computed from the actual lane/disc intersection. Thus the budget's
+warning boundary is exactly `pnrRange + speed × pointOfNoReturn`.
+
+At seed 108, the trawler's reef entry is **362.31 m**, physical lead **31.28 s**,
+warning boundary **396.72 m**, and derived spawn **462.72 m**. It has **60 s**
+before PONR and wrecks unwarned near **91.28 s**. Cruise was tuned to 1.1 m/s
+to fit the full physical turn and default sweep quota inside the watch's
+shortest fog reach (464.8 m). A ship that has turned onto a clear escape
+track counts safe and continues sailing, even if still on the chart at dawn.
 
 Fast vessels (**speed ≥ `FAST_SHIP_SPEED`, currently 8 chart m/s**) expose
 `perception(state).engineCue = { bearing, intensity }` while underway and
@@ -163,6 +231,7 @@ default clockwise revolution. `spawnRangeFor` derives the minimum range:
 
 ```
 warningBoundary = pnrRange + speed × responseSeconds + turnRadius
+                = pnrRange + speed × pointOfNoReturn  # live physical approaches
 minimumSpawnRange = warningBoundary + speed × (N + 1) × 12
 ```
 
@@ -191,6 +260,9 @@ carry the actual beam phase into each new segment, with held segments
 adding zero passes. The validator never pretends a held beam is sweeping.
 
 ## 8. Morse signal lamp
+
+The lamp is a **directed channel** to the vessel currently in the beam; the
+omnidirectional horn is the separate broadcast warning channel (§6).
 
 - Real International Morse. `K` down < **250 ms** = dot, ≥ 250 ms = dash
   (threshold adapts slightly to the player's own average dot length,
