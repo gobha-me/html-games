@@ -228,7 +228,11 @@ test('shared key table never duplicates a physical binding; simultaneous aliases
   for (const [action, codes] of Object.entries(KEYS)) for (const code of codes) assert.equal(actionFor(code), action);
   assert.equal(actionFor('KeyZ'), undefined);
   const pressed = new Set(['KeyA', 'ArrowLeft', 'KeyH', 'Space']); pressed.delete('KeyA');
-  assert.deepEqual(heldInput(pressed), { slow: true, fast: false, horn: true, hold: true });
+  assert.deepEqual(heldInput(pressed), { slow: true, fast: false, horn: true, hold: true, lamp: false });
+  pressed.add('KeyK');
+  assert.equal(heldInput(pressed).lamp, true);
+  pressed.delete('KeyK');
+  assert.equal(heldInput(pressed).lamp, false);
 });
 
 test('corrupt, old, oversized and impossible dawn records are rejected', () => {

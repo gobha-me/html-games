@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased — Directed Morse signal lamp (#110)
+
+- Add the pure International Morse alphabet/codec, adaptive keying decoder,
+  exact vocabulary parser, honest/smuggler replies and 8/5 WPM schedules.
+  Include `morse.js` in the purity lint guard and coverage gate. Exhaustively
+  cover all letters/digits, gap/press thresholds at ±1 ms, adaptation bounds,
+  unknown sequences, invalid events, vocabulary and garbage-message replies.
+- Bind K through the shared controls table, including title/watch hints,
+  footer and help. Add a live symbols/text strip, keyed lantern housing,
+  open/shuttered indicator, optional alphabet card and incoming-speed setting.
+  Preserve overhead view, compass, chart transform and existing layout.
+- Dispatch after seven idle dot-units to only the ship lit at completion;
+  no lit recipient means no effect. Reserve WHAT/STEER through their word
+  gap so the two-word vocabulary remains usable (DESIGN §8 clarification).
+  ROCKS warns an endangered honest captain using the existing minimal
+  avoidance, with no trust cost or broadcast. Replies blink as fog-limited
+  ship points without revealing off-beam hulls or translated reply text.
+- Cancel unfinished input across pause/help/focus loss and other mode changes.
+  Add simulation tests for directed-only warnings, unlit delivery, replies,
+  multiword commands and held-through-pause input. Playwright exercises real
+  K keying, live decoding, reference discovery, both reply speeds, actual
+  canvas signal flashes and interruption/unlit behavior.
+- Verification (Node 22.23.4): `npm run lint` passes with zero warnings;
+  `npm run test:coverage` passes 172 tests (Morse and physics 100%, sim
+  99.48% line coverage); `npm run test:e2e` passes all 27 browser tests.
+
 ## Unreleased — Fleet fixes (kfleet-ISSUE)
 
 - Latch `everSeen` from beam illumination or running lights. Dawn counts only

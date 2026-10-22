@@ -26,6 +26,12 @@
       <span id="horn-state">Horn silent</span>
       <span id="trust-state">Skipper trust · 100%</span>
     </div>
+    <aside id="morse-strip" aria-label="Outgoing Morse signal">
+      <span id="lamp-state">○ Lamp shuttered</span>
+      <output id="morse-symbols" aria-label="Keyed Morse symbols">—</output>
+      <output id="morse-text" aria-label="Live decoded text">Key K to signal</output>
+      <span id="morse-delivery">Directed to the vessel in the beam</span>
+    </aside>
     <div class="panel" id="start-panel">
       <p class="eyebrow">Night one · The Light</p>
       <h2>Keep a weather eye.</h2>
@@ -48,6 +54,13 @@
       <h2>Work the light.</h2>
       <ul id="controls-list"></ul>
       <p class="small">The horn warns every vessel in hearing range.<br>False alarms erode trust; repeated blasts are ignored.</p>
+      <p class="small">Hold Space to keep a vessel lit. Key K: short for a dot, long for a dash. Leave 3 dot-units between letters; 7 idle units sends. WHAT and STEER wait for a second word. ROCKS warns only the lit vessel. Read her blinking reply.</p>
+      <label class="small" for="incoming-wpm">Ship replies</label>
+      <select id="incoming-wpm">
+        <option value="8">8 WPM</option>
+        <option value="5">5 WPM · slower</option>
+      </select>
+      <label class="small reference-toggle"><input id="show-reference" type="checkbox"> Show Morse reference</label>
       <button id="close-help" type="button">Return to watch <span>→</span></button>
     </div>
     <div class="panel" id="dawn-panel" hidden>
@@ -60,6 +73,11 @@
     <aside id="watch-controls" class="watch-controls is-faded" aria-label="Watch controls" aria-hidden="true">
       <p class="eyebrow">Work the light · press H to warn nearby vessels</p>
       <ul id="watch-controls-list" class="control-list"></ul>
+    </aside>
+    <aside id="morse-reference" aria-label="Morse reference card" hidden>
+      <p class="eyebrow">International Morse · toggle in ? controls</p>
+      <div id="morse-alphabet"></div>
+      <p>SOS · K · R · AR · WHAT LIGHT · SKR · ROCKS · STEER N/S/E/W · WHO</p>
     </aside>
     <footer>
       <p id="controls-hint"></p>

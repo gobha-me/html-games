@@ -19,6 +19,12 @@ Slowing or holding deliberately trades those chances for attention elsewhere.
 - **H**, held: sound the broadcast horn. Every ship in fog-limited audible
   range hears it, even off-beam. Endangered captains turn after a seeded crew
   delay; safe ships hold course. Last-second warnings can still end in a wreck.
+- **K**, keyed: flash the directed signal lamp at the vessel in the beam.
+  Short presses are dots, long presses dashes; the live strip decodes your
+  keying. Leave 3 dot-units between letters and 7 to send. `WHAT` and `STEER`
+  wait for a second word. `ROCKS` warns only the lit ship, without a trust
+  penalty. Ships blink replies at 8 WPM; **?** offers 5 WPM and an optional
+  alphabet reference card. Hold Space to keep the recipient lit until sending.
 - **Esc / P**: pause. **?**: controls. Focus loss also pauses and releases keys.
 - **Mute horn** silences audio without changing the warning mechanic.
 
@@ -34,8 +40,8 @@ ships. Only a reef impact within 120 seconds counts as danger. Trust recovers
 by 1% per simulated second. The fourth blast in under 20 seconds makes skippers
 ignore horns for 30 seconds; ignored blasts also erode trust and do not extend
 that window. Expanding rings show each blast even when muted; dashed, dim rings
-mean it was ignored. The HUD shows current skipper trust. The future Morse
-lamp addresses only the vessel in the beam.
+mean it was ignored. The HUD shows current skipper trust. The Morse
+lamp addresses only the vessel lit when the message finishes.
 
 ## Tech
 
@@ -64,7 +70,7 @@ the helper compresses the wait for dawn without altering the course or outcome.
 Issue #108: first playable, one trawler / one three-minute watch. Start, pause,
 controls, restart, safe/wrecked dawn summary, and a versioned last-watch record
 in localStorage. Invalid or inaccessible storage never prevents play. In-progress
-resume, the keeper's log, Morse (K/L), additional nights, and ambient
+resume, the keeper's log, additional nights, and ambient
 wind/sea audio belong to later milestones. The full design is in
 [docs/DESIGN.md](docs/DESIGN.md); this milestone intentionally shortens the night.
 Issue #118 adds pure sweep-budget helpers, schedule rejection on load/start,
@@ -75,6 +81,8 @@ the fleet, physical PONR budgeting, and smooth rendered turns. Four hull types
 are tuned and tested.
 Issue #109 completes the foghorn trust/recovery and spam rules, with muted-play
 visual rings and a trust readout.
+Issue #110 adds the pure International Morse decoder, directed signal lamp,
+live strip, ship replies, incoming-speed setting and optional reference card.
 The kspawn pacing change adds seeded arrivals from 24–36 seconds onward,
 with jittered gaps, at most three overlapping active windows, separated
 bearings and independent warning budgets. Traffic stops arriving by 120
@@ -92,6 +100,7 @@ unseen arrivals separately. Rejected spawn slots no longer end traffic.
 
 - `index.html`, `css/keeper.css` — interface and layout.
 - `js/physics.js` — pure hull dynamics, tactical diameter, horn broadcast and PONR.
+- `js/morse.js` — pure Morse alphabet, adaptive decoder, vocabulary and reply timing.
 - `js/sim.js` — seeded world, beam, perception, horn reaction, collisions, dawn.
 - `js/main.js` — keyboard, browser clock, panels, storage adapter.
 - `js/renderer.js`, `js/audio.js` — canvas and horn adapters.

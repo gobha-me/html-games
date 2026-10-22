@@ -177,7 +177,7 @@ function skerryRock(ctx, state, reduced) {
   ctx.restore();
 }
 
-function lighthouse(ctx, beam) {
+function lighthouse(ctx, beam, keyed) {
   ctx.save(); ctx.translate(LAMP.x, LAMP.y);
   ctx.fillStyle = '#6d7056'; ctx.fillRect(-9, -9, 18, 18);
   ctx.fillStyle = '#303c35'; ctx.fillRect(-7, -7, 14, 14);
@@ -190,6 +190,10 @@ function lighthouse(ctx, beam) {
   const glint = ctx.createRadialGradient(0, 0, 0, 0, 0, 15);
   glint.addColorStop(0, 'rgba(255,232,183,0.55)'); glint.addColorStop(1, 'rgba(255,232,183,0)');
   disc(ctx, 0, 0, 15, glint); disc(ctx, 0, 0, 2, '#fff0c9');
+  if (keyed) {
+    ctx.strokeStyle = '#fff0c9'; ctx.lineWidth = 2;
+    ctx.strokeRect(-8, -8, 16, 16);
+  }
   ctx.restore();
   ctx.font = '10px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#707974';
   ctx.fillText('S K E R R Y  R O C K', 0, 70);
@@ -229,9 +233,13 @@ export function createRenderer(canvas) {
         const view = perception(state, ship);
         if (view.hull) hull(ctx, view.hull, view.opacity);
         if (!ship.smuggler && (view.runningLights || (view.lit && ship.status !== 'wrecked'))) runningLights(ctx, ship);
+        if (view.signal) {
+          disc(ctx, ship.x, ship.y, 7, 'rgba(255,240,201,0.18)');
+          disc(ctx, ship.x, ship.y, 3, '#fff0c9');
+        }
       }
       drawHornRings(ctx, state);
-      lighthouse(ctx, state.beam);
+      lighthouse(ctx, state.beam, state.lamp);
       ctx.restore();
     },
   };

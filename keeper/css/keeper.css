@@ -102,6 +102,57 @@ h1 {
 }
 #horn-state.sounding { color: var(--lamp); }
 
+#morse-strip {
+  position: absolute;
+  right: 42px;
+  top: 155px;
+  width: 300px;
+  font: 11px/1.8 'Courier New', monospace;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+#lamp-state.sounding, #morse-text { color: var(--lamp); }
+
+#morse-symbols, #morse-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: right;
+}
+
+#morse-strip, #lamp-state { text-align: right; }
+
+#morse-reference {
+  position: absolute;
+  top: 280px;
+  bottom: 125px;
+  right: 42px;
+  width: 290px;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  background: rgb(5 7 10 / 96%);
+  font: 11px/1.8 'Courier New', monospace;
+  overflow: auto;
+}
+
+#morse-alphabet {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px 10px;
+  white-space: nowrap;
+}
+
+.reference-toggle {
+  display: block;
+  margin-top: 12px;
+}
+
+select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--sea);
+}
+
 .panel {
   position: absolute;
   top: 50%;
@@ -188,6 +239,10 @@ footer {
 }
 .footer-actions button span { color: var(--muted); }
 
+#morse-strip span { display: block; }
+
+#morse-strip output { display: block; }
+
 button:focus-visible, a:focus-visible {
   outline: 1px solid var(--lamp);
   outline-offset: 5px;
@@ -201,8 +256,13 @@ button:hover, button:focus-visible {
 #controls-list {
   list-style: none;
   padding: 0;
-  font-size: 13px;
-  line-height: 2;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+#help-panel {
+  max-height: calc(100% - 30px);
+  overflow: auto;
 }
 
 .control-list {
