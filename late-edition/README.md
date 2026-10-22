@@ -467,8 +467,9 @@ the previous size), with proportionally enlarged rings/badges, long cast shadows
 and a larger camera/flash reflector; pass portraits retain their scale. Telegram
 flags, headlines and series/verification badges are placed once at birth against
 HQ, district signs and existing labels: try above-right, above-left, below-right,
-then below-left, keeping the last offset if all four are blocked. Every label has
-a thin leader line. Figure/ring collisions are checked at most every 250 ms; only
+then below-left, keeping the last offset if all four are blocked and clamping it
+inside the map. Copy growth reclamps; impossible oversized copy scales to fit. Every label has
+a thin leader line to its unchanged address. Figure/ring collisions are checked at most every 250 ms; only
 an obstructed label is re-placed, using the same four offsets. The address pin and
 countdown/progress rings stay at the original lead coordinates with sodium glow;
 arc yarn remains red. Herald sedans use sodium
@@ -481,8 +482,9 @@ layers on detached canvases at the displayed size × DPR. City/title geometry is
 baked only for the scene being displayed; title geometry is generated lazily and
 all title canvases release their backing stores when leaving the title. The city renderer
 never creates title caches. Static city/fog caches use the detached Canvas2D sources
-from `43d7940`. Caches rebuild on size/DPR changes, after the initial local font
-load settles. Each frame composites these layers and draws traffic, figures, leads,
+from `43d7940`. The city source completes raster once before the first desk frame,
+avoiding a cold GPU queue stall during play. Caches rebuild on size/DPR changes,
+after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
 threads, collision-offset street signs, weather and callouts. Title layers dissolve
 into an ink-to-faint-mahogany/sodium horizon through low-contrast dark haze, with an
 near skyline close to ink-black, bridge, solid water towers and sparse windows.
@@ -510,6 +512,10 @@ renderer 150 times synchronously with fixed dt. Both live and deterministic rend
 p95 must be **<8ms**, or **<16ms with CDP 4× CPU throttling**. The batch follows
 live sampling so its queued raster work cannot bias presentation measurements.
 Gameplay hash/RNG and warm-cache identity must remain unchanged by the batch.
+The post-cache startup gate is **<2000 ms**; preparation and navigation-to-steady
+are also recorded. This does **not** imply a sub-two-second cold load: pinned
+SwiftShader cold navigation still takes 4.47–4.83 s. See
+[performance diagnosis and measured limits](docs/PERFORMANCE.md#issue-102-cold-city-raster-and-edge-labels-2026-10-22).
 
 Frame p95 **<20ms** remains mandatory on the unthrottled run when independent
 foreground calibration (empty page, then a blank full-viewport canvas) achieves

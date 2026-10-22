@@ -2,7 +2,7 @@ import { PALETTE, alpha as withAlpha } from './palette.js';
 import { CITY_SEED, generateDistrict, generateSkyline, rooftopSignGeometry, districtSignPosition, shadowVector } from './city.js';
 import { mulberry32 } from './rng.js';
 import { drawSilhouette, FIGURE_SCALE, MARKER_SCALE, figureBox } from './silhouettes.js';
-import { boxesIntersect, labelLeader, placeLabel } from './label-placement.js';
+import { boxesIntersect, clampLabelBox, labelLeader, placeLabel } from './label-placement.js';
 // ============================================================================
 // LATE EDITION // 1947 — 2.5D Rain-Slicked Noir Metropolis Renderer
 // ============================================================================
@@ -102,12 +102,23 @@ export class NoirCityRenderer {
       this.skylines = [0, 1, 2].map((depth) => generateSkyline(depth));
       this.cache.skyline = [0, 1, 2].map((depth) => layer((ctx) => this._drawSkyline(ctx, depth)));
     }
-    else this.cache.city = layer((ctx) => {
-      this._drawWetAsphaltBase(ctx);
-      this._drawStreetNetwork(ctx);
-      this._drawStreetlampPools(ctx);
-      this._drawDistrictBuildings25D(ctx);
-    });
+    else {
+      const start = performance.now();
+      this.cache.city = layer((ctx) => {
+        this._drawWetAsphaltBase(ctx);
+        this._drawStreetNetwork(ctx);
+        this._drawStreetlampPools(ctx);
+        this._drawDistrictBuildings25D(ctx);
+      });
+      // Canvas2D defers raster: drawing the source is not a ready bitmap. On
+      // SwiftShader, sampling this cold display list on successive desk frames
+      // builds a GPU backlog, then a compositor Finish blocks for seconds.
+      // Canvas2D has no completion fence; one pixel read once per cache build
+      // completes the static source before submitting the first desk frame.
+      // Keep the live canvas accelerated and never read it on the frame path.
+      this.cache.city.getContext('2d').getImageData(0, 0, 1, 1);
+      performance.measure('late-edition:city-raster-ready', { start, end: performance.now() });
+    }
     return true;
   }
 
@@ -621,12 +632,12 @@ export class NoirCityRenderer {
         placement = { ...placeLabel(lead, size,
           [...staticObstacles, ...[...placements.values()].map(({ box }) => box)]), top, promptSpace };
       } else {
-        // Copy changes refresh measured dimensions, never the fixed position.
+        // Copy changes preserve position unless containment requires clamping.
         // Verification and selection are painted live without layout work.
-        const box = { ...placement.box, ...size };
+        const box = clampLabelBox({ ...placement.box, ...size });
         placement = { ...placement, box, top, leader: labelLeader(lead, box) };
       }
-      placements.set(lead.uid, { ...placement, key, textWidth, seriesWidth, promptWidth });
+      placements.set(lead.uid, { ...placement, key, textWidth, seriesWidth, promptWidth, contentSize: size });
     }
     // Wall time keeps the 250 ms safety check alive when paused/reduced-motion.
     // Warm frames do no obstacle construction or collision checks at all.
@@ -739,13 +750,17 @@ export class NoirCityRenderer {
       }
 
       ctx.restore();
-      const { box, top, leader, textWidth, seriesWidth, promptWidth } = placements[index];
+      const { box, top, leader, textWidth, seriesWidth, promptWidth, contentSize } = placements[index];
       ctx.save();
       ctx.strokeStyle = withAlpha(PALETTE.brass, 0.8);
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(leader.from.x, leader.from.y);
       ctx.lineTo(leader.to.x, leader.to.y); ctx.stroke();
-      ctx.translate(box.x + box.w / 2, box.y - top);
+      // Usually 1: only pathological oversized copy needs scaling to keep all
+      // ink inside the clamped box. Draw the leader before transforming the art.
+      const scale = Math.min(1, box.w / contentSize.w, box.h / contentSize.h);
+      ctx.translate(box.x + box.w / 2, box.y - top * scale);
+      ctx.scale(scale, scale);
       this._paintLeadLabel(ctx, lead, isSelected, textWidth, seriesWidth);
 
       // First-launch onboarding prompt on the selected lead when all units are idle at HQ

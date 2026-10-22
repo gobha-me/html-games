@@ -36,13 +36,36 @@ try {
   }
   if (baselineRevision) {
     // Compare committed source without checkout/stash or touching the worktree.
+    // Older revisions predate the extracted label helper and baked grain.
+    const paths = new Set(execFileSync('git', ['ls-tree', '--full-tree', '-r', '--name-only', baselineRevision, '--', 'late-edition/'],
+      { encoding: 'utf8' }).trim().split('\n'));
     for (const [path, contentType] of [['js/renderer.js', 'text/javascript'], ['js/city.js', 'text/javascript'],
-      ['js/silhouettes.js', 'text/javascript'], ['js/main.js', 'text/javascript'],
+      ['js/silhouettes.js', 'text/javascript'], ['js/label-placement.js', 'text/javascript'], ['js/main.js', 'text/javascript'],
       ['js/dom.js', 'text/javascript'], ['css/style.css', 'text/css'], ['assets/paper-grain.png', 'image/png']]) {
+      if (!paths.has(`late-edition/${path}`)) continue;
       const body = execFileSync('git', ['show', `${baselineRevision}:late-edition/${path}`]);
       await page.route(`**/late-edition/${path}`, (route) => route.fulfill({ body, contentType }));
     }
   }
+  // Capture first-use submission separately from the GPU/compositor timeline.
+  // Install before module evaluation so constructor-time cache work is included.
+  await page.route('**/late-edition/js/renderer.js', async (route) => {
+    const body = baselineRevision
+      ? execFileSync('git', ['show', `${baselineRevision}:late-edition/js/renderer.js`], { encoding: 'utf8' })
+      : await (await route.fetch()).text();
+    const instrumentation = `
+for (const key of ['_ensureLayers', '_drawDistrictBuildings25D', '_drawFogEdges']) {
+  const original = NoirCityRenderer.prototype[key];
+  NoirCityRenderer.prototype[key] = function (...args) {
+    const start = performance.now();
+    try { return original.apply(this, args); }
+    finally {
+      if (performance.now() - start > 2) performance.measure('late-edition:startup:' + key, { start, end: performance.now() });
+    }
+  };
+}`;
+    await route.fulfill({ contentType: 'text/javascript', body: body + instrumentation });
+  });
   const cdp = await page.context().newCDPSession(page);
   const layers = new Map(), paints = [];
   cdp.on('LayerTree.layerTreeDidChange', ({ layers: current = [] }) => {
@@ -55,7 +78,8 @@ try {
   // Capture startup too: screenshots/readbacks before the live sample flush
   // deferred raster work and can conceal the exact regression being measured.
   await cdp.send('Tracing.start', {
-    categories: 'devtools.timeline,blink.user_timing,cc,gpu,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.paint,disabled-by-default-cc.debug',
+    categories: 'devtools.timeline,blink.user_timing,cc,gpu,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.paint,disabled-by-default-cc.debug' +
+      (process.argv.includes('--gpu-details') ? ',viz,skia,disabled-by-default-gpu.service,disabled-by-default-skia,disabled-by-default-skia.gpu' : ''),
     transferMode: 'ReturnAsStream',
   });
   await page.goto('http://127.0.0.1:8123/late-edition/?seed=89&preview=combat');
@@ -143,6 +167,9 @@ try {
   }
   if (!process.argv.includes('--skip-screenshot')) await page.screenshot({ path: `${directory}/${name}.png` });
   await cdp.send('Overlay.setShowPaintRects', { result: false });
+  metrics.startupMeasures = await page.evaluate(() => performance.getEntriesByType('measure')
+    .filter(({ name }) => name.startsWith('late-edition:startup:') || name === 'late-edition:city-raster-ready')
+    .map(({ name, startTime, duration }) => ({ name, startTime, duration })));
   metrics.calibration = calibration;
   metrics.cpuRate = cpuRate;
   metrics.layers = [];
