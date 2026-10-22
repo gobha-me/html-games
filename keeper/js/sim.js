@@ -1,4 +1,4 @@
-import { PHYSICS_DT, HULLS, createVessel, stepVessel, broadcastHorn, threatensReef, pointOfNoReturn } from './physics.js';
+import { PHYSICS_DT, THREAT_HORIZON_SECONDS, HULLS, hornRange, createVessel, stepVessel, broadcastHorn, threatensReef, pointOfNoReturn } from './physics.js';
 
 // World units are chart metres; bearings increase clockwise from north.
 // No wall clock, DOM, storage, or unseeded randomness belongs in this module.
@@ -144,7 +144,7 @@ export function createState(seed = 108) {
   };
   return {
     seed, time: 0, phase: 'night', beam: 285, speed: SPEED.default,
-    fog: 0.08 + random * 0.04, horn: false, blasts: [], trust: 1,
+    fog: 0.08 + random * 0.04, horn: false, blasts: [], ignoredBlasts: [], hornIgnoredUntil: 0, trust: 1,
     nightParams: { night: 1, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
     schedule: [{ ...approach, spawnRange }],
     ships: [trawler], trawler,
@@ -167,49 +167,62 @@ export function perception(state, ship = state.trawler) {
   };
 }
 
+function blastHorn(state) {
+  const inIgnoreWindow = state.time < state.hornIgnoredUntil;
+  const spam = state.blasts.length >= 3;
+  const ignored = inIgnoreWindow || spam;
+  if (spam && !inIgnoreWindow) state.hornIgnoredUntil = state.time + 30;
+  state.blasts.push(state.time);
+  if (ignored) {
+    state.ignoredBlasts.push(state.time);
+    state.trust = Math.max(0, state.trust - 0.25);
+    return;
+  }
+  const ships = fleet(state).filter((ship) => ship.status === 'underway' || ship.status === 'safe');
+  const responses = broadcastHorn(ships.map(physical), {
+    origin: { x: 0, y: 0 }, fogDensity: state.fog, time: state.time,
+    seed: (state.seed + state.blasts.length) >>> 0, trust: state.trust, rocks: REEFS,
+  });
+  // Only false alarms erode trust. A real warning to any endangered listener
+  // is useful even when another captain is already on a safe track (#109).
+  if (!ships.some((ship, index) => responses[index].heard && threatensReef(physical(ship), REEFS, THREAT_HORIZON_SECONDS))) {
+    state.trust = Math.max(0, state.trust - 0.25);
+  }
+  for (let index = 0; index < ships.length; index++) {
+    const ship = ships[index], response = responses[index];
+    ship.lastHorn = response;
+    if (ship.warnedAt !== null || !['turn-away', 'veer'].includes(response.response)) continue;
+    ship.warnedAt = state.time;
+    ship.reactAt = response.reactAt;
+    ship.response = response.response;
+    const pose = physical(ship);
+    // Steer away from the nearest reef; dark launches instead veer away
+    // from the lighthouse. The rudder controller sails the reciprocal track.
+    const obstacle = response.response === 'veer' ? { x: 0, y: 0 }
+      : REEFS.reduce((a, b) => Math.hypot(a.x - pose.x, a.y - pose.y) - a.radius
+        < Math.hypot(b.x - pose.x, b.y - pose.y) - b.radius ? a : b);
+    const starboard = (obstacle.x - pose.x) * Math.cos(pose.heading * RAD)
+      - (obstacle.y - pose.y) * Math.sin(pose.heading * RAD);
+    ship.turnSign = starboard > 0 ? -1 : 1;
+    ship.targetHeading = response.response === 'veer'
+      ? wrapBearing(bearingTo(ship) + ship.turnSign * 30) : wrapBearing(ship.heading + 180);
+    if (response.response === 'veer') {
+      const error = ((ship.targetHeading - ship.heading + 540) % 360) - 180;
+      ship.turnSign = error < 0 ? -1 : 1;
+    }
+  }
+}
+
 function tick(state, input, dt) {
+  state.trust = Math.min(1, state.trust + 0.01 * dt);
   state.time = Math.min(NIGHT_SECONDS, state.time + dt);
   const steer = Number(input.fast === true) - Number(input.slow === true);
   state.speed = clampSpeed(state.speed + steer * 24 * dt);
   if (input.hold !== true) state.beam = wrapBearing(state.beam + state.speed * dt);
   state.fog = 0.08 + 0.08 * state.time / NIGHT_SECONDS;
   state.blasts = state.blasts.filter((time) => state.time - time < 20);
-  if (input.horn === true && !state.horn) {
-    state.blasts.push(state.time);
-    const ships = fleet(state).filter((ship) => ship.status === 'underway' || ship.status === 'safe');
-    const responses = broadcastHorn(ships.map(physical), {
-      origin: { x: 0, y: 0 }, fogDensity: state.fog, time: state.time,
-      seed: (state.seed + state.blasts.length) >>> 0, trust: state.trust, rocks: REEFS,
-    });
-    // Only false alarms erode trust. A real warning to any endangered listener
-    // is useful even when another captain is already on a safe track (#109).
-    if (!ships.some((ship, index) => responses[index].heard && threatensReef(physical(ship), REEFS, Number.MAX_VALUE))) {
-      state.trust = Math.max(0, state.trust - 0.25);
-    }
-    for (let index = 0; index < ships.length; index++) {
-      const ship = ships[index], response = responses[index];
-      ship.lastHorn = response;
-      if (ship.warnedAt !== null || !['turn-away', 'veer'].includes(response.response)) continue;
-      ship.warnedAt = state.time;
-      ship.reactAt = response.reactAt;
-      ship.response = response.response;
-      const pose = physical(ship);
-      // Steer away from the nearest reef; dark launches instead veer away
-      // from the lighthouse. The rudder controller sails the reciprocal track.
-      const obstacle = response.response === 'veer' ? { x: 0, y: 0 }
-        : REEFS.reduce((a, b) => Math.hypot(a.x - pose.x, a.y - pose.y) - a.radius
-          < Math.hypot(b.x - pose.x, b.y - pose.y) - b.radius ? a : b);
-      const starboard = (obstacle.x - pose.x) * Math.cos(pose.heading * RAD)
-        - (obstacle.y - pose.y) * Math.sin(pose.heading * RAD);
-      ship.turnSign = starboard > 0 ? -1 : 1;
-      ship.targetHeading = response.response === 'veer'
-        ? wrapBearing(bearingTo(ship) + ship.turnSign * 30) : wrapBearing(ship.heading + 180);
-      if (response.response === 'veer') {
-        const error = ((ship.targetHeading - ship.heading + 540) % 360) - 180;
-        ship.turnSign = error < 0 ? -1 : 1;
-      }
-    }
-  }
+  state.ignoredBlasts = state.ignoredBlasts.filter((time) => state.time - time < 2);
+  if (input.horn === true && !state.horn) blastHorn(state);
   state.horn = input.horn === true;
   for (const ship of fleet(state)) {
     if (ship.status === 'underway' || ship.status === 'safe') {
@@ -256,7 +269,7 @@ export function step(previous, input = {}, seconds = TICK) {
     throw new TypeError('Input must be an action object');
   }
   for (const key of ['slow', 'fast', 'hold', 'horn']) {
-    if (input[key] !== undefined && typeof input[key] !== 'boolean') throw new TypeError(`Invalid ${key}`);
+    if (Object.hasOwn(input, key) && typeof input[key] !== 'boolean') throw new TypeError(`Invalid ${key}`);
   }
   const state = structuredClone(previous);
   let remaining = Math.min(seconds, NIGHT_SECONDS - state.time);
@@ -272,6 +285,18 @@ export function step(previous, input = {}, seconds = TICK) {
     state.horn = false;
   }
   return state;
+}
+
+// Ring history uses blast timestamps; ignored status is fixed at emission time.
+export function hornRings(state) {
+  return state.blasts.flatMap((time) => {
+    const age = state.time - time;
+    return age >= 0 && age < 2 ? [{
+      radius: hornRange(state.fog) * age / 2,
+      alpha: 1 - age / 2,
+      ignored: state.ignoredBlasts.includes(time),
+    }] : [];
+  });
 }
 
 export function summary(state) {

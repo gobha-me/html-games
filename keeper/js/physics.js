@@ -1,6 +1,7 @@
 // Metres, seconds, and bearings clockwise from north; y points north.
 // This module has no clock, browser state, or unseeded randomness.
 export const PHYSICS_DT = 1 / 60;
+export const THREAT_HORIZON_SECONDS = 120;
 const RAD = Math.PI / 180;
 const hull = (length, cruiseSpeed, maxRudderDeg, rudderRateDegPerS, K, T, reactionSeconds) =>
   Object.freeze({ length, cruiseSpeed, maxRudderDeg, rudderRateDegPerS, K, T,
@@ -33,7 +34,7 @@ function checkRocks(rocks) {
     if (rock.radius < 0) throw new RangeError('Negative rock radius');
   }
 }
-export function createVessel(type, { x = 0, y = 0, heading = 0, speed = parameters(type).cruiseSpeed,
+export function createVessel(type, { x, y, heading, speed = parameters(type).cruiseSpeed,
   id = type, smuggler = false } = {}) {
   parameters(type);
   finite(x, y, heading, speed);
@@ -79,7 +80,7 @@ export function stepVessel(vessel, { rudderCommand = 0, throttle = 1 } = {}, dt)
 
 export function measureTacticalDiameter(type) {
   const spec = parameters(type);
-  let vessel = createVessel(type);
+  let vessel = createVessel(type, { x: 0, y: 0, heading: 0 });
   let angle = 0;
   while (angle < 180) {
     const previous = vessel;
@@ -135,7 +136,7 @@ export function broadcastHorn(ships, { origin, fogDensity, time, seed, trust = 1
     if (!heard) return { id: vessel.id, heard: false, response: 'none', reactAt: null };
     const [min, max] = spec.reactionSeconds;
     const delay = min + (max - min) * (1 - trust * (1 - draw(seed, vessel.id, 17)));
-    const endangered = threatensReef(vessel, rocks, Number.MAX_VALUE);
+    const endangered = threatensReef(vessel, rocks, THREAT_HORIZON_SECONDS);
     const response = vessel.smuggler ? (draw(seed, vessel.id, 71) < 0.5 ? 'ignore' : 'veer')
       : !endangered ? 'hold' : draw(seed, vessel.id, 37) >= trust ? 'ignore' : 'turn-away';
     return { id: vessel.id, heard: true, response, reactAt: time + delay };
