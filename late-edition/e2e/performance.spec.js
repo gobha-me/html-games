@@ -30,6 +30,8 @@ for (const rate of [1, 4]) {
       const metrics = { ...state, cpuRate: rate, calibration, frameBudgetSupported,
         deterministic: summarize(deterministic), live: summarize(live), frames: summarize(frames) };
       await testInfo.attach('swiftshader-frame-budget', { body: JSON.stringify(metrics, null, 2), contentType: 'application/json' });
+      // Echo to stdout so CI logs show the numbers without downloading artifacts.
+      console.log(`perf-metrics cpu${rate}x ${JSON.stringify({ calibration: metrics.calibration, frames: metrics.frames, live: metrics.live, deterministic: metrics.deterministic })}`);
       expect(metrics.viewport).toEqual([1920, 1080]);
       expect(metrics.duration).toBeGreaterThanOrEqual(5000);
       // The app caps catch-up at 50ms/frame. A minimum game-second count would
