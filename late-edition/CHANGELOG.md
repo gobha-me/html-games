@@ -90,6 +90,9 @@
   sources, and declare the visible canvas opaque. Avoid unused skyline submissions
   and extra GPU producers competing with the live SwiftShader map. Preserve every
   director visual change and every performance assertion.
+- Cache enlarged figure bodies by role/faction, preserving separate live bobbing,
+  fixed cast shadows, badges and rings instead of resubmitting their coat/hat/camera
+  paths each render. Invalidate figure resolution with the other DPR-sized art.
 - Add adversarial incoming-obstacle, unlock/hover/selection, stale-content,
   last-lead removal and DPR checks, plus a live hidden-title regression. Extend
   profiling with complete historical art modules, frozen-placement ablation and

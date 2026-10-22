@@ -529,5 +529,7 @@ enter a label box or lead geometry changes. Countdown/progress changes neither
 remeasure nor rasterize label text. Removed leads release their sprites; copy,
 verification, selection and DPR edits invalidate them. The onboarding prompt
 bounces as a cached bitmap. Hidden title art never advances behind the desk.
+Enlarged figure bodies are cached by role/faction; their body bob, fixed street
+shadow, number badge and selection/stun rings keep their original placement.
 See [profiling notes](docs/PERFORMANCE.md) for the PR #101 diagnosis, trace commands,
 local before/after measurements and the limits of CPU submission timing.

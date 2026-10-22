@@ -115,6 +115,9 @@ The final renderer reduces both recurring work and deferred startup work:
   keep sprites; copy, selection and verification changes replace them. Membership
   removal releases them, and size/DPR changes replace the whole cache. The prompt
   bounces as a bitmap; leader lines and address/progress rings remain live.
+- Bake the enlarged coat/hat/camera geometry once per role/faction. Body sprites
+  bob independently of their fixed cast shadows; badges and rings keep their
+  original coordinates/scales. The 1.4× director enlargement remains intact.
 - Create city and title layers only when that scene is displayed. The desk no
   longer submits three unused skyline textures. Starting at the title no longer
   pre-renders a hidden desk. The existing title visibility guard remains intact.
@@ -123,6 +126,13 @@ The final renderer reduces both recurring work and deferred startup work:
   intentional despite no readbacks: these canvases are painted once as sources,
   rather than presented as live surfaces. Declare the visible canvas opaque,
   matching the existing full-background repaint. Resolution and art stay intact.
+
+Forcing the **live** canvas onto CPU raster was rejected: under the unchanged
+two-core test it produced **102 intervals / 233.3 ms frame p95**, despite a
+**0.6 ms live render p95**. The live canvas stays accelerated. Static caching alone
+also left a roughly 25-second GPU/context wait after the CPU-4× synchronous
+batch, consuming the following starvation test's timeout. Caching enlarged figure
+paths addresses that batch work as well as the live render path.
 
 An isolated diagnostic with these bitmap/scene choices reached **301 intervals /
 16.8 ms frame p95**, **0.6 ms render p95**, and **189.7 ms live raster flushes**
@@ -137,6 +147,8 @@ movement, and DPR changes. A browser regression verifies that the hidden title
 gets zero render calls while the live desk advances. Existing crowded-label,
 unique-sign, enlarged-figure, rooftop/searchlight, reduced-motion, input and
 gameplay/RNG checks remain in place.
+Figure tests also force faction/role changes, bobbing and DPR invalidation,
+rejecting repeated warm body-path painting and wrong-faction sprite reuse.
 
 ## Performance contract
 

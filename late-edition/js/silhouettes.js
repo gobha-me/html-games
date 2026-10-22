@@ -10,7 +10,7 @@ export const figureBox = (x, y) => ({ x: x - 21 * FIGURE_SCALE,
 
 // Shared geometry for street figures and press-pass portraits. Coordinates are
 // relative to the feet; the art deliberately has no input/hit-test information.
-export function drawSilhouette(ctx, role = 'reporter', { bob = 0, herald = false, goon = false } = {}) {
+export function drawSilhouetteShadow(ctx) {
   ctx.save();
   ctx.fillStyle = alpha(PALETTE.nightInk, 0.65);
   ctx.beginPath();
@@ -18,6 +18,12 @@ export function drawSilhouette(ctx, role = 'reporter', { bob = 0, herald = false
   ctx.lineTo(64, 19); ctx.lineTo(57, 24); ctx.lineTo(4, 4);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+export function drawSilhouette(ctx, role = 'reporter', { bob = 0, herald = false, goon = false, shadow = true } = {}) {
+  if (shadow) drawSilhouetteShadow(ctx);
+  ctx.save();
   ctx.translate(0, bob);
   const broad = role === 'fixer' || goon;
   ctx.fillStyle = PALETTE.nightInk;

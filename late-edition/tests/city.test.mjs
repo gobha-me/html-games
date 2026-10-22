@@ -422,6 +422,34 @@ test('street figures, number badges and ground rings grow together by 1.4x', (t)
   assert.ok(calls.some(([method, x, y]) => method === 'scale' && x === FIGURE_SCALE && y === FIGURE_SCALE));
 });
 
+test('figure bitmaps reuse body raster while bobbing, separate hostile factions, and rebuild at DPR changes', (t) => {
+  const { canvas, calls } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  renderer._ensureLayers();
+  renderer._drawFigure(renderer.ctx, 'reporter');
+  const first = renderer.cache.figures.get('reporter:false:false');
+  assert.ok(first);
+  calls.length = 0;
+  renderer._drawFigure(renderer.ctx, 'reporter', { bob: 1.5 });
+  assert.equal(renderer.cache.figures.get('reporter:false:false'), first);
+  assert.ok(calls.some(([name, image, x, y]) => name === 'drawImage' && image === first && x === -22 && y === -41.5));
+  assert.equal(calls.filter(([name]) => name === 'stroke' || name === 'fillRect').length, 0,
+    'Walking must not repaint body paths/camera/hat; its street shadow stays live');
+  for (const [role, options, key] of [
+    ['reporter', { herald: true }, 'reporter:true:false'],
+    ['fixer', { goon: true }, 'fixer:false:true'],
+    ['photographer', {}, 'photographer:false:false'],
+  ]) {
+    renderer._drawFigure(renderer.ctx, role, options);
+    assert.ok(renderer.cache.figures.has(key));
+    assert.notEqual(renderer.cache.figures.get(key), first, 'Factions/camera must never share the wrong art');
+  }
+  globalThis.window.devicePixelRatio = 2;
+  renderer._ensureLayers();
+  renderer._drawFigure(renderer.ctx, 'reporter');
+  assert.notEqual(renderer.cache.figures.get('reporter:false:false'), first);
+});
+
 test('title sign legs meet their generated near-building roof within one pixel', (t) => {
   const { canvas, calls } = canvasFixture(t);
   const renderer = new NoirCityRenderer(canvas);

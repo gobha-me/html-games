@@ -1,7 +1,7 @@
 import { PALETTE, alpha as withAlpha } from './palette.js';
 import { CITY_SEED, generateDistrict, generateSkyline, rooftopSignGeometry, districtSignPosition, shadowVector } from './city.js';
 import { mulberry32 } from './rng.js';
-import { drawSilhouette, FIGURE_SCALE, MARKER_SCALE, figureBox } from './silhouettes.js';
+import { drawSilhouette, drawSilhouetteShadow, FIGURE_SCALE, MARKER_SCALE, figureBox } from './silhouettes.js';
 import { boxesIntersect, placeLabel } from './label-placement.js';
 // ============================================================================
 // LATE EDITION // 1947 — 2.5D Rain-Slicked Noir Metropolis Renderer
@@ -18,12 +18,9 @@ export class NoirCityRenderer {
   constructor(canvas, { reducedMotion = false } = {}) {
     this.reducedMotion = reducedMotion;
     this.canvas = canvas;
-    // Both paths repaint an opaque background. CPU-backed Canvas2D intentionally
-    // avoids SwiftShader's deferred vector-raster queue/flush stalls (including
-    // teardown after bursts of renders); presentation uploads one finished map.
-    // Chromium exposes that backend choice through its read-frequency hint even
-    // though this renderer does not need readbacks. Keep the full size and DPR.
-    this.ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+    // Both paths repaint an opaque background before overlays; the compositor
+    // need not blend this texture with the desk beneath it each presentation.
+    this.ctx = canvas.getContext('2d', { alpha: false });
     this.city = DISTRICTS.map((district) => ({ district, buildings: generateDistrict(district) }));
     this.skylines = [0, 1, 2].map((depth) => generateSkyline(depth));
     this.cosmeticTime = 0;
@@ -60,24 +57,25 @@ export class NoirCityRenderer {
     // is needed. Failed/blocked fonts settle and use the period fallback stacks.
     if (!this.cache && document.fonts?.status === 'loading') return false;
     if (this.cache?.key !== key) {
+      this._releaseLayers();
       this.canvas.width = width;
       this.canvas.height = height;
     }
     const layer = (paint) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      const canvas = this._spriteCanvas(width, height);
       // These are painted once and sampled as bitmaps. Keep their raster work
       // off the GPU producer queue shared with the live SwiftShader canvas.
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.scale(width / WORLD_W, height / WORLD_H);
       paint(ctx);
-      return canvas;
+      return this._freezeSprite(canvas);
     };
     // Rasterize the small drifting haze at its displayed resolution once. Three
     // radial-gradient fills per frame waste software-raster work; only its
     // position changes. Rain already shares one stroked path and needs no sprite.
-    const driftFog = this.cache?.key === key ? this.cache.driftFog : document.createElement('canvas');
+    let driftFog = this.cache?.key === key ? this.cache.driftFog :
+      this._spriteCanvas(Math.max(1, Math.round(width / WORLD_W * 840)),
+        Math.max(1, Math.round(height / WORLD_H * 98)));
     if (this.cache?.key !== key) {
       driftFog.width = Math.max(1, Math.round(width / WORLD_W * 840));
       driftFog.height = Math.max(1, Math.round(height / WORLD_H * 98));
@@ -88,12 +86,14 @@ export class NoirCityRenderer {
       fog.addColorStop(1, withAlpha(PALETTE.mahogany, 0));
       fogCtx.fillStyle = fog;
       fogCtx.fillRect(0, 0, 280, 280);
+      driftFog = this._freezeSprite(driftFog);
     }
     if (this.cache?.key !== key) this.cache = {
       key,
       driftFog,
       signs: null,
       leadLabels: new Map(),
+      figures: new Map(),
       labelLayout: null,
       city: null,
       skyline: null,
@@ -613,25 +613,53 @@ export class NoirCityRenderer {
   }
 
   _labelSprite(width, height, paint) {
-    const canvas = document.createElement('canvas');
     // Cache at the actual displayed resolution; a world-sized sprite needlessly
     // uploads more pixels on the narrow map. Rebuilt with all layers on DPR/size.
-    canvas.width = Math.max(1, Math.ceil(width * this.canvas.width / WORLD_W));
-    canvas.height = Math.max(1, Math.ceil(height * this.canvas.height / WORLD_H));
+    const canvas = this._spriteCanvas(
+      Math.max(1, Math.ceil(width * this.canvas.width / WORLD_W)),
+      Math.max(1, Math.ceil(height * this.canvas.height / WORLD_H)));
     // This one-shot bitmap is a CPU raster source, not another GPU producer.
     // Chromium's software-canvas hint avoids cross-context flush/teardown waits
     // when a lead expires and its sprite is discarded under SwiftShader.
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.scale(canvas.width / width, canvas.height / height);
     paint(ctx);
+    return this._freezeSprite(canvas);
+  }
+
+  _spriteCanvas(width, height) {
+    // An immutable ImageBitmap is reusable texture data. Re-snapshotting an
+    // HTMLCanvasElement source on every draw can enqueue uploads/flushes even
+    // when its pixels did not change. Keep a Canvas fallback for older engines.
+    if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(width, height);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
     return canvas;
+  }
+
+  _freezeSprite(canvas) {
+    return canvas.transferToImageBitmap?.() ?? canvas;
+  }
+
+  _releaseLayers() {
+    if (!this.cache) return;
+    const { city, fog, driftFog, skyline, leadLabels, figures, dispatchPrompt } = this.cache;
+    for (const sprite of [city, fog, driftFog, ...(skyline ?? []),
+      ...figures.values(), ...[...leadLabels.values()].map((label) => label.sprite), dispatchPrompt?.sprite]) {
+      sprite?.close?.();
+    }
+    this.cache = null;
   }
 
   _drawStoryLeads(ctx, sim) {
     const placements = this._layoutLeadLabels(ctx, sim);
     // Bound sprite retention to live leads, including last-lead removal/restart.
     for (const uid of this.cache.leadLabels.keys()) {
-      if (!sim.leads.some((lead) => lead.uid === uid)) this.cache.leadLabels.delete(uid);
+      if (!sim.leads.some((lead) => lead.uid === uid)) {
+        this.cache.leadLabels.get(uid).sprite.close?.();
+        this.cache.leadLabels.delete(uid);
+      }
     }
     for (const [index, lead] of sim.leads.entries()) {
       const isSelected = lead.uid === sim.selectedLeadId;
@@ -720,6 +748,7 @@ export class NoirCityRenderer {
         lead.photoVerified, lead.scoopedByRival, isSelected, box.w, top]);
       let cached = this.cache.leadLabels.get(lead.uid);
       if (cached?.key !== key) {
+        cached?.sprite.close?.();
         const height = 12 - top;
         const sprite = this._labelSprite(box.w, height, (labelCtx) => {
           labelCtx.translate(box.w / 2, -top);
@@ -817,6 +846,24 @@ export class NoirCityRenderer {
     }
   }
 
+  _drawFigure(ctx, role, { bob = 0, herald = false, goon = false } = {}) {
+    if (!this.cache) return drawSilhouette(ctx, role, { bob, herald, goon });
+    const key = `${role}:${herald}:${goon}`;
+    let sprite = this.cache.figures.get(key);
+    if (!sprite) {
+      // The body bobs independently of its fixed street shadow. Bake at the
+      // enlarged figure's display resolution, retaining its exact dimensions.
+      sprite = this._labelSprite(44 * FIGURE_SCALE, 48 * FIGURE_SCALE, (figureCtx) => {
+        figureCtx.scale(FIGURE_SCALE, FIGURE_SCALE);
+        figureCtx.translate(22, 43);
+        drawSilhouette(figureCtx, role, { herald, goon, shadow: false });
+      });
+      this.cache.figures.set(key, sprite);
+    }
+    drawSilhouetteShadow(ctx);
+    ctx.drawImage(sprite, -22, -43 + bob, 44, 48);
+  }
+
   _drawRivals(ctx, sim) {
     for (const rv of sim.rivals) {
       ctx.save();
@@ -843,7 +890,7 @@ export class NoirCityRenderer {
         ctx.restore();
       }
       ctx.save(); ctx.scale(FIGURE_SCALE, FIGURE_SCALE);
-      drawSilhouette(ctx, goon ? 'fixer' : 'reporter', { herald: !goon, goon,
+      this._drawFigure(ctx, goon ? 'fixer' : 'reporter', { herald: !goon, goon,
         bob: rv.stunTimer > 0 ? 0 : Math.sin(this.cosmeticTime * 10 + rv.x * 0.01) * 1.5 });
       ctx.restore();
       if (rv.stunTimer > 0) {
@@ -866,7 +913,7 @@ export class NoirCityRenderer {
       }
       ctx.scale(FIGURE_SCALE, FIGURE_SCALE);
       const walking = Math.hypot(op.targetX - op.x, op.targetY - op.y) > 10;
-      drawSilhouette(ctx, op.role, { bob: walking ? Math.sin(this.cosmeticTime * 10 + i) * 1.5 : 0 });
+      this._drawFigure(ctx, op.role, { bob: walking ? Math.sin(this.cosmeticTime * 10 + i) * 1.5 : 0 });
       ctx.fillStyle = PALETTE.sodium;
       ctx.fillRect(-20, -41, 11, 12);
       ctx.fillStyle = PALETTE.nightInk;
