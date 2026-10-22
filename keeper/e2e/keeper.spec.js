@@ -31,6 +31,58 @@ test('arcade card opens Keeper, normal visits have no debug hook, back link retu
   expect(errors).toEqual([]);
 });
 
+test('title controls and first eight seconds of watch show the shared bindings; restart restores the overlay', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-01-01T18:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T18:00:01Z'));
+  await page.goto('/keeper/?e2e=1');
+  await expect(page.locator('#title-controls li')).toHaveCount(6);
+  for (const key of ['← / A', '→ / D', 'Space', 'H · horn', 'Esc / P', '? · controls']) {
+    await expect(page.locator('#title-controls')).toContainText(key);
+  }
+  await page.screenshot({ path: 'test-results/keeper-title-controls.png' });
+  await page.getByRole('button', { name: 'Take the watch' }).click();
+  const overlay = page.locator('#watch-controls');
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveAttribute('aria-hidden', 'false');
+  expect(await page.locator('#watch-controls-list li').allTextContents()).toEqual(await page.locator('#title-controls li').allTextContents());
+  await page.clock.runFor(400);
+  await page.screenshot({ path: 'test-results/keeper-watch-controls.png' });
+  await advance(page, 7.7 - (await snapshot(page)).time);
+  await expect(overlay).toBeVisible();
+  await advance(page, 0.4);
+  await page.clock.runFor(400);
+  await expect(overlay).toBeHidden();
+  await expect(page.locator('#controls-hint')).toBeVisible();
+  await advance(page, 180);
+  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toHaveAttribute('aria-hidden', 'false');
+});
+
+test('first keyboard or pointer input fades controls without changing held-input behavior', async ({ page }) => {
+  await openWatch(page);
+  const overlay = page.locator('#watch-controls');
+  await page.keyboard.down('h');
+  await advance(page, 0.1);
+  expect((await snapshot(page)).horn).toBe(true);
+  await page.clock.runFor(400);
+  await expect(overlay).toBeHidden();
+  await page.keyboard.up('h');
+  await advance(page, 1);
+  await expect(overlay).toBeHidden();
+  for (const input of ['pointer', 'unbound-key']) {
+    await page.reload();
+    await page.getByRole('button', { name: 'Take the watch' }).click();
+    await expect(overlay).toBeVisible();
+    if (input === 'pointer') await page.mouse.click(50, 300);
+    else await page.keyboard.press('z');
+    await page.clock.runFor(400);
+    await expect(overlay).toBeHidden();
+    expect((await snapshot(page)).time).toBeLessThan(2);
+    await expect(page.locator('#controls-hint')).toBeVisible();
+  }
+});
+
 test('keyboard drives clockwise speed and hold, overlapping keys cannot reverse; pointer never aims', async ({ page }) => {
   await openWatch(page);
   const initial = await snapshot(page);

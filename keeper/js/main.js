@@ -16,11 +16,14 @@ let mode = 'start';
 let helpReturn = 'start';
 let previousTime;
 let recorded = false;
+let controlsDismissed = false;
 const pressed = new Set();
 
-for (const action of Object.keys(KEYS)) {
-  const item = document.createElement('li'); item.textContent = CONTROL_LABELS[action];
-  $('controls-list').appendChild(item);
+for (const id of ['controls-list', 'title-controls', 'watch-controls-list']) {
+  for (const action of Object.keys(KEYS)) {
+    const item = document.createElement('li'); item.textContent = CONTROL_LABELS[action];
+    $(id).appendChild(item);
+  }
 }
 $('controls-hint').textContent = ['slow', 'fast', 'hold', 'horn', 'pause'].map((key) => CONTROL_LABELS[key]).join('    /    ');
 try {
@@ -57,6 +60,9 @@ function finishNight() {
 }
 function draw() {
   renderer.draw(state, reducedMotion.matches);
+  const showControls = mode === 'play' && state.time < 8 && !controlsDismissed;
+  $('watch-controls').classList.toggle('is-faded', !showControls);
+  $('watch-controls').setAttribute('aria-hidden', String(!showControls));
   const minutes = Math.floor(18 * 60 + state.time / NIGHT_SECONDS * 12 * 60) % (24 * 60);
   $('clock').textContent = `${Math.floor(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
   $('bearing').textContent = `${Math.floor(state.beam).toString().padStart(3, '0')}° · ${(360 / state.speed).toFixed(1)} s / revolution`;
@@ -75,7 +81,7 @@ function advance(seconds) {
 function start() {
   state = createState(seed);
   if (!checkSchedule()) { setMode('start'); draw(); return; }
-  audio.unlock(); recorded = false; setMode('play'); draw();
+  audio.unlock(); recorded = false; controlsDismissed = false; setMode('play'); draw();
 }
 function checkSchedule() {
   const result = validateSchedule(state.schedule, state.nightParams);
@@ -101,6 +107,7 @@ $('mute').addEventListener('click', () => {
   draw();
 });
 window.addEventListener('keydown', (event) => {
+  if (mode === 'play') { controlsDismissed = true; draw(); }
   const action = actionFor(event.code);
   if (!action || event.ctrlKey || event.metaKey || event.altKey) return;
   // Space/Enter still activate a focused menu button via native keyboard semantics.
@@ -116,6 +123,9 @@ window.addEventListener('keydown', (event) => {
   draw();
 });
 window.addEventListener('keyup', (event) => { pressed.delete(event.code); });
+window.addEventListener('pointerdown', () => {
+  if (mode === 'play') { controlsDismissed = true; draw(); }
+});
 function suspend() {
   if (mode === 'play') { setMode('pause'); draw(); }
   else pressed.clear();
