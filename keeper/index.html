@@ -24,6 +24,7 @@
     <div class="instrument" aria-live="off">
       <span id="lens-state">Lens turning clockwise</span>
       <span id="horn-state">Horn silent</span>
+      <span id="trust-state">Skipper trust · 100%</span>
     </div>
     <div class="panel" id="start-panel">
       <p class="eyebrow">Night one · The Light</p>
@@ -46,7 +47,7 @@
       <p class="eyebrow">Station instructions</p>
       <h2>Work the light.</h2>
       <ul id="controls-list"></ul>
-      <p class="small">Light a vessel, then hold the horn to turn her away.<br>A warning at the rocks may already be too late.</p>
+      <p class="small">The horn warns every vessel in hearing range.<br>False alarms erode trust; repeated blasts are ignored.</p>
       <button id="close-help" type="button">Return to watch <span>→</span></button>
     </div>
     <div class="panel" id="dawn-panel" hidden>
@@ -57,7 +58,7 @@
       <button id="restart" type="button">Keep the light again <span>→</span></button>
     </div>
     <aside id="watch-controls" class="watch-controls is-faded" aria-label="Watch controls" aria-hidden="true">
-      <p class="eyebrow">Work the light · hold H to warn a lit vessel</p>
+      <p class="eyebrow">Work the light · press H to warn nearby vessels</p>
       <ul id="watch-controls-list" class="control-list"></ul>
     </aside>
     <footer>

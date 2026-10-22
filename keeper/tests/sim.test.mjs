@@ -182,7 +182,7 @@ test('unlit vessels hear a broadcast; an afterimage neither enables nor blocks i
   assert.equal(step(far, { horn: true }, 0.1).trawler.warnedAt, null);
 });
 
-test('only false alarms reduce trust; held horn is one broadcast and low trust can ignore danger', () => {
+test('useful held horn is one broadcast and low trust can ignore danger', () => {
   let honest = createState();
   honest = step(honest, { horn: true }, 0.1);
   assert.equal(honest.trust, 1);
@@ -190,18 +190,11 @@ test('only false alarms reduce trust; held horn is one broadcast and low trust c
   honest = step(honest, { horn: true }, 25);
   assert.equal(honest.trawler.warnedAt, warnedAt);
   assert.equal(honest.blasts.length, 0, 'held horn is one blast, not one per frame');
-  let s = createState();
-  s.trawler.heading = wrapBearing(s.trawler.heading + 180); // Safe outward track.
-  for (let index = 0; index < 4; index++) {
-    s = step(s, { horn: true }, 0.1);
-    assert.equal(s.trawler.lastHorn.response, 'hold');
-    s = step(s, {}, 0.1);
-  }
-  assert.equal(s.trust, 0);
-  s.trawler.heading = wrapBearing(s.trawler.heading + 180);
-  s = step(s, { horn: true }, 0.1);
-  assert.equal(s.trawler.lastHorn.response, 'ignore');
-  assert.equal(s.trawler.warnedAt, null);
+  const s = createState();
+  s.trust = 0;
+  const low = step(s, { horn: true }, PHYSICS_DT);
+  assert.equal(low.trawler.lastHorn.response, 'ignore');
+  assert.equal(low.trawler.warnedAt, null);
 });
 
 test('deterministic seed/input replay and long-frame collision cannot tunnel through reef', () => {
@@ -277,7 +270,7 @@ test('broadcast and physics handle multiple ships independently; safe, distant, 
   const safe = extra('lifeboat', { id: 'safe', x: -100, y: -150, heading: 180 });
   const far = extra('speedboat', { id: 'far', x: 0, y: -hornRange(state.fog) - 5, heading: 0 });
   const dark = extra('speedboat', { id: 'dark', x: 40, y: -100, heading: 0, smuggler: true });
-  const wrecked = { ...extra('trawler', { id: 'wrecked' }), status: 'wrecked' };
+  const wrecked = { ...extra('trawler', { id: 'wrecked', x: 0, y: 0, heading: 0 }), status: 'wrecked' };
   state.ships.push(threatened, safe, far, dark, wrecked);
   const prior = structuredClone(state);
   state.beam = 180;

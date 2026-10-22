@@ -28,8 +28,13 @@ The faint dotted marks are the keeper's chart, not visible rocks. A ship's hull
 is visible only in the cone or a fading 1.5-second remembered image. Running
 lights can show within half the fog reach. False alarms reduce captain trust,
 slowing reactions and making warnings less likely to be followed. Each press
-is one broadcast; holding sustains the sound. The future Morse lamp addresses
-only the vessel in the beam.
+is one broadcast; holding sustains the sound without warning newly arriving
+ships. Only a reef impact within 120 seconds counts as danger. Trust recovers
+by 1% per simulated second. The fourth blast in under 20 seconds makes skippers
+ignore horns for 30 seconds; ignored blasts also erode trust and do not extend
+that window. Expanding rings show each blast even when muted; dashed, dim rings
+mean it was ignored. The HUD shows current skipper trust. The future Morse
+lamp addresses only the vessel in the beam.
 
 ## Tech
 
@@ -67,6 +72,8 @@ night pass minima are defined; additional nights and engine audio remain future 
 Issue #120 adds deterministic rudder/Nomoto hull physics, broadcast horns for
 the fleet, physical PONR budgeting, and smooth rendered turns. Four hull types
 are tuned and tested; the first watch still spawns only one trawler.
+Issue #109 completes the foghorn trust/recovery and spam rules, with muted-play
+visual rings and a trust readout.
 
 ## File layout
 

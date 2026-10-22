@@ -124,14 +124,50 @@ blast: range is **700 − 350 × fogDensity metres**, strictly decreasing from
 lights and afterimages have no bearing on hearing. Pressing H starts one
 broadcast; holding sustains its sound, releasing and pressing sends another.
 
-Each honest captain projects its straight track against the reef discs. An
-endangered ship turns toward safe water, away from the nearest reef; a safe
-ship holds course. A dark smuggler deterministically ignores the horn or
-veers onto a course away from the lighthouse. Seeded crew delays vary within
-the hull's reaction band below; fleet ordering cannot change those draws.
-A blast heard by no endangered ship reduces trust by 0.25 (floor zero).
-Lower trust increases delay within the hull's band and reduces response
-probability; useful warnings do not reduce trust. Further trust design is #109.
+Each honest captain projects its straight track against the reef discs over
+**`THREAT_HORIZON_SECONDS = 120` seconds** (including the exact endpoint).
+An endangered ship turns toward safe water, away from the nearest reef; a safe
+ship holds course. A reef 10 km down the track beyond that horizon does not
+make the ship endangered, for either horn response or trust. A dark smuggler
+deterministically ignores the horn or veers onto a course away from the
+lighthouse. Seeded crew delays vary within the hull's reaction band below;
+fleet ordering cannot change those draws.
+
+### Foghorn trust, spam and visual feedback (#109)
+
+- **Trust starts at 1**, remains within [0,1], and recovers at **0.01 per
+  simulated second** throughout the night, capped at 1. Recovery continues
+  while the horn is held, during ignored periods and after wrecks; dawn stops
+  it. Lower trust increases delay within the hull's band and reduces the
+  seeded turn-away probability.
+- A press edge (**false → true**) emits one blast. If no endangered ship hears
+  it, trust falls by **0.25**, floored at zero. Any endangered listener makes
+  an accepted blast useful, regardless of whether its captain obeys. Danger
+  outside hearing range does not justify a blast.
+- `state.blasts` retains recent blast timestamps. A blast is **spam on the
+  fourth press**, when at least three earlier blasts are **strictly less than
+  20 seconds old**. An earlier blast exactly 20.000 seconds old no longer
+  counts. Spam sets `state.hornIgnoredUntil = blastTime + 30` (initially 0).
+- Spam and every blast while `time < hornIgnoredUntil` elicit **no new ship
+  response**, course command or `warnedAt`; each costs 0.25 trust even with
+  endangered listeners. Previously scheduled maneuvers continue. Blasts
+  during the ignore window **never extend its deadline**. At the exact expiry,
+  a new blast can be heard (or start a fresh spam window if its history warrants).
+- Holding H sustains audio but sends **no further broadcasts**. A ship entering
+  range during that hold must wait for release and repress. Paused/help modes
+  do not step the sim, so H there creates no blast, trust change or ring.
+  Every UI mode change clears held keys and `state.horn`, allowing a fresh
+  press after resuming.
+- `hornRings(state)` returns one `{ radius, alpha, ignored }` per blast with
+  age in **[0,2)** seconds. Radius is `hornRange(state.fog) × age / 2`, alpha
+  is `1 − age / 2`, and ignored status is fixed at emission (recent ignored
+  timestamps live in `state.ignoredBlasts`). Rings expand around the lighthouse
+  to the current fog-limited hearing range, independently of held H or mute.
+  Ignored rings are **dimmed and dashed**. The HUD shows skipper trust as a
+  percentage; the read-only automation snapshot exposes the exact trust and
+  ignore deadline.
+
+### Directed lamp
 
 The **Morse lamp is directed**: it addresses only the ship currently in the
 beam. A lamp message is not a broadcast horn and cannot warn unseen ships.
@@ -145,6 +181,9 @@ converts its south-positive y at the boundary. Both run at **1/60 s**; frame
 hitches use the same fixed substeps, with a final fractional step if needed.
 No wall clock, browser globals or unseeded randomness is allowed in either
 module (the same lint guard and coverage gate apply).
+`createVessel(type, { x, y, heading, speed, id, smuggler })` requires explicit
+finite x, y and heading: missing or undefined values throw `RangeError`.
+Only speed (hull cruise), id (type) and smuggler (false) default.
 
 The commanded rudder is clamped to ±35° and swings at the hull's limited
 rate. First-order Nomoto yaw follows `T × yawAcceleration + yawRate =

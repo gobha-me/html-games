@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — Foghorn trust and visual rings (#109)
+
+- Bound horn danger and useful-warning credit to straight-track reef impacts
+  within 120 seconds, including the endpoint. Distant future reefs hold course
+  and count as false alarms. Vessel creation now requires x, y and heading.
+- Trust starts at 1, loses 0.25 per false alarm with a zero floor, and recovers
+  0.01 per simulated night second with a cap of 1. Lower trust delays reactions
+  and reduces the chance captains follow a warning.
+- The fourth blast within a strict 20-second window starts 30 seconds of
+  ignored horns. Every ignored press loses trust and gives no new ship response;
+  presses inside the window never extend it. Holding remains a single blast,
+  including when another ship enters range. Pause creates no blasts.
+- Expanding two-second horn rings remain visible when muted and after release;
+  ignored rings are dimmed/dashed. Skipper trust appears in the HUD and exact
+  state remains available in the read-only automation snapshot.
+- Adversarial foghorn unit tests cover third/fourth spam, exact timing edges,
+  ignore expiry/non-extension, trust bounds/recovery, far reefs, required vessel
+  fields and held-horn range entry. Existing physics fixtures use explicit poses
+  and bounded threats. Playwright checks canvas pixels/strokes, mute, trust
+  recovery and pause/resume horn edges.
+
 ## Unreleased — Ship physics and broadcast horn (#120)
 
 - Pure public physics API with four deeply frozen hull specifications, a

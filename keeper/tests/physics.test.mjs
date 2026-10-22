@@ -4,7 +4,7 @@ import { PHYSICS_DT as DT, HULLS, createVessel, stepVessel, measureTacticalDiame
   hornRange, threatensReef, broadcastHorn, pointOfNoReturn } from '../js/physics.js';
 
 const delta = (a, b) => ((a - b + 540) % 360) - 180;
-const rock = [{ x: 0, y: 300, radius: 24 }];
+const rock = [{ x: 0, y: 100, radius: 24 }];
 const options = { origin: { x: 0, y: 0 }, fogDensity: 0.2, time: 10, seed: 120, rocks: rock };
 
 test('exact hull schema, deep immutability and tactical diameter bands for every hull', () => {
@@ -27,20 +27,20 @@ test('vessel schema and north/east coordinates, wrapping, purity and no phantom 
   const next = stepVessel(frozen, {}, 1);
   assert.equal(next.x, 10);
   assert.ok(Math.abs(next.y - (20 + HULLS.trawler.cruiseSpeed)) < 1e-10);
-  const east = stepVessel(createVessel('trawler', { heading: 450 }), {}, 1);
+  const east = stepVessel(createVessel('trawler', { x: 0, y: 0, heading: 450 }), {}, 1);
   assert.ok(east.x > HULLS.trawler.cruiseSpeed - 0.01 && Math.abs(east.y) < 1e-10);
 });
 
 test('hitches match fixed steps, rudder and yaw remain continuous through reversal and north wrap', () => {
   for (const [type, spec] of Object.entries(HULLS)) {
     for (const dt of [0.5, 5, 120 * DT]) {
-      const initial = createVessel(type, { heading: 359.99 });
+      const initial = createVessel(type, { x: 0, y: 0, heading: 359.99 });
       const input = { rudderCommand: 999, throttle: 1 };
       let individual = initial;
       for (let index = 0; index < Math.round(dt / DT); index++) individual = stepVessel(individual, input, DT);
       assert.deepEqual(stepVessel(initial, input, dt), individual);
     }
-    let ship = createVessel(type, { heading: 359.99 });
+    let ship = createVessel(type, { x: 0, y: 0, heading: 359.99 });
     let crossedNorth = false;
     for (let index = 0; index < 2400; index++) {
       const command = index < 600 ? 999 : -999;
@@ -61,14 +61,14 @@ test('hitches match fixed steps, rudder and yaw remain continuous through revers
 
 test('zero-speed vessel cannot spin; thrust accelerates, drag decelerates, turns shed speed', () => {
   for (const type of Object.keys(HULLS)) {
-    const stopped = createVessel(type, { speed: 0, heading: 37 });
+    const stopped = createVessel(type, { x: 0, y: 0, speed: 0, heading: 37 });
     const still = stepVessel(stopped, { rudderCommand: 999, throttle: 0 }, 5);
     assert.equal(still.heading, 37); assert.equal(still.yawRate, 0);
     assert.equal(still.x, 0); assert.equal(still.y, 0);
     const moving = stepVessel(stopped, { throttle: 1 }, 5);
     assert.ok(moving.speed > 0 && moving.speed < HULLS[type].cruiseSpeed);
     assert.ok(stepVessel(moving, { throttle: 0 }, 5).speed < moving.speed);
-    const turning = stepVessel(createVessel(type), { rudderCommand: 999 }, 5);
+    const turning = stepVessel(createVessel(type, { x: 0, y: 0, heading: 0 }), { rudderCommand: 999 }, 5);
     assert.ok(turning.speed < HULLS[type].cruiseSpeed);
     // No turn tighter than the full-rudder steady radius at this speed.
     assert.ok(turning.speed / (Math.abs(turning.yawRate) * Math.PI / 180)
@@ -77,7 +77,7 @@ test('zero-speed vessel cannot spin; thrust accelerates, drag decelerates, turns
 });
 
 test('straight-track projection handles tangents, horizon endpoints, behind, stationary and overlap', () => {
-  const ship = createVessel('trawler', { speed: 2 });
+  const ship = createVessel('trawler', { x: 0, y: 0, heading: 0, speed: 2 });
   const rocks = [{ x: 0, y: 12, radius: 2 }];
   assert.equal(threatensReef(ship, rocks, 5), true);
   assert.equal(threatensReef(ship, rocks, 5 - 1e-8), false);
@@ -89,13 +89,13 @@ test('straight-track projection handles tangents, horizon endpoints, behind, sta
   assert.equal(threatensReef(ship, [], 100), false);
   assert.equal(threatensReef(ship, [], Number.MAX_VALUE), false, 'large finite horizons cannot invent an impact');
   assert.equal(broadcastHorn([ship], { ...options, rocks: [{ x: 0, y: 10000, radius: 2 }] })[0].response,
-    'turn-away', 'a distant future reef is still an endangered straight track');
+    'hold', 'a reef beyond the bounded horizon is not an emergency');
 });
 
 test('broadcast is independent of beam and fleet ordering: threatened turn, safe hold, far none', () => {
-  const ships = [createVessel('trawler', { id: 'danger' }),
-    createVessel('coaster', { id: 'safe', x: 100, heading: 180 }),
-    createVessel('speedboat', { id: 'far', x: hornRange(0.2) + 0.001 })];
+  const ships = [createVessel('trawler', { x: 0, y: 0, heading: 0, id: 'danger' }),
+    createVessel('coaster', { y: 0, id: 'safe', x: 100, heading: 180 }),
+    createVessel('speedboat', { y: 0, heading: 0, id: 'far', x: hornRange(0.2) + 0.001 })];
   const before = structuredClone(ships);
   const responses = broadcastHorn(ships, options);
   assert.deepEqual(responses.map((r) => r.response), ['turn-away', 'hold', 'none']);
@@ -109,12 +109,12 @@ test('broadcast is independent of beam and fleet ordering: threatened turn, safe
 test('fog strictly reduces inclusive audible range; seeded delay stays in each hull band', () => {
   for (let index = 0; index < 100; index++) assert.ok(hornRange(index / 100) > hornRange((index + 1) / 100));
   assert.ok(hornRange(1) > 0);
-  const boundary = createVessel('trawler', { x: hornRange(0), id: 'edge' });
+  const boundary = createVessel('trawler', { y: 0, heading: 0, x: hornRange(0), id: 'edge' });
   assert.equal(broadcastHorn([boundary], { ...options, fogDensity: 0 })[0].heard, true);
   assert.equal(broadcastHorn([boundary], { ...options, fogDensity: 1 })[0].heard, false);
   const delays = new Set(), responses = new Set();
   for (const [type, spec] of Object.entries(HULLS)) for (let seed = 0; seed < 64; seed++) {
-    const ship = createVessel(type, { id: 'captain' });
+    const ship = createVessel(type, { x: 0, y: 0, heading: 0, id: 'captain' });
     const result = broadcastHorn([ship], { ...options, seed })[0];
     const delay = result.reactAt - options.time;
     assert.ok(delay >= spec.reactionSeconds[0] - 1e-12 && delay <= spec.reactionSeconds[1] + 1e-12);
@@ -128,8 +128,8 @@ test('fog strictly reduces inclusive audible range; seeded delay stays in each h
 
 test('PONR reserves worst crew delay AND helm/yaw lag, clears adjacent reefs for either turn', () => {
   for (const [type, spec] of Object.entries(HULLS)) {
-    const initial = createVessel(type, { id: type });
-    const rocks = [...rock, { x: 32, y: 308, radius: 18 }];
+    const initial = createVessel(type, { x: 0, y: 0, heading: 0, id: type });
+    const rocks = [{ x: 0, y: 300, radius: 24 }, { x: 32, y: 308, radius: 18 }];
     const lead = pointOfNoReturn(initial, rocks);
     assert.ok(lead > spec.reactionSeconds[1]);
     const impactTime = (300 - 24) / spec.cruiseSpeed;
@@ -152,13 +152,13 @@ test('PONR reserves worst crew delay AND helm/yaw lag, clears adjacent reefs for
 });
 
 test('invalid numeric inputs, unknown/prototype hulls and malformed geometry throw RangeError', () => {
-  const ship = createVessel('trawler');
+  const ship = createVessel('trawler', { x: 0, y: 0, heading: 0 });
   for (const type of ['unknown', '__proto__', 'toString', null, {}, ['trawler']]) {
-    assert.throws(() => createVessel(type), RangeError);
+    assert.throws(() => createVessel(type, { x: 0, y: 0, heading: 0 }), RangeError);
     assert.throws(() => measureTacticalDiameter(type), RangeError);
   }
   for (const bad of [NaN, Infinity, -Infinity, '1', null]) {
-    for (const key of ['x', 'y', 'heading', 'speed']) assert.throws(() => createVessel('trawler', { [key]: bad }), RangeError);
+    for (const key of ['x', 'y', 'heading', 'speed']) assert.throws(() => createVessel('trawler', { x: 0, y: 0, heading: 0, [key]: bad }), RangeError);
     assert.throws(() => stepVessel(ship, {}, bad), RangeError);
     for (const key of ['rudderCommand', 'throttle']) assert.throws(() => stepVessel(ship, { [key]: bad }, 1), RangeError);
     for (const key of ['x', 'y', 'heading', 'yawRate', 'rudder', 'speed']) assert.throws(() => stepVessel({ ...ship, [key]: bad }, {}, 1), RangeError);
@@ -169,9 +169,9 @@ test('invalid numeric inputs, unknown/prototype hulls and malformed geometry thr
   for (const bad of [-1, 1.01]) assert.throws(() => hornRange(bad), RangeError);
   for (const bad of [0, -1]) assert.throws(() => stepVessel(ship, {}, bad), RangeError);
   for (const bad of [-0.01, 1.01]) assert.throws(() => stepVessel(ship, { throttle: bad }, 1), RangeError);
-  assert.throws(() => createVessel('trawler', { speed: -1 }), RangeError);
-  assert.throws(() => createVessel('trawler', { smuggler: 1 }), RangeError);
-  assert.throws(() => createVessel('trawler', { id: NaN }), RangeError);
+  assert.throws(() => createVessel('trawler', { x: 0, y: 0, heading: 0, speed: -1 }), RangeError);
+  assert.throws(() => createVessel('trawler', { x: 0, y: 0, heading: 0, smuggler: 1 }), RangeError);
+  assert.throws(() => createVessel('trawler', { x: 0, y: 0, heading: 0, id: NaN }), RangeError);
   assert.throws(() => threatensReef(ship, rock, -1), RangeError);
   for (const rocks of [null, [null], [{ x: 0, y: 0, radius: -1 }], [{ x: 0, y: NaN, radius: 1 }]]) {
     assert.throws(() => pointOfNoReturn(ship, rocks), RangeError);
