@@ -80,6 +80,21 @@
 - Add adversarial unique-sign, crowded/boxed-in label, scaling, invalid geometry
   and multi-seed roof-anchor tests. Paper grain and performance gates are unchanged.
 
+### Director-notes performance regression (PR #101)
+- Cache telegram text/flags/stamps at display resolution, retaining label positions
+  until lead geometry changes or a current figure/ring/sign would intersect them.
+  Keep countdown/progress rings and leader lines live, and bounce the prompt bitmap.
+  Invalidate in-place copy, verification and selection changes; release expired
+  sprites and rebuild on size/DPR changes.
+- Lazily bake only the visible city/title scene, use CPU-backed static bitmap
+  sources, and declare the visible canvas opaque. Avoid unused skyline submissions
+  and extra GPU producers competing with the live SwiftShader map. Preserve every
+  director visual change and every performance assertion.
+- Add adversarial incoming-obstacle, unlock/hover/selection, stale-content,
+  last-lead removal and DPR checks, plus a live hidden-title regression. Extend
+  profiling with complete historical art modules, frozen-placement ablation and
+  explicit live-window trace totals; record results in `docs/PERFORMANCE.md`.
+
 ## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
 
 ### Changed

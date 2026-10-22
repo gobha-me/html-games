@@ -18,7 +18,12 @@ export class NoirCityRenderer {
   constructor(canvas, { reducedMotion = false } = {}) {
     this.reducedMotion = reducedMotion;
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    // Both paths repaint an opaque background. CPU-backed Canvas2D intentionally
+    // avoids SwiftShader's deferred vector-raster queue/flush stalls (including
+    // teardown after bursts of renders); presentation uploads one finished map.
+    // Chromium exposes that backend choice through its read-frequency hint even
+    // though this renderer does not need readbacks. Keep the full size and DPR.
+    this.ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
     this.city = DISTRICTS.map((district) => ({ district, buildings: generateDistrict(district) }));
     this.skylines = [0, 1, 2].map((depth) => generateSkyline(depth));
     this.cosmeticTime = 0;
@@ -43,24 +48,28 @@ export class NoirCityRenderer {
 
   // Static geometry is rasterized once per backing-size/DPR change. Keeping
   // world coordinates unchanged preserves every legacy input target.
-  _ensureLayers() {
+  _ensureLayers(title = false) {
     const rect = this.canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const width = Math.max(1, Math.round(rect.width * dpr));
     const height = Math.max(1, Math.round(rect.height * dpr));
     const key = `${width}:${height}:${dpr}`;
-    if (this.cache?.key === key) return true;
+    if (this.cache?.key === key && (title ? this.cache.skyline : this.cache.city)) return true;
     // Wait for the initial local font load before baking signs. Otherwise the
     // cache would retain fallback glyphs until resize; no font-triggered rebuild
     // is needed. Failed/blocked fonts settle and use the period fallback stacks.
     if (!this.cache && document.fonts?.status === 'loading') return false;
-    this.canvas.width = width;
-    this.canvas.height = height;
+    if (this.cache?.key !== key) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
     const layer = (paint) => {
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext('2d');
+      // These are painted once and sampled as bitmaps. Keep their raster work
+      // off the GPU producer queue shared with the live SwiftShader canvas.
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.scale(width / WORLD_W, height / WORLD_H);
       paint(ctx);
       return canvas;
@@ -68,31 +77,38 @@ export class NoirCityRenderer {
     // Rasterize the small drifting haze at its displayed resolution once. Three
     // radial-gradient fills per frame waste software-raster work; only its
     // position changes. Rain already shares one stroked path and needs no sprite.
-    const driftFog = document.createElement('canvas');
-    driftFog.width = Math.max(1, Math.round(width / WORLD_W * 840));
-    driftFog.height = Math.max(1, Math.round(height / WORLD_H * 98));
-    const fogCtx = driftFog.getContext('2d');
-    fogCtx.scale(driftFog.width / 280, driftFog.height / 280);
-    const fog = fogCtx.createRadialGradient(140, 140, 0, 140, 140, 140);
-    fog.addColorStop(0, withAlpha(PALETTE.mahogany, 0.10));
-    fog.addColorStop(1, withAlpha(PALETTE.mahogany, 0));
-    fogCtx.fillStyle = fog;
-    fogCtx.fillRect(0, 0, 280, 280);
-    this.cache = {
+    const driftFog = this.cache?.key === key ? this.cache.driftFog : document.createElement('canvas');
+    if (this.cache?.key !== key) {
+      driftFog.width = Math.max(1, Math.round(width / WORLD_W * 840));
+      driftFog.height = Math.max(1, Math.round(height / WORLD_H * 98));
+      const fogCtx = driftFog.getContext('2d', { willReadFrequently: true });
+      fogCtx.scale(driftFog.width / 280, driftFog.height / 280);
+      const fog = fogCtx.createRadialGradient(140, 140, 0, 140, 140, 140);
+      fog.addColorStop(0, withAlpha(PALETTE.mahogany, 0.10));
+      fog.addColorStop(1, withAlpha(PALETTE.mahogany, 0));
+      fogCtx.fillStyle = fog;
+      fogCtx.fillRect(0, 0, 280, 280);
+    }
+    if (this.cache?.key !== key) this.cache = {
       key,
       driftFog,
       signs: null,
       leadLabels: new Map(),
       labelLayout: null,
-      city: layer((ctx) => {
-        this._drawWetAsphaltBase(ctx);
-        this._drawStreetNetwork(ctx);
-        this._drawStreetlampPools(ctx);
-        this._drawDistrictBuildings25D(ctx);
-      }),
+      city: null,
+      skyline: null,
       fog: layer((ctx) => this._drawFogEdges(ctx)),
-      skyline: [0, 1, 2].map((depth) => layer((ctx) => this._drawSkyline(ctx, depth))),
     };
+    // A desk never displays a title skyline. Avoid submitting three unused
+    // canvas textures into SwiftShader's deferred raster queue at desk startup;
+    // likewise, title-only renderers do not need city geometry.
+    if (title) this.cache.skyline = [0, 1, 2].map((depth) => layer((ctx) => this._drawSkyline(ctx, depth)));
+    else this.cache.city = layer((ctx) => {
+      this._drawWetAsphaltBase(ctx);
+      this._drawStreetNetwork(ctx);
+      this._drawStreetlampPools(ctx);
+      this._drawDistrictBuildings25D(ctx);
+    });
     return true;
   }
 
@@ -140,7 +156,7 @@ export class NoirCityRenderer {
   }
 
   renderTitle(dt = 0.016) {
-    if (!this._ensureLayers()) return;
+    if (!this._ensureLayers(true)) return;
     dt = this.reducedMotion || !Number.isFinite(dt) ? 0 : Math.max(0, Math.min(dt, 0.1));
     this.cosmeticTime += dt;
     const time = this.reducedMotion ? 0 : this.cosmeticTime;
@@ -602,7 +618,10 @@ export class NoirCityRenderer {
     // uploads more pixels on the narrow map. Rebuilt with all layers on DPR/size.
     canvas.width = Math.max(1, Math.ceil(width * this.canvas.width / WORLD_W));
     canvas.height = Math.max(1, Math.ceil(height * this.canvas.height / WORLD_H));
-    const ctx = canvas.getContext('2d');
+    // This one-shot bitmap is a CPU raster source, not another GPU producer.
+    // Chromium's software-canvas hint avoids cross-context flush/teardown waits
+    // when a lead expires and its sprite is discarded under SwiftShader.
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.scale(canvas.width / width, canvas.height / height);
     paint(ctx);
     return canvas;

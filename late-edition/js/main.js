@@ -69,7 +69,10 @@ class LateEditionApp {
     }
 
     this._syncFullUI();
-    this.renderer.render(this.sim, 0.016);
+    // Do not submit a hidden desk's city textures while the full-screen title
+    // owns presentation; the frame loop keeps the same phase-based ownership.
+    if (this.sim.phase === 'title') this.titleRenderer.renderTitle(0.016);
+    else this.renderer.render(this.sim, 0.016);
     requestAnimationFrame((t) => this._loop(t));
   }
 

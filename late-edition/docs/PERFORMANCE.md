@@ -13,8 +13,11 @@ profiler now collects CDP `LayerTree` dimensions, backend DOM identities and
 compositing reasons, `Overlay.setShowPaintRects` screenshots, and `Tracing` with
 `disabled-by-default-devtools.timeline.paint`, `cc` and
 `disabled-by-default-cc.debug`. Flashing is disabled before timed sampling.
-The trace contains only the live five-second window, without the synchronous
-150-render batch that used to add unrelated raster work afterward.
+The trace starts before navigation so startup raster backlog remains visible;
+it excludes the synchronous 150-render batch that used to add unrelated raster
+work afterward. Explicit `late-edition:sample-start/end` marks delimit the live
+window. `traceWorkMs` includes startup; `liveTraceWorkMs` counts only events wholly
+inside those marks. Do not compare a startup-inclusive total with a live total.
 
 The actual regions and surfaces were:
 
@@ -84,6 +87,57 @@ intervals / 16.8 ms p95**, **3 render surfaces**, render p95 **1.2 ms**, and
 multiple threads and must not be added as wall time. Tracing/User Timing adds
 cost; the repeated, uninstrumented regression tests below determine acceptance.
 
+## Director-notes regression: 43d7940 → 4cb674c
+
+The intervening commits change city/figure/label artwork, not CSS or the app's
+frame-loop visibility guard. The new `_layoutLeadLabels` originally measured text
+and searched for placements on every render, then repainted each text/flag/badge
+group at the resulting position. Figures grew another 1.4×. There is still no
+per-frame shadow blur, DOM leader-line layer or hidden title animation.
+
+Two-core 1× profiles reproduced the failure intermittently: a frozen-placement
+ablation of **4cb674c** recorded **49 intervals / 5016.5 ms**. Its trace contains
+a **4219.9 ms** `LayerTreeHost` teardown/`ProxyMain::Stop` wait on the renderer and
+a matching GPU finish wait. Low submission time does not account for such a
+stall. Freezing placement alone therefore does not fix the presentation failure.
+An initial sprite-only implementation also failed the unchanged frame gate with
+**43 intervals** and timed out the adversarial starvation case; it was superseded.
+Warm baseline traces can also reach 300–301 intervals, so one passing trace is
+insufficient evidence of a fix.
+
+The final renderer reduces both recurring work and deferred startup work:
+
+- Reuse placements while every cached box is clear of **current** obstacles.
+  Lead copy/address/prompt changes reflow immediately; incoming actors, unlocked
+  figures, hover/selection/dispatch/stun rings and signs trigger collision checks
+  every render. No timer or position bucket permits an overlap between refreshes.
+- Bake label text/flags/stamps into per-lead sprites. Progress/countdown changes
+  keep sprites; copy, selection and verification changes replace them. Membership
+  removal releases them, and size/DPR changes replace the whole cache. The prompt
+  bounces as a bitmap; leader lines and address/progress rings remain live.
+- Create city and title layers only when that scene is displayed. The desk no
+  longer submits three unused skyline textures. Starting at the title no longer
+  pre-renders a hidden desk. The existing title visibility guard remains intact.
+- Use CPU-backed static bitmaps (`willReadFrequently`) to avoid extra GPU
+  producer/flush dependencies, including when sprites expire. This hint is
+  intentional despite no readbacks: these canvases are painted once as sources,
+  rather than presented as live surfaces. Declare the visible canvas opaque,
+  matching the existing full-background repaint. Resolution and art stay intact.
+
+An isolated diagnostic with these bitmap/scene choices reached **301 intervals /
+16.8 ms frame p95**, **0.6 ms render p95**, and **189.7 ms live raster flushes**
+versus **795.4 ms including startup**. These trace totals can overlap on multiple
+threads. They demonstrate why startup-inclusive and live totals must be kept
+separate; the repeated uninstrumented tests below determine acceptance.
+
+The unit suite forces in-place stale content, verification removal, zero value,
+selection changes, UID replacement, last-lead removal, incoming units/target
+rings/stunned rivals/signs, availability and hover/selection changes without actor
+movement, and DPR changes. A browser regression verifies that the hidden title
+gets zero render calls while the live desk advances. Existing crowded-label,
+unique-sign, enlarged-figure, rooftop/searchlight, reduced-motion, input and
+gameplay/RNG checks remain in place.
+
 ## Performance contract
 
 Before loading any game content, the foreground page samples idle and opaque
@@ -113,13 +167,19 @@ taskset -c 0,1 node e2e/profile-performance.js no-blend --baseline=a076942 --cpu
 taskset -c 0,1 node e2e/profile-performance.js after --cpu=2
 PLAYWRIGHT_JSON_OUTPUT_FILE=performance-results/repeat-1x.json taskset -c 0,1 \
   npx playwright test e2e/performance.spec.js --grep 'CPU 1x' --repeat-each=5 --reporter=list,json
+# Director-notes comparison and all three performance scenarios, five times:
+taskset -c 0,1 node e2e/profile-performance.js director-control --baseline=43d7940 --cpu=1 --skip-screenshot
+taskset -c 0,1 node e2e/profile-performance.js director-before --baseline=4cb674c --cpu=1 --skip-screenshot
+taskset -c 0,1 node e2e/profile-performance.js director-frozen --baseline=4cb674c --fixed-labels --cpu=1 --skip-screenshot
+PLAYWRIGHT_JSON_OUTPUT_FILE=performance-results/director-final-repeat.json taskset -c 0,1 \
+  npx playwright test e2e/performance.spec.js --repeat-each=5 --reporter=list,json
 npm run lint
 npm run test:coverage
 npm run test:e2e
 ```
 
 Choose two available core IDs on other hosts. `--baseline=REV` uses read-only
-`git show` routes for renderer, controller, DOM helper, CSS and grain, including
+`git show` routes for renderer, city, silhouettes, controller, DOM helper, CSS and grain, including
 binary asset bytes; it never changes the worktree. The revision is pinned at
 startup. Bare `--baseline` uses HEAD, which can move if another session commits.
 For UI ablation use `--no-ui`; `--no-grain`, `--no-weather` and `--isolate-map` also
@@ -128,3 +188,7 @@ JSON, metrics, layer identities/regions, screenshots and command logs. Layer IDs
 are per-session and should be matched by backend DOM identity. LayerTree's paint
 notifications may be absent for accelerated canvas updates; use the cc snapshots
 and actual raster events alongside flashing rather than counting notifications.
+`--fixed-labels` freezes historical label placement for diagnosis only; it can
+allow collisions and must never be used for acceptance. `--skip-screenshot`
+avoids a post-sample readback when only trace/metrics are needed. Software-canvas
+ablations affect game canvases only, leaving blank-page calibration unchanged.

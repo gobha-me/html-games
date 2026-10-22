@@ -475,8 +475,10 @@ flash; the photographer's existing snap produces a flashbulb star. No unit PNG i
 loaded; the editor portrait and press plate remain in use (see asset notes).
 
 `NoirCityRenderer` caches city geometry/lamps, ink-only edge shading, and three title depth
-layers on detached canvases at the displayed size × DPR. Caches rebuild on size/DPR
-changes only, after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
+layers on detached canvases at the displayed size × DPR. City/title geometry is
+baked only for the scene being displayed; static caches use CPU-backed bitmaps
+and the visible canvas declares its opaque background. Caches rebuild on size/DPR
+changes, after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
 threads, collision-offset street signs, weather and callouts. Title layers dissolve
 into an ink-to-faint-mahogany/sodium horizon through low-contrast dark haze, with an
 near skyline close to ink-black, bridge, solid water towers and sparse windows.
@@ -521,5 +523,11 @@ only mutate changed text nodes, preserving unchanged paper paint.
 Small drifting-fog sprites follow displayed resolution/DPR, and street-sign widths
 and collision positions are cached until lead display geometry changes. Rain
 remains one stroked path; no per-frame shadow blur or resolution cap was added.
+Telegram text/flags/stamps use bounded, per-lead bitmap caches. Placements remain
+stationary while clear, and reflow immediately if current figures, rings or signs
+enter a label box or lead geometry changes. Countdown/progress changes neither
+remeasure nor rasterize label text. Removed leads release their sprites; copy,
+verification, selection and DPR edits invalidate them. The onboarding prompt
+bounces as a cached bitmap. Hidden title art never advances behind the desk.
 See [profiling notes](docs/PERFORMANCE.md) for the PR #101 diagnosis, trace commands,
 local before/after measurements and the limits of CPU submission timing.

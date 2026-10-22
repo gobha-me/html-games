@@ -23,7 +23,7 @@ try {
   await page.addInitScript(({ softwareCaches, softwareCanvas }) => {
     const original = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function (kind, options) {
-      if (kind === '2d' && ((softwareCaches && !this.isConnected) ||
+      if (kind === '2d' && location.pathname.startsWith('/late-edition/') && ((softwareCaches && !this.isConnected) ||
           (softwareCanvas && this.id === 'city-canvas'))) {
         return original.call(this, kind, { ...options, willReadFrequently: true });
       }

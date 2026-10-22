@@ -117,6 +117,28 @@ test('initial font loading cannot bake fallback signs; font failure still permit
   assert.ok(fixture.calls.some(([name]) => name === 'fillText'));
 });
 
+test('a renderer only rasterizes the visible scene and preserves shared layers across scene changes', (t) => {
+  const { canvas } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  renderer.render(sim, 0);
+  assert.ok(renderer.cache.city);
+  assert.equal(renderer.cache.skyline, null, 'A desk must not queue three hidden title textures');
+  const cache = renderer.cache, city = cache.city, fog = cache.fog;
+  renderer.renderTitle(0);
+  assert.equal(renderer.cache, cache);
+  assert.equal(renderer.cache.city, city);
+  assert.equal(renderer.cache.fog, fog);
+  assert.equal(renderer.cache.skyline.length, 3);
+  const skyline = renderer.cache.skyline;
+  renderer.renderTitle(0);
+  renderer.render(sim, 0);
+  assert.equal(renderer.cache.skyline, skyline);
+  const titleOnly = new NoirCityRenderer(canvas);
+  titleOnly.renderTitle(0);
+  assert.equal(titleOnly.cache.city, null, 'The title must not queue a hidden full-screen city');
+});
+
 test('warm weather/sign caches survive ticks but invalidate for in-place lead edits and DPR', (t) => {
   const fixture = canvasFixture(t);
   const renderer = new NoirCityRenderer(fixture.canvas);
@@ -330,8 +352,8 @@ test('cached placement detects incoming obstacles immediately and keeps detached
     }
   };
   verify(moved);
-  // Availability, hover/selection rings, target rings, and stunned rivals all
-  // enter via current obstacle geometry rather than an incomplete cache key.
+  // Target rings and stunned rivals enter via current obstacle geometry
+  // rather than an incomplete cache key.
   const incoming = (change) => {
     const before = renderer._layoutLeadLabels(renderer.ctx, sim);
     change(before[0].box);
@@ -350,6 +372,40 @@ test('cached placement detects incoming obstacles immediately and keeps detached
   globalThis.window.devicePixelRatio = 2;
   renderer.render(sim, 0);
   assert.notEqual(renderer.cache.leadLabels, sprites, 'DPR must invalidate label raster resolution');
+});
+
+test('availability and hover/selection rings invalidate a previously clear label without actor movement', (t) => {
+  const { canvas } = canvasFixture(t);
+  const renderer = new NoirCityRenderer(canvas);
+  const sim = new LateEditionSim({ seed: 89 });
+  sim.scoopsTotal = 1;
+  renderer.render(sim, 0);
+  const placements = () => renderer._layoutLeadLabels(renderer.ctx, sim);
+  const photo = sim.operatives.find((op) => op.role === 'photographer');
+  const first = placements();
+  const box = first[0].box;
+  Object.assign(photo, { x: box.x + box.w / 2, y: box.y + box.h,
+    targetX: box.x + box.w / 2, targetY: box.y + box.h });
+  assert.equal(placements(), first, 'Locked photographer is not a visible obstacle');
+  sim.edition = 2;
+  assert.notEqual(placements(), first, 'Unlock makes that same figure visible');
+  for (const state of ['hover', 'selection']) {
+    renderer.hoverOperativeId = null;
+    sim.selectedOpId = sim.operatives[0].id;
+    const op = sim.operatives[1];
+    const { box } = placements()[0];
+    // The figure ends just left of the label; its wider ground ring overlaps.
+    Object.assign(op, { x: box.x - 51, y: box.y + box.h / 2,
+      targetX: box.x - 51, targetY: box.y + box.h / 2 });
+    const clear = placements();
+    assert.ok(boxesIntersect(clear[0].box, { x: op.x - 39 * MARKER_SCALE,
+      y: op.y - 13 * MARKER_SCALE, w: 78 * MARKER_SCALE, h: 36 * MARKER_SCALE }));
+    if (state === 'hover') renderer.hoverOperativeId = op.id;
+    else sim.selectedOpId = op.id;
+    assert.notEqual(placements(), clear, state);
+    assert.ok(placements().every(({ box }) => renderer._leadLabelObstacles(sim)
+      .every((obstacle) => !boxesIntersect(box, obstacle))));
+  }
 });
 
 test('street figures, number badges and ground rings grow together by 1.4x', (t) => {
