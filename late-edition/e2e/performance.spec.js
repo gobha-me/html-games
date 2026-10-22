@@ -25,7 +25,20 @@ for (const rate of [1, 4]) {
       await page.goto('/late-edition/?seed=89&preview=combat');
       await page.evaluate(() => document.fonts.ready);
       await expect.poll(() => page.evaluate(() => Boolean(window.lateEditionApp.renderer.cache))).toBe(true);
-      await page.waitForTimeout(500);
+      // Steady-state budget: first wait for 30 consecutive on-budget frames.
+      // CI SwiftShader showed a one-off multi-second startup stall (first
+      // texture uploads) on the first test only; the 4x run after it sampled
+      // 301 frames. Startup is gated separately below so it cannot hide.
+      const warmupMs = await page.evaluate(() => new Promise((resolve) => {
+        const t0 = performance.now(); let last = t0, streak = 0;
+        const tick = (t) => {
+          streak = t - last < 20 ? streak + 1 : 0; last = t;
+          if (streak >= 30 || t - t0 > 8000) resolve(t - t0); else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }));
+      console.log(`perf-warmup cpu${rate}x ${Math.round(warmupMs)}ms`);
+      expect(warmupMs, 'desk must reach a steady 60 fps within 6 s of loading').toBeLessThan(6000);
       const { deterministic, live, frames, ...state } = await page.evaluate(sampleRenderCosts);
       const metrics = { ...state, cpuRate: rate, calibration, frameBudgetSupported,
         deterministic: summarize(deterministic), live: summarize(live), frames: summarize(frames) };
