@@ -40,6 +40,37 @@ jobs:
             late-edition/test-results/
           retention-days: 7
 
+  keeper:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: keeper
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: keeper/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:coverage
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Upload browser failure report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keeper-playwright-report
+          path: |
+            keeper/playwright-report/
+            keeper/test-results/
+          retention-days: 7
+
   validate:
     runs-on: ubuntu-latest
     steps:

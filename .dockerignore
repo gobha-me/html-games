@@ -5,3 +5,17 @@ late-edition/e2e/
 late-edition/playwright-report/
 late-edition/test-results/
 late-edition/playwright.config.js
+
+# Keeper is served as static source; keep development tooling out of the image.
+keeper/node_modules/
+keeper/tests/
+keeper/e2e/
+keeper/docs/
+keeper/playwright-report/
+keeper/test-results/
+keeper/playwright.config.js
+keeper/eslint.config.js
+keeper/stylelint.config.js
+keeper/.htmlvalidate.json
+keeper/package.json
+keeper/package-lock.json

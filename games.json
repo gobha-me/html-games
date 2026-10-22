@@ -170,6 +170,15 @@
       "icon": "🚂",
       "href": "ironwake/",
       "theme": "ironwake"
+    },
+    {
+      "slug": "keeper",
+      "title": "KEEPER // SKERRY ROCK",
+      "description": "Keep the light through a black, fog-bound night. Find a trawler in the sweep, hold the beam, and sound the horn before she reaches the Teeth.",
+      "tag": "Lighthouse Watch",
+      "icon": "🔦",
+      "href": "keeper/",
+      "theme": "keeper"
     }
   ]
 }
