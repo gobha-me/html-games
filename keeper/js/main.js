@@ -1,4 +1,5 @@
-import { createState, step, summary, validateSchedule, NIGHT_SECONDS } from './sim.js';
+import { createState, step, summary, validateSchedule, resetLamp, NIGHT_SECONDS } from './sim.js';
+import { MORSE, decodeKeying } from './morse.js';
 import { KEYS, CONTROL_LABELS, actionFor, heldInput } from './keys.js';
 import { createRenderer } from './renderer.js';
 import { createHorn } from './audio.js';
@@ -25,7 +26,12 @@ for (const id of ['controls-list', 'title-controls', 'watch-controls-list']) {
     $(id).appendChild(item);
   }
 }
-$('controls-hint').textContent = ['slow', 'fast', 'hold', 'horn', 'pause'].map((key) => CONTROL_LABELS[key]).join('    /    ');
+$('controls-hint').textContent = ['slow', 'fast', 'hold', 'horn', 'lamp', 'pause'].map((key) => CONTROL_LABELS[key]).join('    /    ');
+for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') {
+  const item = document.createElement('span');
+  item.textContent = `${letter} ${MORSE[letter]}`;
+  $('morse-alphabet').appendChild(item);
+}
 try {
   const record = parseRecord(localStorage.getItem(RECORD_KEY));
   if (record) {
@@ -38,6 +44,7 @@ function setMode(next) {
   mode = next;
   pressed.clear();
   state.horn = false;
+  state = resetLamp(state);
   audio.set(false);
   for (const panel of ['start', 'pause', 'help', 'dawn']) $(panel + '-panel').hidden = next !== panel;
   const focus = { start: 'start', pause: 'resume', help: 'close-help', dawn: 'restart' }[next];
@@ -70,6 +77,19 @@ function draw() {
   $('horn-state').textContent = state.horn ? 'Horn sounding' : 'Horn silent';
   $('horn-state').classList.toggle('sounding', state.horn);
   $('trust-state').textContent = `Skipper trust · ${Math.round(state.trust * 100)}%`;
+  const keying = state.morse;
+  const sent = keying.lastMessage;
+  const preview = state.lamp && state.time * 1000 > keying.down
+    ? decodeKeying([...keying.events, { down: keying.down, up: state.time * 1000 }]) : keying;
+  const symbols = preview.symbols || sent?.symbols || '';
+  const text = preview.text || sent?.text || '';
+  $('lamp-state').textContent = state.lamp ? '● Lamp open' : '○ Lamp shuttered';
+  $('lamp-state').classList.toggle('sounding', state.lamp);
+  $('morse-symbols').textContent = symbols.replaceAll('.', '·').replaceAll('-', '−') || '—';
+  $('morse-text').textContent = text || 'Key K to signal';
+  for (const id of ['morse-symbols', 'morse-text']) $(id).scrollLeft = $(id).scrollWidth;
+  $('morse-delivery').textContent = keying.events.length || state.lamp ? 'Keying…'
+    : sent ? (sent.recipient === null ? 'Sent · no vessel in beam' : 'Sent · vessel in beam') : 'Directed to the vessel in the beam';
   audio.set(mode === 'play' && state.horn);
 }
 function advance(seconds) {
@@ -81,6 +101,7 @@ function advance(seconds) {
 }
 function start() {
   state = createState(seed);
+  state.settings.incomingWpm = Number($('incoming-wpm').value);
   if (!checkSchedule()) { setMode('start'); draw(); return; }
   audio.unlock(); recorded = false; controlsDismissed = false; setMode('play'); draw();
 }
@@ -101,6 +122,12 @@ $('restart').addEventListener('click', start);
 $('resume').addEventListener('click', () => { setMode('play'); draw(); });
 $('help').addEventListener('click', toggleHelp);
 $('close-help').addEventListener('click', toggleHelp);
+$('incoming-wpm').addEventListener('change', () => {
+  state.settings.incomingWpm = Number($('incoming-wpm').value);
+});
+$('show-reference').addEventListener('change', () => {
+  $('morse-reference').hidden = !$('show-reference').checked;
+});
 $('mute').addEventListener('click', () => {
   const muted = audio.toggleMute();
   $('mute').setAttribute('aria-pressed', String(muted));
