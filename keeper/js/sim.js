@@ -222,6 +222,7 @@ export function createState(seed = 108) {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new TypeError('Seed must be a uint32');
   }
+  seed = Math.abs(seed); // Normalise -0 so equal seeds give identical (Object.is) states.
   const approach = openingReservation(seed);
   const trawler = arrive(approach);
   const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
