@@ -2,20 +2,20 @@ import { test as base, expect } from '@playwright/test';
 
 // Check both uncaught exceptions and browser console errors in every scenario.
 export const test = base.extend({
-  page: async ({ page }, use) => {
+  page: async ({ page }, use, testInfo) => {
+    const requests = [];
+    page.on('request', (request) => requests.push(request.url()));
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
     });
-    // Legacy remote fonts are outside this issue's art pass. Supply an empty
-    // stylesheet so offline CI exercises the real fallback fonts without noise.
-    await page.route('https://fonts.googleapis.com/**', (route) => route.fulfill({
-      contentType: 'text/css', body: '',
-    }));
     await page.goto('/late-edition/?seed=83');
     await expect(page.locator('#title-screen')).toBeVisible();
     await use(page);
+    await testInfo.attach('network-log', { body: JSON.stringify(requests, null, 2), contentType: 'application/json' });
+    expect(requests.filter((url) => new URL(url).origin !== 'http://127.0.0.1:8123'),
+      'No external origins in the actual network log').toEqual([]);
     expect(errors, 'No console errors or uncaught exceptions').toEqual([]);
   },
 });

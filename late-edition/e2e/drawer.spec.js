@@ -38,7 +38,7 @@ for (const phase of ['desk', 'paste-up']) {
   test(`D toggles the drawer in ${phase}; held D and F cannot leak into other actions`, async ({ page }) => {
     await drawerDesk(page, 1, { lock: phase === 'paste-up' });
     const handle = page.locator('#btn-drawer');
-    await expect(handle).toHaveText('FILE DRAWER [D] · 0/6');
+    await expect(handle).toHaveText('FILES [D] · 0/6');
     const before = await page.evaluate(() => window.lateEditionApp.sim.getStateHash());
     await page.keyboard.down('d');
     await expect(page.locator('#drawer-body')).toBeVisible();

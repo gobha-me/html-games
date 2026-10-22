@@ -1,3 +1,5 @@
+import legacyDistrictHash from '../assets/legacy-district-hash.json' with { type: 'json' };
+import { PALETTE } from './palette.js';
 // ============================================================================
 // LATE EDITION // 1947 — Noir Newspaper, Field Operatives & Press Cycle Sim
 // ============================================================================
@@ -173,9 +175,9 @@ export class LateEditionSim {
     };
 
     this.rivalStandings = [
-      { id: 'herald', name: 'The Daily Herald', circulation: 21500, color: '#eab308' },
-      { id: 'observer', name: 'The Observer Syndicate', circulation: 19800, color: '#f43f5e' },
-      { id: 'gazette', name: 'The Daily Herald (Midtown)', circulation: 15200, color: '#c084fc' },
+      { id: 'herald', name: 'The Daily Herald', circulation: 21500, color: PALETTE.sodium },
+      { id: 'observer', name: 'The Observer Syndicate', circulation: 19800, color: PALETTE.stampRed },
+      { id: 'gazette', name: 'The Daily Herald (Midtown)', circulation: 15200, color: PALETTE.newsprintAged },
     ];
 
     this.logWire('NIGHT DESK OPEN — Rotary presses warmed for the 12:00 AM deadline.', 'ops');
@@ -523,7 +525,7 @@ export class LateEditionSim {
     this.banner = { title, sub, timer };
   }
 
-  addCallout(x, y, text, color = '#ffd47a') {
+  addCallout(x, y, text, color = PALETTE.sodium) {
     this.callouts.push({ x, y, text, color, life: 1.4 });
   }
 
@@ -551,6 +553,13 @@ export class LateEditionSim {
     for (const key of ['operatives', 'leads', 'scoopedStories', 'insideStories', 'spikedStories', 'rivals', 'rivalStandings', 'districts']) {
       state[key] = this[key].map(withoutCosmetics);
     }
+    // #88 compatibility exception: the original hash included district.accent,
+    // unlike other cosmetic colors. Preserve its historical bytes so an art pass
+    // cannot repin gameplay replays. This JSON is checksum data ONLY; the renderer
+    // reads the ten-token palette and must never import these retired accents.
+    state.districts = state.districts.map((district) => ({
+      ...district, accent: legacyDistrictHash[district.id],
+    }));
     state.frontPage = Object.fromEntries(Object.entries(this.frontPage)
       .map(([key, story]) => [key, story && withoutCosmetics(story)]));
     state.activeDilemma = this.activeDilemma && withoutCosmetics(this.activeDilemma);
@@ -706,7 +715,7 @@ export class LateEditionSim {
         op.targetY = rv.y;
         op.state = presentation.intercepting(rv);
         this.audio.dispatch();
-        this.addCallout(rv.x, rv.y - 14, 'INTERCEPT ORDERED', '#10b981');
+        this.addCallout(rv.x, rv.y - 14, 'INTERCEPT ORDERED', PALETTE.newsprintAged);
         return;
       }
     }
@@ -965,7 +974,7 @@ export class LateEditionSim {
       y: this.hq.y + this.hq.h * 0.5,
       r: 18,
       alpha: 0.95,
-      color: '#ffd47a',
+      color: PALETTE.sodium,
     });
 
     this.setBanner(
@@ -1108,13 +1117,13 @@ export class LateEditionSim {
                 y: lead.y,
                 r: 12,
                 alpha: 1.0,
-                color: '#ffffff',
+                color: PALETTE.newsprint,
               });
               this.addCallout(
                 lead.x,
                 lead.y - 20,
                 '📸 PHOTO PROOF CAPTURED (1.8×)',
-                '#38bdf8'
+                PALETTE.newsprintAged
               );
               op.state = 'DARKROOM PROOF READY';
               op.targetLeadId = null;
@@ -1144,7 +1153,7 @@ export class LateEditionSim {
             rv.x,
             rv.y - 16,
             presentation.routed(rv),
-            '#10b981'
+            PALETTE.newsprintAged
           );
           this.cash += 35;
           this.rivals.splice(i, 1);
@@ -1163,9 +1172,9 @@ export class LateEditionSim {
             y: op.y,
             r: 10,
             alpha: 0.95,
-            color: '#38bdf8',
+            color: PALETTE.newsprintAged,
           });
-          this.addCallout(rv.x, rv.y - 14, '📸 FLASHBULB STUN!', '#38bdf8');
+          this.addCallout(rv.x, rv.y - 14, '📸 FLASHBULB STUN!', PALETTE.newsprintAged);
         }
       }
     }
@@ -1212,7 +1221,7 @@ export class LateEditionSim {
                 lead.x,
                 lead.y - 16,
                 '⚠️ RIVAL BEAT US (0.5× UNLESS PHOTO VERIFIED)',
-                '#eab308'
+                PALETTE.sodium
               );
               this.logWire(
                 presentation.contested(lead),
@@ -1223,7 +1232,7 @@ export class LateEditionSim {
                 lead.x,
                 lead.y - 16,
                 '⚠️ SCOOP STOLEN BY DAILY HERALD!',
-                '#eab308'
+                PALETTE.sodium
               );
               this.credibility = Math.max(0, this.credibility - 5);
               this.logWire(
@@ -1262,7 +1271,7 @@ export class LateEditionSim {
       const l = this.leads[i];
       l.timeLeft -= dt;
       if (l.timeLeft <= 0) {
-        this.addCallout(l.x, l.y, 'LEAD WENT COLD', '#94a3b8');
+        this.addCallout(l.x, l.y, 'LEAD WENT COLD', PALETTE.newsprintAged);
         this.leads.splice(i, 1);
       }
     }
@@ -1322,7 +1331,7 @@ export class LateEditionSim {
       lead.x,
       lead.y - 22,
       presentation.scooped(lead),
-      '#ffd47a'
+      PALETTE.sodium
     );
     this.spawnLead();
     return true;

@@ -1,11 +1,8 @@
 # AGENTS.md — Late Edition
-
 Read [the repo rules](../AGENTS.md), [README.md](README.md), and [docs/DIRECTION.md](docs/DIRECTION.md) before changing this game.
 The direction document is the art bible; locked decisions describe the target, not necessarily today’s implementation. Keep work inside this game unless explicitly permitted.
-
 ## Current module map
 Static HTML/CSS with native ES modules, no bundler or external runtime dependencies. Serve over HTTP.
-
 | File | Responsibility today |
 | --- | --- |
 | `index.html` | Desk shell, map canvas, broadsheet, controls, rotary-phone card, edition modal; loads `js/main.js`. |
@@ -22,7 +19,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | `js/opening.js` | Pure 30-second Lou Vance dialogue clock; reduced-motion text reveal. |
 | `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
-| `assets/` | Existing sprite PNGs and three MP3 effects, loaded with relative URLs. |
+| `assets/` | Local sprites/audio, licensed WOFF2 fonts and hash compatibility data. |
 | `scripts/` | Documentation-reference checker and its isolated adversarial shell tests. |
 | `tests/` | Adversarial area suites, 50-seed fuzzing, lint/adapter tests and a five-edition golden replay. |
 | `package.json` | Native ES modules; development-only lint/test tools and npm scripts. |
@@ -71,7 +68,6 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   It includes opening/viewport gates, gameplay, RNG/counters and summaries, excluding saved best,
   ports, wire/timestamps, traffic, banners, flashes, callouts and display fields.
   See README for the replay contract and injected RNG lifecycle.
-
 ## Lore: canonical names
 
 | Entity | Canonical name | Allowed shorthand / implementation note |
@@ -88,12 +84,17 @@ Legacy `gazette` labels a Herald (Midtown) row, not another paper.
 
 ## Art and audio direction
 
-Follow [the art bible](docs/DIRECTION.md#art-bible) and
-[locked decisions](docs/DIRECTION.md#locked-decisions-2026-10-21): restrained
-newsprint/sodium palette, period self-hosted type, tactile desk objects,
-silhouette noir city, grounded tone and free-licensed or synthesized audio.
-Current bright accents, Google Fonts and pixel sprites predate that target;
-replace them in the dedicated art pass, not during unrelated documentation work.
+Follow [the art bible](docs/DIRECTION.md#art-bible). CSS `:root` has exactly ten
+art tokens; `js/palette.js` mirrors them and is the only JS color-literal source.
+Use `color-mix()` for alpha; never add CSS hex/rgb/hsl outside root declarations.
+The selector-scoped stylelint plugin runs the actual core rules; nested/grouped
+selectors do not inherit the exception. Tests check parity and text contrast.
+Self-hosted Latin WOFF2: League Gothic, Old Standard TT, Courier Prime and
+masthead-only UnifrakturMaguntia; licenses/provenance in [font credits](assets/fonts/README.md).
+Use the pinned fonttools/Brotli venv rebuild script; never add a font CDN.
+Paper rotations are deterministic; all motion respects reduced motion. #89 owns
+city geometry/silhouettes. Historical district accents in `assets/legacy-district-hash.json`
+are hash compatibility bytes only: never render them or repin golden hashes.
 
 ## Verification
 From the repository root, run the checks available now:
@@ -120,7 +121,6 @@ For UI changes, serve the repo and use the root guide's headless render check.
 
 Tests must force unhappy paths: invalid orders, empty/double print, timeouts, insufficient funds, stat bounds,
 destroyed presses, out-of-order arcs, simultaneous completions, bad saves and storage failures.
-
 ## Best-practice exceptions and reasons
 
 - Native modules and committed source avoid a build stage because the game

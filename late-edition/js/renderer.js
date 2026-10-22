@@ -1,3 +1,4 @@
+import { PALETTE, alpha as withAlpha } from './palette.js';
 // ============================================================================
 // LATE EDITION // 1947 — 2.5D Rain-Slicked Noir Metropolis Renderer
 // ============================================================================
@@ -92,20 +93,20 @@ export class NoirCityRenderer {
     const ctx = this.ctx;
     ctx.save();
     ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
-    ctx.fillStyle = '#0e0d0c';
+    ctx.fillStyle = PALETTE.nightInk;
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
     // Silhouette-only skyline for the masthead; no legacy sprites or neon labels.
     for (let i = 0; i < 18; i++) {
       const height = 160 + ((i * 173) % 310);
       const x = i * 84 - 30;
-      ctx.fillStyle = i % 3 === 0 ? '#2a1710' : '#0e0d0c';
+      ctx.fillStyle = i % 3 === 0 ? PALETTE.mahogany : PALETTE.nightInk;
       ctx.fillRect(x, 810 - height, 78, height + 190);
-      ctx.fillStyle = '#b5893f';
+      ctx.fillStyle = PALETTE.brass;
       for (let row = 0; row < 4; row++) {
         if ((i + row) % 3 === 0) ctx.fillRect(x + 16, 840 - height + row * 42, 9, 14);
       }
     }
-    this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt, '#6b655c');
+    this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt, PALETTE.smoke);
     ctx.restore();
   }
 
@@ -118,9 +119,9 @@ export class NoirCityRenderer {
       WORLD_H * 0.5,
       920
     );
-    grad.addColorStop(0, '#131a28');
-    grad.addColorStop(0.65, '#0b101a');
-    grad.addColorStop(1, '#06090f');
+    grad.addColorStop(0, PALETTE.nightInk);
+    grad.addColorStop(0.65, PALETTE.nightInk);
+    grad.addColorStop(1, PALETTE.nightInk);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
   }
@@ -132,10 +133,10 @@ export class NoirCityRenderer {
 
     // Horizontal avenues
     for (const y of avenuesY) {
-      ctx.fillStyle = 'rgba(18, 25, 38, 0.95)';
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.95);
       ctx.fillRect(0, y - 28, WORLD_W, 56);
 
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.18)';
+      ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, 0.18);
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(0, y - 28);
@@ -144,7 +145,7 @@ export class NoirCityRenderer {
       ctx.lineTo(WORLD_W, y + 28);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(245, 183, 59, 0.34)';
+      ctx.strokeStyle = withAlpha(PALETTE.sodium, 0.34);
       ctx.lineWidth = 1.5;
       ctx.setLineDash([18, 14]);
       ctx.beginPath();
@@ -156,10 +157,10 @@ export class NoirCityRenderer {
 
     // Vertical streets
     for (const x of streetsX) {
-      ctx.fillStyle = 'rgba(18, 25, 38, 0.95)';
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.95);
       ctx.fillRect(x - 24, 0, 48, WORLD_H);
 
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+      ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, 0.16);
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(x - 24, 0);
@@ -168,7 +169,7 @@ export class NoirCityRenderer {
       ctx.lineTo(x + 24, WORLD_H);
       ctx.stroke();
 
-      ctx.strokeStyle = 'rgba(245, 183, 59, 0.25)';
+      ctx.strokeStyle = withAlpha(PALETTE.sodium, 0.25);
       ctx.setLineDash([16, 14]);
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -180,8 +181,8 @@ export class NoirCityRenderer {
     // Puddle ripples on wet asphalt
     for (const rp of this.ripples) {
       const rx = Math.max(0.5, rp.r);
-      const alpha = Math.max(0, 1 - rx / rp.maxR) * 0.25;
-      ctx.strokeStyle = `rgba(165, 210, 255, ${alpha.toFixed(3)})`;
+      const opacity = Math.max(0, 1 - rx / rp.maxR) * 0.25;
+      ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, opacity);
       ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.ellipse(rp.x, rp.y, rx, rx * 0.55, 0, 0, Math.PI * 2);
@@ -194,15 +195,15 @@ export class NoirCityRenderer {
     ctx.save();
     for (const lamp of STREETLAMPS) {
       const g = ctx.createRadialGradient(lamp.x, lamp.y, 4, lamp.x, lamp.y, 68);
-      g.addColorStop(0, 'rgba(255, 219, 138, 0.28)');
-      g.addColorStop(0.5, 'rgba(245, 183, 59, 0.09)');
-      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      g.addColorStop(0, withAlpha(PALETTE.sodium, 0.28));
+      g.addColorStop(0.5, withAlpha(PALETTE.sodium, 0.09));
+      g.addColorStop(1, withAlpha(PALETTE.nightInk, 0));
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(lamp.x, lamp.y, 68, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = '#fde68a';
+      ctx.fillStyle = PALETTE.sodium;
       ctx.beginPath();
       ctx.arc(lamp.x, lamp.y, 3.2, 0, Math.PI * 2);
       ctx.fill();
@@ -220,8 +221,8 @@ export class NoirCityRenderer {
 
       // Headlight cone
       const cone = ctx.createLinearGradient(12, 0, 82, 0);
-      cone.addColorStop(0, 'rgba(255, 235, 153, 0.35)');
-      cone.addColorStop(1, 'rgba(255, 235, 153, 0)');
+      cone.addColorStop(0, withAlpha(PALETTE.sodium, 0.35));
+      cone.addColorStop(1, withAlpha(PALETTE.sodium, 0));
       ctx.fillStyle = cone;
       ctx.beginPath();
       ctx.moveTo(10, -6);
@@ -232,11 +233,11 @@ export class NoirCityRenderer {
       ctx.fill();
 
       // 1947 Checker Cab chassis
-      ctx.fillStyle = '#090d16';
+      ctx.fillStyle = PALETTE.nightInk;
       ctx.fillRect(-15, -9, 30, 18);
-      ctx.fillStyle = '#eab308';
+      ctx.fillStyle = PALETTE.sodium;
       ctx.fillRect(-13, -7, 26, 14);
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = PALETTE.smoke;
       ctx.fillRect(-5, -6, 11, 12);
       ctx.restore();
     }
@@ -259,7 +260,7 @@ export class NoirCityRenderer {
 
       ctx.save();
 
-      // Neon reflection pool around building footprint
+      // #88: restrained lamp reflection; city geometry is reserved for #89.
       const pool = ctx.createRadialGradient(
         bx,
         by,
@@ -268,18 +269,18 @@ export class NoirCityRenderer {
         by,
         Math.max(d.w, d.h) * 0.72
       );
-      pool.addColorStop(0, d.accent + '28');
-      pool.addColorStop(1, 'rgba(0,0,0,0)');
+      pool.addColorStop(0, withAlpha(PALETTE.sodium, 0.06));
+      pool.addColorStop(1, withAlpha(PALETTE.nightInk, 0));
       ctx.fillStyle = pool;
       ctx.fillRect(d.x - 30, d.y - 30, d.w + 60, d.h + 60);
 
       // Street drop shadow
-      ctx.fillStyle = 'rgba(2, 4, 9, 0.72)';
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.72);
       ctx.fillRect(d.x + 8, d.y + 10, d.w, d.h);
 
       // 2.5D Extruded South/Side Facade Walls
       ctx.fillStyle = d.color;
-      ctx.strokeStyle = d.accent + '66';
+      ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.25);
       ctx.lineWidth = 1.4;
 
       // Bottom wall
@@ -316,16 +317,16 @@ export class NoirCityRenderer {
       // Roof Deck
       const roofGrad = ctx.createLinearGradient(rx, ry, rx + d.w, ry + d.h);
       roofGrad.addColorStop(0, d.color);
-      roofGrad.addColorStop(1, '#0b101b');
+      roofGrad.addColorStop(1, PALETTE.nightInk);
       ctx.fillStyle = roofGrad;
       ctx.fillRect(rx, ry, d.w, d.h);
 
-      ctx.strokeStyle = d.accent;
+      ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.3);
       ctx.lineWidth = d.isHQ ? 2.4 : 1.5;
       ctx.strokeRect(rx, ry, d.w, d.h);
 
       // Inner Art-Deco Rooftop Setback & Architectural Details
-      ctx.strokeStyle = d.accent + '44';
+      ctx.strokeStyle = withAlpha(PALETTE.smoke, 0.2);
       ctx.lineWidth = 1;
       ctx.strokeRect(rx + 10, ry + 10, d.w - 20, d.h - 20);
 
@@ -333,8 +334,8 @@ export class NoirCityRenderer {
         // Classical Rotunda Dome & Sweeping Searchlight
         const domeX = rx + d.w * 0.5;
         const domeY = ry + d.h * 0.62;
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.14)';
-        ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+        ctx.fillStyle = withAlpha(PALETTE.stampRed, 0.14);
+        ctx.strokeStyle = withAlpha(PALETTE.stampRed, 0.55);
         ctx.beginPath();
         ctx.arc(domeX, domeY, 34, 0, Math.PI * 2);
         ctx.fill();
@@ -344,7 +345,7 @@ export class NoirCityRenderer {
         ctx.stroke();
       } else if (d.id === 'docks') {
         // Waterfront Cargo Pier Cranes & Slip Lines
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.42)';
+        ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, 0.42);
         for (const cxOff of [42, d.w - 42]) {
           ctx.strokeRect(rx + cxOff - 14, ry + d.h - 68, 28, 26);
           ctx.beginPath();
@@ -354,18 +355,18 @@ export class NoirCityRenderer {
         }
       } else if (d.id === 'redlight') {
         // Neon Lounge Rooftop Skylight & Cocktail Sign Ring
-        ctx.strokeStyle = 'rgba(244, 63, 94, 0.55)';
+        ctx.strokeStyle = withAlpha(PALETTE.stampRed, 0.55);
         ctx.strokeRect(rx + d.w * 0.5 - 56, ry + d.h - 72, 112, 26);
       } else if (d.id === 'wallst') {
         // Neoclassical Colonnade Steps & Vault Skylight
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+        ctx.strokeStyle = withAlpha(PALETTE.newsprintAged, 0.45);
         for (let p = 0; p < 6; p++) {
           ctx.strokeRect(rx + 36 + p * 42, ry + 14, 16, 8);
         }
       } else if (d.id === 'slaughterhouse') {
         // Brick Smokestacks & Water Tower Circles
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+        ctx.fillStyle = withAlpha(PALETTE.stampRed, 0.2);
+        ctx.strokeStyle = withAlpha(PALETTE.stampRed, 0.6);
         for (const sx of [rx + 46, rx + d.w - 46]) {
           ctx.beginPath();
           ctx.arc(sx, ry + d.h - 58, 13, 0, Math.PI * 2);
@@ -383,26 +384,26 @@ export class NoirCityRenderer {
           const lit = ((c * 7 + r * 3 + d.x) % 4) !== 0;
           ctx.fillStyle = lit
             ? d.isHQ
-              ? 'rgba(255, 212, 122, 0.85)'
-              : d.accent + '77'
-            : 'rgba(15, 23, 42, 0.7)';
+              ? withAlpha(PALETTE.sodium, 0.85)
+              : withAlpha(d.accent, 0.467)
+            : withAlpha(PALETTE.nightInk, 0.7);
           ctx.fillRect(wx, wy, 12, 5);
         }
       }
 
       // District Code Badge & Title on Roof
       ctx.textAlign = 'center';
-      ctx.font = '700 12px "JetBrains Mono", monospace';
+      ctx.font = '700 12px "Courier Prime", "Courier New", monospace';
       ctx.fillStyle = d.accent;
       ctx.fillText(d.code, rx + d.w * 0.5, ry + 26);
 
-      ctx.font = '800 15px "Playfair Display", Georgia, serif';
-      ctx.fillStyle = '#f8fafc';
+      ctx.font = '800 15px "League Gothic", Impact, "Arial Narrow", sans-serif';
+      ctx.fillStyle = PALETTE.newsprint;
       ctx.fillText(d.name, rx + d.w * 0.5, ry + 48);
 
       // Neon Marquee Sign
-      ctx.font = '600 10.5px "JetBrains Mono", monospace';
-      ctx.fillStyle = 'rgba(226, 232, 240, 0.75)';
+      ctx.font = '600 10.5px "Courier Prime", "Courier New", monospace';
+      ctx.fillStyle = withAlpha(PALETTE.newsprint, 0.75);
       ctx.fillText(d.neon, rx + d.w * 0.5, ry + 68);
 
       if (d.isHQ) {
@@ -410,11 +411,11 @@ export class NoirCityRenderer {
         const barW = d.w - 48;
         const barX = rx + 24;
         const barY = ry + 84;
-        ctx.fillStyle = 'rgba(9, 13, 22, 0.85)';
+        ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.85);
         ctx.fillRect(barX, barY, barW, 10);
-        ctx.fillStyle = sim.pressHp > 45 ? '#10b981' : '#ef4444';
+        ctx.fillStyle = sim.pressHp > 45 ? PALETTE.newsprintAged : PALETTE.stampRed;
         ctx.fillRect(barX, barY, (barW * sim.pressHp) / 100, 10);
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.strokeStyle = withAlpha(PALETTE.newsprint, 0.25);
         ctx.strokeRect(barX, barY, barW, 10);
       }
 
@@ -432,7 +433,7 @@ export class NoirCityRenderer {
     ctx.save();
     for (const lead of arcLeads) {
       // Crimson investigative string from Evening Star HQ to the active Arc Lead
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.52)';
+      ctx.strokeStyle = withAlpha(PALETTE.stampRed, 0.52);
       ctx.lineWidth = 2.0;
       ctx.setLineDash([6, 5]);
       ctx.beginPath();
@@ -444,7 +445,7 @@ export class NoirCityRenderer {
       // Brass pushpin at HQ & midpoint evidence tag
       const mx = (hqX + lead.x) * 0.5;
       const my = (hqY + lead.y) * 0.5;
-      ctx.fillStyle = '#ef4444';
+      ctx.fillStyle = PALETTE.stampRed;
       ctx.beginPath();
       ctx.arc(mx, my, 4.5, 0, Math.PI * 2);
       ctx.fill();
@@ -459,7 +460,7 @@ export class NoirCityRenderer {
       const dist = Math.hypot(op.targetX - op.x, op.targetY - op.y);
       if (dist < 10) continue;
 
-      ctx.strokeStyle = op.color;
+      ctx.strokeStyle = PALETTE.sodium;
       ctx.lineWidth = op.id === sim.selectedOpId ? 2.6 : 1.6;
       ctx.setLineDash([10, 7]);
       ctx.beginPath();
@@ -488,15 +489,15 @@ export class NoirCityRenderer {
       const pulse = 0.5 + 0.5 * Math.sin(sim.time * 5 + lead.x);
       const auraR = (isSelected ? 48 : 36) + pulse * 8;
       const aura = ctx.createRadialGradient(0, 0, 5, 0, 0, auraR);
-      aura.addColorStop(0, lead.color + '77');
-      aura.addColorStop(1, lead.color + '00');
+      aura.addColorStop(0, withAlpha(PALETTE.sodium, 0.467));
+      aura.addColorStop(1, withAlpha(PALETTE.sodium, 0.000));
       ctx.fillStyle = aura;
       ctx.beginPath();
       ctx.arc(0, 0, auraR, 0, Math.PI * 2);
       ctx.fill();
 
       if (isSelected || isHovered) {
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = PALETTE.newsprint;
         ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.arc(0, 0, 30, 0, Math.PI * 2);
@@ -504,8 +505,8 @@ export class NoirCityRenderer {
       }
 
       // Dark brass node badge
-      ctx.fillStyle = '#0b101d';
-      ctx.strokeStyle = lead.color;
+      ctx.fillStyle = PALETTE.nightInk;
+      ctx.strokeStyle = PALETTE.sodium;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(0, 0, 22, 0, Math.PI * 2);
@@ -513,7 +514,7 @@ export class NoirCityRenderer {
       ctx.stroke();
 
       // TTL countdown arc
-      ctx.strokeStyle = ttlRatio < 0.3 ? '#ef4444' : '#f8fafc';
+      ctx.strokeStyle = ttlRatio < 0.3 ? PALETTE.stampRed : PALETTE.newsprint;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(0, 0, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ttlRatio);
@@ -521,7 +522,7 @@ export class NoirCityRenderer {
 
       // Player investigation progress arc
       if (lead.progress > 0) {
-        ctx.strokeStyle = '#38bdf8';
+        ctx.strokeStyle = PALETTE.newsprintAged;
         ctx.lineWidth = 4.5;
         ctx.beginPath();
         ctx.arc(
@@ -536,7 +537,7 @@ export class NoirCityRenderer {
 
       // Rival investigation progress arc
       if (lead.rivalProgress > 0) {
-        ctx.strokeStyle = '#f43f5e';
+        ctx.strokeStyle = PALETTE.stampRed;
         ctx.lineWidth = 3.5;
         ctx.beginPath();
         ctx.arc(
@@ -550,47 +551,47 @@ export class NoirCityRenderer {
       }
 
       // Beat label inside node
-      ctx.font = '800 10px "JetBrains Mono", monospace';
-      ctx.fillStyle = lead.color;
+      ctx.font = '800 10px "Courier Prime", "Courier New", monospace';
+      ctx.fillStyle = PALETTE.sodium;
       ctx.textAlign = 'center';
       ctx.fillText(lead.beat.slice(0, 5), 0, 3.5);
 
       // Headline callout pill above node
       const label = `$${lead.baseValue} · ${lead.headline.slice(0, 24)}…`;
-      ctx.font = '700 11px "JetBrains Mono", monospace';
+      ctx.font = '700 11px "Courier Prime", "Courier New", monospace';
       const tw = ctx.measureText(label).width + 16;
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.94)';
-      ctx.strokeStyle = isSelected ? '#ffffff' : lead.color;
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.94);
+      ctx.strokeStyle = isSelected ? PALETTE.newsprint : PALETTE.sodium;
       ctx.lineWidth = 1.4;
       ctx.fillRect(-tw / 2, -46, tw, 19);
       ctx.strokeRect(-tw / 2, -46, tw, 19);
 
-      ctx.fillStyle = '#f8fafc';
+      ctx.fillStyle = PALETTE.newsprint;
       ctx.fillText(label, 0, -32.5);
 
       if (lead.seriesBadge) {
-        ctx.font = '800 9.5px "IBM Plex Mono", monospace';
+        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
         const sw = ctx.measureText(lead.seriesBadge).width + 14;
-        ctx.fillStyle = '#991b1b';
-        ctx.strokeStyle = '#fde68a';
+        ctx.fillStyle = PALETTE.stampRed;
+        ctx.strokeStyle = PALETTE.sodium;
         ctx.lineWidth = 1.2;
         ctx.fillRect(-sw / 2, -65, sw, 16);
         ctx.strokeRect(-sw / 2, -65, sw, 16);
-        ctx.fillStyle = '#fef08a';
+        ctx.fillStyle = PALETTE.sodium;
         ctx.fillText(lead.seriesBadge, 0, -54);
       }
 
       if (lead.photoVerified) {
-        ctx.fillStyle = '#38bdf8';
+        ctx.fillStyle = PALETTE.newsprintAged;
         ctx.fillRect(16, -22, 26, 14);
-        ctx.fillStyle = '#090d16';
-        ctx.font = '800 9.5px "JetBrains Mono", monospace';
+        ctx.fillStyle = PALETTE.nightInk;
+        ctx.font = '800 9.5px "Courier Prime", "Courier New", monospace';
         ctx.fillText('1.8×', 29, -12);
       } else if (lead.scoopedByRival) {
-        ctx.fillStyle = '#dc2626';
+        ctx.fillStyle = PALETTE.stampRed;
         ctx.fillRect(-38, -22, 24, 14);
-        ctx.fillStyle = '#fef2f2';
-        ctx.font = '800 9px "JetBrains Mono", monospace';
+        ctx.fillStyle = PALETTE.newsprint;
+        ctx.font = '800 9px "Courier Prime", "Courier New", monospace';
         ctx.fillText('0.5×', -26, -12);
       }
 
@@ -601,14 +602,14 @@ export class NoirCityRenderer {
       if (allIdle && isSelected && sim.scoopsTotal === 0) {
         const bounce = Math.sin(sim.time * 6) * 4;
         const prompt = '▲ CLICK HERE TO DISPATCH UNIT [1] JACK VANCE';
-        ctx.font = '800 11.5px "IBM Plex Mono", monospace';
+        ctx.font = '800 11.5px "Courier Prime", "Courier New", monospace';
         const pw = ctx.measureText(prompt).width + 20;
-        ctx.fillStyle = '#f5b73b';
-        ctx.strokeStyle = '#14100a';
+        ctx.fillStyle = PALETTE.sodium;
+        ctx.strokeStyle = PALETTE.nightInk;
         ctx.lineWidth = 2;
         ctx.fillRect(-pw / 2, 34 + bounce, pw, 22);
         ctx.strokeRect(-pw / 2, 34 + bounce, pw, 22);
-        ctx.fillStyle = '#14100a';
+        ctx.fillStyle = PALETTE.nightInk;
         ctx.fillText(prompt, 0, 49 + bounce);
       }
 
@@ -623,7 +624,7 @@ export class NoirCityRenderer {
         const tgt = sim.leads.find((l) => l.uid === rv.targetLeadId);
         if (tgt) {
           ctx.save();
-          ctx.strokeStyle = 'rgba(234, 179, 8, 0.5)';
+          ctx.strokeStyle = withAlpha(PALETTE.sodium, 0.5);
           ctx.lineWidth = 1.6;
           ctx.setLineDash([7, 6]);
           ctx.beginPath();
@@ -638,7 +639,7 @@ export class NoirCityRenderer {
       ctx.save();
       ctx.translate(rv.x, rv.y);
 
-      const ringColor = rv.type === 'goon' ? '#f43f5e' : '#eab308';
+      const ringColor = rv.type === 'goon' ? PALETTE.stampRed : PALETTE.sodium;
       // Press cruiser / saboteur searchlight cone
       ctx.save();
       ctx.rotate(rv.angle);
@@ -655,8 +656,8 @@ export class NoirCityRenderer {
       ctx.fill();
       ctx.restore();
 
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.18)';
-      ctx.strokeStyle = rv.stunTimer > 0 ? '#94a3b8' : ringColor;
+      ctx.fillStyle = withAlpha(PALETTE.stampRed, 0.18);
+      ctx.strokeStyle = rv.stunTimer > 0 ? PALETTE.newsprintAged : ringColor;
       ctx.lineWidth = 2.4;
       ctx.beginPath();
       ctx.arc(0, 0, 24, 0, Math.PI * 2);
@@ -676,11 +677,11 @@ export class NoirCityRenderer {
       }
       ctx.restore();
 
-      ctx.font = '700 10px "JetBrains Mono", monospace';
+      ctx.font = '700 10px "Courier Prime", "Courier New", monospace';
       ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.92);
       ctx.fillRect(-48, 24, 96, 15);
-      ctx.fillStyle = rv.stunTimer > 0 ? '#cbd5e1' : ringColor;
+      ctx.fillStyle = rv.stunTimer > 0 ? PALETTE.newsprint : ringColor;
       ctx.fillText(
         rv.stunTimer > 0
           ? 'FLASH STUNNED'
@@ -709,8 +710,8 @@ export class NoirCityRenderer {
       ctx.save();
       ctx.rotate(op.angle);
       const beam = ctx.createLinearGradient(14, 0, 96, 0);
-      beam.addColorStop(0, op.color + '48');
-      beam.addColorStop(1, op.color + '00');
+      beam.addColorStop(0, withAlpha(PALETTE.sodium, 0.282));
+      beam.addColorStop(1, withAlpha(PALETTE.sodium, 0.000));
       ctx.fillStyle = beam;
       ctx.beginPath();
       ctx.moveTo(10, -7);
@@ -723,7 +724,7 @@ export class NoirCityRenderer {
 
       if (isSelected || isHovered) {
         const pulse = 0.5 + 0.5 * Math.sin(sim.time * 7);
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = PALETTE.newsprint;
         ctx.lineWidth = 2.8;
         ctx.beginPath();
         ctx.arc(0, 0, 30 + pulse * 3, 0, Math.PI * 2);
@@ -731,8 +732,8 @@ export class NoirCityRenderer {
       }
 
       // Base tactical ring
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.78)';
-      ctx.strokeStyle = op.color;
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.78);
+      ctx.strokeStyle = PALETTE.sodium;
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.arc(0, 0, 24, 0, Math.PI * 2);
@@ -746,7 +747,7 @@ export class NoirCityRenderer {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(sprite, -30, -30, 60, 60);
       } else {
-        ctx.fillStyle = op.color;
+        ctx.fillStyle = PALETTE.sodium;
         ctx.beginPath();
         ctx.arc(0, 0, 15, 0, Math.PI * 2);
         ctx.fill();
@@ -754,22 +755,22 @@ export class NoirCityRenderer {
       ctx.restore();
 
       // Hotkey badge [1..4]
-      ctx.fillStyle = op.color;
+      ctx.fillStyle = PALETTE.sodium;
       ctx.fillRect(-30, -32, 18, 16);
-      ctx.fillStyle = '#090d16';
-      ctx.font = '800 11px "JetBrains Mono", monospace';
+      ctx.fillStyle = PALETTE.nightInk;
+      ctx.font = '800 11px "Courier Prime", "Courier New", monospace';
       ctx.textAlign = 'center';
       ctx.fillText(String(i + 1), -21, -20);
 
       // Callsign plate underneath
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.94)';
-      ctx.strokeStyle = op.color + '99';
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.94);
+      ctx.strokeStyle = withAlpha(PALETTE.sodium, 0.600);
       ctx.lineWidth = 1.2;
       ctx.fillRect(-38, 24, 76, 17);
       ctx.strokeRect(-38, 24, 76, 17);
 
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '700 10px "JetBrains Mono", monospace';
+      ctx.fillStyle = PALETTE.newsprint;
+      ctx.font = '700 10px "Courier Prime", "Courier New", monospace';
       ctx.fillText(op.callsign, 0, 36);
 
       ctx.restore();
@@ -779,7 +780,7 @@ export class NoirCityRenderer {
   _drawFlashesAndCallouts(ctx, sim) {
     ctx.save();
     for (const fl of sim.flashes) {
-      ctx.strokeStyle = fl.color || '#ffffff';
+      ctx.strokeStyle = PALETTE.newsprint;
       ctx.globalAlpha = Math.max(0, fl.alpha);
       ctx.lineWidth = 3.2;
       ctx.beginPath();
@@ -792,19 +793,19 @@ export class NoirCityRenderer {
       const alpha = Math.max(0, Math.min(1, c.life / 1.4));
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.font = '800 13px "JetBrains Mono", monospace';
+      ctx.font = '800 13px "Courier Prime", "Courier New", monospace';
       ctx.textAlign = 'center';
       const w = ctx.measureText(c.text).width + 18;
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
+      ctx.fillStyle = withAlpha(PALETTE.nightInk, 0.92);
       ctx.fillRect(c.x - w / 2, c.y - 14, w, 20);
-      ctx.fillStyle = c.color;
+      ctx.fillStyle = PALETTE.sodium;
       ctx.fillText(c.text, c.x, c.y);
       ctx.restore();
     }
     ctx.restore();
   }
 
-  _drawRainAndVignette(ctx, dt, ink = 'rgba(186, 218, 255, 0.24)') {
+  _drawRainAndVignette(ctx, dt, ink = withAlpha(PALETTE.newsprint, 0.24)) {
     ctx.save();
     ctx.strokeStyle = ink;
     ctx.lineWidth = 1.3;
@@ -839,8 +840,8 @@ export class NoirCityRenderer {
       WORLD_H * 0.5,
       WORLD_W * 0.68
     );
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(2, 4, 9, 0.62)');
+    vig.addColorStop(0, withAlpha(PALETTE.nightInk, 0));
+    vig.addColorStop(1, withAlpha(PALETTE.nightInk, 0.62));
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, WORLD_W, WORLD_H);
     ctx.restore();
@@ -854,19 +855,19 @@ export class NoirCityRenderer {
     const by = 14;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = 'rgba(20, 13, 8, 0.94)';
-    ctx.strokeStyle = '#f5b73b';
+    ctx.fillStyle = withAlpha(PALETTE.mahogany, 0.94);
+    ctx.strokeStyle = PALETTE.sodium;
     ctx.lineWidth = 2;
     ctx.fillRect(WORLD_W * 0.5 - 290, by, 580, 48);
     ctx.strokeRect(WORLD_W * 0.5 - 290, by, 580, 48);
 
     ctx.textAlign = 'center';
-    ctx.font = '800 13.5px "Playfair Display", Georgia, serif';
-    ctx.fillStyle = '#f7c968';
+    ctx.font = '800 13.5px "League Gothic", Impact, "Arial Narrow", sans-serif';
+    ctx.fillStyle = PALETTE.sodium;
     ctx.fillText(sim.banner.title, WORLD_W * 0.5, by + 20);
 
-    ctx.font = '700 10px "IBM Plex Mono", monospace';
-    ctx.fillStyle = '#f8fafc';
+    ctx.font = '700 10px "Courier Prime", "Courier New", monospace';
+    ctx.fillStyle = PALETTE.newsprint;
     ctx.fillText(sim.banner.sub, WORLD_W * 0.5, by + 38);
     ctx.restore();
   }

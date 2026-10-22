@@ -1,0 +1,51 @@
+{
+  "revision": "45e3d5269e4a17d823f6d84470bc084dc5ae46f6",
+  "fonttools": "4.67.0",
+  "brotli": "1.2.0",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/leaguegothic/OFL.txt",
+      "sha256": "44778c339892f79188c60b7471485dd5af92c59351c7f9629a00fc625c6cae5d"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/leaguegothic/LeagueGothic%5Bwdth%5D.ttf",
+      "sha256": "3b0e998c9a0034222394ffecdd383e6948259ad037b95555b139a217629ce1d0"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/oldstandardtt/OFL.txt",
+      "sha256": "4faa2d9e2ce0a4b5b37e62ee6fafe474a539b31578f7214ed97cc3503aeb8ebd"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/oldstandardtt/OldStandard-Regular.ttf",
+      "sha256": "42717a1280b523a506ca2b0285cca380e77fe214b1f6e3d75a8b925005f19eac"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/oldstandardtt/OldStandard-Bold.ttf",
+      "sha256": "7d831e9d799ad23ee98e889381a9db2a283b2dac7f228dd5c06071decb9c54db"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/oldstandardtt/OldStandard-Italic.ttf",
+      "sha256": "4b9522f4711317fc06e2413a58b4662c249cb707df193d682b9d640e365ef564"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/courierprime/OFL.txt",
+      "sha256": "9a755af092b494944c99f471be6fddd19b006a448fefdc4717e4ee0aa09a97b0"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/courierprime/CourierPrime-Regular.ttf",
+      "sha256": "72f793376f8e2841656bf21d77a5de010f2929bd6956a22ee848ad0c7eb978af"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/courierprime/CourierPrime-Bold.ttf",
+      "sha256": "ff1f38786c849d1c41fa8e447960abdb2bd75fdfb0cfcdeb524fad65a5af3638"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/unifrakturmaguntia/OFL.txt",
+      "sha256": "96199bf9ff12dd471a66911dee95440737b437e7f5a6fd30e9e950c16d66e8df"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/google/fonts/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf",
+      "sha256": "d64afc0547059dd2e4a78da48bda0aba0a9901be58c7f8c201a8b2b6b4492cc8"
+    }
+  ]
+}

@@ -1,5 +1,40 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
+
+### Changed
+- Ten strict palette tokens replace the legacy CSS/canvas hues. District seams
+  are neutral ink; the existing city geometry and sprites await #89.
+- Self-hosted Latin WOFF2 League Gothic, Old Standard TT, Courier Prime and
+  masthead-only UnifrakturMaguntia replace Google Fonts. All four OFL licenses,
+  pinned source revision and a fonttools/Brotli rebuild script are included.
+- Mahogany wood grain, newsprint turbulence, deterministic paper rotations and
+  shadows from a top-left lamp; telegram slips, punched manila passes, tabbed
+  folders, carbon dots, red pinholes, bakelite phone and outlined ink stamps.
+- Static HTML body text nodes: **103 → 51 (50.5% fewer)**; words: **395 → 136
+  (65.6% fewer)**. Count excludes whitespace, comments, attributes, scripts/style;
+  includes controls and initial dynamic placeholders. Runtime instructional copy
+  is shortened too; hotkeys and accessible action names remain.
+- Body text is at least 14px with explicit line heights; faded stand-in text is
+  removed. Text token contrasts range from **4.66:1 to 15.34:1**. Blue carbon dots
+  use newsprint stock (5.65:1), rather than aged stock (which fails at 4.44:1).
+- Paper slap and stamp hit last 120ms; reduced motion disables all CSS motion.
+  A container query reflows the magnified desk; scrolling retains core actions.
+
+### Verification and compatibility
+- Stylelint runs core `color-no-hex` and `function-disallowed-list` outside root
+  token declarations via a selector-scoped plugin; adversarial fixtures prove
+  that ordinary, grouped and nested rules cannot bypass enforcement.
+- Node tests reject literal colors in every JS module except `palette.js` and
+  check exact token parity, font signatures/licenses and used text-pair contrast.
+- Playwright attaches actual request logs and rejects external origins. Art
+  scenarios check loaded families, 1280×720/1920×1080 layout, blocked fonts at
+  100%/200% CSS layout zoom, core print/drawer actions and reduced motion.
+- Historical district accents were accidentally hashed. They survive solely as
+  checksum compatibility data in `assets/legacy-district-hash.json`, read only
+  by the hash projection, never rendering. All five golden hashes stay unchanged;
+  no gameplay rules, timings, geometry or random draws change.
+
 ## [2.8.0] — 2026-10-21 (#87 — Save/load the run)
 
 ### Added

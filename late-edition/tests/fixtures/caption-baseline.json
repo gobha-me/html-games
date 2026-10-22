@@ -1,0 +1,6 @@
+{
+  "issue": 88,
+  "method": "Non-whitespace body text nodes in index.html, excluding script/style; HTML comments and attributes excluded. Includes controls and initial dynamic placeholders.",
+  "nodes": 103,
+  "words": 395
+}
