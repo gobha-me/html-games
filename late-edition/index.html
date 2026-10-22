@@ -67,7 +67,19 @@
           <button type="button" id="btn-speed-1" class="btn-chip active" title="Normal speed">1×</button>
           <button type="button" id="btn-speed-2" class="btn-chip" title="Fast speed">2×</button>
         </div>
-        <button type="button" id="btn-audio" class="btn-chip active" title="Toggle Noir Jazz &amp; SFX (M)">SOUND [M]</button>
+        <button type="button" id="btn-audio" class="btn-chip active" title="Mute all sound (M)" aria-pressed="false">SOUND [M]</button>
+        <details class="sound-mixer">
+          <summary class="btn-chip">MIXER</summary>
+          <fieldset>
+            <legend>Night desk sound</legend>
+            <div class="mixer-label"><label for="volume-music">Music</label> <output id="volume-music-value" for="volume-music">45%</output></div>
+            <input id="volume-music" type="range" min="0" max="100" value="45">
+            <div class="mixer-label"><label for="volume-ambience">Ambience</label> <output id="volume-ambience-value" for="volume-ambience">35%</output></div>
+            <input id="volume-ambience" type="range" min="0" max="100" value="35">
+            <div class="mixer-label"><label for="volume-sfx">SFX</label> <output id="volume-sfx-value" for="volume-sfx">65%</output></div>
+            <input id="volume-sfx" type="range" min="0" max="100" value="65">
+          </fieldset>
+        </details>
         <button type="button" id="btn-roll-press" class="btn-press-lever" title="Lock front page and roll the rotary presses [Space]">
           ROLL PRESSES [SPC]
         </button>
@@ -235,6 +247,15 @@
         <div class="modal-kicker" id="modal-kicker"></div>
         <h2 id="modal-title">PRESS REPORT</h2>
         <p id="modal-subtitle" class="modal-subtitle"></p>
+        <div id="press-show" class="press-show" role="status">
+          <div class="press-rollers" aria-hidden="true"><span>THE EVENING STAR</span></div>
+          <p id="press-caption"></p>
+        </div>
+        <article id="morning-after" class="morning-after" aria-labelledby="rival-headline" hidden>
+          <p>MORNING AFTER · THE DAILY HERALD</p>
+          <h3 id="rival-headline">HERALD MORNING EDITION</h3>
+          <p id="rival-deck"></p>
+        </article>
         <div id="modal-metrics" class="modal-metrics"></div>
         <section id="final-front-page" class="final-front-page" aria-label="Final front page" hidden>
           <div id="final-layout-slots" class="final-layout-slots"></div>

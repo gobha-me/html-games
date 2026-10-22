@@ -187,9 +187,24 @@ report boundary. Browser tests exercise reload/Continue with a retained dossier,
 overwrite cancel/confirm, mid-edition unload, corruption/version notices, storage
 failures and game-over deletion.
 
+## Night desk sound
+
+Open **MIXER** for separate Music, Ambience and SFX sliders; **SOUND [M]** mutes
+all channels. Volumes and mute survive reloads and new runs. The rain/newsroom
+bed rises toward midnight, with sparse horn/bass cues and an **11:55 PM** sting.
+The press run spins up, calls a synthesized “EXTRA!”, then reveals a morning-after
+Daily Herald headline card. Reports can be dismissed immediately; reduced motion
+skips the animated stages. All information is also visible without sound.
+
+Audio unlocks only after a real pointer/key gesture and suspends on hidden tabs,
+the desk-too-small pause and manual pause. Missing devices, autoplay rejection or
+blocked storage leave the game playable. Every sound uses local WebAudio synthesis,
+with **0 bytes** of audio downloads. See [audio design and failure handling](docs/AUDIO.md)
+and [generator provenance](assets/audio/CREDITS.md).
+
 ## Tech Stack & File Layout
 
-- Zero external runtime dependencies — self-contained ES modules + HTML5 2D Canvas + WebAudio synthesizer + original `.mp3` SFX.
+- Zero external runtime dependencies — self-contained ES modules + HTML5 2D Canvas + WebAudio synthesis (no downloaded audio).
 - Procedural Canvas2D noir city and hat-and-coat silhouettes; two retained desk/press illustrations ([asset notes](assets/README.md)).
 
 ```text
@@ -212,9 +227,9 @@ late-edition/
 │   ├── silhouettes.js  # Shared Canvas2D street figures and staff portraits
 │   ├── renderer.js     # Cached oblique city/title layers, wet streets, fog & dynamic figures
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
-│   └── audio.js        # Hybrid MP3 + procedural WebAudio typewriter, flashbulb & press SFX
+│   └── audio.js        # Synthesized ambience/music/SFX, safe lifecycle & persisted mixer
 └── assets/
-    ├── audio/          # Newsroom & street MP3 sound effects
+    ├── audio/          # Synthesis provenance in CREDITS.md; no samples
     └── sprites/        # Retained editor portrait & rotary press art; unit PNGs retired
 ```
 

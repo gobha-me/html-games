@@ -1,5 +1,26 @@
 # Changelog — LATE EDITION // 1947
 
+## Unreleased — #90 night desk sound and midnight press show
+
+- Synthesize rising rain/newsroom beds, muted trumpet/bass start and 11:55 cues,
+  phone bell, wire teletype, typewriter, dispatch/camera/bribe and rotary-press
+  spin-up followed by a source-filter “EXTRA!” call. Remove the three legacy MP3s
+  with undocumented free-license provenance; document every generator in audio
+  credits. Zero downloaded audio bytes and no network/speech-service dependencies.
+- Add accessible Music/Ambience/SFX sliders and mute, persisted in a separate
+  versioned record with corrupt/type/range/version and storage-failure handling.
+- Unlock only on trusted gestures; suspend on hidden tabs, small desks and manual
+  pause. Serialize pause races; tolerate missing/throwing devices and rejected
+  resume/suspend without gameplay errors or retry loops. Bound and disconnect voices.
+- Keep sim browser-free: emit events only through the injected audio adapter,
+  safely isolating sync/async failures. Preserve RNG, save format and golden hashes.
+- Show the plate/roller/papers/newsboy sequence and a morning-after Daily Herald
+  headline card in the report. Allow immediate dismissal with cue cancellation;
+  reduced motion shows the morning card immediately and suppresses animation.
+- Add adversarial unit/browser lifecycle, persistence, blocked-route and five-night
+  audio-on/off determinism tests, plus native offline signal checks. Exercise the
+  live sound bed in the existing SwiftShader performance budgets.
+
 ## Unreleased — #102 startup raster and label containment
 
 - Complete the deferred static city source before its first desk frame, with a

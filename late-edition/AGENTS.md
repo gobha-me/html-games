@@ -23,7 +23,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | `js/dom.js` | Keyed recursive DOM reconciliation with text-only dynamic copy; preserves unchanged nodes and input. |
 | `js/opening.js` | Pure 30-second Lou Vance dialogue clock; reduced-motion text reveal. |
 | `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
-| `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
+| `js/audio.js` | `NoirAudio`: gesture-only synthesis, three buses, persisted mixer, safe pause gates and bounded voices; see `docs/AUDIO.md`. |
 | `assets/` | Retained editor/press PNGs, audio and licensed WOFF2 fonts; unit PNGs retired (see asset notes). |
 | `scripts/` | Documentation-reference checker and its isolated adversarial shell tests. |
 | `tests/` | Adversarial area suites, 50-seed fuzzing, lint/adapter tests and a five-edition golden replay. |
@@ -31,7 +31,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 
 ## Sim/UI boundary
 
-- Today `main.js` passes audio into the sim, calls its methods, and also
+- Today `main.js` passes an event-based audio port into the sim and also
   mutates speed, pause, summary and operative targets directly. It scales delta by speed, calls `sim.step(dt)`, draws each frame and reconciles keyed DOM every 250 ms.
 - `sim.js` imports config and pure helper/adapter modules; no DOM or browser APIs.
   Gameplay randomness uses the injected RNG; IDs use counters. Visual effects/traffic are excluded from hashes.
@@ -39,7 +39,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   rain/fog, scoop flashes, an independent animation clock and hover state. DOM/input belongs in `main.js`; Canvas2D in `renderer.js`.
 - The constructor accepts `{ seed, rng, storage, audio, now }`. `main.js` creates
   browser adapters and parses `?seed=N`, falling back to a wall-clock seed.
-  Storage uses `readBest`/`writeBest` and `readRun`/`writeRun`/`clearRun`; audio has optional named cues. Display
+  Storage uses `readBest`/`writeBest` and `readRun`/`writeRun`/`clearRun`; audio emits named events (legacy cue sinks supported). Display
   formatting lives in `presentation.js`. Keep browser APIs out of sim logic.
 - Scoops stay in the tray. `lockUp()` or 11 PM enters `paste-up`; `placeStory`,
   `unplace`, `spike` return `{ok, reason}`. Occupied/duplicate placements reject.
@@ -135,8 +135,8 @@ out-of-order arcs, simultaneous completions, bad saves and storage failures.
   Restart chooses fresh browser entropy; sim.reset() itself remains deterministic.
 - `edition` stays numeric; its assist flag is `editionLayout.assisted`, captured in
   `editionSummary.assisted`. Pointer drags never move sim copy until a valid drop.
-- Audio fetch/resume failures are currently swallowed so missing cues or
-  browser autoplay restrictions cannot stop play; fallback tones are intentional.
+- Audio emits through the injected adapter only. Synthesis needs no fetch; device/resume
+  failures are swallowed. Pause gates serialize; provenance is in `assets/audio/CREDITS.md`.
 - Audit exception (2026-10-21, #80): stylelint 17.16.0's transitive `braces@3.0.3`
   has [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), a stack-exhaustion denial of service.
   `npm audit fix` leaves seven high-severity package entries from this one advisory

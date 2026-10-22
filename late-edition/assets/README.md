@@ -25,6 +25,8 @@ The two original retained illustrations are still used:
 - `sprites/masthead_press.png`: press/file-photo plate in `../js/main.js`, including
   the empty darkroom stand-in. It no longer substitutes a retired unit sprite.
 
-`audio/` retains the three existing newsroom/press/camera cues.
+`audio/` contains [generator provenance](audio/CREDITS.md). All sounds use local
+WebAudio synthesis; the three legacy MP3s with undocumented licenses were removed.
+Shipped audio payload is zero bytes; no sample or speech-service requests are made.
 [Font credits, licenses and reproducible provenance](fonts/README.md) cover the
 self-hosted WOFF2 assets. No external runtime asset or font service is required.

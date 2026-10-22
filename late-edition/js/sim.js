@@ -233,7 +233,7 @@ export class LateEditionSim {
   startNightShift() {
     if (this.phase !== 'title' || this.deskTooSmall) return false;
     this.phase = 'cold-open';
-    this.audio.phoneRing();
+    this.audio.emit('phoneRing');
     return true;
   }
 
@@ -337,7 +337,7 @@ export class LateEditionSim {
     const [story] = this.scoopedStories.splice(index, 1);
     if (slotId === 'inside') this.insideStories.push(story);
     else this.frontPage[slotId] = story;
-    this.audio.typewriter();
+    this.audio.emit('typewriter');
     return { ok: true, reason: null };
   }
 
@@ -503,7 +503,7 @@ export class LateEditionSim {
       rejectEffect: { credibility: -FILE_DRAWER.trustHit, heat: FILE_DRAWER.heatSpike,
         wire: 'SOURCE ABANDONED: The street heard. So did the Observer.' },
     };
-    this.audio.phoneRing();
+    this.audio.emit('phoneRing');
     this.logWire('PRIVATE LINE: A burned source wants an answer.', 'danger');
   }
 
@@ -677,7 +677,7 @@ export class LateEditionSim {
     op.targetY = lead.y + 8;
     op.state = presentation.enRoute(lead);
 
-    this.audio.dispatch();
+    this.audio.emit('dispatch');
     this.addCallout(lead.x, lead.y - 16, presentation.dispatched(op), op.color);
     this.logWire(presentation.dispatchLog(op, lead), 'ops');
     return true;
@@ -707,7 +707,7 @@ export class LateEditionSim {
         op.targetX = rv.x;
         op.targetY = rv.y;
         op.state = presentation.intercepting(rv);
-        this.audio.dispatch();
+        this.audio.emit('dispatch');
         this.addCallout(rv.x, rv.y - 14, 'INTERCEPT ORDERED', PALETTE.newsprintAged);
         return;
       }
@@ -720,7 +720,7 @@ export class LateEditionSim {
     op.targetX = Math.max(50, Math.min(WORLD_W - 50, wx));
     op.targetY = Math.max(50, Math.min(WORLD_H - 50, wy));
     op.state = 'PATROLLING BEAT';
-    this.audio.dispatch();
+    this.audio.emit('dispatch');
   }
 
   autoDispatchBestForLead(leadUid) {
@@ -798,7 +798,7 @@ export class LateEditionSim {
     this.cash -= 65;
     this.spawnLead();
     this.spawnLead();
-    this.audio.wireBell();
+    this.audio.emit('wireBell');
     this.setBanner(
       'SWITCHBOARD WIRETAP ACTIVE',
       '2 EXCLUSIVE CITY LEADS INTERCEPTED ON POLICE BAND',
@@ -812,7 +812,7 @@ export class LateEditionSim {
     this.cash += 160;
     this.credibility = Math.max(0, this.credibility - 10);
     this.syndicateHeat = Math.max(0, this.syndicateHeat - 16);
-    this.audio.bribe();
+    this.audio.emit('bribe');
     this.setBanner(
       'SYNDICATE HUSH-MONEY ACCEPTED (+$160)',
       'CREDIBILITY -10% · SYNDICATE HEAT REDUCED',
@@ -828,7 +828,7 @@ export class LateEditionSim {
     this.pressHp = 100;
     // Clear any goons near HQ
     this.rivals = this.rivals.filter((r) => r.type !== 'goon');
-    this.audio.typewriter();
+    this.audio.emit('typewriter');
     this.setBanner(
       'ROTARY PRESS ROOM REINFORCED',
       'PRESS INTEGRITY 100% · OBSERVER SABOTEURS REPELLED',
@@ -847,7 +847,7 @@ export class LateEditionSim {
       ...template,
       timer: 26,
     };
-    this.audio.phoneRing();
+    this.audio.emit('phoneRing');
     this.logWire(
       presentation.phoneRing(template),
       'ops'
@@ -876,7 +876,7 @@ export class LateEditionSim {
     );
     this.logWire(eff.wire, accept ? 'ops' : 'scoop');
     this.activeDilemma = null;
-    this.audio.typewriter();
+    this.audio.emit('typewriter');
     return true;
   }
 
@@ -965,7 +965,7 @@ export class LateEditionSim {
     this.dilemmaTriggeredThisEdition = false;
     this.activeDilemma = null;
 
-    this.audio.pressRun();
+    this.audio.emit('pressRun');
     this.flashes.push({
       x: this.hq.x + this.hq.w * 0.5,
       y: this.hq.y + this.hq.h * 0.5,
@@ -1007,8 +1007,14 @@ export class LateEditionSim {
   }
 
   _step(dt) {
+    const previousClock = this.clockSec;
+    if (previousClock === 0) this.audio.emit('editionStart');
     this.time += dt;
     this.clockSec += dt;
+    // 6 PM to midnight spans 360 in-world minutes; edge detection needs no
+    // saved/hash state and still fires once when a large step crosses 11:55.
+    const fiveToMidnight = EDITION_DURATION_SEC * (355 / 360);
+    if (previousClock < fiveToMidnight && this.clockSec >= fiveToMidnight) this.audio.emit('deadline');
 
     if (this.banner.timer > 0) {
       this.banner.timer = Math.max(0, this.banner.timer - dt);
@@ -1108,7 +1114,7 @@ export class LateEditionSim {
             if (!lead.photoVerified) {
               lead.photoVerified = true;
               lead.progress = Math.min(100, lead.progress + 28);
-              this.audio.shutter();
+              this.audio.emit('shutter');
               this.flashes.push({
                 x: lead.x,
                 y: lead.y,
@@ -1322,7 +1328,7 @@ export class LateEditionSim {
     };
 
     this.scoopedStories.push(story);
-    this.audio.wireBell();
+    this.audio.emit('wireBell');
 
     this.addCallout(
       lead.x,
