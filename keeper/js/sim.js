@@ -3,6 +3,8 @@
 export const NIGHT_SECONDS = 180;
 export const AFTERIMAGE_SECONDS = 1.5;
 export const CONE_DEGREES = 14;
+export const BUDGET_PERIOD_SECONDS = 12;
+export const NIGHT_PASSES = Object.freeze([4, 4, 3, 3, 2]);
 export const SPEED = Object.freeze({ slow: 12, default: 30, fast: 60 });
 export const ROCKS = Object.freeze([
   Object.freeze({ x: 210, y: -255, radius: 24 }),
@@ -12,6 +14,61 @@ export const ROCKS = Object.freeze([
 ]);
 const TICK = 1 / 60;
 const RAD = Math.PI / 180;
+
+function checkPeriod(period) {
+  if (!Number.isFinite(period) || period <= 0) throw new RangeError('Period must be finite and positive');
+}
+
+// Count centre-line crossings, excluding the opening instant and including the end.
+// Keeping whole revolutions (rather than wrapping times) preserves multi-pass windows.
+export function passesBetween({ bearing, tStart, tEnd, period = BUDGET_PERIOD_SECONDS, phase0 = 0 }) {
+  checkPeriod(period);
+  if (![bearing, tStart, tEnd, phase0].every(Number.isFinite) || tEnd < tStart) {
+    throw new RangeError('Sweep window and bearings must be finite and ordered');
+  }
+  const offset = wrapBearing(wrapBearing(bearing) - wrapBearing(phase0)) / 360;
+  return Math.floor(tEnd / period - offset) - Math.floor(tStart / period - offset);
+}
+
+// Fog reach must ALSO extend at least this far: extra travel outside fog is not warning time.
+export function spawnRangeFor({ speed, responseSeconds, turnRadius, passes, period = BUDGET_PERIOD_SECONDS, pnrRange }) {
+  checkPeriod(period);
+  if (!Number.isFinite(speed) || speed <= 0 || !Number.isInteger(passes) || passes < 1
+    || ![responseSeconds, turnRadius, pnrRange].every((value) => Number.isFinite(value) && value >= 0)) {
+    throw new RangeError('Invalid radial approach budget');
+  }
+  return pnrRange + speed * responseSeconds + turnRadius + speed * (passes + 1) * period;
+}
+
+export function validateSchedule(schedule, { night, fogReach: reach, period = BUDGET_PERIOD_SECONDS, phase0 = 0 }) {
+  if (!Number.isInteger(night) || night < 1 || night > NIGHT_PASSES.length) throw new RangeError('Invalid night');
+  checkPeriod(period);
+  if (!Number.isFinite(reach) || reach <= 0 || !Number.isFinite(phase0)) throw new RangeError('Invalid night visibility');
+  if (!Array.isArray(schedule)) throw new TypeError('Schedule must be an array');
+  const required = NIGHT_PASSES[night - 1];
+  const violations = [];
+  for (let index = 0; index < schedule.length; index++) {
+    const ship = schedule[index];
+    const numbers = ['spawnTime', 'bearing', 'speed', 'responseSeconds', 'turnRadius', 'pnrRange', 'spawnRange'];
+    if (!ship || !((typeof ship.id === 'string' && ship.id.length > 0) || Number.isFinite(ship.id))
+      || !numbers.every((key) => Number.isFinite(ship[key])) || ship.speed <= 0
+      || ['spawnTime', 'responseSeconds', 'turnRadius', 'pnrRange', 'spawnRange'].some((key) => ship[key] < 0)) {
+      violations.push({ index, reason: 'invalid-ship', passes: 0, required });
+      continue;
+    }
+    const firstVisible = ship.spawnTime + Math.max(0, ship.spawnRange - reach) / ship.speed;
+    const pnrTime = ship.spawnTime + (ship.spawnRange - ship.pnrRange - ship.speed * ship.responseSeconds - ship.turnRadius) / ship.speed;
+    if (![firstVisible, pnrTime].every(Number.isFinite)) {
+      violations.push({ index, reason: 'invalid-ship', passes: 0, required });
+    } else if (pnrTime < firstVisible) {
+      violations.push({ index, reason: 'pnr-before-visible', passes: 0, required });
+    } else {
+      const passes = passesBetween({ bearing: ship.bearing, tStart: firstVisible, tEnd: pnrTime, period, phase0 });
+      if (passes < required) violations.push({ index, reason: 'insufficient-passes', passes, required });
+    }
+  }
+  return { ok: violations.length === 0, violations };
+}
 
 export function wrapBearing(degrees) {
   if (!Number.isFinite(degrees)) throw new TypeError('Bearing must be finite');
