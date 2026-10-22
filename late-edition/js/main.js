@@ -725,7 +725,7 @@ class LateEditionApp {
       h('div', 'scoop-chip', [
         h('div', 'scoop-chip-top', [h('span', '', 'NO COPY'), h('span', '', '[1–4]')]),
         h('div', 'scoop-chip-title', 'Lock up [L] · 11 PM'),
-      ], { style: 'grid-column:1 / -1;opacity:0.8' }, 'empty'),
+      ], { style: 'grid-column:1 / -1' }, 'empty'),
     ]);
     // Entries are stable objects, even if two messages have identical copy/time.
     reconcile(document.getElementById('wire-log'), this.sim.wireLog.slice(0, 7).map((entry) =>

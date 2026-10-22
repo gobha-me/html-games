@@ -5,7 +5,7 @@ revision `45e3d5269e4a17d823f6d84470bc084dc5ae46f6`. No font service is contacte
 
 | Family | Credit | Upstream / committed license |
 | --- | --- | --- |
-| League Gothic | The League of Moveable Type / Tyler Finck | [google/fonts/ofl/leaguegothic](https://github.com/google/fonts/tree/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/leaguegothic), [OFL](leaguegothic-OFL.txt) |
+| League Gothic | The League of Moveable Type / Tyler Finck, Caroline Hadilaksono, Micah Rich | [google/fonts/ofl/leaguegothic](https://github.com/google/fonts/tree/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/leaguegothic), [OFL](leaguegothic-OFL.txt) |
 | Old Standard TT | Alexey Kryukov / Old Standard Project Authors | [google/fonts/ofl/oldstandardtt](https://github.com/google/fonts/tree/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/oldstandardtt), [OFL](oldstandardtt-OFL.txt) |
 | Courier Prime | Alan Dague-Greene / Courier Prime Project Authors | [google/fonts/ofl/courierprime](https://github.com/google/fonts/tree/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/courierprime), [OFL](courierprime-OFL.txt) |
 | UnifrakturMaguntia | j. 'mach' wust and Peter Wiegel | [google/fonts/ofl/unifrakturmaguntia](https://github.com/google/fonts/tree/45e3d5269e4a17d823f6d84470bc084dc5ae46f6/ofl/unifrakturmaguntia), [OFL](unifrakturmaguntia-OFL.txt) |

@@ -222,7 +222,8 @@ equal gameplay hashes. Browser storage, audio and clocks are injected ports.
 See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint, stylelint and HTML validation are
 enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
 for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
-and art bible; manual layout and the file drawer are playable, the desk art pass is implemented; city geometry/silhouettes remain #89.
+and art bible. Manual layout, the file drawer and the desk art pass are implemented;
+city geometry and silhouettes remain #89.
 
 ## Deterministic runs
 
@@ -344,14 +345,15 @@ obsolete buttons disappear while surviving keyed buttons stay attached.
 Separate cases hold a pointer down across changing renders, verify keyed
 node/focus/hover retention, remove stale
 leads, inject HTML-shaped text, hold restart keys and resize during keyboard-only
-play through one published edition. Every scenario records actual requests before navigation and rejects external
-origins; no remote stylesheet interception can hide a request. Art cases assert
+play through one published edition. Every scenario records actual requests
+before navigation and rejects external origins; no remote stylesheet interception can hide a request. Art cases assert
 all four font families load, then block all fonts and verify the fallback layout
 at 1280×720, including 200% CSS layout zoom (magnification plus reflow, rather than
 CDP pinch-only scaling), paste-up, drawer and publication. Container queries keep
 magnified controls reachable by scrolling. The minimum physical desk gate remains
 1280×720; browser-frame dimensions distinguish 200% browser zoom from a smaller
-window without treating Retina DPR as zoom. Screenshots for the PR are maintained by the owner.
+window without treating Retina DPR as zoom. Screenshots for the PR are maintained
+by the owner.
 
 Gameplay lists, including Inside copy, reconcile keyed nodes; unchanged subtrees stay attached between
 250 ms display ticks. Lead membership also reconciles immediately after each
@@ -383,7 +385,8 @@ files maximum and unique UIDs across drawer, tray, Inside and page.
 ## Art and font credits (#88)
 
 [Font credits and OFL licenses](assets/fonts/README.md) cover League Gothic
-(The League of Moveable Type / Tyler Finck), Old Standard TT (Alexey Kryukov),
+(The League of Moveable Type: Tyler Finck, Caroline Hadilaksono, Micah Rich),
+Old Standard TT (Alexey Kryukov),
 Courier Prime (Alan Dague-Greene) and UnifrakturMaguntia (j. 'mach' wust / Peter
 Wiegel). The pinned google/fonts TTFs are converted to Latin WOFF2 by
 [scripts/build-fonts.py](scripts/build-fonts.py), using fonttools and Brotli in a
@@ -400,10 +403,14 @@ Grain is a small inline monochrome SVG; rotations are deterministic and shadows
 fall down/right from one lamp. Paper and stamp animations last 120ms and switch
 off for reduced motion. Canvas geometry and operative sprites await #89.
 
-The caption baseline counts non-whitespace body text nodes in static `index.html`
-(excluding comments, script/style and attributes, including controls and initial
-dynamic placeholders): **103 → 51 nodes** (50.5% reduction), **395 → 136 words**
-(65.6%). The browser checks both against the committed baseline fixture.
+The caption baseline counts non-whitespace static label text nodes in
+`index.html`, excluding comments, script/style, attributes and fields replaced
+at runtime (the fixture lists the exact dynamic IDs), including static controls:
+**74 → 37 nodes** (50% reduction), **286 → 99 words** (65.4%). Including initial
+dynamic placeholders, all body text nodes fall **103 → 44**, and words
+**395 → 121**. The browser checks the static caption counts against the committed
+pre-#88 baseline fixture, so removing a temporary placeholder cannot count as a
+caption reduction.
 
 Compatibility exception: the historical gameplay hash included district accents.
 `assets/legacy-district-hash.json` retains those retired values as checksum data

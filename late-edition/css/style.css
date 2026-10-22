@@ -556,10 +556,10 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 .broadsheet-slots {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  grid-template-rows: auto 1fr 1fr;
+  grid-template-rows: auto auto auto;
   gap: 7px;
   min-height: 260px;
-  flex: 1 0 260px;
+  flex: 0 0 auto;
   padding: 2px;
 }
 
@@ -668,6 +668,11 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 }
 
 .pasteup-scoop-strip {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  flex-shrink: 0;
+  background: var(--newsprint-aged);
   border-block: 2px solid var(--night-ink);
   padding-block: 6px;
 }

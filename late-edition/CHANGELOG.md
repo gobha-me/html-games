@@ -11,10 +11,11 @@
 - Mahogany wood grain, newsprint turbulence, deterministic paper rotations and
   shadows from a top-left lamp; telegram slips, punched manila passes, tabbed
   folders, carbon dots, red pinholes, bakelite phone and outlined ink stamps.
-- Static HTML body text nodes: **103 → 51 (50.5% fewer)**; words: **395 → 136
-  (65.6% fewer)**. Count excludes whitespace, comments, attributes, scripts/style;
-  includes controls and initial dynamic placeholders. Runtime instructional copy
-  is shortened too; hotkeys and accessible action names remain.
+- Static caption text nodes: **74 → 37 (50% fewer)**; words: **286 → 99
+  (65.4% fewer)**. Count excludes whitespace, comments, attributes, scripts/style
+  and fields replaced at runtime; includes static controls. Including dynamic
+  placeholders, all body text nodes fall from 103 to 44 and words from 395 to 121.
+  Runtime instructional copy is shortened too; hotkeys and accessible action names remain.
 - Body text is at least 14px with explicit line heights; faded stand-in text is
   removed. Text token contrasts range from **4.66:1 to 15.34:1**. Blue carbon dots
   use newsprint stock (5.65:1), rather than aged stock (which fails at 4.44:1).

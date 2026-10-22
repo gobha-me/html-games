@@ -15,7 +15,7 @@ const test = base.extend({
       // These scenarios deliberately abort font requests; only that exact,
       // expected browser diagnostic is exempt from the console-error guard.
       const expectedFontFailure = testInfo.title.startsWith('blocked fonts') &&
-        message.text() === 'Failed to load resource: net::ERR_BLOCKED_BY_CLIENT';
+        /^Failed to load resource: net::ERR_BLOCKED_BY_CLIENT(?:\.Inspector)?$/.test(message.text());
       if (!expectedFontFailure) errors.push(message.text());
     });
     await use(page);
@@ -33,7 +33,8 @@ async function assertPaperFits(page) {
       const box = card.getBoundingClientRect();
       const parent = slots.getBoundingClientRect();
       // Rotated paper corners extend a few pixels; content must stay in its grid.
-      return box.left < parent.left - 10 || box.right > parent.right + 10;
+      return box.left < parent.left - 10 || box.right > parent.right + 10 ||
+        box.top < parent.top - 10 || box.bottom > parent.bottom + 10;
     }).length,
   }));
   expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.client + 3);
@@ -102,17 +103,18 @@ for (const zoom of [1, 2]) {
 test('static caption text nodes and words are each cut at least in half', async ({ page }, testInfo) => {
   const baseline = JSON.parse(readFileSync(new URL('../tests/fixtures/caption-baseline.json', import.meta.url), 'utf8'));
   await page.goto('/late-edition/');
-  const counts = await page.evaluate(async () => {
+  const counts = await page.evaluate(async (dynamicIds) => {
     const source = await (await fetch('index.html')).text();
     const doc = new DOMParser().parseFromString(source, 'text/html');
     const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
     const labels = [];
     while (walker.nextNode()) {
       const node = walker.currentNode;
-      if (!node.parentElement.closest('script, style') && node.textContent.trim()) labels.push(node.textContent.trim());
+      const dynamic = dynamicIds.some((id) => node.parentElement.closest(`[id="${id}"]`));
+      if (!dynamic && !node.parentElement.closest('script, style') && node.textContent.trim()) labels.push(node.textContent.trim());
     }
     return { nodes: labels.length, words: labels.reduce((sum, label) => sum + label.split(/\s+/).length, 0) };
-  });
+  }, baseline.dynamicIds);
   await testInfo.attach('caption-counts', { body: JSON.stringify({ baseline, after: counts }, null, 2), contentType: 'application/json' });
   expect(counts.nodes).toBeLessThanOrEqual(baseline.nodes / 2);
   expect(counts.words).toBeLessThanOrEqual(baseline.words / 2);

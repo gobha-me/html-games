@@ -19,6 +19,7 @@ test('exactly ten root tokens mirror the sole JS palette', () => {
   const tokens = Object.fromEntries([...blocks[0][1].matchAll(/--([\w-]+):\s*([^;]+);/g)]
     .map(([, name, value]) => [name, value.toUpperCase()]));
   assert.deepEqual(tokens, expected);
+  assert.equal(blocks[0][1].split(';').filter((decl) => decl.trim()).length, 10, 'Root contains only the ten declarations');
   assert.deepEqual(Object.fromEntries(Object.entries(PALETTE).map(([key, value]) =>
     [key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`), value])), expected);
 });
@@ -46,6 +47,9 @@ for (const [source, rule] of [
   ['a { color: rgba(14, 13, 12, 0.5); }', 'function-disallowed-list'],
   ['a { color: hsla(0, 0%, 0%, .5); }', 'function-disallowed-list'],
   [':root, body { color: #ede4ce; }', 'color-no-hex'],
+  [':root { color: #ede4ce; }', 'color-no-hex'],
+  [':root { --rogue: #ede4ce; }', 'color-no-hex'],
+  [':root { --night-ink: #a3221b; }', 'color-no-hex'],
   [':root { a { color: #ede4ce; } }', 'color-no-hex'],
 ]) {
   test(`palette lint rejects ${source}`, async () => {

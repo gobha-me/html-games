@@ -1,16 +1,21 @@
 # AGENTS.md — Late Edition
+
 Read [the repo rules](../AGENTS.md), [README.md](README.md), and [docs/DIRECTION.md](docs/DIRECTION.md) before changing this game.
 The direction document is the art bible; locked decisions describe the target, not necessarily today’s implementation. Keep work inside this game unless explicitly permitted.
+
 ## Current module map
+
 Static HTML/CSS with native ES modules, no bundler or external runtime dependencies. Serve over HTTP.
+
 | File | Responsibility today |
 | --- | --- |
 | `index.html` | Desk shell, map canvas, broadsheet, controls, rotary-phone card, edition modal; loads `js/main.js`. |
-| `css/style.css` | Mahogany desk, leather blotter, brass rail, newsprint slots, passes, phone and modal styling. |
+| `css/style.css` | Mahogany desk, ink map frame, brass rail, newsprint slots, passes, phone and modal styling. |
 | `js/config.js` | Paste-up timing/penalties, 210-second editions, scaled pressure windows, pure payroll unlock/desk-size rules, world, roster, slots, stories, arcs, dilemmas and `FILE_DRAWER` balance. |
 | `js/sim.js` | `LateEditionSim`: mutable run state, dispatch/movement, leads, scoop races, sabotage, explicit layout/Inside/Spike, projections, publishing, arc progression, dossier economy and delayed calls. Uses injected RNG, clock, storage and audio ports; exposes a canonical gameplay hash. |
 | `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup and modal focus handling. |
 | `js/hotkeys.js` | Shared `HOTKEYS` action/key/phase table and lookup. Keep all application shortcuts here; Node tests reject duplicate keys per phase, including injected collisions. |
+| `js/palette.js` | Ten art colors and derived alpha, mirrored in CSS root tokens. |
 | `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
 | `js/save.js` | Version 1 save allowlist, strict validation and bounded decoding; ignores pollution/unknown keys. |
 | `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
@@ -27,13 +32,11 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 ## Sim/UI boundary
 
 - Today `main.js` passes audio into the sim, calls its methods, and also
-  mutates speed, pause, summary and operative targets directly.
-  It scales delta by speed, calls `sim.step(dt)`, draws each frame and reconciles keyed DOM every 250 ms.
+  mutates speed, pause, summary and operative targets directly. It scales delta by speed, calls `sim.step(dt)`, draws each frame and reconciles keyed DOM every 250 ms.
 - `sim.js` imports config and pure helper/adapter modules; no DOM or browser APIs.
   Gameplay randomness uses the injected RNG; IDs use counters. Visual effects/traffic are excluded from hashes.
 - The canvas renderer reads sim state and maintains its own decorative
-  rain/ripples and hover state. DOM updates and input binding belong in
-  `main.js`; Canvas2D drawing belongs in `renderer.js`.
+  rain/ripples and hover state. DOM/input belongs in `main.js`; Canvas2D in `renderer.js`.
 - The constructor accepts `{ seed, rng, storage, audio, now }`. `main.js` creates
   browser adapters and parses `?seed=N`, falling back to a wall-clock seed.
   Storage uses `readBest`/`writeBest` and `readRun`/`writeRun`/`clearRun`; audio has optional named cues. Display
@@ -68,6 +71,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   It includes opening/viewport gates, gameplay, RNG/counters and summaries, excluding saved best,
   ports, wire/timestamps, traffic, banners, flashes, callouts and display fields.
   See README for the replay contract and injected RNG lifecycle.
+
 ## Lore: canonical names
 
 | Entity | Canonical name | Allowed shorthand / implementation note |
@@ -85,19 +89,18 @@ Legacy `gazette` labels a Herald (Midtown) row, not another paper.
 ## Art and audio direction
 
 Follow [the art bible](docs/DIRECTION.md#art-bible). CSS `:root` has exactly ten
-art tokens; `js/palette.js` mirrors them and is the only JS color-literal source.
-Use `color-mix()` for alpha; never add CSS hex/rgb/hsl outside root declarations.
+art tokens mirrored by `js/palette.js`, the only JS color-literal source. Use
+`color-mix()` for alpha; never add CSS hex/rgb/hsl outside root declarations.
 The selector-scoped stylelint plugin runs the actual core rules; nested/grouped
 selectors do not inherit the exception. Tests check parity and text contrast.
 Self-hosted Latin WOFF2: League Gothic, Old Standard TT, Courier Prime and
 masthead-only UnifrakturMaguntia; licenses/provenance in [font credits](assets/fonts/README.md).
 Use the pinned fonttools/Brotli venv rebuild script; never add a font CDN.
-Paper rotations are deterministic; all motion respects reduced motion. #89 owns
-city geometry/silhouettes. Historical district accents in `assets/legacy-district-hash.json`
+Paper rotations are deterministic; motion respects reduced motion. #89 owns city geometry/silhouettes.
+Historical district accents in `assets/legacy-district-hash.json`
 are hash compatibility bytes only: never render them or repin golden hashes.
 
 ## Verification
-From the repository root, run the checks available now:
 
 ```bash
 cd late-edition
@@ -113,14 +116,14 @@ bash late-edition/scripts/check-docs.test.sh
 ```
 
 Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`. Bad fixtures test production configs.
-
 The docs checker skips `node_modules`, exempts direction/changelog history and accepts a fixture directory. Shell/lint/unit/Chromium checks run in GitHub CI.
 Area suites, 50-seed fuzzing and 20-seed × 20-night greedy/ink bots cover gameplay. Run all tests/linters before finishing;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 
-Tests must force unhappy paths: invalid orders, empty/double print, timeouts, insufficient funds, stat bounds,
-destroyed presses, out-of-order arcs, simultaneous completions, bad saves and storage failures.
+Tests force invalid orders, empty/double print, timeouts, insufficient funds, stat bounds, destroyed presses,
+out-of-order arcs, simultaneous completions, bad saves and storage failures.
+
 ## Best-practice exceptions and reasons
 
 - Native modules and committed source avoid a build stage because the game
@@ -135,16 +138,13 @@ destroyed presses, out-of-order arcs, simultaneous completions, bad saves and st
 - Audio fetch/resume failures are currently swallowed so missing cues or
   browser autoplay restrictions cannot stop play; fallback tones are intentional.
 - Audit exception (2026-10-21, #80): stylelint 17.16.0's transitive `braces@3.0.3`
-  has a stack-exhaustion denial-of-service advisory,
-  [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
+  has [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), a stack-exhaustion denial of service.
   `npm audit fix` leaves seven high-severity package entries from this one advisory
-  through micromatch, fast-glob, globby, stylelint and its configs. No non-breaking
-  fix is available; npm proposes breaking downgrades to stylelint 7.7.0 and
-  stylelint-config-standard 15.0.1. Retain current lint coverage: these are dev-only
-  lint tools, not shipped (`late-edition/node_modules/` is excluded via the root
-  `.dockerignore`). Re-run audit and upgrade when a compatible fix is released.
+  through micromatch, fast-glob, globby, stylelint and its configs. No compatible fix
+  is available; npm proposes stylelint 7.7.0/config-standard 15.0.1 downgrades. Retain
+  coverage: these tools are dev-only (node_modules is excluded by root .dockerignore).
+  Re-run audit and upgrade when a compatible fix is released.
 - Keep exceptions inline with when/why. No blanket ESLint disables: only
   `eslint-disable-next-line <specific-rule> -- <reason>` when necessary.
 
-Update README/CHANGELOG when behavior or conventions change; do not turn this
-guide into a historical log. Keep it at **150 lines or fewer**.
+Update README/CHANGELOG when behavior or conventions change. Keep this guide at **150 lines or fewer**.
