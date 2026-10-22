@@ -1,22 +1,23 @@
 # Keeper
 
 Keep the light on Skerry Rock through a black, fog-bound night. A trawler's
-course crosses the Teeth. Find her with the beam, then hold the horn early
-enough for her to turn away. Failure stays with you until morning.
+course crosses the Teeth. Find her with the beam and broadcast the horn early
+enough for her crew to turn away. Failure stays with you until morning.
 
 ## How to play
 
 Open `keeper/` from the arcade using a static server at the repository root.
 Select **Take the watch**. The first watch lasts three real minutes; the
-unwarned trawler reaches the reef around 65 seconds. The default 12-second
+unwarned trawler reaches the reef around 91 seconds. The default 12-second
 sweep guarantees at least four passes before the last safe warning time.
 Slowing or holding deliberately trades those chances for attention elsewhere.
 
 - **← / A**, **→ / D**: slow / accelerate clockwise rotation (30–6 seconds
   per revolution; default 12). Release to keep the selected speed.
 - **Space**, held: clutch the lens on its current bearing.
-- **H**, held: sound the horn. A lit or close vessel reacts, with a two-second
-  delay and a turning circle. Last-second warnings can still end in a wreck.
+- **H**, held: sound the broadcast horn. Every ship in fog-limited audible
+  range hears it, even off-beam. Endangered captains turn after a seeded crew
+  delay; safe ships hold course. Last-second warnings can still end in a wreck.
 - **Esc / P**: pause. **?**: controls. Focus loss also pauses and releases keys.
 - **Mute horn** silences audio without changing the warning mechanic.
 
@@ -25,8 +26,10 @@ or until first input), as well as the persistent bottom bar and **?** card.
 
 The faint dotted marks are the keeper's chart, not visible rocks. A ship's hull
 is visible only in the cone or a fading 1.5-second remembered image. Running
-lights can show within half the fog reach. Repeated horn blasts (more than
-three in 20 seconds) cause skippers to ignore the horn for 20 seconds.
+lights can show within half the fog reach. False alarms reduce captain trust,
+slowing reactions and making warnings less likely to be followed. Each press
+is one broadcast; holding sustains the sound. The future Morse lamp addresses
+only the vessel in the beam.
 
 ## Tech
 
@@ -61,10 +64,14 @@ wind/sea audio belong to later milestones. The full design is in
 Issue #118 adds pure sweep-budget helpers, schedule rejection on load/start,
 a retuned radial trawler and a fast-ship engine-cue stub for #115. The five
 night pass minima are defined; additional nights and engine audio remain future work.
+Issue #120 adds deterministic rudder/Nomoto hull physics, broadcast horns for
+the fleet, physical PONR budgeting, and smooth rendered turns. Four hull types
+are tuned and tested; the first watch still spawns only one trawler.
 
 ## File layout
 
 - `index.html`, `css/keeper.css` — interface and layout.
+- `js/physics.js` — pure hull dynamics, tactical diameter, horn broadcast and PONR.
 - `js/sim.js` — seeded world, beam, perception, horn reaction, collisions, dawn.
 - `js/main.js` — keyboard, browser clock, panels, storage adapter.
 - `js/renderer.js`, `js/audio.js` — canvas and horn adapters.

@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { createState, step } from '../js/sim.js';
+import { HULLS, PHYSICS_DT } from '../js/physics.js';
 
 async function openWatch(page, query = '?e2e=1&seed=108') {
   await page.clock.install({ time: new Date('2026-01-01T18:00:00Z') });
@@ -109,10 +111,10 @@ test('keyboard drives clockwise speed and hold, overlapping keys cannot reverse;
 
 test('unwarned watch wrecks, continues to dawn and persists its morning record', async ({ page }) => {
   await openWatch(page);
-  await advance(page, 90);
+  await advance(page, 100);
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
   await expect(page.locator('#dawn-panel')).toBeHidden();
-  await advance(page, 90);
+  await advance(page, 80);
   await expect(page.locator('#summary')).toHaveText('0 ship passed safely. 1 ship wrecked.');
   expect((await snapshot(page)).time).toBe(180);
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
@@ -140,20 +142,21 @@ test('spot, hold and horn saves the trawler; dawn reports safe and restart clear
   expect((await snapshot(page)).horn).toBe(false);
 });
 
-test('late or unlit distant horn cannot rescue a ship', async ({ page }) => {
+test('an off-beam broadcast saves the trawler; warning just before impact is too late', async ({ page }) => {
   await openWatch(page);
+  expect((await snapshot(page)).trawler.afterimage).toBe(0);
   await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
-  // Initial beam is deliberately outside the 14° cone of the trawler.
-  expect((await snapshot(page)).trawler.warnedAt).toBeNull();
-  await findTrawler(page);
-  await page.keyboard.down('Space');
-  // Collision is at ~64.63s on this lane. A two-second reaction cannot save it now.
-  await advance(page, 64.4 - (await snapshot(page)).time);
+  expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
+  await advance(page, 180);
+  await expect(page.locator('#summary')).toHaveText('1 ship passed safely. 0 ship wrecked.');
+  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  // Compute the collision clock from the physical approach, never a stale magic time.
+  const collisionTime = step(createState(108), {}, 180).trawler.wreckedAt;
+  await advance(page, collisionTime - 0.2);
   expect((await snapshot(page)).trawler.status).toBe('underway');
   await page.keyboard.down('h'); await advance(page, 0.1);
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
-  await advance(page, 5);
-  await page.keyboard.up('h'); await page.keyboard.up('Space');
+  await advance(page, 5); await page.keyboard.up('h');
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
 });
 
@@ -233,6 +236,8 @@ test('1280×720 layout, resize and reduced motion keep controls usable with no o
     await page.setViewportSize({ width, height });
     await page.clock.runFor(32);
     await advance(page, 0.1);
+    // Browser resize delivery can follow the synthetic animation clock tick.
+    await expect.poll(() => page.evaluate(() => document.getElementById('sea').width)).toBeGreaterThanOrEqual(width);
     const layout = await page.evaluate(() => ({
       width: document.documentElement.scrollWidth,
       viewport: innerWidth,
@@ -304,4 +309,46 @@ test('automation hook snapshots cannot change simulation, invalid seeds fall bac
   await page.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }));
   await page.goto('/keeper/?e2e=1');
   expect(await page.evaluate(() => '__keeper' in window)).toBe(false);
+});
+
+
+test('horn reaction renders the continuous physics heading, without an instant bow snap', async ({ page }) => {
+  await openWatch(page);
+  const before = (await snapshot(page)).trawler;
+  await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
+  const pending = (await snapshot(page)).trawler;
+  expect(pending.heading).toBe(before.heading);
+  expect(pending.rudder).toBe(0);
+  await advance(page, pending.reactAt - (await snapshot(page)).time + 0.5);
+  let prior = (await snapshot(page)).trawler;
+  expect(prior.rudder).toBeGreaterThan(0);
+  for (let index = 0; index < 10; index++) {
+    await advance(page, PHYSICS_DT);
+    const next = (await snapshot(page)).trawler;
+    const change = ((next.heading - prior.heading + 540) % 360) - 180;
+    expect(Math.abs(change)).toBeLessThanOrEqual(HULLS.trawler.K * HULLS.trawler.maxRudderDeg * PHYSICS_DT + 1e-8);
+    prior = next;
+  }
+  await advance(page, 35);
+  // Follow the normal sweep to the turning ship, then inspect actual canvas rotations.
+  const rendered = await page.evaluate(() => {
+    const context = document.getElementById('sea').getContext('2d');
+    const original = context.rotate.bind(context), rotations = [];
+    context.rotate = (angle) => { rotations.push(angle); original(angle); };
+    for (let index = 0; index < 300; index++) {
+      rotations.length = 0;
+      window.__keeper.advance(0.05);
+      const ship = window.__keeper.state.trawler;
+      if (ship.afterimage === 1.5) {
+        context.rotate = original;
+        return { rotations, heading: ship.heading, yawRate: ship.yawRate };
+      }
+    }
+    context.rotate = original;
+    return null;
+  });
+  expect(rendered).not.toBeNull();
+  expect(Math.abs(rendered.yawRate)).toBeGreaterThan(1);
+  expect(rendered.rotations.some((angle) => Math.abs(angle - rendered.heading * Math.PI / 180) < 1e-10)).toBe(true);
+  await page.screenshot({ path: 'test-results/keeper-physics-turn.png' });
 });
