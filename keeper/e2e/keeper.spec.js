@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createState, step } from '../js/sim.js';
+import { createState, step, planSpawns } from '../js/sim.js';
 import { HULLS, PHYSICS_DT } from '../js/physics.js';
 
 async function openWatch(page, query = '?e2e=1&seed=108') {
@@ -115,12 +115,12 @@ test('unwarned watch wrecks, continues to dawn and persists its morning record',
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
   await expect(page.locator('#dawn-panel')).toBeHidden();
   await advance(page, 80);
-  await expect(page.locator('#summary')).toHaveText('0 ship passed safely. 1 ship wrecked.');
+  await expect(page.locator('#summary')).toHaveText('1 ship passed safely. 2 ships wrecked.');
   expect((await snapshot(page)).time).toBe(180);
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
-  expect(record).toEqual({ version: 1, seed: 108, safe: 0, wrecked: 1 });
+  expect(record).toEqual({ version: 2, seed: 108, safe: 1, wrecked: 2 });
   await page.reload();
-  await expect(page.locator('#previous-record')).toHaveText('Last watch: 0 safe · 1 wrecked');
+  await expect(page.locator('#previous-record')).toHaveText('Last watch: 1 safe · 2 wrecked');
   await page.getByRole('button', { name: 'Take the watch' }).click();
   expect((await snapshot(page)).time).toBe(0);
 });
@@ -134,9 +134,9 @@ test('spot, hold and horn saves the trawler; dawn reports safe and restart clear
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await page.keyboard.up('h'); await page.keyboard.up('Space');
   await advance(page, 180);
-  await expect(page.locator('#summary')).toHaveText('1 ship passed safely. 0 ship wrecked.');
+  await expect(page.locator('#summary')).toHaveText('2 ships passed safely. 1 ship wrecked.');
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
-  expect(record.safe).toBe(1);
+  expect(record.safe).toBe(2);
   await page.getByRole('button', { name: 'Keep the light again' }).click();
   expect((await snapshot(page)).trawler.warnedAt).toBeNull();
   expect((await snapshot(page)).horn).toBe(false);
@@ -148,7 +148,7 @@ test('an off-beam broadcast saves the trawler; warning just before impact is too
   await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await advance(page, 180);
-  await expect(page.locator('#summary')).toHaveText('1 ship passed safely. 0 ship wrecked.');
+  await expect(page.locator('#summary')).toHaveText('2 ships passed safely. 1 ship wrecked.');
   await page.getByRole('button', { name: 'Keep the light again' }).click();
   // Compute the collision clock from the physical approach, never a stale magic time.
   const collisionTime = step(createState(108), {}, 180).trawler.wreckedAt;
@@ -158,6 +158,48 @@ test('an off-beam broadcast saves the trawler; warning just before impact is too
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await advance(page, 5); await page.keyboard.up('h');
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
+});
+
+test('scheduled arrivals stay absent until due, render through the fleet loop, and hear a fresh horn', async ({ page }) => {
+  await openWatch(page);
+  const entry = planSpawns(108)[0];
+  await advance(page, entry.spawnTime - 0.0001);
+  expect((await snapshot(page)).ships.map((ship) => ship.id)).toEqual(['trawler']);
+  await advance(page, 0.0002);
+  const arrived = (await snapshot(page)).ships.find((ship) => ship.id === entry.id);
+  expect(arrived.status).toBe('underway');
+  expect(arrived.warnedAt).toBeNull();
+  // Observe the real draw calls while the automatic sweep finds the new ship.
+  const drawn = await page.evaluate((id) => {
+    const ctx = document.getElementById('sea').getContext('2d');
+    const rotate = ctx.rotate, translate = ctx.translate;
+    let rotations = [], positions = [];
+    ctx.rotate = function (angle) { rotations.push(angle); return rotate.call(this, angle); };
+    ctx.translate = function (x, y) { positions.push({ x, y }); return translate.call(this, x, y); };
+    try {
+      for (let tick = 0; tick < 260; tick++) {
+        rotations = []; positions = [];
+        window.__keeper.advance(0.05);
+        const ship = window.__keeper.state.ships.find((candidate) => candidate.id === id);
+        if (ship.afterimage === 1.5) return { ship, rotations, positions };
+      }
+      return null;
+    } finally { ctx.rotate = rotate; ctx.translate = translate; }
+  }, entry.id);
+  expect(drawn).not.toBeNull();
+  expect(drawn.rotations.some((angle) => Math.abs(angle - drawn.ship.heading * Math.PI / 180) < 1e-10)).toBe(true);
+  expect(drawn.positions.some(({ x, y }) => Math.abs(x - drawn.ship.x) < 1e-10 && Math.abs(y - drawn.ship.y) < 1e-10)).toBe(true);
+  await page.screenshot({ path: 'test-results/keeper-spawn-lit.png' });
+  await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
+  const warned = (await snapshot(page)).ships.find((ship) => ship.id === entry.id);
+  expect(warned.lastHorn.response).toBe('turn-away');
+  expect(warned.warnedAt).not.toBeNull();
+  await advance(page, 180);
+  const dawn = await snapshot(page);
+  expect(dawn.ships.map((ship) => ship.id)).toEqual(dawn.schedule.map((ship) => ship.id));
+  expect(dawn.ships.find((ship) => ship.id === entry.id).status).toBe('safe');
+  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  expect((await snapshot(page)).ships.map((ship) => ship.id)).toEqual(['trawler']);
 });
 
 test('invalid schedules visibly refuse to start at load and on the start-time recheck', async ({ page }) => {
@@ -222,7 +264,7 @@ test('corrupted or blocked storage never stops a watch or its summary', async ({
     Storage.prototype.setItem = () => { throw new DOMException('Storage blocked', 'SecurityError'); };
   });
   await advance(page, 180);
-  await expect(page.locator('#summary')).toContainText('1 ship wrecked');
+  await expect(page.locator('#summary')).toContainText('2 ships wrecked');
   await expect(page.locator('#record-status')).toContainText('could not keep');
 });
 

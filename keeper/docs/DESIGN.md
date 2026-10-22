@@ -104,8 +104,9 @@ Reduced motion removes the fade transition.
 ## 6. Ships & behaviours
 
 All ships start on seeded deterministic courses and use the same physical
-maneuvering model. The first watch contains one trawler; the simulation, horn
-and renderer operate on a fleet, with independent responses for each ship.
+maneuvering model. The first watch opens with its original trawler and adds
+seeded traffic; the simulation, horn and renderer operate on a fleet, with
+independent responses for each ship.
 
 | Ship | Look | Behaviour | What you must do |
 |---|---|---|---|
@@ -114,6 +115,66 @@ and renderer operate on a fleet, with independent responses for each ship.
 | **Smuggler** | low dark launch, no lights | Runs dark close to the rocks, slows when lit, flees if lit for > 3 s. Never wrecks (knows the water). | Notice and **log** it (bearing, time). Holding the beam on it is a choice: you learn more, but everything else goes dark. |
 | **Lifeboat / boat in distress** | small, flare or lamp flashing SOS | Drifts toward the rocks; flashes `SOS` in Morse. | Light it (so the shore boat can find it), signal `K`-style acknowledgement, and log it. Unlit too long → lost. |
 | **Swimmer / wreckage** (mystery nights) | tiny, only visible in beam | Drifts. | See it. Log it. |
+
+### Seeded additional traffic (kspawn)
+
+`planSpawns(seed, { night = 1 } = {})` returns only the extra approaches,
+ordered by spawn time, with consecutive unique ids `ship-1`, `ship-2`, etc.
+Seeds must be integers in [0, 2³²−1]; invalid seeds or nights outside 1–5
+throw `RangeError`. Planning uses a private seeded LCG, never the wall clock
+or `Math.random`, and cannot be changed by mutating a previous result.
+`createState(seed)` keeps its original seed validation and opening trawler
+trajectory, then stores `[trawler, ...extras]` in `state.schedule`.
+
+All public pacing tunables live in the frozen `SPAWN` export:
+
+| Tunable | Default | Meaning |
+|---|---:|---|
+| `firstMin` | 24 s | Earliest first extra arrival, at the second default revolution. |
+| `firstMax` | 36 s | Latest first extra arrival, at the third default revolution. |
+| `intervalStart` | 40 s | Unjittered gap at the beginning of the 180 s watch. |
+| `intervalEnd` | 18 s | Unjittered gap at dawn; the ramp uses the entire watch duration. |
+| `jitter` | 0.25 | Each gap is multiplied by a seeded factor in [0.75, 1.25]. |
+| `maxActive` | 3 | Maximum overlapping inclusive active windows, including the opener. |
+| `lastSpawn` | 120 s | Latest allowed arrival; the final minute introduces no new ships. |
+| `minBearingGap` | 20° | Minimum circular bearing separation for overlapping windows. |
+| `threatShare` | 0.6 | Probability that a candidate takes a reef-threatening course, before rejection. |
+
+The first extra time is drawn within [`firstMin`, `firstMax`]. After an
+accepted arrival at time `t`, the next gap is
+`(intervalStart + (intervalEnd − intervalStart) × t / NIGHT_SECONDS) × jitterFactor`.
+Each slot tries at most **eight** seeded candidates. Capacity, separation and
+fairness are never relaxed. An exhausted slot ends the plan: accepting a
+later slot could violate the maximum gap between consecutive accepted ships.
+Rejection can change the final proportion of threatening traffic.
+
+Threatening traffic approaches the isolated north-west rock on bearings
+within ±3° of its centre. This separates it from the opening trawler's
+north-east lane. It uses the hull's cruise speed, maximum crew delay and
+physics-derived maneuver allowance. Four-pass nights use trawlers for these
+approaches because a coaster's full turn and warning window do not fit the
+464.8 m horizon; later nights can admit coasters too. Clear traffic can use
+either hull and sails **outward** from 464.8 m, beyond every inflated reef
+disc. Its entire straight course remains clear even beyond dawn; no collision
+immunity or special horn response is needed. Both use the shared ship physics.
+
+Every entry declares `type`, `spawnTime`, `bearing`, `speed`, `threatening`,
+`responseSeconds`, `turnRadius`, `pnrRange`, `spawnRange` and `exitTime`.
+The inclusive active window is **[spawnTime, exitTime]**. The opener and
+threatening traffic conservatively reserve capacity until dawn, since a
+warning can prevent their projected impact and prolong their voyage. Clear
+traffic reserves its outbound trip to the 590 m chart boundary, plus two
+fixed ticks to cover arrival/exit quantization, or until dawn if earlier.
+Terminal ships remain in the fleet for wrecks, afterimages and the morning
+summary; their continued presence does not reuse a reserved window early.
+
+A planned ship joins `state.ships` on the first fixed tick whose time reaches
+its spawn time, with status `underway`. It travels only the portion of that
+tick after arrival, and can hear a fresh horn on that tick. A horn already
+held at arrival sends no new broadcast. The existing renderer visits every
+fleet member through `perception`; unseen future ships have no live hull.
+Morning records use version 2 for multiple safe/wrecked outcomes while still
+reading legacy one-ship version 1 records from the existing storage key.
 
 ### Horn broadcast and directed lamp
 
@@ -280,6 +341,16 @@ this minimum range too.** Moving a ship farther outside the fog cannot buy
 visible warning time. If the horizon cannot fit the budget, reduce speed or
 adjust the approach/visibility; spawning farther away alone is insufficient.
 Night 1 validates against its shortest reach over the entire watch (464.8 m).
+
+Additional traffic uses this same minimum horizon and its selected night's
+pass quota. Each threatening candidate must fit its **entire** derived spawn
+range within 464.8 m and pass `validateSchedule` at the actual initial beam
+phase (285°). Its PNR is strictly after first visibility. The extra revolution
+also protects other beam phases; tests independently enumerate crossings for
+every scheduled ship across 500 seeds. Capacity and bearing separation apply
+to every overlapping pair, including the opening trawler, and never divide
+the individual warning budget. Clear outbound traffic has no reef PNR;
+its nonnegative radial budget fields keep full-schedule validation compatible.
 
 The pure `validateSchedule(schedule, { night, fogReach, period, phase0 })`
 computes each radial ship's first-visible and PNR times, then uses
