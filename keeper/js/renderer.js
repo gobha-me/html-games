@@ -108,14 +108,73 @@ function runningLights(ctx, ship) {
   disc(ctx, 6, -4, 1.25, '#62ac86');
   ctx.restore();
 }
-function lighthouse(ctx, beam) {
-  ctx.fillStyle = '#0e1517';
-  ctx.beginPath(); ctx.moveTo(-48, 28); ctx.lineTo(-25, -3); ctx.lineTo(7, -13);
-  ctx.lineTo(37, 5); ctx.lineTo(51, 31); ctx.lineTo(23, 48); ctx.lineTo(-24, 44); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = '#202b2b'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#242d2c'; ctx.fillRect(-8, -3, 16, 22);
-  ctx.fillStyle = '#3a4039'; ctx.fillRect(-9, -6, 18, 6);
+// Axis-aligned steps keep the original small island footprint and overhead view.
+const SHORE = [
+  [-48, 24], [-40, 24], [-40, 12], [-32, 12], [-32, 2], [-24, 2],
+  [-24, -4], [-8, -4], [-8, -10], [8, -10], [8, -13], [16, -13],
+  [16, -7], [28, -7], [28, 0], [38, 0], [38, 10], [44, 10],
+  [44, 22], [51, 22], [51, 32], [43, 32], [43, 39], [31, 39],
+  [31, 48], [15, 48], [15, 45], [-9, 45], [-9, 44], [-24, 44],
+  [-24, 38], [-38, 38], [-38, 32], [-48, 32],
+];
+
+function pixelShape(ctx, points, colour) {
+  ctx.fillStyle = colour; ctx.beginPath();
+  ctx.moveTo(...points[0]);
+  for (const point of points.slice(1)) ctx.lineTo(...point);
+  ctx.closePath(); ctx.fill();
+}
+
+function skerryRock(ctx, state, reduced) {
+  pixelShape(ctx, SHORE, '#182427');
+  // Four discrete surf phases: repeatable at a given simulation time, no clock/RNG.
+  const phase = reduced ? 0 : Math.floor(state.time * 2) % 4;
+  for (let i = 0; i < SHORE.length; i += 2) {
+    const [x, y] = SHORE[i];
+    const swell = (i / 2 + phase) % 4;
+    ctx.fillStyle = swell === 0 ? '#52615b' : '#2b3c3e';
+    ctx.fillRect(x - 2 - swell, y + swell, 5 + swell, 2);
+  }
+  pixelShape(ctx, [
+    [-42, 23], [-34, 23], [-34, 9], [-22, 9], [-22, 1], [-5, 1],
+    [-5, -6], [12, -6], [12, 0], [26, 0], [26, 7], [35, 7],
+    [35, 18], [44, 18], [44, 31], [34, 31], [34, 39], [22, 39],
+    [22, 43], [-20, 43], [-20, 36], [-34, 36], [-34, 29], [-42, 29],
+  ], '#0e1517');
+  pixelShape(ctx, [
+    [-30, 16], [-23, 16], [-23, 5], [-9, 5], [-9, -1], [12, -1],
+    [12, 5], [24, 5], [24, 12], [32, 12], [32, 27], [23, 27],
+    [23, 34], [-20, 34], [-20, 28], [-30, 28],
+  ], '#25302e');
+  ctx.fillStyle = '#354039'; ctx.fillRect(-22, 8, 11, 3); ctx.fillRect(21, 15, 8, 3);
+  ctx.fillStyle = '#19221f'; ctx.fillRect(-25, 25, 18, 4); ctx.fillRect(13, 29, 10, 3);
+  ctx.fillStyle = '#101a1b'; ctx.fillRect(-16, 35, 11, 2); ctx.fillRect(34, 24, 6, 3);
+
+  // Concentric masonry bands and a railed gallery, seen from above the lantern.
   ctx.save(); ctx.translate(LAMP.x, LAMP.y);
+  pixelShape(ctx, [[-12, -10], [12, -10], [12, 10], [9, 10], [9, 19], [-9, 19], [-9, 10], [-12, 10]], '#131c1d');
+  ctx.fillStyle = '#42493e'; ctx.fillRect(-9, -7, 18, 23);
+  ctx.fillStyle = '#242d2c'; ctx.fillRect(-6, -4, 12, 17);
+  ctx.fillStyle = '#5a5c49'; ctx.fillRect(-9, 7, 18, 3); ctx.fillRect(-8, 13, 16, 2);
+  ctx.fillStyle = '#10191b'; ctx.fillRect(-15, -15, 30, 30);
+  ctx.fillStyle = '#414b42'; ctx.fillRect(-14, -14, 28, 28);
+  ctx.fillStyle = '#1e2928'; ctx.fillRect(-12, -12, 24, 24);
+  ctx.fillStyle = '#65705b';
+  for (const x of [-14, -2, 12]) {
+    ctx.fillRect(x, -15, 2, 3); ctx.fillRect(x, 12, 2, 3);
+  }
+  ctx.fillRect(-15, -1, 3, 2); ctx.fillRect(12, -1, 3, 2);
+  ctx.restore();
+}
+
+function lighthouse(ctx, beam) {
+  ctx.save(); ctx.translate(LAMP.x, LAMP.y);
+  ctx.fillStyle = '#6d7056'; ctx.fillRect(-9, -9, 18, 18);
+  ctx.fillStyle = '#303c35'; ctx.fillRect(-7, -7, 14, 14);
+  ctx.fillStyle = '#101a1b';
+  for (const x of [-9, 7]) {
+    ctx.fillRect(x, -9, 2, 2); ctx.fillRect(x, 7, 2, 2);
+  }
   ctx.save(); ctx.rotate((beam - 90) * RAD);
   ctx.fillStyle = '#a18b5c'; ctx.fillRect(-5, -3, 10, 6); ctx.restore();
   const glint = ctx.createRadialGradient(0, 0, 0, 0, 0, 15);
@@ -154,7 +213,7 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, 1280, 720);
       const transform = chartTransform(canvas);
       ctx.save(); ctx.setTransform(transform.scaleX, 0, 0, transform.scaleY, transform.x, transform.y);
-      chart(ctx); beamAndFog(ctx, state, reduced);
+      chart(ctx); skerryRock(ctx, state, reduced); beamAndFog(ctx, state, reduced);
       // All vessel drawing goes through the perception boundary.
       for (const ship of state.ships) {
         const view = perception(state, ship);
