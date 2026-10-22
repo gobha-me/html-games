@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — Lamp anchor and island pixel detail (kbeam-ISSUE)
+
+- Export immutable chart-space `LAMP`, bearing-validated `beamOrigin()` and
+  `toScreen()` using the same backing-pixel transform as drawing. Keep the
+  renderer safe to import in Node without reading any browser globals.
+- Centre the cone, glow, symmetric lamp housing and brightest glint on one
+  lamp point at every bearing. Preserve the overhead view, compass, chart,
+  labels, layout and HUD colours.
+- Add stepped island tiers, shoreline shading, tower bands, gallery rails and
+  lantern detail. Draw foundations below the beam. Surf animates deterministically
+  from simulation time and stays static with reduced motion, alongside frozen fog.
+- Add Node tests for import purity, thousands of bearings, non-finite rejection
+  and screen mapping at several sizes/DPRs. Playwright checks brightest lamp
+  pixels and actual cone/glow coordinates at ten bearings, two viewport sizes
+  and DPR 1/2, plus deterministic surf and reduced-motion pixel comparisons.
+
 ## Unreleased — Foghorn trust and visual rings (#109)
 
 - Bound horn danger and useful-warning credit to straight-track reef impacts

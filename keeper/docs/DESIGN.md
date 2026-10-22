@@ -369,6 +369,38 @@ like him), **Lost** (the launch wrecks). No ending is labelled good.
   1 s of being lit at default fog. Respect `prefers-reduced-motion`
   (no fog drift, no screen shake).
 
+### Lamp anchor and pixel detail (kbeam-ISSUE)
+
+The existing overhead view, compass ring, chart, labels, layout and HUD
+colours stay fixed. The chart uses a 1280×720 logical canvas, translated to
+**(640,478)** and scaled by **0.86**. Renderer exports are safe to import in
+Node: browser access happens only when `createRenderer(canvas)` is called.
+
+- Frozen `LAMP = { x: 0, y: 0 }` is the single lamp centre in chart coordinates.
+  `beamOrigin(beamDegrees)` returns that same point for every finite numeric
+  bearing, including negative bearings and multiple turns; other values throw
+  `TypeError`. Cone and radial beam glow translate to that origin. Lantern,
+  symmetric rotating lamp housing, halo and brightest glint centre on `LAMP`.
+- `toScreen(point, { width, height })` shares `draw()`'s transform and returns
+  **canvas backing pixels**: `x = (640 + point.x × 0.86) × width / 1280`,
+  `y = (478 + point.y × 0.86) × height / 720`. Resize rounds CSS dimensions
+  multiplied by DPR (capped at 2); pass those backing dimensions, without
+  applying DPR again. Width and height scale independently, as before.
+- Skerry Rock keeps its small footprint with stepped rock tiers, shoreline
+  highlights, shaded ledges, masonry bands, a railed gallery and lantern
+  details. Foundations render beneath the beam; the lantern/glint render last.
+  Surf advances through four pixel phases at two phases per simulation second,
+  using only `state.time`. Reduced motion fixes surf at phase zero and freezes
+  fog drift. No wall clock or random draws enter either animation.
+
+`tests/renderer.test.mjs` checks import purity with throwing browser-global
+getters, thousands of bearings, invalid inputs and screen mapping across sizes
+and DPRs. `e2e/renderer.spec.js` samples the brightest pixels at the beam start
+at ten bearings, at 1280×720 and 1600×900 with DPR 1 and 2. It compares their
+centroid to the lamp position within 0.75 backing pixels and inspects real
+cone/glow draw coordinates to catch an offset concealed by the glint. Separate
+shoreline pixel comparisons verify deterministic animation and reduced motion.
+
 ## 11. Audio direction (LOCKED rules)
 
 - WebAudio synthesis or CC0/CC-BY assets with credits only.
