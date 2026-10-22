@@ -34,6 +34,14 @@
   The browser report attaches review screenshots; gameplay and input are unchanged.
 
 ### CI performance follow-up (PR #101)
+- Follow-up CDP LayerTree/paint-flashing/paint + cc traces identify fifteen
+  compositor surfaces from multiply-blended paper, including a 1286×997 grain
+  surface; unconditional 250 ms text replacement also invalidates the broadsheet.
+  Encode grain as equivalent translucent black and use normal source-over (three
+  surfaces). Preserve unchanged text nodes and update changed copy in place.
+- Add browser regressions comparing the baked grain with the original SVG on all
+  ten palette colors and rejecting unchanged UI text mutations, stale values,
+  node replacement and HTML injection. Retain every performance assertion.
 - Trace 4× CPU/1080p SwiftShader with render/UI User Timing and browser raster,
   paint, style/layout and compositor events. Two-core runs reproduced 66 frames
   even with weather disabled: raster flush stalls dominate that failure shape.

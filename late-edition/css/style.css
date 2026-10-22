@@ -288,8 +288,9 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 }
 
 /* Single top-left lamp: all paper casts its shadow down and right.
-   The original monochrome turbulence is baked once into a small PNG tile
-   (e2e/bake-paper-grain.js); repainting paper must not rerun an SVG filter. */
+   The original monochrome turbulence is baked as black/inverse-luminance alpha
+   (e2e/bake-paper-grain.js). Normal source-over matches monochrome multiply
+   without destination-dependent blend surfaces over the live map (PR #101). */
 .lead-item, .op-card, .broadsheet-paper, .paper-slot, .scoop-chip, .dossier,
 .teletype-roll-box, .modal-dialog, .call-paper, .drag-copy {
   position: relative;
@@ -308,7 +309,6 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
   z-index: 2;
   pointer-events: none;
   opacity: 0.065;
-  mix-blend-mode: multiply;
   background-image: url('../assets/paper-grain.png');
 }
 

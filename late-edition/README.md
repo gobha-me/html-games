@@ -504,8 +504,11 @@ Missing/corrupt calibration fails, and an adversarial test starves rAF while mak
 the real renderer exceed its budget to verify that the batch still collects 150
 samples and exposes the slow calls.
 
-Paper grain uses the original SVG turbulence baked once to a 120×120 PNG tile;
-small drifting-fog sprites follow displayed resolution/DPR, and street-sign widths
+Paper grain uses the original SVG turbulence baked once to a 120×120 black/alpha
+PNG tile. Normal source-over preserves monochrome multiply within one 8-bit channel
+step without retaining expensive blend surfaces over the animated map. UI refreshes
+only mutate changed text nodes, preserving unchanged paper paint.
+Small drifting-fog sprites follow displayed resolution/DPR, and street-sign widths
 and collision positions are cached until lead display geometry changes. Rain
 remains one stroked path; no per-frame shadow blur or resolution cap was added.
 See [profiling notes](docs/PERFORMANCE.md) for the PR #101 diagnosis, trace commands,

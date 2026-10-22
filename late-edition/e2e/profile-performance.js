@@ -21,8 +21,9 @@ try {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   if (baselineRevision) {
     // Compare committed source without checkout/stash or touching the worktree.
-    for (const [path, contentType] of [['js/renderer.js', 'text/javascript'], ['css/style.css', 'text/css']]) {
-      const body = execFileSync('git', ['show', `${baselineRevision}:late-edition/${path}`], { encoding: 'utf8' });
+    for (const [path, contentType] of [['js/renderer.js', 'text/javascript'], ['js/main.js', 'text/javascript'],
+      ['js/dom.js', 'text/javascript'], ['css/style.css', 'text/css'], ['assets/paper-grain.png', 'image/png']]) {
+      const body = execFileSync('git', ['show', `${baselineRevision}:late-edition/${path}`]);
       await page.route(`**/late-edition/${path}`, (route) => route.fulfill({ body, contentType }));
     }
   }
@@ -36,6 +37,10 @@ try {
   await cdp.send('LayerTree.enable');
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuRate });
   await page.goto('http://127.0.0.1:8123/late-edition/?seed=89&preview=combat');
+  // LayerTree notifications need the inspected document, not just DOM.enable.
+  await cdp.send('DOM.getDocument');
+  await cdp.send('LayerTree.disable');
+  await cdp.send('LayerTree.enable');
   await page.evaluate(() => document.fonts.ready);
   if (process.argv.includes('--no-grain')) await page.addStyleTag({ content: '*::after { background-image: none !important; }' });
   if (process.argv.includes('--no-weather')) await page.evaluate(() => { window.lateEditionApp.renderer._drawRainAndVignette = () => {}; });
@@ -127,11 +132,25 @@ try {
   // Thread work can overlap: these are per-event totals, not additive wall time.
   metrics.baselineRevision = baselineRevision;
   metrics.traceWorkMs = {};
+  const invalidations = new Map(), surfaces = new Set();
   for (const event of JSON.parse(trace).traceEvents) {
+    if (event.name === 'LayerTreeHostImpl::CalculateRenderPasses') surfaces.add(event.args['render_surface_list_size()']);
+    if (event.name === 'LayerTreeHostImpl:snapshot') {
+      for (const layer of event.args.snapshot?.active_tree?.layers || []) {
+        if (!layer.invalidation?.length) continue;
+        const entry = invalidations.get(layer.layer_id) || { layerId: layer.layer_id, bounds: layer.bounds, snapshots: 0,
+          node: metrics.layers.find((item) => Number(item.layerId) === layer.layer_id)?.node, regions: [] };
+        entry.snapshots++;
+        if (entry.regions.length < 3) entry.regions.push(layer.invalidation);
+        invalidations.set(layer.layer_id, entry);
+      }
+    }
     if (event.ph === 'X' && /^(Paint|PrePaint|Layout|UpdateLayoutTree|RasterTask|CompositeLayers|DrawFrame|RasterDecoderImpl::DoEndRasterCHROMIUM|RasterDecoderImpl::DoRasterCHROMIUM|MainFrame.Draw|Commit)$/.test(event.name)) {
       metrics.traceWorkMs[event.name] = (metrics.traceWorkMs[event.name] || 0) + event.dur / 1000;
     }
   }
+  metrics.invalidations = [...invalidations.values()];
+  metrics.renderSurfaceCounts = [...surfaces];
   await writeFile(`${directory}/${name}.json`, JSON.stringify(metrics, null, 2));
   console.log(JSON.stringify(metrics, null, 2));
 } finally { await browser.close(); }
