@@ -109,10 +109,7 @@ export function isLit(state, object = state.trawler) {
   return Math.hypot(object.x, object.y) <= fogReach(state.fog) && difference <= CONE_DEGREES / 2;
 }
 
-export function createState(seed = 108) {
-  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
-    throw new TypeError('Seed must be a uint32');
-  }
+function firstApproach(seed) {
   // One LCG draw determines the approach lane; the course always crosses the reef.
   const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
   const bearing = bearingTo(ROCKS[0]) + (random - 0.5);
@@ -135,18 +132,33 @@ export function createState(seed = 108) {
     pnrRange, passes: NIGHT_PASSES[0],
   };
   const spawnRange = spawnRangeFor(approach);
-  const trawler = {
+  return { ...approach, spawnRange };
+}
+
+function arrive(approach, type = 'trawler') {
+  const { bearing, spawnRange } = approach;
+  const east = Math.sin(bearing * RAD), north = Math.cos(bearing * RAD);
+  return {
     ...approach, spawnRange,
-    ...createVessel('trawler', { x: east * spawnRange, y: -north * spawnRange, heading: bearing + 180 }),
+    ...createVessel(type, { id: approach.id, x: east * spawnRange, y: -north * spawnRange, heading: bearing + 180 }),
     status: 'underway', warnedAt: null, wreckedAt: null, reactAt: null,
     targetHeading: null, turnSign: 0, response: 'none',
     afterimage: 0, lastSeen: null,
   };
+}
+
+export function createState(seed = 108) {
+  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
+    throw new TypeError('Seed must be a uint32');
+  }
+  const approach = firstApproach(seed);
+  const trawler = arrive(approach);
+  const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
   return {
     seed, time: 0, phase: 'night', beam: 285, speed: SPEED.default,
     fog: 0.08 + random * 0.04, horn: false, blasts: [], ignoredBlasts: [], hornIgnoredUntil: 0, trust: 1,
     nightParams: { night: 1, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
-    schedule: [{ ...approach, spawnRange }],
+    schedule: [approach],
     ships: [trawler], trawler,
   };
 }
