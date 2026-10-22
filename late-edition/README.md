@@ -33,7 +33,7 @@ with immediate replacement of scooped leads, preserving dispatch pace per minute
 
 Below either minimum dimension, **The desk is too small** covers the desk and
 pauses both play and Lou's call. Resize back to resume the same state, including
-an intentional pause. Reduced-motion preferences freeze canvas rain/ripples,
+an intentional pause. Reduced-motion preferences freeze canvas rain, fog, walking bob and title parallax,
 disable CSS animation and reveal Lou's dialogue immediately; Skip remains available.
 Reloading during the opening returns to an idle title. After a completed edition,
 the title also offers **Continue the run (Edition N)** and **New run**; New run
@@ -190,7 +190,7 @@ failures and game-over deletion.
 ## Tech Stack & File Layout
 
 - Zero external runtime dependencies — self-contained ES modules + HTML5 2D Canvas + WebAudio synthesizer + original `.mp3` SFX.
-- Custom 1947 noir pixel-art sprites and illustrations (`late-edition/assets/sprites/*.png`).
+- Procedural Canvas2D noir city and hat-and-coat silhouettes; two retained desk/press illustrations ([asset notes](assets/README.md)).
 
 ```text
 late-edition/
@@ -207,12 +207,14 @@ late-edition/
 │   ├── save.js         # Versioned save allowlist, validation and resource limits
 │   ├── opening.js      # Pure 30-second cold-open text clock and reduced-motion reveal
 │   ├── presentation.js # Display-only clock, wire, banner & status formatting
-│   ├── renderer.js     # 2.5D extruded noir landmarks, wet streetlamp reflections & rain
+│   ├── city.js         # Fixed-seed cosmetic building generator, independent of gameplay RNG
+│   ├── silhouettes.js  # Shared Canvas2D street figures and staff portraits
+│   ├── renderer.js     # Cached oblique city/title layers, wet streets, fog & dynamic figures
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
 │   └── audio.js        # Hybrid MP3 + procedural WebAudio typewriter, flashbulb & press SFX
 └── assets/
     ├── audio/          # Newsroom & street MP3 sound effects
-    └── sprites/        # Top-down pixel-art operatives, editor portrait & rotary press art
+    └── sprites/        # Retained editor portrait & rotary press art; unit PNGs retired
 ```
 
 ## Status and Direction
@@ -224,7 +226,7 @@ See [AGENTS.md](AGENTS.md) for the module map and verification commands. ESLint,
 enforced in CI alongside adversarial gameplay tests and at least 80% line coverage
 for `js/sim.js`. [docs/DIRECTION.md](docs/DIRECTION.md) is the creative direction
 and art bible. Manual layout, the file drawer and the desk art pass are implemented;
-city geometry and silhouettes remain #89. At 1280×720 and larger, all four
+the oblique silhouette city and shared operative portraits are implemented (#89). At 1280×720 and larger, all four
 front-page slots stay visible together in both desk and paste-up. Grid tracks
 share the available height; compact slot excerpts yield to complete headlines.
 Only the copy tray and Inside list scroll when crowded, not the page or slots.
@@ -254,8 +256,8 @@ Stored best scores, adapters, wire messages/timestamps, traffic, banners,
 flashes, callouts and all cosmetic fields (colors/accents, labels, district signage,
 operative descriptions, summary copy, angles and animation phases) are excluded:
 they never drive gameplay. The injected `now()` supplies wire event timestamps
-only; gameplay time always comes from `step()`. Renderer rain/ripples may use
-`Math.random()` independently without advancing the gameplay generator.
+only; gameplay time always comes from `step()`. City geometry and rain use their own fixed cosmetic seed, independently of the
+gameplay generator; renderer animation uses its own display clock.
 
 The golden test runs five full 210-second editions with progressive payroll,
 dispatches, investigation, manual placement during paste-up, rivals, fortification
@@ -422,7 +424,7 @@ compute every text-role contrast (minimum **4.66:1**, maximum **15.34:1**).
 Carbon dots have newsprint backing because blue on aged stock fails 4.5:1.
 Grain is a small inline monochrome SVG; rotations are deterministic and shadows
 fall down/right from one lamp. Paper and stamp animations last 120ms and switch
-off for reduced motion. Canvas geometry and operative sprites await #89.
+off for reduced motion. The city geometry and procedural silhouettes follow #89 below.
 
 The caption baseline counts non-whitespace static label text nodes in
 `index.html`, excluding comments, script/style, attributes and fields replaced
@@ -436,3 +438,54 @@ caption reduction.
 District accents and every other color field are cosmetic and excluded from the
 gameplay hash. No legacy palette checksum data is needed; recoloring must leave
 the hash unchanged while changes to gameplay values must still be detected.
+
+
+## Silhouette city and performance (#89, 2.10.0)
+
+The Weegee / *The Big Clock* / *Sweet Smell of Success* map uses 30-degree oblique
+roofs, ink/mahogany building masses, smoke cornices and fire escapes, water towers,
+sparse sodium windows and wet lamp reflections. Each neighbourhood has one landmark:
+City Hall dome, Pier 14 cranes/pier, Herald clock tower, Observer warehouse sign,
+Evening Star press room/rooftop sign, trust bank columns, meatpacking stacks and the
+Velvet marquee. Small street signs replace floating district marketing captions.
+Rain and drifting edge fog obscure the outskirts without changing gameplay visibility.
+
+`js/city.js` derives six buildings per district from fixed seed **1947** and district
+identity. The stream is separate from simulation RNG, and generation order does not
+matter. `js/silhouettes.js` draws the same fedora/trench coat figures on the map and
+staff passes: camera/flash reflector for Clara, broad shoulders for Knuckles, brass
+hats for Herald men and a red cigarette ember for Observer goons. Selected staff have
+a sodium ground ring and small number badges. Telegram flags are pinned exactly at
+lead coordinates, with sodium glow; arc yarn remains red. Herald sedans use sodium
+headlights; only Observer raids use police-blue cones. Scoops get a brief Weegee
+flash; the photographer's existing snap produces a flashbulb star. No unit PNG is
+loaded; the editor portrait and press plate remain in use (see asset notes).
+
+`NoirCityRenderer` caches city geometry/lamps/signs, edge fog, and three title depth
+layers on detached canvases at the displayed size × DPR. Caches rebuild on size/DPR
+changes only. Each frame composites these layers and draws traffic, figures, leads,
+threads, weather and callouts. Title layers add a bridge, water towers, lit windows,
+Evening Star sign, slow parallax and municipal searchlight. Reduced motion freezes
+rain, fog, bob and parallax and suppresses scoop/camera flashes; title pixels remain
+identical across frames, including after changing the preference during play.
+
+The presentation never writes simulation state or changes coordinates, hit radii,
+input priority or dispatch rules. Existing five-edition golden hashes and the recorded
+pre-#88 gameplay-equality fixture remain unchanged. Tests compare gameplay hashes and
+RNG state before/after real cold-cache, warm-cache, resize and DPR rendering. Invalid
+cosmetic seeds/geometry reject; outputs never share mutable building/window arrays.
+Browser cases click ten distinct actual addresses at both 1280×720 and 1920×1080,
+exercise inside/outside hit boundaries, unit priority and closed-dispatch rejection,
+and reject console errors and all `unit_*.png` network requests.
+
+Playwright explicitly launches Chromium with ANGLE **SwiftShader**. The 1080p combat
+smoke samples real `requestAnimationFrame` timestamps for **at least five seconds**,
+requires more than 100 frames/render calls with live gameplay and stable caches,
+and asserts **p95 frame interval <20ms** plus **p95 `renderer.render()` cost <8ms**.
+Both metrics are attached as `swiftshader-frame-budget` JSON. The initial local run
+measured **16.7ms frame p95 / 0.5ms render p95** (3.3ms / 7.5ms budget headroom).
+No slower-CI fallback is enabled: both budgets remain required. Renderer timing
+measures CPU submission, while frame intervals include software raster/compositing.
+The existing app clamps catch-up to 50ms; a host stall can discard simulation time,
+so the test measures its five-second duration with rAF time, separately from proving
+that the game clock advances. These are local measurements, not a claim of remote CI.

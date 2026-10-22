@@ -1,5 +1,33 @@
 # Changelog — LATE EDITION // 1947
 
+## [2.10.0] — 2026-10-21 (#89 — Oblique silhouette city)
+
+### Changed
+- Replace outlined district slabs and pixel units with a fixed-seed oblique noir
+  city: varied extruded buildings, cornices, fire escapes, water towers, sparse
+  lit windows, eight landmark silhouettes and small period street signs.
+- Wet asphalt, sodium pools/reflections, rain and drifting fog at the city edges;
+  pinned telegram lead flags, red arc thread, sodium selection rings and scoop flash.
+- Shared procedural fedora/coat staff portraits and street figures, photographer
+  camera, broad fixer, brass Herald hats/sedans and Observer cigarette embers;
+  police-blue searchlights are reserved for raids. Delete the four unused unit PNGs;
+  retain the editor portrait and press illustration, with asset documentation.
+- Three cached title skyline depth layers, bridge, water towers, lit windows,
+  Evening Star rooftop sign, slow searchlight/parallax. Reduced motion freezes
+  decorative animation and suppresses flashes; title pixels remain static.
+- Cache static layers at displayed resolution/DPR; per-frame work is dynamic art.
+  Simulation, gameplay RNG, world hit targets and golden hashes stay unchanged.
+
+### Verification
+- Add adversarial cosmetic-generation/cache/DPR/nonfinite-delta tests; compare
+  gameplay hash/RNG before and after rendering without changing the golden fixture.
+- Browser regressions click ten distinct leads at 720p/1080p, attack hit-boundary,
+  unit-priority and closed-dispatch paths, reject retired PNG requests/console
+  errors, and compare title pixels under live reduced-motion preference changes.
+- Five-second 1080p live SwiftShader smoke asserts rAF frame p95 <20ms and render
+  CPU p95 <8ms, with metrics attached to the browser report. Initial local sample:
+  16.7ms frame / 0.5ms render p95; remote CI must run the same assertions.
+
 ## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
 
 ### Changed

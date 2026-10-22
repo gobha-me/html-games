@@ -15,7 +15,8 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | `js/main.js` | `LateEditionApp`: creates sim/audio/renderer, binds mouse/keyboard/buttons, renders DOM, advances the frame loop and exposes `window.lateEditionApp`. Includes showcase/combat preview setup and modal focus handling. |
 | `js/hotkeys.js` | Shared `HOTKEYS` action/key/phase table and lookup. Keep all application shortcuts here; Node tests reject duplicate keys per phase, including injected collisions. |
 | `js/palette.js` | Ten art colors and derived alpha, mirrored in CSS root tokens. |
-| `js/renderer.js` | `NoirCityRenderer`: Canvas2D city, coordinate conversion, sprites, rain/ripples, dispatch lines, leads, rivals, operatives and callouts. |
+| `js/renderer.js` | `NoirCityRenderer`: size/DPR-cached city, edge fog and three title skyline layers; dynamic weather, figures, telegrams, traffic and callouts. Input coordinates stay unchanged. |
+| `js/city.js`, `js/silhouettes.js` | Fixed cosmetic seed 1947 builds district architecture; shared Canvas2D figures paint map units and pass portraits. Never consume gameplay RNG. |
 | `js/save.js` | Version 1 save allowlist, strict validation and bounded decoding; ignores pollution/unknown keys. |
 | `js/rng.js` | Mulberry32 PRNG with validated integer/pick helpers and inspectable state. |
 | `js/adapters.js` | Safe run/best-score persistence, optional audio ports and URL seed parsing. |
@@ -23,7 +24,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | `js/opening.js` | Pure 30-second Lou Vance dialogue clock; reduced-motion text reveal. |
 | `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
-| `assets/` | Local sprites/audio and licensed WOFF2 fonts. |
+| `assets/` | Retained editor/press PNGs, audio and licensed WOFF2 fonts; unit PNGs retired (see asset notes). |
 | `scripts/` | Documentation-reference checker and its isolated adversarial shell tests. |
 | `tests/` | Adversarial area suites, 50-seed fuzzing, lint/adapter tests and a five-edition golden replay. |
 | `package.json` | Native ES modules; development-only lint/test tools and npm scripts. |
@@ -35,7 +36,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 - `sim.js` imports config and pure helper/adapter modules; no DOM or browser APIs.
   Gameplay randomness uses the injected RNG; IDs use counters. Visual effects/traffic are excluded from hashes.
 - The canvas renderer reads sim state and maintains its own decorative
-  rain/ripples and hover state. DOM/input belongs in `main.js`; Canvas2D in `renderer.js`.
+  rain/fog, scoop flashes, an independent animation clock and hover state. DOM/input belongs in `main.js`; Canvas2D in `renderer.js`.
 - The constructor accepts `{ seed, rng, storage, audio, now }`. `main.js` creates
   browser adapters and parses `?seed=N`, falling back to a wall-clock seed.
   Storage uses `readBest`/`writeBest` and `readRun`/`writeRun`/`clearRun`; audio has optional named cues. Display
@@ -61,8 +62,8 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   hashes, pinned after each of five editions in the golden replay test.
 - All gameplay randomness uses injected mulberry32. ESLint and source tests ban
   `Math.random`, `Date`, `window`, `document`, `localStorage` and `performance` in sim.
-- Renderer-only rain/ripple randomness may use `Math.random`, but must never
-  affect gameplay, IDs, hit-testing or the sim's random stream.
+- City/rain use a separate fixed cosmetic RNG; animation never affects gameplay, IDs or hit-testing.
+  Reduced motion freezes decorative animation and suppresses flashes; cache rebuilds only on size/DPR changes.
 - `step` ignores nonfinite/nonpositive deltas, splits valid time into <=50 ms
   substeps and caps catch-up at 10 s per call to bound work. `now()` only stamps
   wire events; steps drive gameplay time. Reset rewinds the built-in RNG only.
@@ -94,7 +95,7 @@ selectors do not inherit the exception. Tests check parity and text contrast.
 Self-hosted Latin WOFF2: League Gothic, Old Standard TT, Courier Prime and
 masthead-only UnifrakturMaguntia; licenses/provenance in [font credits](assets/fonts/README.md).
 Use the pinned fonttools/Brotli venv rebuild script; never add a font CDN.
-Paper rotations are deterministic; motion respects reduced motion. #89 owns city geometry/silhouettes.
+Paper rotations are deterministic; #89 adds cached silhouette city/title art. Motion respects reduced motion.
 #88 removes cosmetics from hashes with a one-time golden repin. Every seed-81 replay print must match
 `tests/fixtures/pre88-gameplay.json` from `2c8b14e` (economy, HP, edition, scoops, drawer);
 never regenerate from current code. #100 removes the duplicate rival row, repins hashes
@@ -117,7 +118,7 @@ bash late-edition/scripts/check-docs.test.sh
 
 Individual checks: `npm run lint:js`, `npm run lint:css`, `npm run lint:html`. Bad fixtures test production configs.
 The docs checker skips `node_modules`, exempts direction/changelog history and accepts a fixture directory. Shell/lint/unit/Chromium checks run in GitHub CI.
-Area suites, 50-seed fuzzing and 20-seed × 20-night greedy/ink bots cover gameplay. Run all tests/linters before finishing;
+Area/fuzz/economy tests cover gameplay; e2e uses SwiftShader (1080p/5s, frame p95 <20ms, render p95 <8ms). Run all checks;
 never claim unrun CI is green. Keep `package-lock.json` in sync with dependencies.
 For UI changes, serve the repo and use the root guide's headless render check.
 
@@ -125,7 +126,6 @@ Tests force invalid orders, empty/double print, timeouts, insufficient funds, st
 out-of-order arcs, simultaneous completions, bad saves and storage failures.
 
 ## Best-practice exceptions and reasons
-
 - Native modules and committed source avoid a build stage because the game
   deploys directly from static files; preserve relative asset/import URLs.
 - Mutable selection/targets remain legacy sim/UI coupling; browser APIs and

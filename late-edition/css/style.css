@@ -445,8 +445,6 @@ button:focus-visible, a:focus-visible, [role='button']:focus-visible {
 .op-avatar {
   width: 28px;
   height: 28px;
-  image-rendering: pixelated;
-  filter: grayscale(1);
 }
 
 .op-key {

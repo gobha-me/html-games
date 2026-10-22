@@ -7,6 +7,7 @@ import { h, reconcile } from './dom.js';
 import { FILE_DRAWER, FRONT_PAGE_SLOTS, isUnlocked, deskFits } from './config.js';
 import { LateEditionSim } from './sim.js';
 import { NoirCityRenderer } from './renderer.js';
+import { drawSilhouette } from './silhouettes.js';
 import { ColdOpen } from './opening.js';
 import { NoirAudio } from './audio.js';
 import { createAudioAdapter, createStorageAdapter, resolveSeed } from './adapters.js';
@@ -669,17 +670,12 @@ class LateEditionApp {
   }
 
   _renderOperativesRoster() {
-    const spriteMap = {
-      reporter: 'assets/sprites/unit_reporter.png',
-      photographer: 'assets/sprites/unit_photographer.png',
-      fixer: 'assets/sprites/unit_fixer.png',
-    };
     reconcile(document.getElementById('operative-list'), this.sim.operatives.flatMap((op, idx) => this.sim.operativeAvailable(op) ? [
       h('div', `op-card ${op.id === this.sim.selectedOpId ? 'selected' : ''}`, [
         h('button', 'op-pass-top op-select', [
           h('span', 'op-avatar-wrap', [
             h('span', 'op-key', idx + 1),
-            h('img', 'op-avatar', [], { src: spriteMap[op.sprite], alt: op.name }),
+            h('canvas', 'op-avatar', [], { width: 64, height: 64, role: 'img', 'aria-label': op.name, 'data-role': op.role }),
           ]),
           h('span', 'op-info', [
             h('span', 'op-name-row', op.name),
@@ -693,6 +689,14 @@ class LateEditionApp {
           }),
         ]),
       ], { 'data-op-id': op.id }, op.id)] : []));
+    for (const portrait of document.querySelectorAll('.op-avatar')) {
+      if (portrait.dataset.painted) continue;
+      const ctx = portrait.getContext('2d');
+      ctx.translate(30, 56);
+      ctx.scale(1.2, 1.2);
+      drawSilhouette(ctx, portrait.dataset.role);
+      portrait.dataset.painted = 'true';
+    }
   }
 
   _renderLeadsList() {
@@ -830,7 +834,7 @@ class LateEditionApp {
         h('span', st?.seriesBadge ? 'series-stamp' : '', st?.seriesBadge ? `${st.seriesBadge} (+${st.arcPart === 3 ? '4,500' : st.arcPart === 2 ? '2,500' : '1,200'} RDRS)` : '', st?.seriesBadge ? {} : { hidden: '' }),
         ...(photo ? [h('div', 'halftone-photo-box', [
           h('img', 'halftone-photo-img', [], {
-            src: st ? 'assets/sprites/masthead_press.png' : 'assets/sprites/unit_photographer.png',
+            src: 'assets/sprites/masthead_press.png',
             alt: st ? 'Speed Graphic Exposé' : 'Darkroom Plate',
           }),
           h('div', 'halftone-caption-bar', [
