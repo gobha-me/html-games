@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 async function openWatch(page, query = '?e2e=1&seed=108') {
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2026-01-01T18:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T18:00:01Z'));
   await page.goto('/keeper/' + query);
   await page.getByRole('button', { name: 'Take the watch' }).click();
 }
@@ -78,7 +79,7 @@ test('spot, hold and horn saves the trawler; dawn reports safe and restart clear
   await expect(page.locator('#horn-state')).toHaveText('Horn sounding');
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await page.keyboard.up('h'); await page.keyboard.up('Space');
-  await advance(page, 179);
+  await advance(page, 180);
   await expect(page.locator('#summary')).toHaveText('1 ship passed safely. 0 ship wrecked.');
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
   expect(record.safe).toBe(1);
@@ -92,14 +93,15 @@ test('late or unlit distant horn cannot rescue a ship', async ({ page }) => {
   await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
   // Initial beam is deliberately outside the 14° cone of the trawler.
   expect((await snapshot(page)).trawler.warnedAt).toBeNull();
-  await advance(page, 72.4);
-  // Sweep until the reef bearing is lit, just before contact; no debug mutation.
-  await page.evaluate(() => {
-    while (window.__keeper.state.time < 75 && window.__keeper.state.trawler.status === 'underway') {
-      window.__keeper.advance(0.05);
-    }
-  });
-  await page.keyboard.down('h'); await advance(page, 5); await page.keyboard.up('h');
+  // Let the lens reach the reef's bearing, then clutch it until danger arrives.
+  await advance(page, 3.55);
+  await page.keyboard.down('Space');
+  await advance(page, 68.85);
+  expect((await snapshot(page)).trawler.status).toBe('underway');
+  await page.keyboard.down('h'); await advance(page, 0.1);
+  expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
+  await advance(page, 5);
+  await page.keyboard.up('h'); await page.keyboard.up('Space');
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
 });
 
@@ -149,6 +151,7 @@ test('1280×720 layout, resize and reduced motion keep controls usable with no o
   await expect(page.getByRole('button', { name: 'Unmute horn' })).toHaveAttribute('aria-pressed', 'true');
   for (const [width, height] of [[1280, 720], [1600, 900], [960, 600], [1280, 720]]) {
     await page.setViewportSize({ width, height });
+    await page.clock.runFor(32);
     await advance(page, 0.1);
     const layout = await page.evaluate(() => ({
       width: document.documentElement.scrollWidth,
@@ -168,6 +171,35 @@ test('1280×720 layout, resize and reduced motion keep controls usable with no o
   await page.screenshot({ path: 'test-results/keeper-lit.png' });
   await page.keyboard.up('Space');
   expect(errors).toEqual([]);
+});
+
+test('canvas conceals unseen hulls, reveals a lit silhouette and fades its remembered pose', async ({ page }) => {
+  await openWatch(page);
+  async function brightness(pose) {
+    return page.evaluate((ship) => {
+      const canvas = document.getElementById('sea');
+      const x = Math.round((640 + ship.x * 0.86) * canvas.width / 1280);
+      const y = Math.round((478 + ship.y * 0.86) * canvas.height / 720);
+      const pixels = canvas.getContext('2d').getImageData(x - 16, y - 16, 32, 32).data;
+      let peak = 0;
+      for (let i = 0; i < pixels.length; i += 4) peak = Math.max(peak, pixels[i], pixels[i + 1], pixels[i + 2]);
+      return peak;
+    }, pose);
+  }
+  const unseen = (await snapshot(page)).trawler;
+  expect(await brightness(unseen)).toBeLessThan(15);
+  await findTrawler(page);
+  const lit = (await snapshot(page)).trawler;
+  expect(await brightness(lit)).toBeGreaterThan(100);
+  await page.keyboard.down('ArrowRight'); await advance(page, 1); await page.keyboard.up('ArrowRight');
+  const ghost = (await snapshot(page)).trawler;
+  expect(ghost.afterimage).toBeGreaterThan(0);
+  const fading = await brightness(ghost.lastSeen);
+  expect(fading).toBeGreaterThan(10);
+  expect(fading).toBeLessThan(90);
+  await advance(page, 1.6);
+  expect((await snapshot(page)).trawler.afterimage).toBe(0);
+  expect(await brightness(ghost.lastSeen)).toBeLessThan(15);
 });
 
 test('automation hook snapshots cannot change simulation, invalid seeds fall back, and opt-in alone is insufficient', async ({ page }) => {
