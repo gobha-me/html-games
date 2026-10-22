@@ -214,7 +214,7 @@ function arrive(approach, type = approach.type ?? 'trawler') {
       heading: bearing + (approach.threatening === false ? 0 : 180) }),
     status: 'underway', warnedAt: null, wreckedAt: null, reactAt: null,
     targetHeading: null, turnSign: 0, response: 'none',
-    afterimage: 0, lastSeen: null,
+    afterimage: 0, lastSeen: null, everSeen: false,
   };
 }
 
@@ -335,6 +335,7 @@ function tick(state, input, dt) {
         ship.status = 'safe';
       }
     }
+    if (isLit(state, ship) || perception(state, ship).runningLights) ship.everSeen = true;
     if (isLit(state, ship)) {
       ship.afterimage = AFTERIMAGE_SECONDS;
       ship.lastSeen = { x: ship.x, y: ship.y, heading: ship.heading, status: ship.status };
@@ -389,6 +390,7 @@ export function hornRings(state) {
 }
 
 export function summary(state) {
-  return { safe: fleet(state).filter((ship) => ship.status === 'safe').length,
-    wrecked: fleet(state).filter((ship) => ship.status === 'wrecked').length };
+  return { safe: fleet(state).filter((ship) => ship.everSeen && ship.status === 'safe').length,
+    wrecked: fleet(state).filter((ship) => ship.everSeen && ship.status === 'wrecked').length,
+    unseen: fleet(state).filter((ship) => !ship.everSeen).length };
 }

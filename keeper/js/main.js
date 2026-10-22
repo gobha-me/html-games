@@ -49,10 +49,10 @@ function finishNight() {
   if (recorded) return;
   recorded = true;
   const result = summary(state);
-  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.`;
-  $('record-status').textContent = result.wrecked ? `${result.wrecked} vessel${result.wrecked === 1 ? '' : 's'} lost at the Teeth. The light kept turning.` : 'The fleet kept clear of the Teeth. All hands safe.';
+  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.${result.unseen ? ` ${result.unseen} passed unseen.` : ''}`;
+  $('record-status').textContent = result.wrecked ? `${result.wrecked} vessel${result.wrecked === 1 ? '' : 's'} lost at the Teeth. The light kept turning.` : 'The watch is over. The light kept turning.';
   try {
-    localStorage.setItem(RECORD_KEY, JSON.stringify({ version: 2, seed: state.seed, ...result }));
+    localStorage.setItem(RECORD_KEY, JSON.stringify({ version: 2, seed: state.seed, safe: result.safe, wrecked: result.wrecked }));
   } catch {
     $('record-status').textContent += ' This browser could not keep the morning record.';
   }

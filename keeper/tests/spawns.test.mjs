@@ -174,8 +174,9 @@ test('long frame hitches include every arrival and match fine-step poses without
     close(ship.x, fine.ships[i].x);
     close(ship.y, fine.ships[i].y);
   }
-  assert.deepEqual(summary(hitch), { safe: hitch.ships.filter((ship) => ship.status === 'safe').length,
-    wrecked: hitch.ships.filter((ship) => ship.status === 'wrecked').length });
+  assert.deepEqual(summary(hitch), { safe: hitch.ships.filter((ship) => ship.everSeen && ship.status === 'safe').length,
+    wrecked: hitch.ships.filter((ship) => ship.everSeen && ship.status === 'wrecked').length,
+    unseen: hitch.ships.filter((ship) => !ship.everSeen).length });
 });
 
 test('non-threatening spawns across all 500 seeds are on permanently reef-clear courses, even beyond dawn', () => {

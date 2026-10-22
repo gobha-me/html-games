@@ -86,7 +86,7 @@ test('unwarned trawler wrecks at 60–100s; no mid-night game over; dawn at thre
   const dawn = step(s, {}, 80);
   assert.equal(dawn.time, NIGHT_SECONDS);
   assert.equal(dawn.phase, 'dawn');
-  assert.deepEqual(summary({ ships: [dawn.trawler] }), { safe: 0, wrecked: 1 });
+  assert.deepEqual(summary({ ships: [dawn.trawler] }), { safe: 0, wrecked: 1, unseen: 0 });
   assert.deepEqual(step(dawn, { horn: true, fast: true }, 3), dawn);
 });
 
@@ -115,7 +115,7 @@ test('a horn warns with seeded crew delay, turns smoothly and passes safely', ()
   s = step(s, {}, 155.8);
   assert.equal(s.phase, 'dawn');
   assert.equal(s.trawler.status, 'safe');
-  assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 1, wrecked: 0 });
+  assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 1, wrecked: 0, unseen: 0 });
   assert.ok(Math.abs(((s.trawler.heading - s.trawler.targetHeading + 540) % 360) - 180) < 0.1);
 });
 
@@ -137,7 +137,7 @@ test('warning at the budgeted PNR turns clear and counts safe by dawn, while saf
     const y = s.trawler.y;
     s = step(s, {}, 60);
     assert.ok(s.trawler.y < y);
-    assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 1, wrecked: 0 });
+    assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 1, wrecked: 0, unseen: 0 });
   }
 });
 

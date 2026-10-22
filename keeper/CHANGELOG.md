@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Honest dawn tally (kfleet-ISSUE)
+
+- Track permanent `everSeen` history from beam illumination or running lights.
+  Count only observed ships as safe/wrecked; report all other arrivals as
+  passed unseen. Horn hearing and engine cues never imply a sighting.
+- Fix the unobserved outbound/assisted ship credited by the old status-only
+  summary. Avoid claiming all hands safe when the keeper lacks that evidence.
+
 ## Unreleased — Seeded additional ships (kspawn)
 
 - Keep the opening trawler's lane, physical warning window and trajectory.
