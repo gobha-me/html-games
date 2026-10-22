@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import stylelint from 'stylelint';
 import { PALETTE, alpha } from '../js/palette.js';
@@ -107,11 +107,11 @@ test('font assets are WOFF2 with OFL licenses, and no CDN link survives', () => 
 });
 
 
-test('legacy accents are isolated checksum data; renderer cannot import them', () => {
+test('legacy accent hash workaround is absent; renderer ignores saved colors', () => {
   const renderer = readFileSync(`${root}js/renderer.js`, 'utf8');
-  assert.doesNotMatch(renderer, /legacy-district-hash/);
+  assert.equal(existsSync(`${root}assets/legacy-district-hash.json`), false);
   assert.doesNotMatch(renderer, /(?:lead|op|fl|c)\.color/, 'Old saves cannot inject retired colors into overlays');
-  for (const name of readdirSync(`${root}js`).filter((f) => f.endsWith('.js') && f !== 'sim.js')) {
+  for (const name of readdirSync(`${root}js`, { recursive: true }).filter((f) => f.endsWith('.js'))) {
     assert.doesNotMatch(readFileSync(`${root}js/${name}`, 'utf8'), /legacy-district-hash/, name);
   }
 });

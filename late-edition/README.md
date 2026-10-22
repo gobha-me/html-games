@@ -247,7 +247,8 @@ independently timed browser clicks/frame sequences identical.
 IDs/counters, economy, movement, leads, arcs, dilemmas, edition summaries and the
 last-published time (which prevents duplicate publication within a sim tick).
 Stored best scores, adapters, wire messages/timestamps, traffic, banners,
-flashes, callouts and display-only labels/angles/animation phases are excluded:
+flashes, callouts and all cosmetic fields (colors/accents, labels, district signage,
+operative descriptions, summary copy, angles and animation phases) are excluded:
 they never drive gameplay. The injected `now()` supplies wire event timestamps
 only; gameplay time always comes from `step()`. Renderer rain/ripples may use
 `Math.random()` independently without advancing the gameplay generator.
@@ -257,6 +258,11 @@ dispatches, investigation, manual placement during paste-up, rivals, fortificati
 and night-four/five phone choices, asserting a pinned hash after each print.
 Issue #86 repins the hashes for story subjects, subject publication state/progress,
 pending burned-source calls and raid protection; replay inputs are unchanged.
+Issue #88 performs a one-time repin as cosmetics leave the hash; recursive filtering
+applies to the entire projection and preserves ordered arrays. The same replay also
+checks every print's circulation, funds, credibility, heat, press HP, edition, scoops
+and drawer against [a snapshot](tests/fixtures/pre88-gameplay.json) recorded by
+running pre-#88 commit `2c8b14e` and verifying its original goldens. Gameplay is unchanged.
 Storage reads that are absent, corrupt, nonnumeric, negative or nonfinite become
 zero. Blocked reads and quota-exceeded writes never interrupt play; the current
 run's best is retained in memory.
@@ -412,8 +418,6 @@ dynamic placeholders, all body text nodes fall **103 → 44**, and words
 pre-#88 baseline fixture, so removing a temporary placeholder cannot count as a
 caption reduction.
 
-Compatibility exception: the historical gameplay hash included district accents.
-`assets/legacy-district-hash.json` retains those retired values as checksum data
-only; the hash projection uses them while all renderer colors use the new
-palette. No renderer may import that file. This preserves existing five-edition
-golden hashes without changing gameplay or repinning the replay.
+District accents and every other color field are cosmetic and excluded from the
+gameplay hash. No legacy palette checksum data is needed; recoloring must leave
+the hash unchanged while changes to gameplay values must still be detected.

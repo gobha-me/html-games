@@ -1,4 +1,3 @@
-import legacyDistrictHash from '../assets/legacy-district-hash.json' with { type: 'json' };
 import { PALETTE } from './palette.js';
 // ============================================================================
 // LATE EDITION // 1947 — Noir Newspaper, Field Operatives & Press Cycle Sim
@@ -42,13 +41,15 @@ function canonical(value) {
 }
 
 function withoutCosmetics(record) {
-  const cosmeticKeys = ['angle', 'stepPhase', 'state', 'color', 'headline', 'subdeck',
+  if (Array.isArray(record)) return record.map(withoutCosmetics);
+  if (!record || typeof record !== 'object') return record;
+  const cosmeticKeys = ['angle', 'stepPhase', 'state', 'color', 'accent', 'headline', 'subdeck',
     'seriesBadge', 'arcTitle', 'arcCode', 'districtName', 'name', 'callsign', 'roleLabel',
-    'sprite', 'label', 'caller', 'prompt', 'acceptLabel', 'rejectLabel', 'wire'];
+    'sprite', 'label', 'caller', 'prompt', 'acceptLabel', 'rejectLabel', 'wire',
+    'code', 'neon', 'desc', 'reason'];
   return Object.fromEntries(Object.entries(record)
     .filter(([key]) => !cosmeticKeys.includes(key))
-    .map(([key, value]) => [key, value && typeof value === 'object'
-      ? withoutCosmetics(value) : value]));
+    .map(([key, value]) => [key, withoutCosmetics(value)]));
 }
 
 export class LateEditionSim {
@@ -546,24 +547,17 @@ export class LateEditionSim {
       'gameOver', 'victory', 'cash', 'circulation', 'credibility', 'syndicateHeat',
       'pressHp', 'editionsPrinted', 'lastPublishedTime', 'scoopsTotal', 'selectedOpId', 'selectedLeadId',
       'subjectStates', 'subjectProgress', 'pendingBurns', 'raidBlocked', 'editionLayout', 'nextLeadUid', 'nextRivalUid', 'catalogIdx', 'arcProgress', 'arcRotation',
-      'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws']) {
-      state[key] = this[key];
+      'dilemmaIdx', 'dilemmaTriggeredThisEdition', 'rivalSpawnTimer', 'randomDraws',
+      'operatives', 'leads', 'scoopedStories', 'insideStories', 'spikedStories',
+      'rivals', 'rivalStandings', 'districts', 'frontPage', 'activeDilemma', 'editionSummary']) {
+      // These maps use subject names/arc IDs as keys, not record field names.
+      // A subject named "color" still drives gameplay and must remain hashed.
+      state[key] = ['subjectStates', 'subjectProgress', 'arcProgress'].includes(key)
+        ? this[key] : withoutCosmetics(this[key]);
     }
     state.rng = this.rng.getState?.() ?? null;
-    for (const key of ['operatives', 'leads', 'scoopedStories', 'insideStories', 'spikedStories', 'rivals', 'rivalStandings', 'districts']) {
-      state[key] = this[key].map(withoutCosmetics);
-    }
-    // #88 compatibility exception: the original hash included district.accent,
-    // unlike other cosmetic colors. Preserve its historical bytes so an art pass
-    // cannot repin gameplay replays. This JSON is checksum data ONLY; the renderer
-    // reads the ten-token palette and must never import these retired accents.
-    state.districts = state.districts.map((district) => ({
-      ...district, accent: legacyDistrictHash[district.id],
-    }));
-    state.frontPage = Object.fromEntries(Object.entries(this.frontPage)
-      .map(([key, story]) => [key, story && withoutCosmetics(story)]));
-    state.activeDilemma = this.activeDilemma && withoutCosmetics(this.activeDilemma);
-    state.editionSummary = this.editionSummary;
+    // #88: filter the entire projection, including nested dossiers, effects and
+    // summaries, so art/copy changes cannot leak into the gameplay contract.
     // FNV-1a over UTF-8 canonical JSON; sorted object keys, ordered arrays.
     let hash = 0x811c9dc5;
     for (const byte of new TextEncoder().encode(JSON.stringify(canonical(state)))) {

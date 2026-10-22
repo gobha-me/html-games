@@ -31,10 +31,16 @@
 - Playwright attaches actual request logs and rejects external origins. Art
   scenarios check loaded families, 1280×720/1920×1080 layout, blocked fonts at
   100%/200% CSS layout zoom, core print/drawer actions and reduced motion.
-- Historical district accents were accidentally hashed. They survive solely as
-  checksum compatibility data in `assets/legacy-district-hash.json`, read only
-  by the hash projection, never rendering. All five golden hashes stay unchanged;
-  no gameplay rules, timings, geometry or random draws change.
+- Removed the legacy district-accent checksum file and import. All color and
+  display fields, including accents, district signage, operative descriptions
+  and summary copy, are excluded consistently across the entire hash projection.
+  Recursive filtering preserves ordered arrays, including nested dossier tags.
+- One-time #88 golden hash repin: cosmetics left the hash; gameplay is unchanged.
+  An independent fixture recorded from pre-#88 commit `2c8b14e` (after reproducing
+  its original goldens) pins circulation, funds, credibility, heat, press HP,
+  edition, scoops and drawer contents after every print in the five-edition replay.
+  Adversarial hash tests recolor/delete display fields and mutate nested records,
+  effects, summaries and geometry to distinguish cosmetics from gameplay.
 
 ## [2.8.0] — 2026-10-21 (#87 — Save/load the run)
 

@@ -5,13 +5,14 @@ import { ESLint } from 'eslint';
 import { LateEditionSim, MAX_SUBSTEP_SEC, MAX_CATCHUP_SEC } from '../js/sim.js';
 import { mulberry32 } from '../js/rng.js';
 import { createAudioAdapter, createStorageAdapter, resolveSeed } from '../js/adapters.js';
-import { makeSim, enterDesk } from './helpers.mjs';
+import { makeSim, enterDesk, story, rival } from './helpers.mjs';
 import { isUnlocked, EDITION_DURATION_SEC } from '../js/config.js';
 import { presentation } from '../js/presentation.js';
 
 function playFiveEditions(options = {}) {
   const sim = makeSim({ seed: 81, ...options });
   const hashes = [];
+  const snapshots = [];
   for (let edition = 0; edition < 5; edition++) {
     for (let tick = 0; tick < 4200; tick++) {
       if (tick % 160 === 0 && sim.phase === 'desk') {
@@ -33,6 +34,9 @@ function playFiveEditions(options = {}) {
     }
     sim.publishEdition();
     hashes.push(sim.getStateHash());
+    snapshots.push({ circulation: sim.circulation, funds: sim.cash,
+      credibility: sim.credibility, heat: sim.syndicateHeat, pressHp: sim.pressHp,
+      edition: sim.edition, scoops: sim.scoopsTotal, drawer: structuredClone(sim.spikedStories) });
     if (edition < 4) sim.editionSummary = null;
   }
   assert.equal(sim.editionsPrinted, 5);
@@ -41,18 +45,29 @@ function playFiveEditions(options = {}) {
   assert.ok(sim.nextRivalUid > 5, 'Replay must exercise rivals');
   assert.equal(sim.dilemmaIdx, 2, 'Only nights four and five place automatic calls');
   assert.equal(sim.editionSummary.edition, 5);
-  return { sim, hashes };
+  return { sim, hashes, snapshots };
 }
 
 test('five-edition scripted replay matches the golden gameplay hashes', () => {
   const first = playFiveEditions();
   assert.deepEqual(first.hashes, playFiveEditions().hashes);
   assert.deepEqual(first.hashes, [
-    // #86: subjects, their publication status/progress, pending burns and raid
-    // protection join canonical state. Replay inputs remain unchanged.
-    '6d444dc1', 'cfe9d143', 'e6043995', '72c219ce', 'f250819d',
+    // One-time #88 repin: cosmetic fields (including district accents) left
+    // the hash; recursive filtering preserves ordered arrays. Gameplay and
+    // replay inputs are unchanged, proven by the separate pre-#88 snapshot.
+    '6272a4a7', 'ed7c32d1', 'a2325d9b', 'fbd2f1dc', '9570141b',
   ]);
   assert.notEqual(first.sim.getStateHash(), playFiveEditions({ seed: 82 }).sim.getStateHash());
+});
+
+test('five-edition replay preserves the recorded pre-#88 gameplay numbers and drawer', () => {
+  // Recorded by running this exact seed-81 input script against 2c8b14e in a
+  // detached temporary worktree, verifying its original five golden hashes first.
+  // Keep this fixture independent of hash repins. This script never spikes copy,
+  // so an empty drawer after EVERY print is part of the recorded contract.
+  const baseline = JSON.parse(readFileSync(new URL('./fixtures/pre88-gameplay.json', import.meta.url), 'utf8'));
+  assert.deepEqual(playFiveEditions({ seed: baseline.seed }).snapshots, baseline.snapshots,
+    `Gameplay diverged from pre-#88 commit ${baseline.sourceCommit}`);
 });
 
 test('sim source contains no forbidden entropy or browser identifiers', () => {
@@ -210,6 +225,67 @@ test('adapters, saved records, clocks and cosmetics do not change gameplay', () 
   assert.notEqual(sim.getStateHash(), hash);
 });
 
+for (const key of ['color', 'accent', 'name', 'code', 'neon']) {
+  test(`district ${key} is cosmetic but district geometry still affects the hash`, () => {
+    const sim = makeSim();
+    const hash = sim.getStateHash();
+    sim.districts[0][key] = 'alternate art';
+    assert.equal(sim.getStateHash(), hash, key);
+    // Adding/removing a cosmetic field must be as harmless as recoloring it.
+    delete sim.districts[0][key];
+    assert.equal(sim.getStateHash(), hash, `deleted ${key}`);
+    sim.districts[0].x++;
+    assert.notEqual(sim.getStateHash(), hash, 'Geometry drives lead spawn positions');
+  });
+}
+
+test('cosmetic filtering reaches every record, nested arrays, effects and summaries', () => {
+  const sim = makeSim({ night: 4 });
+  sim.triggerRotaryDilemma();
+  sim.activeDilemma = structuredClone(sim.activeDilemma);
+  sim.scoopedStories.push(story('tray'));
+  sim.insideStories.push(story('inside'));
+  sim.frontPage.banner = story('front-page');
+  sim.spikedStories.push({ uid: 'file', freshness: 2, story: story('filed') });
+  sim.rivals.push(rival());
+  sim.pendingBurns.push({ uid: 'burn', dueEdition: 6, subject: 'Test source' });
+  sim.editionSummary = { edition: 3, totalFunds: sim.cash, reason: 'PRESS RUN COMPLETE' };
+  // A nested array prevents an object-only or shallow filter from passing.
+  sim.frontPage.banner.dossier = { entries: [null, { baseValue: 50 }] };
+  const records = [...sim.operatives, ...sim.districts, ...sim.leads,
+    ...sim.scoopedStories, ...sim.insideStories, ...sim.spikedStories,
+    sim.spikedStories[0].story, ...sim.rivals, ...sim.rivalStandings,
+    sim.frontPage.banner, sim.frontPage.banner.dossier.entries[1],
+    sim.activeDilemma, sim.activeDilemma.acceptEffect, sim.activeDilemma.rejectEffect,
+    sim.pendingBurns[0], sim.editionSummary, sim.editionLayout];
+  const hash = sim.getStateHash();
+  for (const record of records) {
+    for (const key of ['color', 'accent']) {
+      const original = structuredClone(record);
+      record[key] = 'alternate art';
+      assert.equal(sim.getStateHash(), hash, `${record.uid ?? record.id ?? 'nested record'}.${key}`);
+      delete record[key];
+      Object.assign(record, original);
+    }
+  }
+  for (const [record, key] of [[sim.operatives[0], 'desc'], [sim.editionSummary, 'reason']]) {
+    record[key] = 'alternate display copy';
+    assert.equal(sim.getStateHash(), hash, key);
+  }
+  // Every paired gameplay mutation must be detected, even deep inside a dossier
+  // or an effect; dropping whole objects to ignore their colors is not valid.
+  for (const [record, key] of [[sim.operatives[0], 'speed'], [sim.leads[0], 'baseValue'],
+    [sim.frontPage.banner.dossier.entries[1], 'baseValue'],
+    [sim.spikedStories[0], 'freshness'], [sim.activeDilemma.acceptEffect, 'cash'],
+    [sim.pendingBurns[0], 'dueEdition'], [sim.editionSummary, 'totalFunds']]) {
+    const original = record[key];
+    record[key]++;
+    assert.notEqual(sim.getStateHash(), hash, key);
+    record[key] = original;
+    assert.equal(sim.getStateHash(), hash);
+  }
+});
+
 test('canonical hashing ignores object key order but detects RNG advancement', () => {
   const sim = makeSim({ seed: 12 });
   const hash = sim.getStateHash();
@@ -217,6 +293,19 @@ test('canonical hashing ignores object key order but detects RNG advancement', (
   assert.equal(sim.getStateHash(), hash);
   sim.nextFloat();
   assert.notEqual(sim.getStateHash(), hash);
+});
+
+test('cosmetic field names used as gameplay map keys still affect the hash', () => {
+  const sim = makeSim();
+  for (const [map, value] of [[sim.subjectStates, 'exposed'], [sim.subjectProgress, 1], [sim.arcProgress, 1]]) {
+    for (const key of ['color', 'accent', 'name', 'state']) {
+      const hash = sim.getStateHash();
+      map[key] = value;
+      assert.notEqual(sim.getStateHash(), hash, `Gameplay map key ${key}`);
+      delete map[key];
+      assert.equal(sim.getStateHash(), hash);
+    }
+  }
 });
 
 test('dilemma effect copy is cosmetic but effect values affect the hash', () => {

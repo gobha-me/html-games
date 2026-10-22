@@ -6,7 +6,6 @@ The direction document is the art bible; locked decisions describe the target, n
 ## Current module map
 
 Static HTML/CSS with native ES modules, no bundler or external runtime dependencies. Serve over HTTP.
-
 | File | Responsibility today |
 | --- | --- |
 | `index.html` | Desk shell, map canvas, broadsheet, controls, rotary-phone card, edition modal; loads `js/main.js`. |
@@ -24,7 +23,7 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
 | `js/opening.js` | Pure 30-second Lou Vance dialogue clock; reduced-motion text reveal. |
 | `js/presentation.js` | Display-only clock, wire, banner and operative-status formatting. |
 | `js/audio.js` | `NoirAudio`: lazy WebAudio unlock, three fetched MP3 cues, synthesized fallback tones, mute and phone/press timers. |
-| `assets/` | Local sprites/audio, licensed WOFF2 fonts and hash compatibility data. |
+| `assets/` | Local sprites/audio and licensed WOFF2 fonts. |
 | `scripts/` | Documentation-reference checker and its isolated adversarial shell tests. |
 | `tests/` | Adversarial area suites, 50-seed fuzzing, lint/adapter tests and a five-edition golden replay. |
 | `package.json` | Native ES modules; development-only lint/test tools and npm scripts. |
@@ -69,7 +68,8 @@ Static HTML/CSS with native ES modules, no bundler or external runtime dependenc
   wire events; steps drive gameplay time. Reset rewinds the built-in RNG only.
 - `getStateHash()` uses FNV-1a over UTF-8 canonical JSON, sorting object keys.
   It includes opening/viewport gates, gameplay, RNG/counters and summaries, excluding saved best,
-  ports, wire/timestamps, traffic, banners, flashes, callouts and display fields.
+  ports, wire/timestamps, traffic, banners, flashes, callouts and all display/color fields.
+  `withoutCosmetics` recursively filters records and preserves arrays; map keys remain gameplay data.
   See README for the replay contract and injected RNG lifecycle.
 
 ## Lore: canonical names
@@ -97,8 +97,8 @@ Self-hosted Latin WOFF2: League Gothic, Old Standard TT, Courier Prime and
 masthead-only UnifrakturMaguntia; licenses/provenance in [font credits](assets/fonts/README.md).
 Use the pinned fonttools/Brotli venv rebuild script; never add a font CDN.
 Paper rotations are deterministic; motion respects reduced motion. #89 owns city geometry/silhouettes.
-Historical district accents in `assets/legacy-district-hash.json`
-are hash compatibility bytes only: never render them or repin golden hashes.
+#88 removes cosmetics from hashes with a one-time golden repin. Every seed-81 replay print must match
+`tests/fixtures/pre88-gameplay.json` from `2c8b14e` (economy, HP, edition, scoops, drawer); never regenerate from current code.
 
 ## Verification
 
