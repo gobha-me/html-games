@@ -62,6 +62,18 @@ from the build stage — via `python3 -m http.server`.
   gitignored. Edit `cogfall/src/` and open a PR; the image rebuilds on
   merge to `main`.
 
+Production runs in the **`html-games` namespace**, provisioned by the
+cluster operator. The deployment manifest sets that namespace explicitly;
+do not deploy this application into `default`.
+
+```bash
+kubectl -n html-games apply -f deployment.yaml
+kubectl -n html-games rollout status deployment/html-games-deployment
+```
+
+The public URL remains <https://ai.gobha.me/games/>. The namespace-local
+Traefik middlewares preserve prefix stripping and trailing-slash redirects.
+
 See [`SPEC.md`](SPEC.md) for the full pipeline.
 
 ## Working in this repo

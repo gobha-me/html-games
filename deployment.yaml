@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: html-games-deployment
+  namespace: html-games
   labels:
     app: html-games
 spec:
@@ -24,6 +25,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: html-games-service
+  namespace: html-games
 spec:
   selector:
     app: html-games
@@ -37,18 +39,32 @@ apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
   name: html-games-strip-prefix
+  namespace: html-games
 spec:
   stripPrefix:
     prefixes:
       - "/games"
 ---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: html-games-add-trailing-slash
+  namespace: html-games
+spec:
+  redirectRegex:
+    permanent: true
+    regex: '^https?://ai\.gobha\.me/games/([^/.?]+)$'
+    replacement: 'https://ai.gobha.me/games/${1}/'
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: html-games-ingress
+  namespace: html-games
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: default-html-games-strip-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: html-games-html-games-add-trailing-slash@kubernetescrd,html-games-html-games-strip-prefix@kubernetescrd
 spec:
+  ingressClassName: traefik
   rules:
   - host: ai.gobha.me
     http:
