@@ -8,8 +8,9 @@ enough for her to turn away. Failure stays with you until morning.
 
 Open `keeper/` from the arcade using a static server at the repository root.
 Select **Take the watch**. The first watch lasts three real minutes; the
-unwarned trawler reaches the reef around 75 seconds. The default sweep gives
-several chances to spot her before danger.
+unwarned trawler reaches the reef around 65 seconds. The default 12-second
+sweep guarantees at least four passes before the last safe warning time.
+Slowing or holding deliberately trades those chances for attention elsewhere.
 
 - **← / A**, **→ / D**: slow / accelerate clockwise rotation (30–6 seconds
   per revolution; default 12). Release to keep the selected speed.
@@ -18,6 +19,9 @@ several chances to spot her before danger.
   delay and a turning circle. Last-second warnings can still end in a wreck.
 - **Esc / P**: pause. **?**: controls. Focus loss also pauses and releases keys.
 - **Mute horn** silences audio without changing the warning mechanic.
+
+Controls appear on the title card and briefly over the watch (eight seconds,
+or until first input), as well as the persistent bottom bar and **?** card.
 
 The faint dotted marks are the keeper's chart, not visible rocks. A ship's hull
 is visible only in the cone or a fading 1.5-second remembered image. Running
@@ -54,6 +58,9 @@ in localStorage. Invalid or inaccessible storage never prevents play. In-progres
 resume, the keeper's log, Morse (K/L), additional ships/nights, and ambient
 wind/sea audio belong to later milestones. The full design is in
 [docs/DESIGN.md](docs/DESIGN.md); this milestone intentionally shortens the night.
+Issue #118 adds pure sweep-budget helpers, schedule rejection on load/start,
+a retuned radial trawler and a fast-ship engine-cue stub for #115. The five
+night pass minima are defined; additional nights and engine audio remain future work.
 
 ## File layout
 
