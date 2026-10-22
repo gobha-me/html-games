@@ -99,6 +99,92 @@ test('reduced motion title is pixel-static, including a live preference change',
   expect(await page.locator('#title-city').evaluate((canvas) => canvas.toDataURL())).toBe(frozen);
 });
 
+test('title depth values stay distinct and the sodium beam survives foreground compositing', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.evaluate(() => document.fonts.ready);
+  await expect.poll(() => page.evaluate(() => Boolean(window.lateEditionApp.titleRenderer.cache))).toBe(true);
+  const pixels = await page.evaluate(() => {
+    const renderer = window.lateEditionApp.titleRenderer;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1400; canvas.height = 1000;
+    const ctx = canvas.getContext('2d');
+    const masses = [0, 1, 2].map((depth) => {
+      ctx.clearRect(0, 0, 1400, 1000);
+      renderer._drawSkyline(ctx, depth);
+      const building = renderer.skylines[depth][2];
+      // Inside a real facade, above its first windows; ornaments cannot bias it.
+      return Array.from(ctx.getImageData(building.x + building.width / 2, building.top + 8, 1, 1).data);
+    });
+    renderer.renderTitle(0);
+    const lit = renderer.ctx.getImageData(0, 0, renderer.canvas.width, renderer.canvas.height).data;
+    const original = renderer._drawTitleSearchlight;
+    try {
+      renderer._drawTitleSearchlight = () => {};
+      renderer.renderTitle(0);
+      const unlit = renderer.ctx.getImageData(0, 0, renderer.canvas.width, renderer.canvas.height).data;
+      const paper = document.querySelector('.title-paper').getBoundingClientRect();
+      const rect = renderer.canvas.getBoundingClientRect();
+      let visibleBeamPixels = 0;
+      for (let i = 0; i < lit.length; i += 4) {
+        const x = i / 4 % renderer.canvas.width / renderer.canvas.width * rect.width + rect.left;
+        const y = Math.floor(i / 4 / renderer.canvas.width) / renderer.canvas.height * rect.height + rect.top;
+        if (x >= paper.left && x <= paper.right && y >= paper.top && y <= paper.bottom) continue;
+        if (lit[i] - unlit[i] >= 8 && lit[i] > lit[i + 1] && lit[i + 1] > lit[i + 2]) visibleBeamPixels++;
+      }
+      return { masses, visibleBeamPixels };
+    } finally {
+      renderer._drawTitleSearchlight = original;
+      renderer.renderTitle(0);
+    }
+  });
+  for (const mass of pixels.masses) {
+    expect(mass[3]).toBe(255);
+    expect(Math.max(...mass.slice(0, 3))).toBeLessThan(45);
+  }
+  expect(pixels.masses[0][0]).toBeGreaterThan(pixels.masses[1][0] + 3);
+  expect(pixels.masses[1][0]).toBeGreaterThan(pixels.masses[2][0] + 3);
+  expect(pixels.masses[2][0]).toBeGreaterThan(14);
+  expect(pixels.visibleBeamPixels).toBeGreaterThan(1000);
+});
+
+test('crowded telegram artwork keeps clear of figures and rings without moving any address', async ({ page }, testInfo) => {
+  await startDesk(page, { dispatch: false });
+  const results = await page.evaluate(async () => {
+    const { boxesIntersect } = await import('../late-edition/js/label-placement.js');
+    const { renderer, sim } = window.lateEditionApp;
+    sim.edition = 4;
+    sim.paused = true;
+    sim.operatives.forEach((op, i) => Object.assign(op, { x: 650 + i * 35, y: 530,
+      targetX: 700, targetY: 500 }));
+    sim.rivals = [{ x: 740, y: 440, stunTimer: 1, type: 'goon', angle: 0 },
+      { x: 600, y: 475, stunTimer: 0, type: 'reporter', angle: 0 }];
+    sim.leads.forEach((lead, i) => Object.assign(lead, { x: 700 + i * 20, y: 500,
+      headline: 'CROWDED TELEGRAM HEADLINE', seriesBadge: 'SERIES III/III (+2,500 RDRS)', photoVerified: true }));
+    const before = sim.getStateHash();
+    const original = renderer._layoutLeadLabels;
+    const placements = [];
+    renderer._layoutLeadLabels = function (...args) {
+      const result = original.apply(this, args);
+      placements.push(...result);
+      return result;
+    };
+    try { renderer.render(sim, 0); } finally { renderer._layoutLeadLabels = original; }
+    const obstacles = renderer._leadLabelObstacles(sim);
+    const collisions = placements.filter(({ box }) => {
+      const collision = obstacles.some((b) => boxesIntersect(box, b));
+      obstacles.push(box);
+      return collision;
+    });
+    return { count: placements.length, leads: sim.leads.length, collisions,
+      detached: placements.filter((p) => p.leader).length, unchanged: sim.getStateHash() === before };
+  });
+  expect(results.count).toBe(results.leads);
+  expect(results.collisions).toEqual([]);
+  expect(results.detached).toBeGreaterThan(0);
+  expect(results.unchanged).toBe(true);
+  await testInfo.attach('crowded-map', { body: await page.screenshot(), contentType: 'image/png' });
+});
+
 test('1600x900 night art stays dark and all eight signs survive flags on their curbs', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.emulateMedia({ reducedMotion: 'reduce' });

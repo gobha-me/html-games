@@ -25,8 +25,8 @@ export function placeLabel(anchor, size, obstacles, bounds = { x: 0, y: 0, w: WO
   const nearby = candidates.find(fits);
   if (nearby) return { box: nearby, leader: null };
 
-  // A crowded address can block all four neighbours. Probe obstacle edges in
-  // distance order; this bounded pass runs only after the cheap offsets fail.
+  // A crowded address can block all four neighbours. Pick the nearest free
+  // obstacle-edge offset; this bounded pass follows the four cheap candidates.
   const xs = [bounds.x, bounds.x + bounds.w - w];
   const ys = [bounds.y, bounds.y + bounds.h - h];
   for (const b of obstacles) {
@@ -35,16 +35,20 @@ export function placeLabel(anchor, size, obstacles, bounds = { x: 0, y: 0, w: WO
   }
   xs.push(anchor.x - w / 2);
   ys.push(anchor.y - h / 2);
-  const offsets = xs.flatMap((x) => ys.map((y) => ({ x, y, w, h })));
-  offsets.sort((a, b) => Math.hypot(a.x + w / 2 - anchor.x, a.y + h / 2 - anchor.y) -
-    Math.hypot(b.x + w / 2 - anchor.x, b.y + h / 2 - anchor.y));
+  let nearest = null, distance = Infinity;
+  for (const x of xs) for (const y of ys) {
+    const squared = (x + w / 2 - anchor.x) ** 2 + (y + h / 2 - anchor.y) ** 2;
+    if (squared >= distance) continue;
+    const box = { x, y, w, h };
+    if (fits(box)) { nearest = box; distance = squared; }
+  }
   // If the entire viewport is occupied, geometry cannot fit on-screen. Keep
   // the label clear outside the occupied envelope rather than covering a unit.
-  const box = offsets.find(fits) ?? {
+  const box = nearest ?? {
     x: Math.max(bounds.x + bounds.w, ...obstacles.map((b) => b.x + b.w)) + gap,
     y: anchor.y - h / 2, w, h,
   };
-  return { box, leader: { from: { ...anchor }, to: {
+  return { box, leader: { from: { x: anchor.x, y: anchor.y }, to: {
     x: Math.max(box.x, Math.min(anchor.x, box.x + w)),
     y: Math.max(box.y, Math.min(anchor.y, box.y + h)),
   } } };

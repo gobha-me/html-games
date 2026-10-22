@@ -207,7 +207,8 @@ late-edition/
 │   ├── save.js         # Versioned save allowlist, validation and resource limits
 │   ├── opening.js      # Pure 30-second cold-open text clock and reduced-motion reveal
 │   ├── presentation.js # Display-only clock, wire, banner & status formatting
-│   ├── city.js         # Fixed-seed cosmetic building generator, independent of gameplay RNG
+│   ├── city.js         # Fixed-seed map/title buildings and shared rooftop sign geometry
+│   ├── label-placement.js # Pure obstacle-aware telegram placement and leader fallback
 │   ├── silhouettes.js  # Shared Canvas2D street figures and staff portraits
 │   ├── renderer.js     # Cached oblique city/title layers, wet streets, fog & dynamic figures
 │   ├── config.js       # Districts, operative roster, front-page slots & story catalog
@@ -446,13 +447,14 @@ The Weegee / *The Big Clock* / *Sweet Smell of Success* map uses 30-degree obliq
 roofs with lighter top faces over ink-dark fronts, lamp-directed soft street shadows,
 setbacks/parapets, smoke cornices and fire escapes, solid water-tower silhouettes,
 sparse sodium windows and wet lamp reflections. Each neighbourhood has one landmark:
-City Hall dome, Pier 14 cranes/pier, Herald clock tower, Observer warehouse sign,
+City Hall dome, Pier 14 cranes/pier, Herald clock tower, Observer warehouse loading bay,
 Evening Star press room/rooftop sign, trust bank columns, meatpacking stacks and the
 Velvet marquee. Pier cranes have solid masts, booms and counterweights. Mahogany
 only warms masses near lamps. All eight small street signs slide along their district curbs to avoid
 telegram flags, headlines and series badges, stepping into an adjoining street when
 four flags cover both curbs. An impossible fixture covering the whole map retains
-one stable sign at the least occluded curb position.
+one stable sign at the least occluded curb position. Each district label is painted
+exactly once, including Observer; cached landmarks never repeat a street label.
 Rain and drifting edge fog obscure the outskirts without changing gameplay visibility.
 
 `js/city.js` derives six buildings per district from fixed seed **1947** and district
@@ -460,9 +462,14 @@ identity. The stream is separate from simulation RNG, and generation order does 
 matter. `js/silhouettes.js` draws the same fedora/trench coat figures on the map and
 staff passes: camera/flash reflector for Clara, broad shoulders for Knuckles, brass
 hats for Herald men and a red cigarette ember for Observer goons. Selected staff have
-a sodium ground ring and small number badges. Map figures are scaled 1.6×, with long
-cast shadows and a larger camera/flash reflector; pass portraits retain their scale. Telegram flags are
-pinned exactly at lead coordinates, with sodium glow; arc yarn remains red. Herald sedans use sodium
+a sodium ground ring and small number badges. Map figures are scaled 2.24× (1.4×
+the previous size), with proportionally enlarged rings/badges, long cast shadows
+and a larger camera/flash reflector; pass portraits retain their scale. Telegram
+flags, headlines and series/verification badges move together around figure,
+selection/dispatch-ring and street-sign boxes: try above/right/left/below, then
+choose a clear offset with a thin leader line if crowded. The address pin and
+countdown/progress rings stay at the original lead coordinates with sodium glow;
+arc yarn remains red. Herald sedans use sodium
 headlights; only Observer raids use police-blue cones. Scoops get a brief Weegee
 flash; the photographer's existing snap produces a flashbulb star. No unit PNG is
 loaded; the editor portrait and press plate remain in use (see asset notes).
@@ -472,8 +479,11 @@ layers on detached canvases at the displayed size × DPR. Caches rebuild on size
 changes only, after the initial local font load settles. Each frame composites these layers and draws traffic, figures, leads,
 threads, collision-offset street signs, weather and callouts. Title layers dissolve
 into an ink-to-faint-mahogany/sodium horizon through low-contrast dark haze, with an
-ink-black near skyline, bridge, solid water towers and sparse windows. The Evening
-Star sign, slow parallax and a low-alpha sodium municipal searchlight complete it.
+near skyline close to ink-black, bridge, solid water towers and sparse windows.
+Three slightly lifted token-mixed silhouette values distinguish the depth layers
+against the night sky. The Evening Star sign's frame sits on two legs ending at
+building 17's generated near-layer cornice; sign and roof share the same geometry.
+Slow parallax and a visible low-alpha sodium municipal searchlight complete it.
 Reduced motion freezes rain, fog, bob and parallax and suppresses scoop/camera flashes; title pixels remain
 identical across frames, including after changing the preference during play.
 

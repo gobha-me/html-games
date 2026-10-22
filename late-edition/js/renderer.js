@@ -150,6 +150,19 @@ export class NoirCityRenderer {
     ctx.drawImage(this.cache.skyline[0], Math.sin(time * 0.06) * 5, 0);
     ctx.save();
     ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
+    this._drawTitleSearchlight(ctx, time);
+    ctx.restore();
+    for (const depth of [1, 2]) {
+      ctx.drawImage(this.cache.skyline[depth], Math.sin(time * 0.06) * (depth + 1) * 5, 0);
+    }
+    ctx.save();
+    ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
+    this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt);
+    ctx.restore();
+    ctx.drawImage(this.cache.fog, 0, 0);
+  }
+
+  _drawTitleSearchlight(ctx, time) {
     ctx.save();
     ctx.translate(1150, 790);
     ctx.rotate(-0.48 + Math.sin(time * 0.12) * 0.32);
@@ -160,15 +173,6 @@ export class NoirCityRenderer {
     ctx.fillStyle = light;
     polygon(ctx, [[0, 0], [-170, -850], [100, -850]]);
     ctx.restore();
-    ctx.restore();
-    for (const depth of [1, 2]) {
-      ctx.drawImage(this.cache.skyline[depth], Math.sin(time * 0.06) * (depth + 1) * 5, 0);
-    }
-    ctx.save();
-    ctx.scale(this.canvas.width / WORLD_W, this.canvas.height / WORLD_H);
-    this._drawRainAndVignette(ctx, this.reducedMotion ? 0 : dt);
-    ctx.restore();
-    ctx.drawImage(this.cache.fog, 0, 0);
   }
 
   _drawSkyline(ctx, depth) {
@@ -181,7 +185,7 @@ export class NoirCityRenderer {
       ctx.fillStyle = sky;
       ctx.fillRect(-20, 0, WORLD_W + 40, WORLD_H);
     }
-    const mass = [mix(PALETTE.nightInk, PALETTE.smoke, 0.20),
+    const mass = [mix(PALETTE.nightInk, PALETTE.smoke, 0.17),
       mix(PALETTE.nightInk, PALETTE.smoke, 0.11), mix(PALETTE.nightInk, PALETTE.smoke, 0.035)][depth];
     ctx.fillStyle = mass;
     const baseline = 610 + depth * 150;

@@ -67,6 +67,19 @@
   CPU p95 <8ms, with metrics attached to the browser report. Initial local sample:
   16.7ms frame / 0.5ms render p95; superseded by the calibrated checks above.
 
+### Art director review round 2 (PR #101)
+- Remove the cached Observer warehouse label; each district now paints exactly
+  one unique street-sign label, verified across the complete cold-cache render.
+- Enlarge staff/rival silhouettes another 1.4×, with proportional number badges,
+  selection/stun rings and dispatch markers. Offset telegram/headline/badge groups
+  above/right/left/below to avoid figures and rings; crowded groups use a clear
+  offset with a thin leader line. Keep lead coordinates and input targets intact.
+- Slightly lift the three title silhouette layers using palette mixes, strengthen
+  the slow sodium searchlight, and attach the Evening Star frame's two legs to
+  the actual generated near-building roofline. Reduced motion remains static.
+- Add adversarial unique-sign, crowded/boxed-in label, scaling, invalid geometry
+  and multi-seed roof-anchor tests. Paper grain and performance gates are unchanged.
+
 ## [2.9.0] — 2026-10-21 (#88 — Art bible desk pass)
 
 ### Changed
