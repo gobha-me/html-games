@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, step, hornRings, ROCKS, NIGHT_SECONDS } from '../js/sim.js';
+import { createState, step, hornRings, NIGHT_SECONDS } from '../js/sim.js';
 import { createVessel, broadcastHorn, threatensReef, hornRange,
   THREAT_HORIZON_SECONDS, PHYSICS_DT as DT, HULLS } from '../js/physics.js';
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} ≠ ${expected}`);
 const blast = (state) => step(state, { horn: true }, DT);
 const emptySea = () => ({ ...createState(), ships: [] });
-const reefs = ROCKS.map((rock) => ({ x: rock.x, y: -rock.y, radius: rock.radius + 8 }));
+const reefs = createState().hazards.map((rock) => ({ x: rock.x, y: -rock.y, radius: rock.radius + 8 }));
 const physical = (ship) => ({ ...ship, y: -ship.y });
 
 test('createVessel rejects each missing/undefined position and heading for every hull', () => {

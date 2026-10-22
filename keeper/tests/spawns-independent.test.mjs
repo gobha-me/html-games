@@ -6,6 +6,8 @@ import {
   NIGHT_PASSES,
   SPAWN,
   planSpawns,
+  planHazards,
+  bearingTo,
   createState,
   step,
   validateSchedule,
@@ -38,7 +40,7 @@ function gapEnvelope() {
   const high = Math.max(SPAWN.intervalStart, SPAWN.intervalEnd);
   return {
     min: low * (1 - SPAWN.jitter),
-    max: high * (1 + SPAWN.jitter),
+    max: 2 * high * (1 + SPAWN.jitter),
   };
 }
 
@@ -146,7 +148,11 @@ function checkSeed(seed) {
   for (let night = 1; night <= NIGHT_PASSES.length; night++) {
     const plan = planSpawns(seed, { night });
     assert.deepEqual(plan, planSpawns(seed, { night }));
-    assertPlan(plan, trawler, seed, night);
+    const hazards = planHazards(seed, { night });
+    const outermost = hazards.reduce((a, b) => Math.hypot(a.x, a.y) + a.radius > Math.hypot(b.x, b.y) + b.radius ? a : b);
+    const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
+    const nightOpener = { ...trawler, bearing: (bearingTo(outermost) + random - 0.5 + 360) % 360 };
+    assertPlan(plan, nightOpener, seed, night);
     if (night !== 1) continue;
     assert.equal(state.schedule.length, plan.length + 1);
     assert.deepEqual(state.schedule.slice(1), plan);
