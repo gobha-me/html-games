@@ -93,9 +93,9 @@ Reduced motion removes the fade transition.
 - Top-down, radial: the lighthouse sits at the centre-bottom third of the
   screen on Skerry Rock; the sea fans out around it. World is a polar map
   (bearing, range) with ships moving in world coordinates.
-- **The Teeth**: a reef band north-east of the light, and a few isolated
-  rocks, are fixed and known (drawn faintly on the keeper's chart overlay,
-  never on the sea itself). A ship whose course crosses a rock **wrecks**.
+- **The Teeth**: a fixed reef band north-east of the light. Isolated hazards
+  are seeded per night; all are charted (drawn faintly on the keeper's chart
+  overlay, never on the sea itself). A ship whose course crosses a rock **wrecks**.
 - **Off-beam cues** (the only things visible in the dark): a ship's running
   lights as tiny points *if* it is showing them and within half the reach;
   the sound of an engine (panned by bearing) once audio lands. Smugglers
@@ -116,41 +116,65 @@ independent responses for each ship.
 | **Lifeboat / boat in distress** | small, flare or lamp flashing SOS | Drifts toward the rocks; flashes `SOS` in Morse. | Light it (so the shore boat can find it), signal `K`-style acknowledgement, and log it. Unlit too long → lost. |
 | **Swimmer / wreckage** (mystery nights) | tiny, only visible in beam | Drifts. | See it. Log it. |
 
-### Seeded hazards and fleet traffic (kfleet-ISSUE)
+### Fixed Teeth, seeded hazards and fleet traffic (#108)
 
-`planHazards(seed, { night = 1 } = {})` returns new chart-space discs
-`{ kind: 'reef'|'shoal'|'wreck', x, y, radius }`. Its private LCG stream mixes
-seed and night; repeated calls cannot share mutable objects. Both it and
-`planSpawns` require uint32 seeds and integer nights 1–5 (`RangeError` for
-invalid inputs). `createState(seed = 108)` retains its `TypeError` seed
-contract, installs the night-one hazards in `state.hazards`, and stores the
-opening trawler plus extras in `state.schedule`. Pure modules use no DOM,
-wall clock or `Math.random`.
+The deeply frozen `TEETH` export is the permanent north-east reef landmark,
+in south-positive canvas/chart metres, in this order:
 
-The frozen `HAZARD` export lists every generation bound:
+| Kind | x | y | Radius |
+|---|---:|---:|---:|
+| reef | 210 | −255 | 24 m |
+| reef | 244 | −238 | 18 m |
+| reef | 274 | −219 | 14 m |
+
+`planHazards(seed, { night = 1 } = {})` always starts with fresh copies of
+these three discs, then adds **3–7 seeded hazards**, for **6–10 total**. The
+first two Teeth intentionally overlap as one reef band. The isolated rock
+from the original chart is not part of `TEETH`; additional rocks stay seeded.
+The chart keeps its “THE TEETH · CHARTED REEF · KEEP CLEAR” label over the
+fixed landmark. Overhead view, compass, labels, chart transform and layout
+stay fixed.
+
+Each disc is `{ kind: 'reef'|'shoal'|'wreck', x, y, radius }`. The private LCG
+stream mixes seed and night; repeated calls cannot share mutable objects.
+Both `planHazards` and `planSpawns` require uint32 seeds and integer nights
+1–5 (`RangeError` for invalid inputs). `createState(seed = 108)` retains its
+`TypeError` seed contract, installs the complete night-one chart (Teeth
+first) in `state.hazards`, and stores the opening trawler plus extras in
+`state.schedule`. Pure modules use no DOM, wall clock or `Math.random`.
+
+The frozen `HAZARD` export lists every seeded generation bound:
 
 | Tunable | Default | Meaning |
 |---|---:|---|
-| `minCount`, `maxCount` | 5, 9 | Inclusive number of hazards. |
-| `minRadius`, `maxRadius` | 6 m, 34 m | Inclusive permitted radii. |
-| `smallCount`, `smallMaxRadius` | 2, 10 m | First two hazards have radii in [6,10]. |
-| `minCentre`, `maxCentre` | 160 m, 300 m | Radial centre sampling interval. |
-| `angleJitter` | 4° | Independent ± jitter around equal angular sectors. |
+| `minCount`, `maxCount` | 3, 7 | Inclusive number of seeded hazards, excluding the three Teeth. |
+| `minRadius`, `maxRadius` | 6 m, 34 m | Inclusive permitted seeded radii. |
+| `smallCount`, `smallMaxRadius` | 2, 10 m | First two seeded hazards have radii in [6,10]. |
+| `minCentre`, `maxCentre` | 160 m, 250 m | Seeded radial centre sampling interval. |
+| `angleJitter` | 4° | Independent ± jitter around equal angular sectors; zero for four sectors to preserve quadrants. |
 
-A seeded phase covers 0–360°. Equal sectors with jitter spread hazards over
-at least three chart quadrants. The minimum angular separation is 32°;
-`2 × 160 × sin(16°) > 2 × 34` guarantees nonoverlapping discs without retries.
-These conservative sampling bounds satisfy the external limits: centres
-within **430 m**, edges at least **90 m** from the lighthouse (the generator
-actually guarantees at least 126 m). Kinds are selected uniformly. Rendering
-uses the existing dotted chart ink with reef crosses, shoal waves and wreck
-hulls; overhead view, compass, labels, chart transform and layout are fixed.
-No live system reads legacy `ROCKS`: collisions, threat checks, horn response,
-physical PONR, avoidance and rendering all consume `state.hazards`.
+A seeded phase covers 0–360°. Equal sectors spread seeded hazards over at
+least three chart quadrants. For three sectors, their minimum separation
+exceeds 90°; four sectors share an unjittered rotation; five to seven cannot
+fit into only two quadrants. At seven sectors the minimum separation is
+`360°/7 − 8°`; `2 × 160 × sin((360°/7 − 8°)/2) > 2 × 34` guarantees
+nonoverlapping seeded discs without retries. Every seeded outer edge is at
+most **284 m** from the lighthouse, while every Tooth's inner edge is beyond
+**306 m**. Thus seeded hazards clear every Tooth by at least
+**`CLEAR_MARGIN = 20` m**, for every valid seed/night. These conservative
+bounds also satisfy centres within **430 m** and edges at least **90 m**
+from the lighthouse (seeded edges are at least 126 m). Seeded kinds are
+selected uniformly. Rendering uses the existing dotted chart ink with reef
+crosses, shoal waves and wreck hulls. Collisions, threat checks, horn
+response, physical PONR, avoidance and rendering all consume the complete
+`state.hazards`, including the fixed Teeth.
 
 `planSpawns(seed, { night = 1 } = {})` returns only extras, ordered by time,
 with unique consecutive ids `ship-1`, `ship-2`, etc. The opener aims through
-the outermost hazard (centre range plus radius). The frozen `SPAWN` export:
+the outermost seeded hazard (centre range plus radius) outside the Teeth's
+north-east quadrant (`x ≤ 0` or `y ≥ 0`). Three seeded quadrants guarantee
+such a lane. A direct opening course through the distant Teeth would not fit
+four visible warning passes inside worst-case fog. The frozen `SPAWN` export:
 
 | Tunable | Default | Meaning |
 |---|---:|---|
@@ -169,8 +193,8 @@ The frozen `TRAFFIC` export supplies admission details:
 | `attempts` | 8 | Maximum candidates per slot; final candidate is clear outbound traffic in the widest available bearing gap. |
 | `lateAfter` | 80 s | Admit additional long-lived threatening approaches only after this time. |
 | `maxThreats` | 2 | Maximum dawn-long threat reservations including the opener. |
-| `bearingJitter` | 3° | ± offset around a seeded hazard's bearing for threatening extras. |
-| `openingJitter` | 0.5° | ± offset around the outermost hazard for the opener. |
+| `bearingJitter` | 3° | ± offset around any chart hazard's bearing for threatening extras. |
+| `openingJitter` | 0.5° | ± offset around the selected outermost seeded hazard for the opener. |
 
 After **every slot** at `t`, accepted or exhausted, advance by
 `(intervalStart + (intervalEnd − intervalStart) × t / NIGHT_SECONDS) × jitterFactor`.
@@ -184,8 +208,9 @@ accepted gaps (including opener to first extra) never exceed
 single-slot jitter envelope; the two-slot bound applies to accepted traffic.
 Rejection and fallback change the final threatening share.
 
-Threatening extras aim through a seeded hazard. Four-pass nights use
-trawlers; later nights may admit coasters if their entire physical warning
+Threatening extras aim through a chart hazard, including the fixed Teeth when
+the warning budget permits. Four-pass nights use trawlers; later nights may
+admit coasters if their entire physical warning
 budget fits the worst-fog horizon, **464.8 m**. Clear traffic starts at that
 horizon and sails outward beyond every hazard. Every entry declares `type`,
 `spawnTime`, `bearing`, `speed`, `threatening`, `responseSeconds`, `turnRadius`,
@@ -418,10 +443,16 @@ phase (285°). Its PNR is strictly after first visibility. The extra revolution
 also protects other beam phases; tests independently enumerate crossings for
 every scheduled ship across 500 seeds. Capacity and bearing separation apply
 to every overlapping pair, including the opening trawler, and never divide
-the individual warning budget. The opening lane follows the selected night’s hazards, and every threatened
-candidate derives PONR from that layout rather than legacy fixed rocks.
-The adversarial suite checks hazard bounds and schedule validity over
-500 seeds × five nights, alongside independent physical budget tests.
+the individual warning budget. The opening lane follows a seeded hazard
+outside the fixed Teeth's quadrant, and every threatened candidate derives
+PNR from the complete chart, including all three Teeth with hull and
+`CLEAR_MARGIN` padding. Fixing the landmark never weakens the pass quota or
+moves a warning window beyond visible fog reach.
+The adversarial suites check the exact fixed prefix, deep immutability,
+caller isolation, seeded count and size bounds, Tooth clearance, quadrant
+boundaries, south-positive collisions, and schedule validity over
+500 seeds × five nights, alongside scattered uint32 geometry samples and
+independent physical budget tests.
 Clear outbound traffic has no reef PNR;
 its nonnegative radial budget fields keep full-schedule validation compatible.
 

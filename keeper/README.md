@@ -1,16 +1,18 @@
 # Keeper
 
-Keep the light on Skerry Rock through a black, fog-bound night. A trawler's
-course crosses the Teeth, followed by seeded trawler and coaster traffic.
-Find endangered ships with the beam and broadcast the horn early enough for
+Keep the light on Skerry Rock through a black, fog-bound night. The Teeth stay
+fixed on the north-east chart; a trawler approaches seeded hazards, followed
+by seeded trawler and coaster traffic. Find endangered ships with the beam
+and broadcast the horn early enough for
 their crews to turn away. Failure stays with you until morning.
 
 ## How to play
 
 Open `keeper/` from the arcade using a static server at the repository root.
 Select **Take the watch**. The first watch lasts three real minutes; the
-unwarned trawler reaches the seeded hazards around 107 seconds (seed 108). The default 12-second
-sweep guarantees at least four passes before the last safe warning time.
+unwarned trawler reaches the seeded hazards after its warning window. The
+default 12-second sweep guarantees at least four passes before the last safe
+warning time.
 Slowing or holding deliberately trades those chances for attention elsewhere.
 
 - **← / A**, **→ / D**: slow / accelerate clockwise rotation (30–6 seconds
@@ -89,7 +91,10 @@ bearings and independent warning budgets. Traffic stops arriving by 120
 seconds; clear outbound ships never cross reefs. Observed fleet outcomes persist in
 the morning record. All pacing tunables are documented in DESIGN §6.
 
-The kfleet fixes generate a different deterministic hazard chart per seed/night.
+The Teeth are three fixed reef discs on every chart. Each seed/night adds
+3–7 deterministic hazards with at least 20 m clearance from the Teeth. The
+opening trawler approaches a seeded hazard outside their north-east quadrant
+so its full warning window fits within fog reach.
 Warned honest captains take the smallest physically clear course change, then
 resume their off-chart destinations. A ship is safe only after heading outward
 beyond 600 m; a clear hull still underway at dawn is not a saved outcome. Dawn
