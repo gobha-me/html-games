@@ -39,7 +39,7 @@ permissions:
 
 env:
   # Minimum overall mutation score (%). Keep it slightly below the measured score.
-  MUTATION_BREAK: '89'
+  MUTATION_BREAK: '95'
 
 jobs:
   plan:

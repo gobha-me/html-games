@@ -2,6 +2,46 @@
 
 Measured 2026-10-23/24 with StrykerJS 10 (tap runner) on the dev container, branch `chore/keeper-mutation-testing`, against `main` at `fd247d7`. Scope: `js/sim.js`, `js/physics.js`, `js/morse.js`, `js/keys.js`, `js/record.js` (2,043 mutants).
 
+## Current score (CI, after the survivor-killing tests)
+
+Measured by the `Keeper mutation` workflow (`.github/workflows/keeper-mutation.yml`, run 40064857951) on commit `ed7a175`, branch `test/keeper-kill-survivors`, 2026-10-24. All 2,043 planned mutants were reported by the shards; each shard runs the quick pass plus a survivor pass against the whole suite.
+
+| File | Killed | Timeout | Survived | No cov | Errors/other | Score |
+|---|---|---|---|---|---|---|
+| keys.js | 39 | 0 | 0 | 0 | 0 | **100.00%** |
+| morse.js | 261 | 0 | 0 | 0 | 1 | **100.00%** |
+| physics.js | 298 | 15 | 32 | 0 | 50 | **90.72%** |
+| record.js | 44 | 0 | 1 | 0 | 0 | **97.78%** |
+| sim.js | 1207 | 52 | 43 | 0 | 0 | **96.70%** |
+| **All files** | 1849 | 67 | 76 | 0 | 51 | **96.18%** |
+
+CI break threshold (`MUTATION_BREAK`): **95**, just below the measured 96.18%.
+
+Of the 76 live mutants, 23 are documented equivalents or roundoff-only (listed below), and 8 sim.js mutants are unresolved boundary/tie cases with no valid public-API fixture found. The rest of the physics.js survivors are in code paths the targeted runs did not cover as original targets (mostly `measureTacticalDiameter`, lines 162–183); they are the next place to add tests.
+
+### Equivalent mutants
+
+- physics.js:85 `angle <= 180` and physics.js:89 `angle + change > 180`: all four accepted hulls cross 180 strictly, never landing on it, so `<`/`<=` and `>`/`>=` behave the same.
+- sim.js:120 `ship.speed < 0`: zero speed still gives nonfinite visibility times and the same invalid-ship violation from the finite check.
+- sim.js:164 `rock.x < 0` / `rock.y > 0`: generated chart coordinates are never exactly zero (checked algebraically over the seeded RNG).
+- sim.js:165 outer-extent `>=`: no valid seeded rock pair has equal outer extent.
+- sim.js:174 `Math.abs(across) < rock.radius`: the chosen disc's opening lane is strictly interior; no other forward disc can be tangent.
+- sim.js:198 removed `checkSeedNight` call: `planHazards` immediately repeats the same validation.
+- sim.js:212 `random() <= 0.5`: an exact 0.5 LCG draw needs a predecessor that already disables the threatening branch.
+- sim.js:248 `[]`: every generated approach already has a valid budget period.
+- sim.js:265 `+ 180` vs `- 180`: identical bearing modulo 360 (roundoff-only).
+- sim.js:457, 464, 473 equality boundaries: the binary64 values involved can never equal the boundary exactly.
+- sim.js:514 `>=` vs `>`: at equality both branches integrate the same interval (roundoff-only).
+- sim.js:533–536 (four mutants plus three literals): `step`'s final cleanup overwrites the private dawn cleanup in `tick` before the state is returned.
+- sim.js:560 `<= 1e-8`: no binary64 time near 180 differs from 180 by exactly 1e-8.
+- record.js:6 `value.version` (optional chaining removed): parsed `null` throws into the existing catch, which returns the same `null`.
+
+### Unresolved (not equivalent)
+
+sim.js:207 `spawnTime < SPAWN.lastSpawn`, sim.js:217 (two bearing-sort mutants), sim.js:221 `width >= widest`, sim.js:235 `Math.abs(across) < rock.radius`, sim.js:443 `offset < NAVIGATION.maxOffset`, sim.js:465 `<= NAVIGATION.settleYaw` and sim.js:473 removed early rejection. Each needs an exact tie or endpoint that the public seeded API doesn't reach without replacing private functions.
+
+## Baseline (before the survivor-killing tests)
+
 ## How it was measured
 
 1. **Quick pass** (`npm run test:mutation:quick`, `stryker.quick.config.mjs`): every mutant against the suite minus the two slow 500-seed spawn sweeps. Result: 88.81% (1,538 killed, 231 timeout, 216 survived, 7 no coverage, 51 errors).
@@ -85,11 +125,9 @@ Survivors by function:
 
 ## Recommended CI minimum
 
-Measured total: **90.66%**. Recommended `thresholds.break` for a CI job: **89** (slightly below the measured score, leaving headroom for timeout noise between runners), with `high: 92`, `low: 85`. Raise it after the survivor-killing tests land; `keys.js` should reach ~100% with a single table-pinning test.
+Baseline total was **90.66%**, so the first CI threshold was 89. After the survivor-killing tests the CI-measured total is **96.18%** and `MUTATION_BREAK` is now **95**, keeping about a point of headroom for timeout noise between runners. The CI job uses the quick pass plus the survivor pass, sharded, because the full suite takes several hours on 7 workers.
 
-Note the CI job should use the quick config plus the survivor pass, or the full config with enough time budget; on 7 workers the full suite is several hours.
-
-## Survivor list (after merge)
+## Baseline survivor list (after merge, before the survivor-killing tests)
 
 | Location | Function | Mutator | Replacement | Status |
 |---|---|---|---|---|
