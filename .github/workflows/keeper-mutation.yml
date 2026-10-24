@@ -1,0 +1,126 @@
+name: Keeper mutation
+
+# StrykerJS mutation testing for Keeper's core logic (keeper/docs/keeper-mutation-report.md).
+# A full pass is hours of CPU, so it is sharded: a plan job instruments the core files and cuts
+# shards only at lines no mutant crosses; each shard runs the quick pass (no 500-seed spawn
+# sweeps) and then re-tests its survivors against the whole suite; the score job merges the
+# shards, checks that every planned mutant was reported, and fails below MUTATION_BREAK.
+# Each shard's Stryker incremental file is cached, so later runs only re-test changed mutants.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'keeper/js/**'
+      - 'keeper/tests/**'
+      - 'keeper/stryker*.mjs'
+      - 'keeper/scripts/mutation-*.mjs'
+      - 'keeper/package*.json'
+      - '.github/workflows/keeper-mutation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'keeper/js/**'
+      - 'keeper/tests/**'
+      - 'keeper/stryker*.mjs'
+      - 'keeper/scripts/mutation-*.mjs'
+      - 'keeper/package*.json'
+      - '.github/workflows/keeper-mutation.yml'
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: keeper-mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Minimum overall mutation score (%). Keep it slightly below the measured score.
+  MUTATION_BREAK: '89'
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: keeper
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      expected: ${{ steps.plan.outputs.expected }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: keeper/package-lock.json
+      - run: npm ci
+      - id: plan
+        run: node scripts/mutation-plan.mjs 160
+
+  shard:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: shard ${{ matrix.name }}
+    defaults:
+      run:
+        working-directory: keeper
+    env:
+      # ubuntu-latest runners have 4 vCPUs; leave one for the Stryker parent process.
+      STRYKER_CONCURRENCY: '3'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: keeper/package-lock.json
+      - run: npm ci
+      - name: Restore incremental report
+        uses: actions/cache/restore@v4
+        with:
+          path: keeper/reports/stryker-incremental-${{ matrix.name }}.json
+          key: keeper-stryker-${{ matrix.name }}-${{ hashFiles('keeper/js/**', 'keeper/tests/**') }}
+          restore-keys: keeper-stryker-${{ matrix.name }}-
+      - name: Mutation shard (quick pass + survivor pass)
+        run: node scripts/mutation-ci-shard.mjs '${{ matrix.name }}' '${{ toJSON(matrix.mutate) }}' '${{ matrix.expected }}'
+      - name: Save incremental report
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: keeper/reports/stryker-incremental-${{ matrix.name }}.json
+          key: keeper-stryker-${{ matrix.name }}-${{ hashFiles('keeper/js/**', 'keeper/tests/**') }}-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: keeper-mutation-${{ matrix.name }}
+          path: keeper/reports/mutation/
+          retention-days: 14
+
+  score:
+    needs: [plan, shard]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: keeper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: keeper-mutation-*
+          path: keeper/reports/shards
+      - name: Merge shards and enforce the break threshold
+        run: node scripts/mutation-score.mjs reports/shards "$MUTATION_BREAK" '${{ needs.plan.outputs.expected }}'
