@@ -2,3 +2,6 @@ node_modules/
 playwright-report/
 test-results/
 performance-results/
+reports/
+.stryker-tmp/
+stryker.survivors.generated.mjs
