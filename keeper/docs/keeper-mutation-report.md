@@ -17,7 +17,7 @@ Measured by the `Keeper mutation` workflow (`.github/workflows/keeper-mutation.y
 
 CI break threshold (`MUTATION_BREAK`): **95**, just below the measured 96.18%.
 
-Of the 76 live mutants, 23 are documented equivalents or roundoff-only (listed below), and 8 sim.js mutants are unresolved boundary/tie cases with no valid public-API fixture found. The rest of the physics.js survivors are in code paths the targeted runs did not cover as original targets (mostly `measureTacticalDiameter`, lines 162–183); they are the next place to add tests.
+Of the 76 live mutants, 23 are documented equivalents or roundoff-only (listed below), and 8 sim.js mutants are unresolved boundary/tie cases with no valid public-API fixture found. Most of the other physics.js survivors are in `pointOfNoReturn` and `forwardExcursion` (lines 146–183). They weren't survivor targets in the baseline, which recorded 71 physics.js timeouts against 15 in this CI run, so they probably showed up as timeouts there. They are the next place to add tests.
 
 ### Equivalent mutants
 
