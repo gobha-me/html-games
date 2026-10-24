@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, step } from '../js/sim.js';
-import { createVessel, PHYSICS_DT } from '../js/physics.js';
+import { createVessel, stepVessel, PHYSICS_DT } from '../js/physics.js';
 
 function encounter(type, hazards, options = {}) {
   const state = createState(108);
@@ -106,13 +106,14 @@ test('a nearly aligned bow is not settled while substantial residual yaw remains
 });
 
 test('a first predicted position exactly on the clearance disc rejects every candidate', () => {
-  // A stationary hull gains a little thrust before it can gain yaw. The
-  // point reef is tangent to that first predicted position at 8 + 20 m.
-  const distance = (6 - 6 * Math.exp(-PHYSICS_DT)) * PHYSICS_DT / 2;
-  const previous = encounter('speedboat', [{ x: 28, y: -distance, radius: 0 }], {
-    y: 0, speed: 0, destination: { x: 0, y: -1600 },
+  // Every candidate initially slews the same rudder magnitude. Put a point
+  // reef exactly 8 + 20 m from the first port-turn pose, before yaw settles.
+  const first = stepVessel(createVessel('speedboat', { x: 0, y: 0, heading: 0 }),
+    { rudderCommand: -1.5 }, PHYSICS_DT);
+  const previous = encounter('speedboat', [{ x: first.x + 28, y: -first.y, radius: 0 }], {
+    y: 0, destination: { x: 0, y: -1600 },
   });
   const next = step(previous, { hold: true });
-  assert.deepEqual(next.trawler.navigation, { phase: 'blocked', heading: 0, sign: 0, course: 0, obstacles: [] });
+  assert.deepEqual(next.trawler.navigation, { phase: 'blocked', heading: 0, sign: 0, course: 0, obstacles: [0] });
   assert.equal(next.trawler.status, 'underway');
 });

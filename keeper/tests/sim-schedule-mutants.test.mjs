@@ -142,3 +142,15 @@ test('fallback traffic keeps the first widest berth when the final gap is narrow
     { spawnTime: 101.82168750752481, bearing: 33.20158061943948 },
   ]);
 });
+
+test('two reserved threats block a third threat even after a rotating berth is released', () => {
+  // The opener and ship-3 remain reserved until dawn. At 117.78 s an
+  // eligible third threat is rejected, and the available berth takes a coaster.
+  const schedule = planSpawns(4203543597, { night: 5 });
+  assert.deepEqual(schedule.map(({ id, type, threatening, spawnTime }) => ({ id, type, threatening, spawnTime })), [
+    { id: 'ship-1', type: 'coaster', threatening: false, spawnTime: 33.115482084453106 },
+    { id: 'ship-2', type: 'coaster', threatening: false, spawnTime: 61.12896935614066 },
+    { id: 'ship-3', type: 'trawler', threatening: true, spawnTime: 91.90008578833462 },
+    { id: 'ship-4', type: 'coaster', threatening: false, spawnTime: 117.78083916890017 },
+  ]);
+});
