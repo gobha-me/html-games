@@ -564,13 +564,15 @@ async function bootMain({
   }
 
   const ids = [
-    ['sea', 'canvas'], ['clock', 'time'], ['bearing', 'p'],
+    ['sea', 'canvas'], ['night-label', 'span'], ['clock', 'time'], ['bearing', 'p'],
     ['lens-state', 'span'], ['horn-state', 'span'], ['trust-state', 'span'],
     ['lamp-state', 'span'], ['morse-symbols', 'output'], ['morse-text', 'output'], ['morse-delivery', 'span'],
-    ['start-panel', 'div'], ['title-controls', 'ul'], ['schedule-error', 'p'], ['start', 'button'], ['previous-record', 'p'],
-    ['pause-panel', 'div'], ['resume', 'button'],
+    ['start-panel', 'div'], ['title-controls', 'ul'], ['schedule-error', 'p'],
+    ['resume-saved', 'button'], ['start', 'button'], ['save-status', 'p'], ['previous-record', 'p'],
+    ['pause-panel', 'div'], ['pause-save-status', 'p'], ['resume', 'button'],
     ['help-panel', 'div'], ['controls-list', 'ul'], ['incoming-wpm', 'select'], ['show-reference', 'input'], ['close-help', 'button'],
-    ['dawn-panel', 'div'], ['summary', 'p'], ['record-status', 'p'], ['restart', 'button'],
+    ['dawn-panel', 'div'], ['morning-label', 'p'], ['dawn-title', 'h2'], ['summary', 'p'],
+    ['record-status', 'p'], ['dawn-save-status', 'p'], ['next-night', 'button'], ['restart', 'button'], ['new-run', 'button'],
     ['log-panel', 'dialog'], ['log-title', 'h2'], ['log-guidance', 'p'], ['log-form', 'form'],
     ['log-stamp', 'p'], ['log-what', 'select'], ['log-empty', 'p'], ['log-note', 'select'],
     ['add-log-entry', 'button'], ['log-status', 'p'], ['log-no-entries', 'p'], ['log-entries', 'ol'], ['close-log', 'button'],
@@ -580,10 +582,16 @@ async function bootMain({
   ];
   for (const [id, tag] of ids) elements.set(id, makeElement(id, tag));
   elements.get('incoming-wpm').value = '8';
+  elements.get('resume-saved').hidden = true;
+  elements.get('save-status').hidden = true;
   elements.get('previous-record').hidden = true;
   elements.get('pause-panel').hidden = true;
+  elements.get('pause-save-status').hidden = true;
   elements.get('help-panel').hidden = true;
   elements.get('dawn-panel').hidden = true;
+  elements.get('dawn-save-status').hidden = true;
+  elements.get('next-night').hidden = true;
+  elements.get('new-run').hidden = true;
   elements.get('log-empty').hidden = true;
   elements.get('morse-reference').hidden = true;
 
@@ -597,6 +605,10 @@ async function bootMain({
     setItem(key, val) {
       if (storageConfig.setItemError) throw storageConfig.setItemError;
       store.set(key, String(val));
+    },
+    removeItem(key) {
+      if (storageConfig.setItemError) throw storageConfig.setItemError;
+      store.delete(key);
     },
   };
 

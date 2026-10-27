@@ -10,7 +10,7 @@ async function openWatch(page) {
   await page.clock.install({ time: new Date('2026-01-01T18:00:00Z') });
   await page.clock.pauseAt(new Date('2026-01-01T18:00:01Z'));
   await page.goto('/keeper/?e2e=1&seed=108');
-  await page.getByRole('button', { name: 'Take the watch' }).click();
+  await page.locator('#start').click();
   await page.evaluate(() => {
     while (window.__keeper.state.time < 20) {
       const s = window.__keeper.state;
