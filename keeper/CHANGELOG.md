@@ -2,6 +2,10 @@
 
 ## Unreleased — Ship variety (#111)
 
+- Restore strict schedule admission so removed opening ships do not reappear.
+  Add pure `installSpecialty` for explicit time-zero specialty arrivals.
+  Gate distress behavior on `distress: true` from the specialty builder;
+  generic lifeboat hulls retain ordinary horns, navigation, lights and wrecks.
 - Add opt-in pure `specialtyApproach` entries for dark speedboats and distress
   lifeboats, preserving smuggler flags and initial speeds on arrival, including
   time-zero scripts. Keep default traffic, Teeth, fairness budgets and the

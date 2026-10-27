@@ -273,10 +273,27 @@ export function specialtyApproach({ id, type = 'speedboat', smuggler = type === 
     throw new RangeError('Invalid specialty approach');
   }
   const spec = HULLS[type];
-  return { id, type, smuggler, bearing: wrapBearing(bearing), spawnTime, spawnRange,
+  return { id, type, smuggler, distress: type === 'lifeboat', bearing: wrapBearing(bearing), spawnTime, spawnRange,
     speed: spec.cruiseSpeed * (type === 'lifeboat' ? LIFEBOAT_DRIFT_THROTTLE : 1),
     responseSeconds: spec.reactionSeconds[1], turnRadius: 0, pnrRange: 0,
     threatening: false, exitTime: NIGHT_SECONDS };
+}
+
+// Install a specialtyApproach result without mutating the state or approach.
+// Due-now entries arrive explicitly; ticks only admit strictly future entries.
+export function installSpecialty(previous, approach) {
+  if (approach.spawnTime < previous.time
+    || previous.schedule.some((entry) => entry.id === approach.id)
+    || fleet(previous).some((ship) => ship.id === approach.id)) {
+    throw new RangeError('Specialty must have a unique id and not arrive in the past');
+  }
+  const state = structuredClone(previous);
+  const entry = structuredClone(approach);
+  state.schedule.push(entry);
+  if (entry.spawnTime === state.time) {
+    state.ships.push(arrive(entry, state.hazards, state.settings.incomingWpm));
+  }
+  return state;
 }
 
 function startReply(ship, text, startedAt, wpm, repeat = false) {
@@ -293,7 +310,7 @@ function arrive(approach, hazards, wpm, type = approach.type ?? 'trawler') {
     ...approach, spawnRange,
     ...createVessel(type, { id: approach.id, x: east * spawnRange, y: -north * spawnRange,
       smuggler: approach.smuggler ?? false,
-      speed: approach.speed ?? HULLS[type].cruiseSpeed * (type === 'lifeboat' ? LIFEBOAT_DRIFT_THROTTLE : 1),
+      speed: approach.speed ?? HULLS[type].cruiseSpeed * (approach.distress === true ? LIFEBOAT_DRIFT_THROTTLE : 1),
       heading: bearing + (approach.threatening === false ? 0 : 180) }),
     destination: { x: east * (spawnRange + (approach.threatening === false ? 1 : -1) * NAVIGATION.destinationLeg),
       y: -north * (spawnRange + (approach.threatening === false ? 1 : -1) * NAVIGATION.destinationLeg) },
@@ -306,7 +323,7 @@ function arrive(approach, hazards, wpm, type = approach.type ?? 'trawler') {
     litSeconds: 0, litSecondsError: 0, unlitSeconds: 0, unlitSecondsError: 0,
     askedLight: false, lostAt: null,
   };
-  if (type === 'lifeboat' && !ship.smuggler) {
+  if (ship.distress === true) {
     const nearest = hazards.reduce((best, rock) => !best
       || Math.hypot(rock.x - ship.x, rock.y - ship.y) - rock.radius
         < Math.hypot(best.x - ship.x, best.y - ship.y) - best.radius ? rock : best, null);
@@ -347,7 +364,7 @@ export function perception(state, ship = state.trawler) {
     hull: lit ? { x: ship.x, y: ship.y, heading: ship.heading, status: ship.status }
       : ship.afterimage > 0 ? ship.lastSeen : null,
     opacity: lit ? 1 : 0.30 * ship.afterimage / AFTERIMAGE_SECONDS,
-    runningLights: !ship.smuggler && ship.type !== 'lifeboat' && !['wrecked', 'lost'].includes(ship.status)
+    runningLights: !ship.smuggler && ship.distress !== true && !['wrecked', 'lost'].includes(ship.status)
       && Math.hypot(ship.x, ship.y) <= fogReach(state.fog) / 2,
     signal: !ship.smuggler && !['wrecked', 'lost'].includes(ship.status) && Math.hypot(ship.x, ship.y) <= fogReach(state.fog)
       && Boolean(ship.reply?.flashes.some(({ on, off }) => {
@@ -383,7 +400,7 @@ function sendLamp(state) {
   keying.events = [];
   if (!ship) return;
   const message = parseMessage(keying.text);
-  if (ship.type === 'lifeboat' && !ship.smuggler) {
+  if (ship.distress === true) {
     // Selection above proves present beam illumination; a past sighting, horn,
     // or acknowledgement aimed at another ship can never perform a rescue.
     if (['K', 'R', 'AR'].includes(message?.type)) {
@@ -443,7 +460,7 @@ function blastHorn(state) {
     state.trust = Math.max(0, state.trust - 0.25);
     return;
   }
-  const ships = fleet(state).filter((ship) => ship.type !== 'lifeboat'
+  const ships = fleet(state).filter((ship) => ship.distress !== true
     && (ship.status === 'underway' || ship.status === 'safe'));
   const responses = broadcastHorn(ships.map(physical), {
     origin: { x: 0, y: 0 }, fogDensity: state.fog, time: state.time,
@@ -564,7 +581,7 @@ function updateSpecialty(state, ship, dt) {
     ship.askedLight = true;
     startReply(ship, 'WHAT LIGHT', state.time, state.settings.incomingWpm);
   }
-  if (ship.type === 'lifeboat' && !ship.smuggler) {
+  if (ship.distress === true) {
     advanceTimer(ship, 'unlitSeconds', dt, lit);
     if (ship.unlitSeconds >= LIFEBOAT_LOST_SECONDS) {
       ship.status = 'lost';
@@ -586,7 +603,7 @@ function tick(state, input, dt) {
   state.blasts = state.blasts.filter((time) => state.time - time < 20);
   state.ignoredBlasts = state.ignoredBlasts.filter((time) => state.time - time < 2);
   for (const approach of state.schedule) {
-    if (approach.spawnTime >= state.time - dt && approach.spawnTime <= state.time
+    if (approach.spawnTime > state.time - dt && approach.spawnTime <= state.time
       && !fleet(state).some((ship) => ship.id === approach.id)) {
       state.ships.push(arrive(approach, state.hazards, state.settings.incomingWpm));
     }
@@ -599,8 +616,8 @@ function tick(state, input, dt) {
   }
   keyLamp(state, input, dt);
   for (const ship of fleet(state)) {
-    const lifeboat = ship.type === 'lifeboat' && !ship.smuggler;
-    if (ship.status === 'underway' || (ship.status === 'safe' && !lifeboat)) {
+    const distress = ship.distress === true;
+    if (ship.status === 'underway' || (ship.status === 'safe' && !distress)) {
       let rudderCommand = 0;
       if (ship.reactAt !== null && state.time >= ship.reactAt) {
         if (ship.response === 'turn-away' && ship.navigation === null) {
@@ -618,18 +635,18 @@ function tick(state, input, dt) {
         }
       }
       const shipDt = ship.spawnTime > state.time - dt ? state.time - ship.spawnTime : dt;
-      const throttle = lifeboat ? LIFEBOAT_DRIFT_THROTTLE
+      const throttle = distress ? LIFEBOAT_DRIFT_THROTTLE
         : ship.smuggler && isLit(state, ship) ? SMUGGLER_LIT_THROTTLE : 1;
       const next = shipDt > 0 ? stepVessel(physical(ship), { rudderCommand, throttle }, shipDt) : physical(ship);
       const contact = reefs.some((rock) => Math.hypot(next.x - rock.x, next.y - rock.y) <= rock.radius);
       // Distress drifts up to the reef edge, awaiting light and a shore rescue;
       // its unlit timer, rather than the ordinary wreck path, decides its loss.
-      if (lifeboat && contact) ship.speed = 0;
+      if (distress && contact) ship.speed = 0;
       else Object.assign(ship, next, { y: -next.y });
-      if (ship.status === 'underway' && !ship.smuggler && !lifeboat && contact) {
+      if (ship.status === 'underway' && !ship.smuggler && !distress && contact) {
         ship.status = 'wrecked';
         ship.wreckedAt = state.time;
-      } else if (!lifeboat && Math.hypot(ship.x, ship.y) > NAVIGATION.exitRange
+      } else if (!distress && Math.hypot(ship.x, ship.y) > NAVIGATION.exitRange
         && ship.x * Math.sin(ship.heading * RAD) - ship.y * Math.cos(ship.heading * RAD) > 0) {
         ship.status = 'safe';
       }

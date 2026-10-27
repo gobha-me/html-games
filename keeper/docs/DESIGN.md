@@ -129,7 +129,9 @@ The immutable numeric exports in `sim.js` define these deterministic rules:
   Exactly 3 seconds does not flee. The launch turns radially away from the
   lighthouse, keeps that outward course and eventually exits. It still slows
   if lit while fleeing. Reef contact never assigns it a wreck.
-- **Distress lifeboat:** an honest `lifeboat` remains `underway` until saved
+- **Distress lifeboat:** distress is opt-in via the specialty's `distress: true`
+  flag; a generic `lifeboat` hull retains ordinary honest navigation and horn behavior.
+  A distress boat remains `underway` until saved
   or lost. On arrival it heads toward the nearest hazard at
   `LIFEBOAT_DRIFT_THROTTLE = 0.15` (0.45 m/s straight cruise), stopping at
   reef contact while awaiting rescue rather than entering the wreck path.
@@ -156,7 +158,8 @@ default `createState` traffic and all five night pass quotas unchanged.
 The pure exported builder accepts
 `specialtyApproach({ id, type = 'speedboat', smuggler = true, bearing,
 spawnTime = 0, spawnRange = 464.8 })`. For `type: 'lifeboat'`, `smuggler`
-defaults to false and must remain false. Bearings wrap; ids must be unique
+defaults to false and must remain false, and the result sets `distress: true`.
+Bearings wrap; ids must be unique
 within a watch. The result carries all radial `validateSchedule` fields,
 reserves `exitTime = NIGHT_SECONDS`, and may be appended to `state.schedule`:
 
@@ -167,9 +170,22 @@ state.schedule.push(specialtyApproach({
 }));
 ```
 
-`step` installs due entries (including time-zero entries on the first positive
-step), preserving `type`, `smuggler` and initial `speed`. Launches start
-outward; lifeboats instead point toward their nearest hazard on arrival.
+`step` installs entries with `spawnTime` strictly after the previous tick and
+at or before the current tick, preserving `type`, `smuggler`, `distress` and
+initial `speed`. For time-zero scripts, use the pure exported
+`installSpecialty(state, approach)` helper with a `specialtyApproach` result:
+
+```js
+const state = installSpecialty(createState(108), specialtyApproach({
+  id: 'distress-0', type: 'lifeboat', bearing: 50,
+}));
+```
+
+The helper returns a new state, adds the schedule entry, and immediately
+arrives entries due at the state's current time; future entries await `step`.
+It rejects duplicate ids and past arrivals. Removing an already-arrived hull
+does not cause ticks to resurrect it from the schedule. Launches start
+outward; distress boats instead point toward their nearest hazard on arrival.
 Scripts must reserve capacity and bearing separation against existing
 traffic and run `validateSchedule` after installation; the builder does not
 silently remove regular traffic or weaken its warning budget. An explicitly
