@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased — Mystery watches (#114)
+
+- Script all five watches: recurring dark launch, coaster identification,
+  simultaneous far-side launch and Teeth SOS, drifting Board-marked crate,
+  `WHO KEEPS`, and the final slower inbound launch in night-five fog. Reserve
+  full encounter windows before admitting ordinary traffic; retain capacity,
+  bearing separation, physical warning budgets and the #113 night contracts.
+- Add historical keeper pages to the existing log. Gate crate choices and SOS
+  notes on observation; offer launch recognition only after an actual earlier
+  entry in this run. Keep first night-three attention and actual rescue/sighting
+  evidence independently, without translating incoming Morse or explaining the
+  Board's secret.
+- Add pure `resolveEnding` and observation/log filtering for Report, Silence
+  and Lost. Wreck overrides contradictory logs; duplicate, old-run, abandoned,
+  future or impossible entries cannot complete a Report. Keep relief precedence.
+- Version save and log documents at 2 while retaining their stable keys and
+  legacy reads. Scope new entries to run and attempt; migrate old watches
+  without changing their fleet, timing or input state. Record schema 3 and its
+  zero logged tally remain unchanged.
+- Render only the crate's lit/remembered pose in the existing sea view; add
+  historical log content and dawn ending copy. Atlas review is required for
+  panel layout, added object visuals and encounter difficulty. Preserve locked
+  overhead view, compass, chart, labels, transforms and lamp geometry.
+
 ## Unreleased — Night structure (#113)
 
 - Extend each watch to 540 seconds (nine minutes), with five playable nights

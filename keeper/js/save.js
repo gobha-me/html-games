@@ -5,7 +5,7 @@ import { decodeKeying } from './morse.js';
 // Storage access belongs to main.js. This codec snapshots all simulation data,
 // including unfinished keying, physical turns, observations and prior mornings.
 export const SAVE_KEY = 'keeper.save.v1';
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const MAX_SAVE_BYTES = 1_000_000;
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const between = (value, min, max) => Number.isFinite(value) && value >= min && value <= max;
@@ -89,9 +89,36 @@ function validHistory(mornings, night) {
   });
 }
 
+function validStory(state) {
+  const story = state.story;
+  if (story === null) return true; // Migrated #113 watch, without retroactive scripts.
+  if (!keysMatch(story, ['version', 'choice', 'crateSeen', 'crateAfterimage', 'crateLastSeen'])
+    || story.version !== 1 || ![null, 'launch', 'distress'].includes(story.choice)
+    || (state.nightParams.night !== 3 && story.choice !== null)
+    || typeof story.crateSeen !== 'boolean' || !between(story.crateAfterimage, 0, 1.5)
+    || !nullable(story.crateLastSeen, point)
+    || story.crateSeen !== (story.crateLastSeen !== null)
+    || (!story.crateSeen && story.crateAfterimage !== 0)) return false;
+  return !story.crateSeen || (state.nightParams.night === 4 && state.time >= 180);
+}
+function validEncounters(state) {
+  const encounters = state.run.encounters;
+  return Array.isArray(encounters) && encounters.length === state.run.mornings.length
+    && encounters.every((entry, index) => keysMatch(entry, ['night', 'attempt', 'launchSeen', 'launchWrecked',
+      'distressSeen', 'distressAnswered', 'crateSeen', 'choice'])
+      && entry.night === state.run.mornings[index].night
+      && Number.isSafeInteger(entry.attempt) && entry.attempt >= 0
+      && ['launchSeen', 'launchWrecked', 'distressSeen', 'distressAnswered', 'crateSeen'].every((key) => typeof entry[key] === 'boolean')
+      && entry.launchWrecked === false
+      && [null, 'launch', 'distress'].includes(entry.choice)
+      && (entry.night === 3 || (!entry.distressSeen && !entry.distressAnswered && entry.choice === null))
+      && (!entry.distressAnswered || entry.distressSeen)
+      && (entry.night === 4 || !entry.crateSeen));
+}
+
 function validState(state) {
   if (!object(state)) return false;
-  const fresh = createState(state.seed, { night: state.nightParams?.night });
+  const fresh = createState(state.seed, { night: state.nightParams?.night, mystery: state.story !== null, runId: state.run?.id });
   if (!keysMatch(state, Object.keys(fresh)) || !finiteTree(state)
     || !between(state.time, 0, NIGHT_SECONDS)
     || state.phase !== (state.time === NIGHT_SECONDS ? 'dawn' : 'night')
@@ -101,7 +128,11 @@ function validState(state) {
     || !between(state.trust, 0, 1) || !between(state.hornIgnoredUntil, 0, NIGHT_SECONDS + 30)
     || !same(state.hazards, fresh.hazards) || !validPlan(state.schedule, fresh.schedule)
     || !same(state.nightParams, fresh.nightParams) || !validateSchedule(state.schedule, state.nightParams).ok
-    || !keysMatch(state.run, ['mornings']) || !validHistory(state.run.mornings, state.nightParams.night)
+    || !keysMatch(state.run, ['id', 'attempt', 'mornings', 'encounters'])
+    || !text(state.run.id) || state.run.id.length < 1 || state.run.id.length > 80
+    || !Number.isSafeInteger(state.run.attempt) || state.run.attempt < 0
+    || !validHistory(state.run.mornings, state.nightParams.night)
+    || !validEncounters(state) || !validStory(state)
     || !keysMatch(state.settings, ['incomingWpm']) || ![5, 8].includes(state.settings.incomingWpm)) return false;
   for (const key of ['blasts', 'ignoredBlasts']) {
     if (!Array.isArray(state[key]) || !state[key].every((time, index, times) =>
@@ -155,8 +186,19 @@ export function parseSave(raw) {
     if (typeof raw !== 'string' || raw.length > MAX_SAVE_BYTES) return null;
     const value = JSON.parse(raw, (_key, item) =>
       object(item) && Object.keys(item).length === 1 && item.$number === '-0' ? -0 : item);
-    if (!keysMatch(value, ['version', 'state']) || value.version !== SAVE_VERSION
+    if (!keysMatch(value, ['version', 'state']) || ![1, SAVE_VERSION].includes(value.version)
       || !object(value.state) || Object.hasOwn(value.state, 'trawler') || !Array.isArray(value.state.ships)) return null;
+    if (value.version === 1) {
+      // Keep the exact old fleet/timing. Upgrade bookkeeping only, never inject
+      // missed story encounters into an in-progress watch or fabricate evidence.
+      if (Object.hasOwn(value.state, 'story') || !keysMatch(value.state.run, ['mornings'])
+        || !Array.isArray(value.state.run.mornings)) return null;
+      value.state.story = null;
+      Object.assign(value.state.run, { id: `legacy-${value.state.seed}`, attempt: 0,
+        encounters: value.state.run.mornings.map(({ night }) => ({ night, attempt: 0,
+          launchSeen: false, launchWrecked: false, distressSeen: false,
+          distressAnswered: false, crateSeen: false, choice: null })) });
+    }
     value.state.trawler = value.state.ships[0];
     return validState(value.state) ? value.state : null;
   } catch {

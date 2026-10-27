@@ -19,9 +19,9 @@ At dawn, review this night's observed outcomes and the run's cumulative
 wrecks, then take the next night or **Restart this night**. Three observed
 wrecks across the run lead to **Relieved of duty** after dawn. Retry keeps
 earlier mornings and their wrecks but clears the current attempt. Completing
-night five finishes the watch sequence; mystery endings are a later milestone.
+night five resolves **Report**, **Silence** or **Lost**, according to your log and the encounters.
 The morning's logged count remains zero: the persistent log is separate from
-run history and survives retries and new runs.
+run history and survives retries and new runs; ending evidence is scoped to the retained attempts of this run.
 
 The watch saves locally once per second and when leaving the page or opening
 a menu. Reload and choose **Resume night N**, or review a saved morning.
@@ -72,6 +72,26 @@ lit tick resets its 24-second loss timer; light alone does not complete rescue.
 A coaster may ask `WHAT LIGHT` after one continuous second in the beam;
 answer `SKR` for its `R` acknowledgement.
 
+
+The launch returns near dawn on the first four watches. Night two brings a
+coaster's identification question; night three divides your attention between
+distress at the Teeth and the far-side launch. Night four adds drifting wreckage
+and a trawler's question. The final watch brings the launch inward, earlier in
+the thickest fog. Normal launches know the reefs; this final approach can wreck.
+Hold it in the beam for more than three seconds or address `ROCKS` to turn it
+outward in time. The ordinary warnings, Morse and rescue controls still apply.
+
+Read the previous keeper's historical pages with **L** from the first watch.
+Log choices include only things actually observed this night, including a crate
+when found. “Same boat as before” requires logging the launch on an earlier
+completed night of this run. To hand over a **Report**, log the launch on all
+five nights, log and answer the distress on night three, and log the crate on
+night four. A final launch wreck selects **Lost**; otherwise an incomplete
+account selects **Silence**. Relief for three observed wrecks still takes
+precedence. No ending is labelled good. See DESIGN's #114 contract for the
+ending table, contradictory-log rules and storage migrations. Save and log
+schema 2 retain legacy reads; record schema 3 and nine-minute watches stay intact.
+
 ## Tech
 
 Vanilla HTML/CSS/ES modules, Canvas 2D, a pure deterministic seeded simulation,
@@ -99,8 +119,8 @@ the helper compresses the wait for dawn without altering the course or outcome.
 Issue #113: five nine-minute nights, monotonic night-indexed fog, cumulative
 morning records, third-wreck relief with restart-night, and versioned mid-run
 save/resume, integrated with ship variety (#111) and the keeper's log (#112).
-Invalid or inaccessible storage never prevents play. Mystery scripts/endings
-and ambient wind/sea audio remain later milestones. The full design is in [docs/DESIGN.md](docs/DESIGN.md).
+Issue #114 adds the five mystery watches and observation-gated Report / Silence / Lost endings.
+Invalid or inaccessible storage never prevents play. Ambient wind/sea audio remains a later milestone. The full design is in [docs/DESIGN.md](docs/DESIGN.md).
 Issue #118 adds pure sweep-budget helpers, schedule rejection on load/start,
 a retuned radial trawler and a fast-ship engine-cue stub for #115. The five
 night pass minima are defined and preserved; engine audio remains future work.
@@ -114,18 +134,19 @@ live strip, ship replies, incoming-speed setting and optional reference card.
 Issue #111 adds dark-launch flight and reef immunity, distress drift/repeating
 SOS/directed rescue, a separate lost tally, and coaster identification asks.
 Specialty ships are available through the pure `specialtyApproach` schedule
-builder documented in DESIGN §6; default traffic stays trawlers/coasters until
-the mystery-night scripts (#114). The watch now lasts 540 seconds (#113).
+builder documented in DESIGN §6; #114 now reserves scripted encounters alongside
+the ordinary trawler/coaster traffic. The watch now lasts 540 seconds (#113).
 Issue #112 adds the assembled keeper’s log. Choices come only from this watch’s
 `everSeen` vessels, including vessels already departed or lost; old entries
 never unlock unseen choices on a replay. Notes are the keeper’s own observations,
 not automatic encounter facts. The `keeper.log.v1` localStorage document holds
-`{ version: 1, entries }`; each entry stores seed, night, simulation seconds,
-current beam bearing, observed vessel id/type and a preset note. It is separate
+`{ version: 2, entries }`; each entry stores seed, night, simulation seconds,
+current beam bearing, observed vessel/object id/type, a preset note and run/attempt identity.
+Version-1 pages remain readable without counting as evidence for a new run. It is separate
 from `keeper.record.v1` and survives restarting the watch. Invalid or unsupported
 documents open a fresh page; blocked storage or quota errors keep entries for
-the current visit and show a status message. Later mystery scripts and endings
-remain future work.
+the current visit and show a status message. Previous-keeper pages are present from the first watch. Recognition notes require
+an actual earlier-night entry for the observed launch in this run.
 The kspawn pacing change adds seeded arrivals from 24–36 seconds onward,
 with jittered gaps (50→24 seconds over the watch), at most three overlapping
 active windows, separated bearings and independent warning budgets. Traffic stops arriving by 480
@@ -152,6 +173,7 @@ unseen arrivals separately. Rejected spawn slots no longer end traffic.
 - `js/renderer.js`, `js/audio.js` — canvas and horn adapters.
 - `js/keys.js` — shared bindings and control labels.
 - `js/record.js` — defensive versioned morning-record parser.
-- `js/log.js` — pure observation choices, entry assembly and versioned log parser.
+- `js/log.js` — pure observation choices, evidence filtering, entry assembly and versioned log parser.
+- `js/mystery.js` — story identities, historical pages and pure ending table.
 - `js/save.js` — pure full-state save codec, validation and alias restoration.
 - `tests/`, `e2e/` — adversarial Node tests and Playwright browser tests.

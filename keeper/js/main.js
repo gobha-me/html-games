@@ -4,7 +4,8 @@ import { KEYS, CONTROL_LABELS, actionFor, heldInput } from './keys.js';
 import { createRenderer } from './renderer.js';
 import { createHorn } from './audio.js';
 import { RECORD_KEY, parseRecord } from './record.js';
-import { LOG_KEY, LOG_VERSION, LOG_NOTES, LOG_TYPES, revealedThings, assembleEntry, parseLog } from './log.js';
+import { LOG_KEY, LOG_VERSION, LOG_TYPES, revealedThings, notesFor, assembleEntry, endingFor, parseLog } from './log.js';
+import { PREVIOUS_PAGES, MYSTERY } from './mystery.js';
 import { SAVE_KEY, parseSave, serializeSave } from './save.js';
 
 const $ = (id) => document.getElementById(id);
@@ -14,7 +15,8 @@ const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const testMode = navigator.webdriver && new URLSearchParams(window.location.search).get('e2e') === '1';
 const seedParam = testMode ? Number(new URLSearchParams(window.location.search).get('seed') ?? 108) : 108;
 const seed = Number.isSafeInteger(seedParam) && seedParam >= 0 && seedParam <= 0xffffffff ? seedParam : 108;
-let state = createState(seed);
+const newRunId = () => crypto.getRandomValues(new Uint32Array(4)).join('-');
+let state = createState(seed, { runId: newRunId() });
 let mode = 'start';
 let helpReturn = 'start';
 let logReturn = 'start';
@@ -35,10 +37,10 @@ for (const id of ['controls-list', 'title-controls', 'watch-controls-list']) {
   }
 }
 $('controls-hint').textContent = ['slow', 'fast', 'hold', 'horn', 'lamp', 'log', 'pause'].map((key) => CONTROL_LABELS[key]).join('    /    ');
-for (const note of LOG_NOTES) {
-  const option = document.createElement('option');
-  option.value = note; option.textContent = note || 'No note';
-  $('log-note').appendChild(option);
+for (const page of PREVIOUS_PAGES) {
+  const item = document.createElement('li');
+  item.textContent = page;
+  $('previous-pages').appendChild(item);
 }
 for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') {
   const item = document.createElement('span');
@@ -79,8 +81,36 @@ function renderLog() {
   $('log-no-entries').hidden = log.entries.length > 0;
   $('log-status').textContent = logStatus;
 }
+function renderNotes() {
+  const previous = $('log-note').value;
+  const notes = notesFor(state, $('log-what').value, log.entries);
+  $('log-note').replaceChildren();
+  for (const note of notes) {
+    const option = document.createElement('option');
+    option.value = note; option.textContent = note || 'No note';
+    $('log-note').appendChild(option);
+  }
+  $('log-note').disabled = notes.length === 0;
+  $('log-note').value = notes.includes(previous) ? previous : '';
+}
+function renderEnding() {
+  const result = summary(state);
+  if (result.relieved || result.night !== 5 || state.phase !== 'dawn') return;
+  const ending = endingFor(state, log.entries);
+  $('dawn-title').textContent = ending;
+  let text = { Report: 'At relief, you hand over the station log. The entries form an account in your own hand.',
+    Silence: 'At relief, you close the station log. There is no complete account to hand over.',
+    Lost: 'At relief, you leave the last page open. The watch is over.' }[ending];
+  const launch = state.ships.find((ship) => ship.id === MYSTERY.launch);
+  if (ending === 'Lost' && launch?.everSeen) text += ' The launch is on the rocks.';
+  $('record-status').textContent = text;
+}
+
 function toggleLog() {
-  if (mode === 'log') setMode(logReturn);
+  if (mode === 'log') {
+    setMode(logReturn);
+    if (logReturn === 'dawn') renderEnding();
+  }
   else {
     logReturn = mode;
     const things = revealedThings(state);
@@ -94,6 +124,7 @@ function toggleLog() {
     $('add-log-entry').disabled = things.length === 0;
     $('log-empty').hidden = things.length > 0;
     $('log-note').value = '';
+    renderNotes();
     renderLog();
     setMode('log');
   }
@@ -160,13 +191,14 @@ function finishNight() {
   const result = summary(state);
   $('morning-label').textContent = `06:00 · Night ${result.night} · Morning record`;
   $('dawn-title').textContent = result.relieved ? 'Relieved of duty' : result.night === 5 ? 'Five nights at the light.' : 'The watch is over.';
-  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.${result.lost ? ` ${result.lost} lost in distress.` : ''} ${result.unseen} arrivals unseen. ${result.logged} logged. ${result.cumulativeWrecks} wreck${result.cumulativeWrecks === 1 ? '' : 's'} across the run.`;
+  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.${result.lost ? ` ${result.lost} lost in distress.` : ''} ${result.unseen} arrivals unseen. Entries are kept in the station log. ${result.cumulativeWrecks} wreck${result.cumulativeWrecks === 1 ? '' : 's'} across the run.`;
   $('record-status').textContent = result.relieved
     ? 'The Board has relieved you after three observed wrecks. You may retry this night; earlier nights remain on the record.'
     : result.night === 5 ? 'Your five watches are complete. The light kept turning.' : 'The light kept turning. The next watch awaits.';
   $('next-night').hidden = result.relieved || result.night === 5;
   $('next-night').textContent = `Take night ${result.night + 1} →`;
   $('new-run').hidden = result.relieved || result.night !== 5;
+  renderEnding();
   try {
     localStorage.setItem(RECORD_KEY, JSON.stringify({ version: 3, seed: state.seed, ...result }));
   } catch {
@@ -210,7 +242,7 @@ function advance(seconds) {
   draw();
 }
 function start() {
-  state = createState(seed);
+  state = createState(seed, { runId: newRunId() });
   state.settings.incomingWpm = Number($('incoming-wpm').value);
   beginNight();
 }
@@ -249,10 +281,11 @@ $('help').addEventListener('click', toggleHelp);
 $('close-help').addEventListener('click', toggleHelp);
 $('close-log').addEventListener('click', toggleLog);
 $('log-panel').addEventListener('cancel', (event) => { event.preventDefault(); toggleLog(); });
+$('log-what').addEventListener('change', renderNotes);
 $('log-form').addEventListener('submit', (event) => {
   event.preventDefault();
   if (mode !== 'log') return;
-  const entry = assembleEntry(state, $('log-what').value, $('log-note').value);
+  const entry = assembleEntry(state, $('log-what').value, $('log-note').value, log.entries);
   if (!entry) {
     logStatus = 'Choose a vessel revealed during this watch and a note from the list.';
   } else {
@@ -265,6 +298,7 @@ $('log-form').addEventListener('submit', (event) => {
     }
     $('log-note').value = '';
   }
+  renderNotes();
   renderLog();
 });
 $('incoming-wpm').addEventListener('change', () => {

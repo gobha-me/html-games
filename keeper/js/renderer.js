@@ -1,4 +1,4 @@
-import { CONE_DEGREES, fogReach, perception, hornRings } from './sim.js';
+import { CONE_DEGREES, fogReach, perception, hornRings, wreckagePerception } from './sim.js';
 const RAD = Math.PI / 180;
 const ORIGIN = { x: 640, y: 478 };
 const SCALE = 0.86;
@@ -238,6 +238,15 @@ export function createRenderer(canvas) {
           disc(ctx, ship.x, ship.y, 7, 'rgba(255,240,201,0.18)');
           disc(ctx, ship.x, ship.y, 3, '#fff0c9');
         }
+      }
+      const crate = wreckagePerception(state);
+      if (crate.hull) {
+        ctx.save(); ctx.globalAlpha = crate.opacity;
+        ctx.translate(crate.hull.x, crate.hull.y);
+        ctx.fillStyle = '#9c8d6d'; ctx.fillRect(-5, -4, 10, 8);
+        ctx.strokeStyle = '#302e25'; ctx.lineWidth = 1; ctx.strokeRect(-3, -2, 6, 4);
+        ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(3, 2); ctx.stroke();
+        ctx.restore();
       }
       drawHornRings(ctx, state);
       lighthouse(ctx, state.beam, state.lamp);

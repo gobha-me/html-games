@@ -1,4 +1,5 @@
 import { PHYSICS_DT, THREAT_HORIZON_SECONDS, HULLS, hornRange, createVessel, stepVessel, broadcastHorn, threatensReef, pointOfNoReturn } from './physics.js';
+import { MYSTERY } from './mystery.js';
 import { decodeKeying, parseMessage, keyingFor, shipReply } from './morse.js';
 
 // World units are chart metres; bearings increase clockwise from north.
@@ -350,15 +351,115 @@ function arrive(approach, hazards, wpm, type = approach.type ?? 'trawler') {
     }
     startReply(ship, 'SOS', approach.spawnTime, wpm, true);
   }
+  if (approach.question) {
+    startReply(ship, approach.question, approach.spawnTime, wpm);
+    ship.askedLight = type === 'coaster';
+  }
   return ship;
 }
 
-export function createState(seed = 108, { night = 1 } = {}) {
+// Choose a clear inbound lane for night five; nights one and two use exactly
+// the same course and hour. Later watches may shift course to keep reservations
+// separated from the opener and the SOS at the Teeth.
+function storyBearing(seed, night, first) {
+  const hazards = planHazards(seed, { night: 5 });
+  const openings = [1, 2].map((watch) => firstApproach(seed, planHazards(seed, { night: watch }), watch).bearing);
+  const gap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+  const choose = (bearings, distress) => {
+    let best = null, score = -Infinity;
+    for (let bearing = 0; bearing < 360; bearing++) {
+      if (bearings.some((other) => gap(bearing, other) < SPAWN.minBearingGap)
+        || (distress && gap(bearing, bearingTo(TEETH[0])) < 120)) continue;
+      const east = Math.sin(bearing * RAD), north = Math.cos(bearing * RAD);
+      const clearance = Math.min(...hazards.map((rock) => {
+        const along = Math.max(0, Math.min(390, rock.x * east - rock.y * north));
+        return Math.hypot(rock.x - along * east, rock.y + along * north) - rock.radius - SHIP_RADIUS;
+      }));
+      if (clearance <= score) continue;
+      if (night === 5) {
+        const reference = createVessel('speedboat', { x: east * 500, y: north * 500, heading: bearing + 180, speed: 3 });
+        const lead = pointOfNoReturn(reference, [...reefsFor(hazards, CLEAR_MARGIN), { x: 0, y: 0, radius: 26 + CLEAR_MARGIN }]);
+        const minimum = 26 + CLEAR_MARGIN + 3 * lead + 3 * (NIGHT_PASSES[4] + 1) * BUDGET_PERIOD_SECONDS;
+        if (clearance < CLEAR_MARGIN || minimum > fogReach(NIGHT_FOG_MAX)) continue;
+      }
+      if (clearance > score) { score = clearance; best = bearing; }
+    }
+    if (best === null) throw new RangeError('No mystery lane available');
+    return best;
+  };
+  return night <= 2 ? choose(openings, false) : choose([first.bearing], night === 3);
+}
+
+// Reserve scripts first, then admit ordinary traffic only when its entire
+// window fits. The opening reservation and all individual pass quotas survive.
+export function planMystery(seed, { night = 1 } = {}) {
+  checkSeedNight(seed, night);
+  const hazards = planHazards(seed, { night });
+  const first = openingReservation(seed, hazards, night);
+  const bearing = storyBearing(seed, night, first);
+  const launch = specialtyApproach({ id: MYSTERY.launch, bearing, spawnTime: MYSTERY.hour, spawnRange: 390 });
+  if (night === 5) {
+    const east = Math.sin(bearing * RAD), north = Math.cos(bearing * RAD);
+    const reference = createVessel('speedboat', { x: east * 500, y: north * 500, heading: bearing + 180, speed: 3 });
+    const lead = pointOfNoReturn(reference, [...reefsFor(hazards, CLEAR_MARGIN), { x: 0, y: 0, radius: 26 + CLEAR_MARGIN }]);
+    Object.assign(launch, { threatening: true, rockbound: true, approachThrottle: 0.5, speed: 3, spawnTime: MYSTERY.finalHour, spawnRange: fogReach(NIGHT_FOG_MAX), pnrRange: 26 + CLEAR_MARGIN,
+      turnRadius: 3 * (lead - launch.responseSeconds) });
+  }
+  const scripts = [launch];
+  if (night === 3) scripts.push(specialtyApproach({ id: MYSTERY.distress, type: 'lifeboat',
+    bearing: bearingTo(TEETH[0]), spawnTime: MYSTERY.hour, spawnRange: 360 }));
+  if (night === 2 || night === 4) {
+    const type = night === 2 ? 'coaster' : 'trawler';
+    const spec = HULLS[type], spawnRange = 390, spawnTime = 210;
+    scripts.push({ id: night === 2 ? MYSTERY.coaster : MYSTERY.skipper, type,
+      spawnTime, bearing: wrapBearing(first.bearing + 180), speed: spec.cruiseSpeed,
+      responseSeconds: spec.reactionSeconds[1], turnRadius: 0, pnrRange: 0, spawnRange,
+      threatening: false, exitTime: spawnTime + (NAVIGATION.exitRange - spawnRange) / spec.cruiseSpeed + 2 * TICK,
+      question: night === 2 ? 'WHAT LIGHT' : 'WHO KEEPS' });
+
+  }
+  const schedule = [first, ...scripts];
+  for (const entry of extraApproaches(seed, night, first, hazards)) {
+    const overlapping = schedule.filter((other) => other.spawnTime <= entry.exitTime && other.exitTime >= entry.spawnTime);
+    if (overlapping.some((other) => Math.abs(((other.bearing - entry.bearing + 540) % 360) - 180) < SPAWN.minBearingGap)) continue;
+    if (entry.threatening && overlapping.filter((other) => other.threatening).length >= TRAFFIC.maxThreats) continue;
+    const starts = [entry.spawnTime, ...overlapping.map((other) => Math.max(entry.spawnTime, other.spawnTime))];
+    if (starts.some((time) => overlapping.filter((other) => other.spawnTime <= time && other.exitTime >= time).length >= SPAWN.maxActive)) continue;
+    schedule.push(entry);
+  }
+  return [first, ...schedule.slice(1).sort((a, b) => a.spawnTime - b.spawnTime)];
+}
+
+// Wreckage has no running lights, signal, chart mark or off-beam live position.
+// Drift is derived from simulation time, so splitting ticks cannot change it.
+export function wreckage(state) {
+  if (!state.story || state.nightParams.night !== 4 || state.time < 180) return null;
+  return { id: MYSTERY.crate, type: 'crate', x: 180 - (state.time - 180) * 0.04,
+    y: -205 + (state.time - 180) * 0.025 };
+}
+export function wreckagePerception(state) {
+  const crate = wreckage(state);
+  const lit = crate !== null && isLit(state, crate);
+  return { hull: lit ? crate : state.story?.crateAfterimage > 0 ? state.story.crateLastSeen : null,
+    opacity: lit ? 1 : 0.30 * (state.story?.crateAfterimage ?? 0) / AFTERIMAGE_SECONDS };
+}
+export function encounterRecord(state) {
+  const launch = fleet(state).find((ship) => ship.id === MYSTERY.launch);
+  const distress = fleet(state).find((ship) => ship.id === MYSTERY.distress);
+  return { night: state.nightParams.night, attempt: state.run.attempt,
+    launchSeen: launch?.everSeen === true, launchWrecked: launch?.status === 'wrecked',
+    distressSeen: distress?.everSeen === true, distressAnswered: distress?.status === 'safe',
+    crateSeen: state.story?.crateSeen === true, choice: state.story?.choice ?? null };
+}
+
+export function createState(seed = 108, { night = 1, mystery = true, runId = 'standalone' } = {}) {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new TypeError('Seed must be a uint32');
   }
   seed = Math.abs(seed); // Normalise -0 so equal seeds give identical (Object.is) states.
   checkSeedNight(seed, night);
+  if (typeof mystery !== 'boolean' || typeof runId !== 'string' || runId.length === 0 || runId.length > 80)
+    throw new TypeError('Invalid story or run identity');
   const hazards = planHazards(seed, { night });
   const approach = openingReservation(seed, hazards, night);
   const trawler = arrive(approach, hazards, 8);
@@ -367,9 +468,10 @@ export function createState(seed = 108, { night = 1 } = {}) {
     fog: fogAt(night, 0), horn: false, blasts: [], ignoredBlasts: [], hornIgnoredUntil: 0, trust: 1,
     lamp: false, morse: newKeying(), settings: { incomingWpm: 8 },
     nightParams: { night, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
-    run: { mornings: [] },
+    run: { id: runId, attempt: 0, mornings: [], encounters: [] },
+    story: mystery ? { version: 1, choice: null, crateSeen: false, crateAfterimage: 0, crateLastSeen: null } : null,
     hazards,
-    schedule: [approach, ...extraApproaches(seed, night, approach, hazards)],
+    schedule: mystery ? planMystery(seed, { night }) : [approach, ...extraApproaches(seed, night, approach, hazards)],
     ships: [trawler], trawler,
   };
 }
@@ -427,6 +529,10 @@ function sendLamp(state) {
       ship.reply = null;
       ship.speed = 0;
     }
+    return;
+  }
+  if (ship.rockbound === true && message?.type === 'ROCKS') {
+    fleeLaunch(state, ship);
     return;
   }
   const endangered = threatensReef(physical(ship), reefsFor(state.hazards), THREAT_HORIZON_SECONDS);
@@ -584,16 +690,20 @@ function advanceTimer(ship, field, dt, reset) {
   ship[error] = (ship[field] - previous) - increment;
 }
 
+function fleeLaunch(state, ship) {
+  ship.response = 'flee';
+  ship.reactAt = state.time;
+  ship.navigation = null;
+  ship.targetHeading = bearingTo(ship);
+  ship.turnSign = Math.sign(headingError(ship.targetHeading, ship.heading));
+}
+
 function updateSpecialty(state, ship, dt) {
   if (ship.status !== 'underway') return;
   const lit = isLit(state, ship);
   if (ship.smuggler || ship.type === 'coaster') advanceTimer(ship, 'litSeconds', dt, !lit);
   if (ship.smuggler && ship.response !== 'flee' && ship.litSeconds > SMUGGLER_FLEE_SECONDS) {
-    ship.response = 'flee';
-    ship.reactAt = state.time;
-    ship.navigation = null;
-    ship.targetHeading = bearingTo(ship); // Radially away from the lighthouse to open water.
-    ship.turnSign = Math.sign(headingError(ship.targetHeading, ship.heading));
+    fleeLaunch(state, ship);
   } else if (ship.type === 'coaster' && !ship.smuggler && !ship.askedLight
     && ship.litSeconds >= COASTER_ASK_SECONDS) {
     ship.askedLight = true;
@@ -654,14 +764,15 @@ function tick(state, input, dt) {
       }
       const shipDt = ship.spawnTime > state.time - dt ? state.time - ship.spawnTime : dt;
       const throttle = distress ? LIFEBOAT_DRIFT_THROTTLE
-        : ship.smuggler && isLit(state, ship) ? SMUGGLER_LIT_THROTTLE : 1;
+        : (ship.approachThrottle ?? 1) * (ship.smuggler && isLit(state, ship) ? SMUGGLER_LIT_THROTTLE : 1);
       const next = shipDt > 0 ? stepVessel(physical(ship), { rudderCommand, throttle }, shipDt) : physical(ship);
-      const contact = reefs.some((rock) => Math.hypot(next.x - rock.x, next.y - rock.y) <= rock.radius);
+      const contact = reefs.some((rock) => Math.hypot(next.x - rock.x, next.y - rock.y) <= rock.radius)
+        || (ship.rockbound === true && Math.hypot(next.x, next.y) <= 26);
       // Distress drifts up to the reef edge, awaiting light and a shore rescue;
       // its unlit timer, rather than the ordinary wreck path, decides its loss.
       if (distress && contact) ship.speed = 0;
       else Object.assign(ship, next, { y: -next.y });
-      if (ship.status === 'underway' && !ship.smuggler && !distress && contact) {
+      if (ship.status === 'underway' && (!ship.smuggler || ship.rockbound === true) && !distress && contact) {
         ship.status = 'wrecked';
         ship.wreckedAt = state.time;
       } else if (!distress && Math.hypot(ship.x, ship.y) > NAVIGATION.exitRange
@@ -669,6 +780,9 @@ function tick(state, input, dt) {
         ship.status = 'safe';
       }
     }
+    if (state.story && state.nightParams.night === 3 && state.story.choice === null
+      && [MYSTERY.launch, MYSTERY.distress].includes(ship.id) && isLit(state, ship))
+      state.story.choice = ship.id === MYSTERY.launch ? 'launch' : 'distress';
     if (isLit(state, ship) || perception(state, ship).runningLights) ship.everSeen = true;
     if (isLit(state, ship)) {
       ship.afterimage = AFTERIMAGE_SECONDS;
@@ -677,6 +791,12 @@ function tick(state, input, dt) {
       ship.afterimage = Math.max(0, ship.afterimage - dt);
     }
   }
+  const crate = wreckage(state);
+  if (crate && isLit(state, crate)) {
+    state.story.crateSeen = true;
+    state.story.crateLastSeen = { x: crate.x, y: crate.y };
+    state.story.crateAfterimage = AFTERIMAGE_SECONDS;
+  } else if (state.story) state.story.crateAfterimage = Math.max(0, state.story.crateAfterimage - dt);
   if (state.time >= NIGHT_SECONDS) {
     state.phase = 'dawn';
     state.horn = false;
@@ -746,8 +866,9 @@ export function nextNight(previous) {
   if (previous.phase !== 'dawn' || morning.relieved || morning.night === NIGHT_PASSES.length) {
     throw new RangeError('Cannot take the next watch');
   }
-  const state = createState(previous.seed, { night: morning.night + 1 });
+  const state = createState(previous.seed, { night: morning.night + 1, runId: previous.run.id });
   state.run.mornings = structuredClone([...previous.run.mornings, morning]);
+  state.run.encounters = structuredClone([...previous.run.encounters, encounterRecord(previous)]);
   state.settings = structuredClone(previous.settings);
   return state;
 }
@@ -755,8 +876,9 @@ export function nextNight(previous) {
 // Retrying discards only this night's outcomes. Earlier mornings stay accrued;
 // the same seed/night regenerates the same chart, arrivals and fog curve.
 export function restartNight(previous) {
-  const state = createState(previous.seed, { night: previous.nightParams.night });
+  const state = createState(previous.seed, { night: previous.nightParams.night, mystery: previous.story !== null, runId: previous.run.id });
   state.run = structuredClone(previous.run);
+  state.run.attempt++;
   state.settings = structuredClone(previous.settings);
   return state;
 }

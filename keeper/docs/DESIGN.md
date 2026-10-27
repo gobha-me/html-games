@@ -841,3 +841,131 @@ option, 3D/WebGL, any monetisation, achievements.
    danger, and did the horn's effect read clearly?
 5. Is the screen *too* dark on your monitor?
 6. Does the silence feel deliberate or empty?
+
+## #114 implementation contract — mystery watches and endings
+
+This section supersedes the #111 opt-in-only and #112/#113 storage descriptions
+above. Ordinary `planSpawns` remains the original seeded traffic planner;
+`createState` now installs `planMystery` by default. `mystery: false` preserves
+an old watch's traffic for legacy resume. No chart, compass, lamp anchor,
+transform or label geometry changes. The crate is an additional beam-only sea
+object inside the existing view. Night five keeps #113's thickest fog curve
+and its 464.8 m worst-fog planning horizon.
+
+### Script and observation contract
+
+| Night | Script (simulation seconds from dusk) |
+|---|---|
+| 1 | Dark launch at 480 (04:40), outward from 390 m. |
+| 2 | Coaster at 210, asking `WHAT LIGHT`; launch at the same bearing and hour as night one. |
+| 3 | Repeating SOS at the Teeth at 480, concurrent with the launch at least 120° away. |
+| 4 | Drifting crate from 180; trawler at 210, signalling `WHO KEEPS`; launch at 480. |
+| 5 | Launch at 380, inbound from 464.8 m toward Skerry Rock at 3 m/s. |
+
+Every encounter is determined by seed, night and simulation time. The first
+opening reservation stays intact. Scripts reserve their full windows before
+ordinary candidates are admitted; total capacity stays three, overlapping
+bearings stay at least 20° apart, persistent threats stay at most two, and
+individual 4/4/3/3/2 warning quotas still validate at the default sweep. The
+fifth-night lane clears seeded rocks and preserves the full-chart physical
+PONR padding. Its half-throttle approach starts earlier than the previous
+routine so two warning passes fit without weakening the horizon. Light halves
+that throttle again. No other hull or launch tuning changes.
+
+Nights 1–4 retain dark-launch reef immunity. Only the fifth-night scripted
+`rockbound` launch can wreck, on charted reefs or within 26 m of the rock
+(the existing small footprint plus hull clearance, not a geometry edit).
+Holding light for strictly more than three seconds turns it outward; a directed
+`ROCKS` also turns this launch outward, with no reply. A late warning can still
+fail physically. Horn responses remain seeded. The launch is not assigned a
+synthetic safe result: it must actually exit to count as safe, but an underway,
+unwrecked launch does not select Lost.
+
+Scripted coaster/skipper questions begin on arrival through the normal Morse
+flash channel. They get no on-screen translation. The night-three beam cannot
+light both widely separated boats simultaneously. `story.choice` retains the
+first boat illuminated (`launch` or `distress`); both observation flags and the
+actual rescue outcome survive to morning. An attentive player can subsequently
+find and log both. Rescue still requires the lit boat to receive `K`, `R` or
+`AR`; neither a log assertion nor first attention alone answers distress.
+
+The crate drifts from (180, −205) by (−.04, +.025) metres per second after
+180 seconds. `wreckagePerception` returns only a lit or remembered position,
+with the existing 1.5-second afterimage. There are no off-beam cues or chart
+marks. Only observing it admits the log choice **Crate · Board’s mark**.
+Previous-keeper pages are explicitly historical, present from night one and
+separate from player entries; they never anticipate the player's encounters.
+The Board's secret remains director-only. There is no automatic interpretation
+of the crate or the historical pages.
+
+`notesFor(state, id, entries)` derives each selection's notes and
+`assembleEntry` rechecks them at submission. “Same boat as before” is available
+only for the observed recurring launch, with a valid earlier-night launch entry
+from a retained attempt of this run and an observed earlier launch. Seeing
+without logging does not suffice. SOS notes require an observed distress boat.
+Current sightings reset on retry; old entries remain readable. Story copy about
+the final launch appears only when its `everSeen` flag permits it. An unseen
+wreck can select the abstract Lost ending, but never reveals which boat wrecked.
+
+### Ending table and contradictory logs
+
+`js/mystery.js:resolveEnding(facts)` is pure and independent of storage, DOM
+and simulation. `js/log.js:endingFor(state, entries)` supplies admitted evidence
+at night-five dawn. The adapter retains #113 relief precedence: three cumulative
+observed wrecks show **Relieved of duty**, rather than a mystery ending.
+
+| Launch wrecked | Launch logged on all 5 nights | Distress seen, logged and answered on 3 | Crate seen and logged on 4 | Ending |
+|---|---|---|---|---|
+| true | any | any | any | Lost |
+| false | yes | yes | yes | Report |
+| false | any missing requirement | any | any | Silence |
+
+The final row means **any** missing requirement across the three evidence
+columns selects Silence. Exact booleans are required. A true wreck wins over
+all contrary or corrupt log claims; missing/mistyped outcomes cannot earn
+Report. Duplicate entries and duplicate night numbers add no weight. Out-of-range
+night numbers invalidate a completeness claim. Notes are assertions: “signalled
+SOS” never overrides an unanswered distress outcome. Entry id **and** hull type
+must match the encounter, with a plausible time (launch ≥480 on nights 1–4,
+≥380 on 5; distress ≥480 on 3; crate ≥180 on 4). Wrong-run, discarded-attempt,
+future, legacy-unattributed and semantically impossible entries are ignored for
+evidence. Structurally malformed logs reject as a document. Historical prose
+never counts as player evidence. This deliberately favors Silence over awarding
+a Report for contradictory data. Neither Report nor Silence discloses the
+Board's secret or claims knowledge of a missed event.
+
+The dawn panel reads the current log. Adding an eligible observed entry from
+dawn and closing the page refreshes the ending; it cannot manufacture a missed
+sighting or rescue. Storage errors retain in-memory entries for that visit.
+
+### Schema and migration
+
+- **Save document version 2**, still at `keeper.save.v1`. Add `story` version 1
+  (first attention, crate sighting/afterimage/remembered pose) and `run.id`,
+  `run.attempt`, `run.encounters`. Each prior encounter records night, attempt,
+  launch sighting/wreck, distress sighting/rescue, crate sighting and first
+  attention. `run.mornings` still contains only prior completed nights.
+- A new browser run receives an opaque random id in the adapter; no randomness
+  enters the sim. Pure `createState` defaults to `runId: 'standalone'` for
+  deterministic callers, which can inject their own identity. Continuing
+  preserves id; retry increments this night's attempt and preserves earlier
+  encounter/morning records. Ordinary next nights begin at attempt zero.
+- Version-1 saves migrate bookkeeping only: `story: null`, `legacy-<seed>` id,
+  attempt zero, and no claimed historical observations. Their original fleet,
+  schedule, fog, keying and physics resume unchanged. Retrying that watch keeps
+  the legacy schedule; taking the next watch enables scripts. Missing early
+  story evidence cannot be invented, so starting a new run is needed for Report.
+- **Log document version 2**, still at `keeper.log.v1`: add `runId` and `attempt`
+  to each entry, and support `what.type: 'crate'`. Version-1 entries migrate with
+  `runId: null`, `attempt: 0`; they remain readable without unlocking recognition
+  or Report. The pure parser bounds the document at 1,000,000 code units and
+  10,000 entries. Existing saved v1 notes remain readable.
+- Last-morning **record version 3 is unchanged**, with legacy v1/v2 reads.
+  Its `logged: 0` remains a deliberately separate tally; ending evidence uses
+  the versioned station log rather than changing #113's morning contract. The
+  dawn copy directs the player to that separate log instead of displaying the
+  placeholder zero as an actual entry count.
+
+**Atlas gate required:** historical pages and ending copy change panel layout;
+new encounter objects change visuals and attention/difficulty. Keyboard controls,
+overhead view, compass ring, chart, labels and LOCKED lamp geometry stay fixed.

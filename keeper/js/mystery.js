@@ -1,6 +1,6 @@
 // Story identifiers are stable across watches; they never reveal a sighting.
 export const MYSTERY = Object.freeze({ launch: 'mystery-launch', distress: 'mystery-distress',
-  coaster: 'mystery-coaster', skipper: 'mystery-skipper', crate: 'mystery-crate', hour: 480 });
+  coaster: 'mystery-coaster', skipper: 'mystery-skipper', crate: 'mystery-crate', hour: 480, finalHour: 380 });
 
 // Historical pages, explicitly dated before the player's appointment. They do
 // not describe the player's watches or predict any of the scripted encounters.
