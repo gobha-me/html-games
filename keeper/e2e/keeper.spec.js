@@ -37,8 +37,8 @@ test('title controls and first eight seconds of watch show the shared bindings; 
   await page.clock.install({ time: new Date('2026-01-01T18:00:00Z') });
   await page.clock.pauseAt(new Date('2026-01-01T18:00:01Z'));
   await page.goto('/keeper/?e2e=1');
-  await expect(page.locator('#title-controls li')).toHaveCount(7);
-  for (const key of ['← / A', '→ / D', 'Space', 'H · horn', 'K · signal lamp', 'Esc / P', '? · controls']) {
+  await expect(page.locator('#title-controls li')).toHaveCount(8);
+  for (const key of ['← / A', '→ / D', 'Space', 'H · horn', 'K · signal lamp', 'L · keeper’s log', 'Esc / P', '? · controls']) {
     await expect(page.locator('#title-controls')).toContainText(key);
   }
   await page.screenshot({ path: 'test-results/keeper-title-controls.png' });
@@ -250,7 +250,7 @@ test('pause/help/blur freeze the world and release horn + clutch; autorepeat can
   await page.keyboard.press('?');
   const help = await snapshot(page); await advance(page, 3);
   expect(await snapshot(page)).toEqual(help);
-  await expect(page.locator('#controls-list li')).toHaveCount(7);
+  await expect(page.locator('#controls-list li')).toHaveCount(8);
   await page.keyboard.press('Escape');
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   await expect(page.locator('#pause-panel')).toBeVisible();

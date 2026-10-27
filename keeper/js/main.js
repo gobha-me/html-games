@@ -4,6 +4,7 @@ import { KEYS, CONTROL_LABELS, actionFor, heldInput } from './keys.js';
 import { createRenderer } from './renderer.js';
 import { createHorn } from './audio.js';
 import { RECORD_KEY, parseRecord } from './record.js';
+import { LOG_KEY, LOG_VERSION, LOG_NOTES, LOG_TYPES, revealedThings, assembleEntry, parseLog } from './log.js';
 
 const $ = (id) => document.getElementById(id);
 const renderer = createRenderer($('sea'));
@@ -15,6 +16,9 @@ const seed = Number.isSafeInteger(seedParam) && seedParam >= 0 && seedParam <= 0
 let state = createState(seed);
 let mode = 'start';
 let helpReturn = 'start';
+let logReturn = 'start';
+let log = { version: LOG_VERSION, entries: [] };
+let logStatus = 'Entries are kept in this browser.';
 let previousTime;
 let recorded = false;
 let controlsDismissed = false;
@@ -26,7 +30,12 @@ for (const id of ['controls-list', 'title-controls', 'watch-controls-list']) {
     $(id).appendChild(item);
   }
 }
-$('controls-hint').textContent = ['slow', 'fast', 'hold', 'horn', 'lamp', 'pause'].map((key) => CONTROL_LABELS[key]).join('    /    ');
+$('controls-hint').textContent = ['slow', 'fast', 'hold', 'horn', 'lamp', 'log', 'pause'].map((key) => CONTROL_LABELS[key]).join('    /    ');
+for (const note of LOG_NOTES) {
+  const option = document.createElement('option');
+  option.value = note; option.textContent = note || 'No note';
+  $('log-note').appendChild(option);
+}
 for (const letter of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') {
   const item = document.createElement('span');
   item.textContent = `${letter} ${MORSE[letter]}`;
@@ -39,6 +48,51 @@ try {
     $('previous-record').textContent = `Last watch: ${record.safe} safe · ${record.wrecked} wrecked`;
   }
 } catch { /* Storage may be disabled; the watch is always available. */ }
+try {
+  const raw = localStorage.getItem(LOG_KEY);
+  const saved = parseLog(raw);
+  if (saved) log = saved;
+  else if (raw !== null) logStatus = 'The saved log could not be read. A fresh page is ready.';
+} catch {
+  logStatus = 'This browser cannot keep the log. Entries remain for this visit.';
+}
+
+function watchTime(time) {
+  const minutes = Math.floor(18 * 60 + time / NIGHT_SECONDS * 12 * 60) % (24 * 60);
+  return `${Math.floor(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
+}
+const logBearing = (bearing) => `${Math.floor(bearing).toString().padStart(3, '0')}°`;
+function renderLog() {
+  $('log-stamp').textContent = `Night ${state.nightParams.night} · ${watchTime(state.time)} · ${logBearing(state.beam)}`;
+  $('log-entries').replaceChildren();
+  for (const entry of log.entries) {
+    const item = document.createElement('li');
+    item.textContent = `Night ${entry.night} · ${watchTime(entry.time)} · ${logBearing(entry.bearing)} · ${LOG_TYPES[entry.what.type]}${entry.note ? ` · ${entry.note}` : ''}`;
+    $('log-entries').appendChild(item);
+  }
+  $('log-no-entries').hidden = log.entries.length > 0;
+  $('log-status').textContent = logStatus;
+}
+function toggleLog() {
+  if (mode === 'log') setMode(logReturn);
+  else {
+    logReturn = mode;
+    const things = revealedThings(state);
+    $('log-what').replaceChildren();
+    for (const [index, thing] of things.entries()) {
+      const option = document.createElement('option');
+      option.value = thing.id; option.textContent = `${LOG_TYPES[thing.type]} · sighting ${index + 1}`;
+      $('log-what').appendChild(option);
+    }
+    $('log-what').disabled = things.length === 0;
+    $('add-log-entry').disabled = things.length === 0;
+    $('log-empty').hidden = things.length > 0;
+    $('log-note').value = '';
+    renderLog();
+    setMode('log');
+  }
+  draw();
+}
 
 function setMode(next) {
   mode = next;
@@ -47,7 +101,12 @@ function setMode(next) {
   state = resetLamp(state);
   audio.set(false);
   for (const panel of ['start', 'pause', 'help', 'dawn']) $(panel + '-panel').hidden = next !== panel;
-  const focus = { start: 'start', pause: 'resume', help: 'close-help', dawn: 'restart' }[next];
+  if (next === 'log') $('log-panel').showModal();
+  else if ($('log-panel').open) $('log-panel').close();
+  // An empty watch can still have a long saved history. Start its review at
+  // the heading rather than focusing the close button below the visible page.
+  const focus = { start: 'start', pause: 'resume', help: 'close-help', dawn: 'restart',
+    log: $('log-what').disabled ? 'log-title' : 'log-what' }[next];
   if (focus) $(focus).focus({ preventScroll: true });
   else document.activeElement?.blur();
   previousTime = undefined;
@@ -70,8 +129,7 @@ function draw() {
   const showControls = mode === 'play' && state.time < 8 && !controlsDismissed;
   $('watch-controls').classList.toggle('is-faded', !showControls);
   $('watch-controls').setAttribute('aria-hidden', String(!showControls));
-  const minutes = Math.floor(18 * 60 + state.time / NIGHT_SECONDS * 12 * 60) % (24 * 60);
-  $('clock').textContent = `${Math.floor(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
+  $('clock').textContent = watchTime(state.time);
   $('bearing').textContent = `${Math.floor(state.beam).toString().padStart(3, '0')}° · ${(360 / state.speed).toFixed(1)} s / revolution`;
   $('lens-state').textContent = mode === 'play' ? (heldInput(pressed).hold ? 'Lens held' : 'Lens turning clockwise') : 'Lens at rest';
   $('horn-state').textContent = state.horn ? 'Horn sounding' : 'Horn silent';
@@ -122,6 +180,26 @@ $('restart').addEventListener('click', start);
 $('resume').addEventListener('click', () => { setMode('play'); draw(); });
 $('help').addEventListener('click', toggleHelp);
 $('close-help').addEventListener('click', toggleHelp);
+$('close-log').addEventListener('click', toggleLog);
+$('log-panel').addEventListener('cancel', (event) => { event.preventDefault(); toggleLog(); });
+$('log-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (mode !== 'log') return;
+  const entry = assembleEntry(state, $('log-what').value, $('log-note').value);
+  if (!entry) {
+    logStatus = 'Choose a vessel revealed during this watch and a note from the list.';
+  } else {
+    log.entries.push(entry);
+    try {
+      localStorage.setItem(LOG_KEY, JSON.stringify(log));
+      logStatus = 'Entry saved in this browser.';
+    } catch {
+      logStatus = 'Entry added for this visit. This browser could not save the log.';
+    }
+    $('log-note').value = '';
+  }
+  renderLog();
+});
 $('incoming-wpm').addEventListener('change', () => {
   state.settings.incomingWpm = Number($('incoming-wpm').value);
 });
@@ -138,6 +216,15 @@ window.addEventListener('keydown', (event) => {
   if (mode === 'play') { controlsDismissed = true; draw(); }
   const action = actionFor(event.code);
   if (!action || event.ctrlKey || event.metaKey || event.altKey) return;
+  // Modal form controls retain native arrows, type-ahead and Space/Enter.
+  // No gameplay key is queued; closing the page requires fresh presses.
+  if (mode === 'log') {
+    if (action === 'log' || action === 'pause') {
+      event.preventDefault();
+      if (!event.repeat) toggleLog();
+    }
+    return;
+  }
   // Space/Enter still activate a focused menu button via native keyboard semantics.
   if (mode !== 'play' && action === 'hold') return;
   event.preventDefault();
@@ -146,7 +233,8 @@ window.addEventListener('keydown', (event) => {
     if (mode === 'help') setMode(helpReturn);
     else if (mode === 'play') setMode('pause');
     else if (mode === 'pause') setMode('play');
-  } else if (action === 'help') toggleHelp();
+  } else if (action === 'log') toggleLog();
+  else if (action === 'help') toggleHelp();
   else if (mode === 'play') pressed.add(event.code);
   draw();
 });

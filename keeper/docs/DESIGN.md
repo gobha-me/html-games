@@ -621,6 +621,30 @@ revealed this night — you cannot log what you did not see) · *note*
 "no name visible", "same boat as before"). The page persists across nights
 (localStorage, versioned schema).
 
+**Implementation (#112).** The modal page pauses the simulation, horn and
+lamp, clears held inputs and cancels unfinished outgoing Morse without sending.
+Steering/horn/lamp presses are ignored until it closes; fresh presses are
+required afterward. L or Esc/P returns to the prior screen, so reading the log
+from pause or dawn cannot resume the watch. Native select navigation and
+Space/Enter remain available inside the page. The page is also readable from
+the title and controls cards.
+
+`js/log.js` derives vessel choices solely from the current fleet’s `everSeen`
+flags and rechecks eligibility when assembling an entry. The automatic bearing
+is the beam’s current bearing, not an unseen vessel’s live position. Departed
+observed vessels remain eligible this night; replaying the watch resets choices
+but preserves history. Preset notes are player assertions, not revelations of
+hidden encounter flags. Mystery-dependent notes and story pages remain #114.
+
+Storage is `{ version: 1, entries: [{ seed, night, time, bearing,
+what: { id, type }, note }] }` at `keeper.log.v1`, independent of the dawn
+record. Time is simulation seconds, displayed on the same 18:00–06:00 clock as
+the watch. Version 1 validates uint32 seeds, nights 1–5, times within the
+180-second watch, bearings in [0, 360), supported vessel types and preset notes.
+Unsupported versions or malformed entries reject the document and
+open a fresh page. Storage failures retain entries in memory for the visit and
+display a warning on the page; later successful additions retry the full log.
+
 **Arc outline (v1 = 5 nights; content written in the mystery issues):**
 
 1. **Night 1 — The Light.** Tutorial by situation, not text: a trawler, then
