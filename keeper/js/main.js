@@ -270,6 +270,7 @@ function suspend() {
 window.addEventListener('blur', suspend);
 document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); });
 window.addEventListener('resize', () => { renderer.resize(); draw(); });
+reducedMotion.addEventListener?.('change', draw);
 
 // E2E opt-in requires browser automation. Normal visits never receive the hook.
 // State is a read-only snapshot; advance drives the same input/sim/dawn path as RAF.
