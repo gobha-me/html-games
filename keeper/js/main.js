@@ -1,10 +1,11 @@
-import { createState, step, summary, validateSchedule, resetLamp, NIGHT_SECONDS } from './sim.js';
+import { createState, step, summary, nextNight, restartNight, validateSchedule, resetLamp, NIGHT_SECONDS } from './sim.js';
 import { MORSE, decodeKeying } from './morse.js';
 import { KEYS, CONTROL_LABELS, actionFor, heldInput } from './keys.js';
 import { createRenderer } from './renderer.js';
 import { createHorn } from './audio.js';
 import { RECORD_KEY, parseRecord } from './record.js';
 import { LOG_KEY, LOG_VERSION, LOG_NOTES, LOG_TYPES, revealedThings, assembleEntry, parseLog } from './log.js';
+import { SAVE_KEY, parseSave, serializeSave } from './save.js';
 
 const $ = (id) => document.getElementById(id);
 const renderer = createRenderer($('sea'));
@@ -22,6 +23,9 @@ let logStatus = 'Entries are kept in this browser.';
 let previousTime;
 let recorded = false;
 let controlsDismissed = false;
+let activeRun = false;
+let lastSavedTime = -1;
+let storageMessage = '';
 const pressed = new Set();
 
 for (const id of ['controls-list', 'title-controls', 'watch-controls-list']) {
@@ -45,7 +49,9 @@ try {
   const record = parseRecord(localStorage.getItem(RECORD_KEY));
   if (record) {
     $('previous-record').hidden = false;
-    $('previous-record').textContent = `Last watch: ${record.safe} safe · ${record.wrecked} wrecked`;
+    $('previous-record').textContent = record.version === 3
+      ? `Last morning · night ${record.night}: ${record.safe} safe · ${record.wrecked} wrecked · ${record.cumulativeWrecks} wrecks this run`
+      : `Last watch: ${record.safe} safe · ${record.wrecked} wrecked`;
   }
 } catch { /* Storage may be disabled; the watch is always available. */ }
 try {
@@ -93,32 +99,76 @@ function toggleLog() {
   }
   draw();
 }
+try {
+  const raw = localStorage.getItem(SAVE_KEY);
+  const saved = parseSave(raw);
+  if (saved) {
+    state = saved;
+    activeRun = true;
+    $('resume-saved').hidden = false;
+    $('start').textContent = 'Start a new run →';
+    $('resume-saved').textContent = `${saved.phase === 'dawn' ? 'Review morning' : 'Resume night'} ${saved.nightParams.night} →`;
+    $('incoming-wpm').value = String(state.settings.incomingWpm);
+    storageMessage = 'Your watch is saved on this browser.';
+  } else if (raw !== null) {
+    storageMessage = 'The saved watch could not be read. Take a fresh watch.';
+    localStorage.removeItem(SAVE_KEY);
+  }
+} catch {
+  storageMessage = 'This browser cannot save your watch. Keep this page open to continue.';
+}
 
-function setMode(next) {
+function persist() {
+  if (!activeRun) return;
+  lastSavedTime = state.time; // A quota/security error must not retry on every frame.
+  try {
+    localStorage.setItem(SAVE_KEY, serializeSave(state));
+    storageMessage = 'Your watch is saved on this browser.';
+  } catch {
+    storageMessage = 'This browser cannot save your watch. Keep this page open to continue.';
+  }
+  showStorageStatus();
+}
+function showStorageStatus() {
+  for (const id of ['save-status', 'pause-save-status', 'dawn-save-status']) $(id).textContent = storageMessage;
+}
+
+function setMode(next, preserveState = false) {
   mode = next;
   pressed.clear();
-  state.horn = false;
-  state = resetLamp(state);
+  if (!preserveState) {
+    state.horn = false;
+    state = resetLamp(state);
+  }
   audio.set(false);
   for (const panel of ['start', 'pause', 'help', 'dawn']) $(panel + '-panel').hidden = next !== panel;
   if (next === 'log') $('log-panel').showModal();
   else if ($('log-panel').open) $('log-panel').close();
   // An empty watch can still have a long saved history. Start its review at
   // the heading rather than focusing the close button below the visible page.
-  const focus = { start: 'start', pause: 'resume', help: 'close-help', dawn: 'restart',
+  const focus = { start: activeRun ? 'resume-saved' : 'start', pause: 'resume', help: 'close-help',
+    dawn: $('next-night').hidden ? 'restart' : 'next-night',
     log: $('log-what').disabled ? 'log-title' : 'log-what' }[next];
   if (focus) $(focus).focus({ preventScroll: true });
   else document.activeElement?.blur();
   previousTime = undefined;
+  if (!preserveState) persist();
 }
 function finishNight() {
   if (recorded) return;
   recorded = true;
   const result = summary(state);
-  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.${result.lost ? ` ${result.lost} lost in distress.` : ''}${result.unseen ? ` ${result.unseen} passed unseen.` : ''}`;
-  $('record-status').textContent = result.wrecked ? `${result.wrecked} vessel${result.wrecked === 1 ? '' : 's'} lost at the Teeth. The light kept turning.` : 'The watch is over. The light kept turning.';
+  $('morning-label').textContent = `06:00 · Night ${result.night} · Morning record`;
+  $('dawn-title').textContent = result.relieved ? 'Relieved of duty' : result.night === 5 ? 'Five nights at the light.' : 'The watch is over.';
+  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.${result.lost ? ` ${result.lost} lost in distress.` : ''} ${result.unseen} arrivals unseen. ${result.logged} logged. ${result.cumulativeWrecks} wreck${result.cumulativeWrecks === 1 ? '' : 's'} across the run.`;
+  $('record-status').textContent = result.relieved
+    ? 'The Board has relieved you after three observed wrecks. You may retry this night; earlier nights remain on the record.'
+    : result.night === 5 ? 'Your five watches are complete. The light kept turning.' : 'The light kept turning. The next watch awaits.';
+  $('next-night').hidden = result.relieved || result.night === 5;
+  $('next-night').textContent = `Take night ${result.night + 1} →`;
+  $('new-run').hidden = result.relieved || result.night !== 5;
   try {
-    localStorage.setItem(RECORD_KEY, JSON.stringify({ version: 2, seed: state.seed, safe: result.safe, wrecked: result.wrecked }));
+    localStorage.setItem(RECORD_KEY, JSON.stringify({ version: 3, seed: state.seed, ...result }));
   } catch {
     $('record-status').textContent += ' This browser could not keep the morning record.';
   }
@@ -126,6 +176,7 @@ function finishNight() {
 }
 function draw() {
   renderer.draw(state, reducedMotion.matches);
+  $('night-label').textContent = `Night ${String(state.nightParams.night).padStart(2, '0')} / ${state.nightParams.night === 1 ? 'First watch' : 'The watch'}`;
   const showControls = mode === 'play' && state.time < 8 && !controlsDismissed;
   $('watch-controls').classList.toggle('is-faded', !showControls);
   $('watch-controls').setAttribute('aria-hidden', String(!showControls));
@@ -154,14 +205,27 @@ function advance(seconds) {
   if (mode === 'play') {
     state = step(state, heldInput(pressed), seconds);
     if (state.phase === 'dawn') finishNight();
+    else if (state.time - lastSavedTime >= 1) persist();
   }
   draw();
 }
 function start() {
   state = createState(seed);
   state.settings.incomingWpm = Number($('incoming-wpm').value);
+  beginNight();
+}
+function beginNight() {
   if (!checkSchedule()) { setMode('start'); draw(); return; }
+  activeRun = true;
+  lastSavedTime = -1;
   audio.unlock(); recorded = false; controlsDismissed = false; setMode('play'); draw();
+}
+function resumeSaved() {
+  if (!checkSchedule()) return;
+  audio.unlock();
+  if (state.phase === 'dawn') finishNight();
+  else setMode('play', true); // Loading/resuming must not cancel saved keying or hull state.
+  draw();
 }
 function checkSchedule() {
   const result = validateSchedule(state.schedule, state.nightParams);
@@ -176,7 +240,10 @@ function toggleHelp() {
   draw();
 }
 $('start').addEventListener('click', start);
-$('restart').addEventListener('click', start);
+$('new-run').addEventListener('click', start);
+$('resume-saved').addEventListener('click', resumeSaved);
+$('restart').addEventListener('click', () => { state = restartNight(state); beginNight(); });
+$('next-night').addEventListener('click', () => { state = nextNight(state); beginNight(); });
 $('resume').addEventListener('click', () => { setMode('play'); draw(); });
 $('help').addEventListener('click', toggleHelp);
 $('close-help').addEventListener('click', toggleHelp);
@@ -202,6 +269,7 @@ $('log-form').addEventListener('submit', (event) => {
 });
 $('incoming-wpm').addEventListener('change', () => {
   state.settings.incomingWpm = Number($('incoming-wpm').value);
+  persist();
 });
 $('show-reference').addEventListener('change', () => {
   $('morse-reference').hidden = !$('show-reference').checked;
@@ -238,7 +306,7 @@ window.addEventListener('keydown', (event) => {
   else if (mode === 'play') pressed.add(event.code);
   draw();
 });
-window.addEventListener('keyup', (event) => { pressed.delete(event.code); });
+window.addEventListener('keyup', (event) => { pressed.delete(event.code); persist(); });
 window.addEventListener('pointerdown', () => {
   if (mode === 'play') { controlsDismissed = true; draw(); }
 });
@@ -248,6 +316,7 @@ function suspend() {
 }
 window.addEventListener('blur', suspend);
 document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); });
+window.addEventListener('pagehide', persist);
 window.addEventListener('resize', () => { renderer.resize(); draw(); });
 
 // E2E opt-in requires browser automation. Normal visits never receive the hook.
@@ -266,4 +335,4 @@ function frame(timestamp) {
   if (mode === 'play') advance(elapsed);
   requestAnimationFrame(frame);
 }
-checkSchedule(); setMode('start'); draw(); requestAnimationFrame(frame);
+showStorageStatus(); checkSchedule(); setMode('start', true); draw(); requestAnimationFrame(frame);
