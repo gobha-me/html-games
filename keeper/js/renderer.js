@@ -232,7 +232,8 @@ export function createRenderer(canvas) {
       for (const ship of state.ships) {
         const view = perception(state, ship);
         if (view.hull) hull(ctx, view.hull, view.opacity);
-        if (!ship.smuggler && (view.runningLights || (view.lit && ship.status !== 'wrecked'))) runningLights(ctx, ship);
+        if (view.runningLights || (view.lit && !ship.smuggler && ship.distress !== true
+          && !['wrecked', 'lost'].includes(ship.status))) runningLights(ctx, ship);
         if (view.signal) {
           disc(ctx, ship.x, ship.y, 7, 'rgba(255,240,201,0.18)');
           disc(ctx, ship.x, ship.y, 3, '#fff0c9');

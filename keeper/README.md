@@ -45,6 +45,13 @@ that window. Expanding rings show each blast even when muted; dashed, dim rings
 mean it was ignored. The HUD shows current skipper trust. The Morse
 lamp addresses only the vessel lit when the message finishes.
 
+In scripted encounters, dark launches slow in the beam and flee after more
+than three continuous seconds of light. A lifeboat repeats `SOS`: illuminate
+it and send `K`, `R` or `AR` while keeping it in the beam to rescue it. Any
+lit tick resets its 24-second loss timer; light alone does not complete rescue.
+A coaster may ask `WHAT LIGHT` after one continuous second in the beam;
+answer `SKR` for its `R` acknowledgement.
+
 ## Tech
 
 Vanilla HTML/CSS/ES modules, Canvas 2D, a pure deterministic seeded simulation,
@@ -85,6 +92,11 @@ Issue #109 completes the foghorn trust/recovery and spam rules, with muted-play
 visual rings and a trust readout.
 Issue #110 adds the pure International Morse decoder, directed signal lamp,
 live strip, ship replies, incoming-speed setting and optional reference card.
+Issue #111 adds dark-launch flight and reef immunity, distress drift/repeating
+SOS/directed rescue, a separate lost tally, and coaster identification asks.
+Specialty ships are available through the pure `specialtyApproach` schedule
+builder documented in DESIGN §6; default traffic stays trawlers/coasters until
+the mystery-night scripts (#114). The watch remains 180 seconds.
 The kspawn pacing change adds seeded arrivals from 24–36 seconds onward,
 with jittered gaps, at most three overlapping active windows, separated
 bearings and independent warning budgets. Traffic stops arriving by 120

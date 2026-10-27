@@ -56,7 +56,7 @@ function finishNight() {
   if (recorded) return;
   recorded = true;
   const result = summary(state);
-  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.${result.unseen ? ` ${result.unseen} passed unseen.` : ''}`;
+  $('summary').textContent = `${result.safe} ship${result.safe === 1 ? '' : 's'} passed safely. ${result.wrecked} ship${result.wrecked === 1 ? '' : 's'} wrecked.${result.lost ? ` ${result.lost} lost in distress.` : ''}${result.unseen ? ` ${result.unseen} passed unseen.` : ''}`;
   $('record-status').textContent = result.wrecked ? `${result.wrecked} vessel${result.wrecked === 1 ? '' : 's'} lost at the Teeth. The light kept turning.` : 'The watch is over. The light kept turning.';
   try {
     localStorage.setItem(RECORD_KEY, JSON.stringify({ version: 2, seed: state.seed, safe: result.safe, wrecked: result.wrecked }));

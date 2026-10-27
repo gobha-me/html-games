@@ -116,6 +116,85 @@ independent responses for each ship.
 | **Lifeboat / boat in distress** | small, flare or lamp flashing SOS | Drifts toward the rocks; flashes `SOS` in Morse. | Light it (so the shore boat can find it), signal `K`-style acknowledgement, and log it. Unlit too long → lost. |
 | **Swimmer / wreckage** (mystery nights) | tiny, only visible in beam | Drifts. | See it. Log it. |
 
+### Ship variety mechanics (#111)
+
+The immutable numeric exports in `sim.js` define these deterministic rules:
+
+- **Dark launch:** `type: 'speedboat', smuggler: true` has no running lights
+  or replies. While beam-lit, throttle is `SMUGGLER_LIT_THROTTLE = 0.5`,
+  approaching half cruise speed through the existing thrust/drag model;
+  darkness restores full throttle. Continuous illumination accumulates in
+  `litSeconds` and resets on any unlit tick. **Strictly more than**
+  `SMUGGLER_FLEE_SECONDS = 3` sets response `flee`, overriding a horn veer.
+  Exactly 3 seconds does not flee. The launch turns radially away from the
+  lighthouse, keeps that outward course and eventually exits. It still slows
+  if lit while fleeing. Reef contact never assigns it a wreck.
+- **Distress lifeboat:** distress is opt-in via the specialty's `distress: true`
+  flag; a generic `lifeboat` hull retains ordinary honest navigation and horn behavior.
+  A distress boat remains `underway` until saved
+  or lost. On arrival it heads toward the nearest hazard at
+  `LIFEBOAT_DRIFT_THROTTLE = 0.15` (0.45 m/s straight cruise), stopping at
+  reef contact while awaiting rescue rather than entering the wreck path.
+  It starts a repeating `keyingFor('SOS', incomingWpm)` reply immediately;
+  a seven-unit word gap separates calls. The normal `perception.signal`
+  path exposes its flash point within fog reach, without revealing its hull.
+  It has no running lights. Horns do not steer or rescue it.
+  `unlitSeconds` runs only while underway and **resets to zero on every lit
+  tick**. At `LIFEBOAT_LOST_SECONDS = 24` (two default sweeps) without light,
+  it becomes `lost`, stops drifting/flashing, and cannot be rescued later.
+  Light alone buys time; rescue requires a directed `K`, `R` or `AR` message
+  addressed to this boat while it is currently beam-lit at completion, using
+  §8's same single-recipient rules. Rescue sets `safe`, stops drift and SOS,
+  and counts in `summary().safe`. Other messages leave its SOS running.
+- **Coaster:** an underway honest coaster asks `WHAT LIGHT` once after
+  `COASTER_ASK_SECONDS = 1` continuous second of beam illumination. An unlit
+  tick resets that continuous timer; the once-only `askedLight` flag survives
+  darkness. Its question uses the normal incoming-WPM reply flashes. Directed
+  `SKR` receives the existing `R` acknowledgement. Hull turning remains the
+  wider coaster tuning in `HULLS`.
+
+Specialties are **opt-in scripted approaches**, leaving `planSpawns` and
+default `createState` traffic and all five night pass quotas unchanged.
+The pure exported builder accepts
+`specialtyApproach({ id, type = 'speedboat', smuggler = true, bearing,
+spawnTime = 0, spawnRange = 464.8 })`. For `type: 'lifeboat'`, `smuggler`
+defaults to false and must remain false, and the result sets `distress: true`.
+Bearings wrap; ids must be unique
+within a watch. The result carries all radial `validateSchedule` fields,
+reserves `exitTime = NIGHT_SECONDS`, and may be appended to `state.schedule`:
+
+```js
+const state = createState(108);
+state.schedule.push(specialtyApproach({
+  id: 'distress-1', type: 'lifeboat', bearing: 50, spawnTime: 1,
+}));
+```
+
+`step` installs entries with `spawnTime` strictly after the previous tick and
+at or before the current tick, preserving `type`, `smuggler`, `distress` and
+initial `speed`. For time-zero scripts, use the pure exported
+`installSpecialty(state, approach)` helper with a `specialtyApproach` result:
+
+```js
+const state = installSpecialty(createState(108), specialtyApproach({
+  id: 'distress-0', type: 'lifeboat', bearing: 50,
+}));
+```
+
+The helper returns a new state, adds the schedule entry, and immediately
+arrives entries due at the state's current time; future entries await `step`.
+It rejects duplicate ids and past arrivals. Removing an already-arrived hull
+does not cause ticks to resurrect it from the schedule. Launches start
+outward; distress boats instead point toward their nearest hazard on arrival.
+Scripts must reserve capacity and bearing separation against existing
+traffic and run `validateSchedule` after installation; the builder does not
+silently remove regular traffic or weaken its warning budget. An explicitly
+shortened `spawnRange` may fail validation. Night/mystery placement is #114.
+The watch remains `NIGHT_SECONDS = 180`; layout, lamp anchor and compass stay
+fixed. `summary()` adds an ever-seen `lost` count alongside its existing
+`safe`, `wrecked`, and `unseen` fields. Lost hulls obey the same beam/afterimage
+boundary and have no off-beam lights or signals.
+
 ### Fixed Teeth, seeded hazards and fleet traffic (#108)
 
 The deeply frozen `TEETH` export is the permanent north-east reef landmark,
@@ -395,14 +474,15 @@ lands in #115. It reveals no hull pose, and is not credited as a beam pass.
 
 - **No game over mid-night.** Wrecks happen and are remembered — the sea goes
   on. This is a quiet game; failure is a weight, not a reset.
-- A night ends at dawn. `summary(state)` returns `{ safe, wrecked, unseen }`.
-  Safe/wrecked count **only ever-seen ships**. Each arrival starts unseen;
+- A night ends at dawn. `summary(state)` returns `{ safe, wrecked, unseen, lost }`.
+  Safe/wrecked/lost count **only ever-seen ships**. Each arrival starts unseen;
   any tick with beam illumination or visible running lights permanently latches
   `everSeen = true`. Horn hearing, engine cues and unobserved maneuvers never
   imply a sighting. Never-seen ships of **any status** count in `unseen`.
   The dawn panel shows observed safe/wrecked outcomes and, when nonzero,
   “n passed unseen”. Observed underway ships are not credited as safe.
-  Distress answered and entries logged remain later milestones.
+  Rescued lifeboats count as safe; observed distress losses appear separately.
+  Persistent distress records and entries logged remain later milestones.
 - **The lamp-keeper's record**: three wrecks across the run and the Board
   relieves you after the night (soft ending, "Relieved of duty"); you may
   restart the night.
