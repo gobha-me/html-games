@@ -120,15 +120,17 @@ test('inclusive active windows never exceed the cap and every overlapping bearin
 test('planning and input replay are deterministic, isolated from caller mutations and interleaved seeds', () => {
   assert.deepEqual(planSpawns(108), planSpawns(108, { night: 1 }));
   assert.notDeepEqual(planSpawns(0), planSpawns(0xffffffff));
-  for (const seed of seeds.slice(0, 2)) {
+  for (const seed of seeds.slice(0, 24)) {
     const original = planSpawns(seed), copy = structuredClone(original);
     planSpawns((seed + 1) >>> 0, { night: 5 });
     assert.deepEqual(planSpawns(seed), copy);
     original[0].spawnTime = -1;
     assert.deepEqual(planSpawns(seed), copy);
+    // Integrate from t = 0 across 6 steps (36 s = SPAWN.firstMax) covering the opening trawler
+    // horn warning, crew delay/avoidance turn, fast/hold beam controls, and the first extra arrival.
     const replay = () => {
       let state = createState(seed);
-      for (let i = 0; i < 6; i++) state = step(state, { horn: i % 2 === 0, fast: i === 2, hold: i === 3 }, 30);
+      for (let i = 0; i < 6; i++) state = step(state, { horn: i % 2 === 0, fast: i === 2, hold: i === 3 }, 6);
       return state;
     };
     assert.deepEqual(replay(), replay());
@@ -136,7 +138,7 @@ test('planning and input replay are deterministic, isolated from caller mutation
 });
 
 test('ships first appear underway at their scheduled tick, never earlier, and are not duplicated', () => {
-  for (const seed of seeds.slice(0, 1)) {
+  for (const seed of seeds.slice(0, 16)) {
     let state = createState(seed);
     assert.deepEqual(state.ships.map((ship) => ship.id), ['trawler']);
     assert.deepEqual(state.schedule.slice(1), planSpawns(seed));
@@ -175,27 +177,26 @@ test('long frame hitches include every arrival and match fine-step poses without
     close(ship.x, fine.ships[i].x);
     close(ship.y, fine.ships[i].y);
   }
-  const wrecked = hitch.ships.filter((ship) => ship.everSeen && ship.status === 'wrecked').length;
-  assert.deepEqual(summary(hitch), { night: 1, safe: hitch.ships.filter((ship) => ship.everSeen && ship.status === 'safe').length,
-    wrecked, unseen: hitch.ships.filter((ship) => !ship.everSeen).length,
-    lost: 0, logged: 0, cumulativeWrecks: wrecked, relieved: wrecked >= 3 });
+  assert.deepEqual(summary(hitch), {
+    night: 1, safe: 6, wrecked: 1, unseen: 5, lost: 0, logged: 0, cumulativeWrecks: 1, relieved: false,
+  });
 });
 
 test('non-threatening spawns across all 500 seeds are on permanently reef-clear courses, even beyond dawn', () => {
   let checked = 0;
-  for (const [index, state] of watches().entries()) for (const ship of state.schedule.filter((entry) => entry.threatening === false)) {
+  for (const state of watches()) for (const ship of state.schedule.filter((entry) => entry.threatening === false)) {
     const pose = vessel(ship);
     const reefs = reefsFor(state.hazards);
     assert.equal(threatensReef(pose, reefs, Number.MAX_VALUE), false, `${state.seed}/${ship.id}`);
-    if (index < 2) {
-      const future = stepVessel(pose, {}, 2 * NIGHT_SECONDS);
-      assert.equal(threatensReef(future, reefs, Number.MAX_VALUE), false);
-      assert.ok(Math.hypot(future.x, future.y) > Math.hypot(pose.x, pose.y));
-    }
+    // Step each non-threatening ship from its real spawn pose at ship.spawnTime through
+    // NIGHT_SECONDS + BUDGET_PERIOD_SECONDS (one full beam revolution beyond dawn).
+    const future = stepVessel(pose, {}, NIGHT_SECONDS - ship.spawnTime + BUDGET_PERIOD_SECONDS);
+    assert.equal(threatensReef(future, reefs, Number.MAX_VALUE), false);
+    assert.ok(Math.hypot(future.x, future.y) > Math.hypot(pose.x, pose.y));
     checked++;
   }
   assert.ok(checked > 100);
-  for (const seed of seeds.slice(0, 1)) {
+  for (const seed of seeds.slice(0, 16)) {
     const dawn = step(createState(seed), {}, NIGHT_SECONDS);
     for (const ship of dawn.ships.filter((entry) => entry.threatening === false)) {
       assert.notEqual(ship.status, 'wrecked');
@@ -225,7 +226,7 @@ test('held horn never retroactively warns an arrival; a new press warns it with 
 });
 
 test('live underway cap holds with and without repeated rescue attempts', () => {
-  for (const seed of seeds.slice(0, 1)) for (const rescue of [false, true]) {
+  for (const seed of seeds.slice(0, 12)) for (const rescue of [false, true]) {
     let state = createState(seed);
     for (let second = 0; second < NIGHT_SECONDS; second++) {
       state = step(state, { horn: rescue && second % 16 === 0 }, 1);

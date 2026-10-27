@@ -596,7 +596,7 @@ async function bootMain({
   elements.get('morse-reference').hidden = true;
 
   const store = new Map(Object.entries(initialStorage));
-  const storageConfig = { getItemError, setItemError };
+  const storageConfig = { getItemError, setItemError, removeItemError: null };
   const localStorageMock = {
     getItem(key) {
       if (storageConfig.getItemError) throw storageConfig.getItemError;
@@ -607,7 +607,7 @@ async function bootMain({
       store.set(key, String(val));
     },
     removeItem(key) {
-      if (storageConfig.setItemError) throw storageConfig.setItemError;
+      if (storageConfig.removeItemError) throw storageConfig.removeItemError;
       store.delete(key);
     },
   };

@@ -509,18 +509,25 @@ test('multi-night progression, mid-watch save/resume, KeyL log coexistence, and 
   await expect(page.locator('#log-entries li')).toHaveCount(1);
   await page.keyboard.press('Escape');
 
-  // Reload mid-watch and resume Night 1 at the exact saved snapshot.
+  // Reload mid-watch and resume Night 1 at the exact saved snapshot, then verify post-reload
+  // steps and dawn fleet match a parallel uninterrupted run.
   await page.reload();
   await expect(page.getByRole('button', { name: 'Resume night 1 →' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Start a new run →' })).toBeVisible();
   await page.getByRole('button', { name: 'Resume night 1 →' }).click();
   const afterResume = await snapshot(page);
-  expect(afterResume.time).toBeCloseTo(beforeReload.time, 8);
-  expect(afterResume.beam).toBeCloseTo(beforeReload.beam, 8);
-  expect(afterResume.trawler.status).toBe('wrecked');
+  expect(afterResume).toEqual(beforeReload);
+
+  const uninterruptedStep = step(beforeReload, {}, 30);
+  await advance(page, 30);
+  const afterStep = await snapshot(page);
+  expect(afterStep).toEqual(uninterruptedStep);
 
   // Finish Night 1 (2 wrecks on seed 108) -> not yet relieved; advance to Night 2.
-  await advance(page, 540 - afterResume.time);
+  const uninterruptedDawn = step(uninterruptedStep, {}, 540 - uninterruptedStep.time);
+  await advance(page, 540 - afterStep.time);
+  const dawnSnapshot = await snapshot(page);
+  expect(dawnSnapshot).toEqual(uninterruptedDawn);
   await expect(page.locator('#dawn-title')).toHaveText('The watch is over.');
   await expect(page.locator('#summary')).toContainText('2 wrecks across the run.');
   await page.getByRole('button', { name: 'Take night 2 →' }).click();

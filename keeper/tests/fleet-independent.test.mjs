@@ -6,6 +6,7 @@ import {
   NIGHT_SECONDS,
   SPAWN,
   TEETH,
+  TRAFFIC,
   createState,
   installSpecialty,
   isLit,
@@ -105,13 +106,30 @@ function assertGaps(seed, night = 1) {
     const gap = times[i] - times[i - 1];
     assert.ok(gap <= maxGap + 1e-6, `seed ${seed} gap ${gap}`);
   }
-  assert.ok(times.some((time) => time > 80), `seed ${seed} spawnTime > 80`);
-  const allSpawns = [{ type: 'trawler', spawnTime: 0 }, ...spawns];
-  const trawlerTimes = allSpawns.filter(isTrawler).map((spawn) => spawn.spawnTime);
-  const extraTimes = allSpawns.filter((spawn) => !isTrawler(spawn)).map((spawn) => spawn.spawnTime);
-  const firstTrawler = trawlerTimes.length ? Math.min(...trawlerTimes) : times[0];
-  const firstExtra = extraTimes.length ? Math.min(...extraTimes) : times[1];
-  assert.ok(Math.abs(firstExtra - firstTrawler) <= maxGap + 1e-6, `seed ${seed} trawler-extra`);
+  assert.ok(times.some((time) => time > TRAFFIC.lateAfter), `seed ${seed} night ${night} spawnTime > ${TRAFFIC.lateAfter}`);
+  const trawlerTimes = spawns.filter(isTrawler).map((spawn) => spawn.spawnTime);
+  const extraTimes = spawns.filter((spawn) => !isTrawler(spawn)).map((spawn) => spawn.spawnTime);
+  assert.ok(extraTimes.length >= 1, `seed ${seed} night ${night} extraTimes empty`);
+  const firstExtra = Math.min(...extraTimes);
+  assert.equal(firstExtra, times[0], `seed ${seed} night ${night} first extra must not be trawler`);
+  assert.ok(
+    firstExtra >= SPAWN.firstMin - 1e-6 && firstExtra <= SPAWN.firstMax + 1e-6,
+    `seed ${seed} night ${night} firstExtra ${firstExtra}`,
+  );
+  assert.ok(
+    trawlerTimes.length <= TRAFFIC.maxThreats - 1,
+    `seed ${seed} night ${night} extra trawlers ${trawlerTimes.length}`,
+  );
+  for (const time of trawlerTimes) {
+    assert.ok(
+      time > TRAFFIC.lateAfter && time <= SPAWN.lastSpawn,
+      `seed ${seed} night ${night} extra trawler at ${time} outside (${TRAFFIC.lateAfter}, ${SPAWN.lastSpawn}]`,
+    );
+  }
+  for (const spawn of spawns.filter(isTrawler)) {
+    assert.equal(spawn.threatening, true, `seed ${seed} night ${night} non-threatening extra trawler`);
+  }
+  return trawlerTimes.length;
 }
 
 function expectedSummary(state) {
@@ -239,6 +257,7 @@ test('invalid seed and night throw the named errors', () => {
 
 test('every seed 0..499 keeps hazard layout, fair schedule, and a late spawn', () => {
   const layouts = new Set();
+  const lateTrawlerCounts = new Map([[1, 0], [2, 0], [3, 0], [4, 0], [5, 0]]);
   let nightMoved = false;
   for (let seed = 0; seed <= 499; seed += 1) {
     const night1 = planHazards(seed, { night: 1 });
@@ -249,7 +268,9 @@ test('every seed 0..499 keeps hazard layout, fair schedule, and a late spawn', (
     assert.deepEqual(state.hazards, night1);
     assert.ok((state.schedule ?? null) !== null, `seed ${seed} schedule`);
     assert.deepEqual(planSpawns(seed, { night: 1 }), planSpawns(seed, { night: 1 }));
-    assertGaps(seed, 1);
+    for (const night of [1, 2, 3, 4, 5]) {
+      lateTrawlerCounts.set(night, lateTrawlerCounts.get(night) + assertGaps(seed, night));
+    }
     // Arbiter fix: validateSchedule requires its night options (state.nightParams) and returns {ok}.
     assert.ok(validateSchedule(state.schedule, state.nightParams).ok, `seed ${seed} schedule`);
     if (seed % 37 === 0) {
@@ -263,6 +284,9 @@ test('every seed 0..499 keeps hazard layout, fair schedule, and a late spawn', (
         }
       }
     }
+  }
+  for (const [night, count] of lateTrawlerCounts) {
+    assert.ok(count > 0, `night ${night} must admit late extra trawlers across seeds 0..499`);
   }
   assert.ok(layouts.size >= 400, `unique layouts ${layouts.size}`);
   assert.equal(nightMoved, true);
