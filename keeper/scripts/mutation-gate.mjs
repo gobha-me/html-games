@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
+export const MAX_TIMEOUT_RATIO = 0.2;
+
 const STATUS_KEYS = {
   Killed: 'killed', TimedOut: 'timedOut', Survived: 'survived', NoCoverage: 'noCoverage',
   CompileError: 'compileError', RuntimeError: 'runtimeError', Ignored: 'ignored',
@@ -11,9 +13,12 @@ function emptyCounts() {
 }
 
 /** Score a parsed Stryker JSON report without I/O; total counts scored mutants only. */
-export function scoreReport(reportJson, { min = 90 } = {}) {
+export function scoreReport(reportJson, { min = 90, maxTimeoutRatio = MAX_TIMEOUT_RATIO } = {}) {
   if (!Number.isFinite(min) || min < 0 || min > 100) {
     throw new Error('mutation minimum must be a number between 0 and 100');
+  }
+  if (!Number.isFinite(maxTimeoutRatio) || maxTimeoutRatio < 0 || maxTimeoutRatio > 1) {
+    throw new Error('maximum timeout ratio must be a number between 0 and 1');
   }
   if (!reportJson || !reportJson.files || typeof reportJson.files !== 'object'
       || Array.isArray(reportJson.files)) {
@@ -37,7 +42,10 @@ export function scoreReport(reportJson, { min = 90 } = {}) {
     for (const key of Object.keys(totals)) totals[key] += counts[key];
   }
   const score = totals.total ? (100 * totals.killed) / totals.total : 100;
-  return { files, totals, score, pass: score + 1e-9 >= min };
+  const timeoutRatio = totals.total ? totals.timedOut / totals.total : 0;
+  const verdict = timeoutRatio > maxTimeoutRatio ? 'INCONCLUSIVE'
+    : score + 1e-9 >= min ? 'PASS' : 'FAIL';
+  return { files, totals, score, timeoutRatio, verdict, pass: verdict === 'PASS' };
 }
 
 /** Discover changed targets. run has spawnSync's (command, args, options) signature. */
