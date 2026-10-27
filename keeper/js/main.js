@@ -23,6 +23,27 @@ let previousTime;
 let recorded = false;
 let controlsDismissed = false;
 const pressed = new Set();
+const frameCapacity = 600;
+const frameSamples = testMode ? [] : null;
+let warmupRemaining = 120;
+let previousSampleTimestamp;
+
+// Keep unchanged HUD text out of layout; only scroll newly keyed Morse text.
+function setText(id, text, scroll = false) {
+  const element = $(id);
+  if (element.textContent === text) return;
+  element.textContent = text;
+  if (scroll) element.scrollLeft = element.scrollWidth;
+}
+
+function resetFrameTiming({ warmupFrames = 120 } = {}) {
+  if (!Number.isSafeInteger(warmupFrames) || warmupFrames < 0) {
+    throw new RangeError('Warm-up frames must be a nonnegative safe integer.');
+  }
+  frameSamples.length = 0;
+  warmupRemaining = warmupFrames;
+  previousSampleTimestamp = undefined;
+}
 
 for (const id of ['controls-list', 'title-controls', 'watch-controls-list']) {
   for (const action of Object.keys(KEYS)) {
@@ -110,6 +131,7 @@ function setMode(next) {
   if (focus) $(focus).focus({ preventScroll: true });
   else document.activeElement?.blur();
   previousTime = undefined;
+  previousSampleTimestamp = undefined;
 }
 function finishNight() {
   if (recorded) return;
@@ -129,25 +151,24 @@ function draw() {
   const showControls = mode === 'play' && state.time < 8 && !controlsDismissed;
   $('watch-controls').classList.toggle('is-faded', !showControls);
   $('watch-controls').setAttribute('aria-hidden', String(!showControls));
-  $('clock').textContent = watchTime(state.time);
-  $('bearing').textContent = `${Math.floor(state.beam).toString().padStart(3, '0')}° · ${(360 / state.speed).toFixed(1)} s / revolution`;
-  $('lens-state').textContent = mode === 'play' ? (heldInput(pressed).hold ? 'Lens held' : 'Lens turning clockwise') : 'Lens at rest';
-  $('horn-state').textContent = state.horn ? 'Horn sounding' : 'Horn silent';
+  setText('clock', watchTime(state.time));
+  setText('bearing', `${Math.floor(state.beam).toString().padStart(3, '0')}° · ${(360 / state.speed).toFixed(1)} s / revolution`);
+  setText('lens-state', mode === 'play' ? (heldInput(pressed).hold ? 'Lens held' : 'Lens turning clockwise') : 'Lens at rest');
+  setText('horn-state', state.horn ? 'Horn sounding' : 'Horn silent');
   $('horn-state').classList.toggle('sounding', state.horn);
-  $('trust-state').textContent = `Skipper trust · ${Math.round(state.trust * 100)}%`;
+  setText('trust-state', `Skipper trust · ${Math.round(state.trust * 100)}%`);
   const keying = state.morse;
   const sent = keying.lastMessage;
   const preview = state.lamp && state.time * 1000 > keying.down
     ? decodeKeying([...keying.events, { down: keying.down, up: state.time * 1000 }]) : keying;
   const symbols = preview.symbols || sent?.symbols || '';
   const text = preview.text || sent?.text || '';
-  $('lamp-state').textContent = state.lamp ? '● Lamp open' : '○ Lamp shuttered';
+  setText('lamp-state', state.lamp ? '● Lamp open' : '○ Lamp shuttered');
   $('lamp-state').classList.toggle('sounding', state.lamp);
-  $('morse-symbols').textContent = symbols.replaceAll('.', '·').replaceAll('-', '−') || '—';
-  $('morse-text').textContent = text || 'Key K to signal';
-  for (const id of ['morse-symbols', 'morse-text']) $(id).scrollLeft = $(id).scrollWidth;
-  $('morse-delivery').textContent = keying.events.length || state.lamp ? 'Keying…'
-    : sent ? (sent.recipient === null ? 'Sent · no vessel in beam' : 'Sent · vessel in beam') : 'Directed to the vessel in the beam';
+  setText('morse-symbols', symbols.replaceAll('.', '·').replaceAll('-', '−') || '—', true);
+  setText('morse-text', text || 'Key K to signal', true);
+  setText('morse-delivery', keying.events.length || state.lamp ? 'Keying…'
+    : sent ? (sent.recipient === null ? 'Sent · no vessel in beam' : 'Sent · vessel in beam') : 'Directed to the vessel in the beam');
   audio.set(mode === 'play' && state.horn);
 }
 function advance(seconds) {
@@ -249,6 +270,7 @@ function suspend() {
 window.addEventListener('blur', suspend);
 document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); });
 window.addEventListener('resize', () => { renderer.resize(); draw(); });
+reducedMotion.addEventListener?.('change', draw);
 
 // E2E opt-in requires browser automation. Normal visits never receive the hook.
 // State is a read-only snapshot; advance drives the same input/sim/dawn path as RAF.
@@ -257,13 +279,32 @@ if (testMode) {
     get seed() { return seed; },
     get state() { return structuredClone(state); },
     get mode() { return mode; },
+    get frameTiming() {
+      return { capacity: frameCapacity, warmupRemaining, samples: frameSamples.map((sample) => ({ ...sample })) };
+    },
+    resetFrameTiming,
     advance,
   }) });
 }
 function frame(timestamp) {
+  const sampling = frameSamples && mode === 'play' && !document.hidden;
+  const started = sampling ? performance.now() : 0;
   const elapsed = previousTime === undefined ? 0 : Math.min((timestamp - previousTime) / 1000, 0.1);
   previousTime = timestamp;
   if (mode === 'play') advance(elapsed);
+  if (sampling && mode === 'play') {
+    const workMs = performance.now() - started;
+    if (warmupRemaining > 0) {
+      warmupRemaining--;
+      previousSampleTimestamp = undefined;
+    } else {
+      if (previousSampleTimestamp !== undefined) {
+        frameSamples.push({ timestamp, intervalMs: timestamp - previousSampleTimestamp, workMs });
+        if (frameSamples.length > frameCapacity) frameSamples.shift();
+      }
+      previousSampleTimestamp = timestamp;
+    }
+  } else previousSampleTimestamp = undefined;
   requestAnimationFrame(frame);
 }
 checkSchedule(); setMode('start'); draw(); requestAnimationFrame(frame);
