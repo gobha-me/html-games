@@ -2,6 +2,7 @@
 
 ## Unreleased — Mutation gate (#138)
 
+- Accept Stryker's `Timeout` status (and legacy `TimedOut`), reject incomplete `Pending` reports with a count and path, and label runtime/compile errors as excluded from the score in per-file and total CLI output.
 - Exclude timeouts from kills, report every mutant status per file and in total, and fail closed on git/report errors without shallow-fetching history.
 - Report timeout percentages per file and in total. Mark only the aggregate
   verdict INCONCLUSIVE when timed-out mutants exceed 20% of scored mutants;
