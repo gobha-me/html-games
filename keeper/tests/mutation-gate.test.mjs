@@ -59,7 +59,7 @@ test('scoreReport (a): timeouts never count as killed and all seven statuses are
   // Stryker's own (killed + timedOut) / total score would be 95% (PASS at min 90),
   // but the gate must compute 85% and FAIL.
   const strykerWouldPass = makeReport({
-    'js/sim.js': { Killed: 85, TimedOut: 10, Survived: 5 },
+    'js/sim.js': { Killed: 85, Timeout: 10, Survived: 5 },
   });
   const res85 = scoreReport(strykerWouldPass);
   assert.equal(res85.score, 85);
@@ -82,7 +82,7 @@ test('scoreReport (a): timeouts never count as killed and all seven statuses are
   // 9 killed + 1 timedOut: score is strictly 90% (9/10), not 100% (10/10).
   // Passes at min=90, but fails at min=90.01 or min=91 where 10/10 would pass.
   const nineAndOne = makeReport({
-    'js/morse.js': { Killed: 9, TimedOut: 1 },
+    'js/morse.js': { Killed: 9, Timeout: 1 },
   });
   const at90 = scoreReport(nineAndOne, { min: 90 });
   assert.equal(at90.score, 90);
@@ -100,13 +100,13 @@ test('scoreReport (a): timeouts never count as killed and all seven statuses are
   assert.equal(at90Point01.pass, false);
 
   // 8 killed + 1 timedOut: 88.89% -> FAIL at default min=90 (Stryker's 9/9=100% would PASS).
-  const eightAndOne = scoreReport(makeReport({ 'js/physics.js': { Killed: 8, TimedOut: 1 } }));
+  const eightAndOne = scoreReport(makeReport({ 'js/physics.js': { Killed: 8, Timeout: 1 } }));
   assert.ok(Math.abs(eightAndOne.score - (800 / 9)) < 1e-12);
   assert.equal(eightAndOne.verdict, 'FAIL');
   assert.equal(eightAndOne.pass, false);
 
   // All-timeout report: 0% score, pass false (INCONCLUSIVE at default 20% cap, FAIL at cap=1).
-  const allTimeouts = makeReport({ 'js/sim.js': { TimedOut: 10 } });
+  const allTimeouts = makeReport({ 'js/sim.js': { Timeout: 10 } });
   const allTimeoutDefault = scoreReport(allTimeouts);
   assert.equal(allTimeoutDefault.score, 0);
   assert.equal(allTimeoutDefault.timeoutRatio, 1);
@@ -122,7 +122,7 @@ test('scoreReport (a): timeouts never count as killed and all seven statuses are
   assert.equal(allTimeoutCap1.pass, false);
 
   // Sub-20% timeouts with zero kills: 0% score, FAIL.
-  const zeroKillsSub20 = scoreReport(makeReport({ 'js/sim.js': { TimedOut: 15, Survived: 85 } }));
+  const zeroKillsSub20 = scoreReport(makeReport({ 'js/sim.js': { Timeout: 15, Survived: 85 } }));
   assert.equal(zeroKillsSub20.score, 0);
   assert.equal(zeroKillsSub20.timeoutRatio, 0.15);
   assert.equal(zeroKillsSub20.verdict, 'FAIL');
@@ -132,7 +132,7 @@ test('scoreReport (a): timeouts never count as killed and all seven statuses are
   const sevenDistinct = makeReport({
     'js/sim.js': {
       Killed: 7,
-      TimedOut: 2,
+      Timeout: 2,
       Survived: 3,
       NoCoverage: 4,
       CompileError: 5,
@@ -162,7 +162,7 @@ test('scoreReport (a): timeouts never count as killed and all seven statuses are
   const oneOfEach = scoreReport(makeReport({
     'js/sim.js': {
       Killed: 1,
-      TimedOut: 1,
+      Timeout: 1,
       Survived: 1,
       NoCoverage: 1,
       CompileError: 1,
@@ -176,10 +176,22 @@ test('scoreReport (a): timeouts never count as killed and all seven statuses are
   assert.equal(oneOfEach.verdict, 'INCONCLUSIVE');
   assert.equal(oneOfEach.pass, false);
 
+  // Legacy TimedOut alias still counts as timedOut alongside canonical Timeout.
+  const timedOutAlias = scoreReport(makeReport({
+    'js/sim.js': { Killed: 8, Timeout: 1, TimedOut: 1 },
+  }));
+  assert.equal(timedOutAlias.totals.killed, 8);
+  assert.equal(timedOutAlias.totals.timedOut, 2);
+  assert.equal(timedOutAlias.totals.total, 10);
+  assert.equal(timedOutAlias.score, 80);
+  assert.equal(timedOutAlias.timeoutRatio, 0.2);
+  assert.equal(timedOutAlias.verdict, 'FAIL');
+  assert.equal(timedOutAlias.pass, false);
+
   // Multi-file aggregation: 1 timedOut in file A (100% file timeout) + 99 killed in file B (0%)
   // -> aggregate 99% score, 1% timeoutRatio, PASS; per-file objects contain only count fields.
   const multiFile = scoreReport(makeReport({
-    'js/a.js': { TimedOut: 1 },
+    'js/a.js': { Timeout: 1 },
     'js/b.js': { Killed: 99 },
   }));
   assert.equal(multiFile.score, 99);
@@ -220,7 +232,7 @@ test('scoreReport (b): INCONCLUSIVE strictly above 20% timeouts, boundary at 20%
 
   // 21% timeouts (79 killed + 21 timedOut): INCONCLUSIVE and pass=false even when min=0 or min=79.
   const report21Pct = makeReport({
-    'js/sim.js': { Killed: 79, TimedOut: 21 },
+    'js/sim.js': { Killed: 79, Timeout: 21 },
   });
   for (const min of [0, 50, 79, 90]) {
     const res = scoreReport(report21Pct, { min });
@@ -232,7 +244,7 @@ test('scoreReport (b): INCONCLUSIVE strictly above 20% timeouts, boundary at 20%
 
   // 1 killed + 9 timedOut (90% timeouts): INCONCLUSIVE even with min=0.
   const report90PctTimeout = scoreReport(
-    makeReport({ 'js/sim.js': { Killed: 1, TimedOut: 9 } }),
+    makeReport({ 'js/sim.js': { Killed: 1, Timeout: 9 } }),
     { min: 0 },
   );
   assert.equal(report90PctTimeout.score, 10);
@@ -242,7 +254,7 @@ test('scoreReport (b): INCONCLUSIVE strictly above 20% timeouts, boundary at 20%
 
   // Exactly 20% timeouts (80 killed + 20 timedOut): NOT INCONCLUSIVE.
   const report20Pct = makeReport({
-    'js/sim.js': { Killed: 80, TimedOut: 20 },
+    'js/sim.js': { Killed: 80, Timeout: 20 },
   });
   const exact20AtMin80 = scoreReport(report20Pct, { min: 80 });
   assert.equal(exact20AtMin80.score, 80);
@@ -257,7 +269,7 @@ test('scoreReport (b): INCONCLUSIVE strictly above 20% timeouts, boundary at 20%
   assert.equal(exact20AtDefaultMin.pass, false);
 
   // Custom maxTimeoutRatio boundaries (0 and 0.25).
-  const onePercentTimeout = makeReport({ 'js/sim.js': { Killed: 99, TimedOut: 1 } });
+  const onePercentTimeout = makeReport({ 'js/sim.js': { Killed: 99, Timeout: 1 } });
   const strictZeroTimeout = scoreReport(onePercentTimeout, { maxTimeoutRatio: 0 });
   assert.equal(strictZeroTimeout.verdict, 'INCONCLUSIVE');
   assert.equal(strictZeroTimeout.pass, false);
@@ -460,8 +472,6 @@ test('scoreReport (d): missing/malformed report, unknown status, and invalid opt
     { status: undefined },
     { status: '' },
     { status: 'killed' },
-    { status: 'Pending' },
-    { status: 'Timeout' },
     { status: 'toString' },
     { status: 'constructor' },
     { status: '__proto__' },
@@ -471,6 +481,210 @@ test('scoreReport (d): missing/malformed report, unknown status, and invalid opt
       /invalid Stryker report: unknown mutant status in js\/sim\.js/,
     );
   }
+
+  assert.throws(
+    () => scoreReport({ files: { 'js/sim.js': { mutants: [{ status: 'Pending' }] } } }),
+    /incomplete Stryker report: 1 pending mutant\(s\) in js\/sim\.js/,
+  );
+  assert.throws(
+    () => scoreReport({
+      files: {
+        'js/sim.js': {
+          mutants: [{ status: 'Killed' }, { status: 'Pending' }, { status: 'Pending' }],
+        },
+      },
+    }),
+    /incomplete Stryker report: 2 pending mutant\(s\) in js\/sim\.js/,
+  );
+});
+
+// Excerpt from /config/projects/keeper-116/mutation/local-116.json (source omitted).
+const STRYKER_EXCERPT_116 = {
+  schemaVersion: '1.0',
+  thresholds: { high: 90, low: 70, break: null },
+  files: {
+    'js/main.js': {
+      language: 'javascript',
+      mutants: [
+        {
+          id: '66',
+          mutatorName: 'ArrowFunction',
+          replacement: '() => undefined',
+          status: 'Killed',
+          static: false,
+          testsCompleted: 1,
+          killedBy: ['16'],
+          coveredBy: ['16', '17'],
+          location: { start: { line: 9, column: 11 }, end: { line: 9, column: 46 } },
+        },
+        {
+          id: '67',
+          mutatorName: 'StringLiteral',
+          replacement: '""',
+          status: 'Killed',
+          static: false,
+          testsCompleted: 1,
+          killedBy: ['16'],
+          coveredBy: ['16', '17'],
+          location: { start: { line: 10, column: 35 }, end: { line: 10, column: 40 } },
+        },
+        {
+          id: '68',
+          mutatorName: 'StringLiteral',
+          replacement: '""',
+          status: 'Killed',
+          static: false,
+          testsCompleted: 1,
+          killedBy: ['16'],
+          coveredBy: ['16', '17'],
+          location: { start: { line: 12, column: 41 }, end: { line: 12, column: 75 } },
+        },
+        {
+          id: '392',
+          mutatorName: 'BlockStatement',
+          replacement: '{}',
+          statusReason: 'Hit limit reached (198707/198700)',
+          status: 'Timeout',
+          static: false,
+          coveredBy: ['16', '17'],
+          location: { start: { line: 174, column: 27 }, end: { line: 180, column: 2 } },
+        },
+        {
+          id: '89',
+          mutatorName: 'StringLiteral',
+          replacement: '""',
+          status: 'Survived',
+          static: false,
+          testsCompleted: 2,
+          coveredBy: ['16', '17'],
+          location: { start: { line: 17, column: 12 }, end: { line: 17, column: 19 } },
+        },
+        {
+          id: '272',
+          mutatorName: 'StringLiteral',
+          replacement: '``',
+          status: 'NoCoverage',
+          static: false,
+          coveredBy: [],
+          location: { start: { line: 140, column: 178 }, end: { line: 140, column: 213 } },
+        },
+        {
+          id: '222',
+          mutatorName: 'BlockStatement',
+          replacement: '{}',
+          status: 'RuntimeError',
+          static: false,
+          coveredBy: ['16', '17'],
+          location: { start: { line: 118, column: 24 }, end: { line: 135, column: 2 } },
+        },
+      ],
+    },
+    'js/renderer.js': {
+      language: 'javascript',
+      mutants: [
+        {
+          id: '647',
+          mutatorName: 'ArithmeticOperator',
+          replacement: 'Math.PI * 180',
+          status: 'Killed',
+          static: false,
+          testsCompleted: 2,
+          killedBy: ['7'],
+          coveredBy: ['6', '7', '8', '10', '16', '17'],
+          location: { start: { line: 2, column: 13 }, end: { line: 2, column: 26 } },
+        },
+        {
+          id: '648',
+          mutatorName: 'ObjectLiteral',
+          replacement: '{}',
+          status: 'Killed',
+          static: false,
+          testsCompleted: 1,
+          killedBy: ['6'],
+          coveredBy: ['6', '7', '8', '10', '16', '17'],
+          location: { start: { line: 3, column: 16 }, end: { line: 3, column: 34 } },
+        },
+        {
+          id: '970',
+          mutatorName: 'UpdateOperator',
+          replacement: 'i--',
+          statusReason: 'Hit limit reached (3800006/3800000)',
+          status: 'Timeout',
+          static: false,
+          coveredBy: ['7', '10', '16', '17'],
+          location: { start: { line: 163, column: 27 }, end: { line: 163, column: 30 } },
+        },
+        {
+          id: '773',
+          mutatorName: 'ArithmeticOperator',
+          replacement: '(a[axis] - boundary) / direction',
+          status: 'Survived',
+          static: false,
+          testsCompleted: 1,
+          coveredBy: ['10'],
+          location: { start: { line: 53, column: 23 }, end: { line: 53, column: 55 } },
+        },
+        {
+          id: '651',
+          mutatorName: 'ObjectLiteral',
+          replacement: '{}',
+          status: 'RuntimeError',
+          static: false,
+          coveredBy: ['6', '7', '8', '10', '16', '17'],
+          location: { start: { line: 9, column: 12 }, end: { line: 12, column: 4 } },
+        },
+      ],
+    },
+  },
+};
+
+test('real Stryker report excerpt (#116 local-116.json): scores Timeout, excludes RuntimeError, and formats CLI error lines', () => {
+  const res = scoreReport(STRYKER_EXCERPT_116);
+  assert.deepEqual(res.files['js/main.js'], {
+    killed: 3,
+    timedOut: 1,
+    survived: 1,
+    noCoverage: 1,
+    compileError: 0,
+    runtimeError: 1,
+    ignored: 0,
+    total: 6,
+  });
+  assert.deepEqual(res.files['js/renderer.js'], {
+    killed: 2,
+    timedOut: 1,
+    survived: 1,
+    noCoverage: 0,
+    compileError: 0,
+    runtimeError: 1,
+    ignored: 0,
+    total: 4,
+  });
+  assert.deepEqual(res.totals, {
+    killed: 5,
+    timedOut: 2,
+    survived: 2,
+    noCoverage: 1,
+    compileError: 0,
+    runtimeError: 2,
+    ignored: 0,
+    total: 10,
+  });
+  // Timeouts (2) do NOT count as killed: score is 5/10 = 50%, not (5+2)/10 = 70%.
+  assert.equal(res.score, 50);
+  assert.equal(res.timeoutRatio, 0.2);
+  assert.equal(res.verdict, 'FAIL');
+  assert.equal(res.pass, false);
+
+  const at70 = scoreReport(STRYKER_EXCERPT_116, { min: 70 });
+  assert.equal(at70.score, 50);
+  assert.equal(at70.verdict, 'FAIL');
+  assert.equal(at70.pass, false);
+
+  const at50 = scoreReport(STRYKER_EXCERPT_116, { min: 50 });
+  assert.equal(at50.score, 50);
+  assert.equal(at50.verdict, 'PASS');
+  assert.equal(at50.pass, true);
 });
 
 test('CLI main() (b, c, d): exits 1 on invalid MUTATION_MIN or git diff failure, 2 on INCONCLUSIVE, 1 on FAIL, 0 on PASS', () => {
@@ -570,7 +784,7 @@ process.exit(Number(process.env.FAKE_STRYKER_EXIT || 0));
     const inconclusiveCli = runCli({
       GITHUB_BASE_REF: 'main',
       MUTATION_MIN: '0',
-      FAKE_STRYKER_REPORT: JSON.stringify(makeReport({ 'js/sim.js': { Killed: 79, TimedOut: 21 } })),
+      FAKE_STRYKER_REPORT: JSON.stringify(makeReport({ 'js/sim.js': { Killed: 79, Timeout: 21 } })),
     });
     assert.equal(inconclusiveCli.status, 2);
     assert.match(inconclusiveCli.stdout, /timeouts=21\.00%/);
@@ -579,7 +793,7 @@ process.exit(Number(process.env.FAKE_STRYKER_EXIT || 0));
     // 4b. 85 killed + 10 timedOut + 5 survived -> CLI exits 1 (FAIL below 90%).
     const failTimeoutCli = runCli({
       GITHUB_BASE_REF: 'main',
-      FAKE_STRYKER_REPORT: JSON.stringify(makeReport({ 'js/sim.js': { Killed: 85, TimedOut: 10, Survived: 5 } })),
+      FAKE_STRYKER_REPORT: JSON.stringify(makeReport({ 'js/sim.js': { Killed: 85, Timeout: 10, Survived: 5 } })),
     });
     assert.equal(failTimeoutCli.status, 1);
     assert.match(failTimeoutCli.stdout, /score=85\.00%.*killed=85 timedOut=10 survived=5.*total=100 timeouts=10\.00%/);
@@ -589,12 +803,32 @@ process.exit(Number(process.env.FAKE_STRYKER_EXIT || 0));
     const boundaryPassCli = runCli({
       GITHUB_BASE_REF: 'main',
       MUTATION_MIN: '80',
-      FAKE_STRYKER_REPORT: JSON.stringify(makeReport({ 'js/sim.js': { Killed: 80, TimedOut: 20 } })),
+      FAKE_STRYKER_REPORT: JSON.stringify(makeReport({ 'js/sim.js': { Killed: 80, Timeout: 20 } })),
     });
     assert.equal(boundaryPassCli.status, 0);
     assert.match(boundaryPassCli.stdout, /mutation-changed: PASS ≥80%/);
 
-    // 4d. Stale report is deleted before running Stryker; missing report fails closed with exit 1.
+    // 4d. Real Stryker report excerpt (#116 local-116.json): prints per-file counts and excluded error counts.
+    const excerptCli = runCli({
+      GITHUB_BASE_REF: 'main',
+      FAKE_STRYKER_REPORT: JSON.stringify(STRYKER_EXCERPT_116),
+    });
+    assert.equal(excerptCli.status, 1);
+    assert.match(
+      excerptCli.stdout,
+      /mutation-changed: file=js\/main\.js killed=3 timedOut=1 survived=1 noCoverage=1 compileError=0 runtimeError=1 ignored=0 total=6 timeouts=16\.67% errors: runtimeError=1 compileError=0 \(excluded from score\)/,
+    );
+    assert.match(
+      excerptCli.stdout,
+      /mutation-changed: file=js\/renderer\.js killed=2 timedOut=1 survived=1 noCoverage=0 compileError=0 runtimeError=1 ignored=0 total=4 timeouts=25\.00% errors: runtimeError=1 compileError=0 \(excluded from score\)/,
+    );
+    assert.match(
+      excerptCli.stdout,
+      /mutation-changed: score=50\.00% killed=5 timedOut=2 survived=2 noCoverage=1 compileError=0 runtimeError=2 ignored=0 total=10 timeouts=20\.00% errors: runtimeError=2 compileError=0 \(excluded from score\)/,
+    );
+    assert.match(excerptCli.stderr, /mutation-changed: FAIL below 90%/);
+
+    // 4e. Stale report is deleted before running Stryker; missing report fails closed with exit 1.
     const missingReportCli = runCli({
       GITHUB_BASE_REF: 'main',
       FAKE_STRYKER_SKIP_WRITE: '1',
@@ -602,7 +836,7 @@ process.exit(Number(process.env.FAKE_STRYKER_EXIT || 0));
     assert.equal(missingReportCli.status, 1);
     assert.match(missingReportCli.stderr, /mutation-changed: FAIL missing Stryker report/);
 
-    // 4e. Malformed JSON report fails closed with exit 1.
+    // 4f. Malformed JSON report fails closed with exit 1.
     const malformedReportCli = runCli({
       GITHUB_BASE_REF: 'main',
       FAKE_STRYKER_REPORT: '{not-valid-json',
@@ -610,7 +844,7 @@ process.exit(Number(process.env.FAKE_STRYKER_EXIT || 0));
     assert.equal(malformedReportCli.status, 1);
     assert.match(malformedReportCli.stderr, /mutation-changed: FAIL invalid Stryker report:/);
 
-    // 4f. Nonzero Stryker exit code despite 100% passing report -> normalized to exit 1 (FAIL).
+    // 4g. Nonzero Stryker exit code despite 100% passing report -> normalized to exit 1 (FAIL).
     const runnerFailedCli = runCli({
       GITHUB_BASE_REF: 'main',
       FAKE_STRYKER_REPORT: JSON.stringify(makeReport({ 'js/sim.js': { Killed: 10 } })),
