@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-/** CI helper: mutate changed keeper/js/*.js vs base ref; require ≥90% score. */
+/** CI helper: require ≥90% kills and ≤20% timeouts. Exit 0 PASS, 1 FAIL, 2 INCONCLUSIVE. */
 import { spawnSync } from 'node:child_process';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { changedFiles, scoreReport } from './mutation-gate.mjs';
+import { changedFiles, scoreReport, MAX_TIMEOUT_RATIO } from './mutation-gate.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function formatCounts(counts) {
-  return Object.entries(counts).map(([key, count]) => `${key}=${count}`).join(' ');
+  const timeoutPct = counts.total ? (100 * counts.timedOut) / counts.total : 0;
+  return `${Object.entries(counts).map(([key, count]) => `${key}=${count}`).join(' ')} timeouts=${timeoutPct.toFixed(2)}%`;
 }
 
 export function main() {
@@ -50,7 +51,7 @@ export default {
   });
   if (!existsSync(report)) {
     console.error('mutation-changed: FAIL missing Stryker report');
-    return run.status || 1;
+    return 1;
   }
   let result;
   try {
@@ -63,13 +64,17 @@ export default {
     console.log(`mutation-changed: file=${path} ${formatCounts(counts)}`);
   }
   console.log(`mutation-changed: score=${result.score.toFixed(2)}% ${formatCounts(result.totals)}`);
+  if (result.verdict === 'INCONCLUSIVE') {
+    console.error(`mutation-changed: INCONCLUSIVE timeouts ${(100 * result.timeoutRatio).toFixed(2)}% > ${100 * MAX_TIMEOUT_RATIO}%`);
+    return 2;
+  }
   if (!result.pass) {
     console.error(`mutation-changed: FAIL below ${min}%`);
     return 1;
   }
   if (run.status !== 0 || run.error) {
     console.error(`mutation-changed: FAIL Stryker ${run.error?.message || `exited ${run.status}`}`);
-    return run.status || 1;
+    return 1;
   }
   console.log(`mutation-changed: PASS ≥${min}%`);
   return 0;
