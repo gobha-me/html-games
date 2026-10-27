@@ -112,6 +112,13 @@ test('pause, help, log, hidden tabs and mode changes never record the gap as a f
     assert.equal(added.length, 2, `${open}: first frame after resuming is only an anchor`);
     assert.ok(added.every(({ intervalMs }) => Math.abs(intervalMs - FRAME) < 1e-9), `${open}: no pause gap`);
   }
+  // Pause and resume between two frames: no paused frame resets the anchor,
+  // so the mode change itself must, or the 3 s gap becomes a "frame".
+  const quick = app.keeper.frameTiming.samples;
+  app.keydown('KeyP'); app.keyup('KeyP'); app.keydown('KeyP'); app.keyup('KeyP');
+  assert.equal(app.keeper.mode, 'play');
+  t = run(app, 1, t + 3000);
+  assert.deepEqual(app.keeper.frameTiming.samples, quick, 'first frame after a mode change is only an anchor');
   // A hidden document pauses the watch; frames that still arrive while hidden never sample.
   const before = app.keeper.frameTiming.samples;
   app.doc.hidden = true;
