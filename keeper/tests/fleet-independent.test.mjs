@@ -111,7 +111,7 @@ function assertGaps(seed, night = 1) {
 }
 
 function expectedSummary(state) {
-  const tally = { safe: 0, wrecked: 0, unseen: 0 };
+  const tally = { safe: 0, wrecked: 0, unseen: 0, lost: 0 };
   for (const ship of state.ships) {
     if (!ship.everSeen) tally.unseen += 1;
     else if (ship.status === 'safe') tally.safe += 1;
@@ -269,17 +269,17 @@ test('summary counts only seen saves and wrecks; unseen is any status', () => {
     ship({ id: 5, status: 'underway', everSeen: false }),
     ship({ id: 6, status: 'underway', everSeen: true }),
   ];
-  assert.deepEqual(summary(state), { safe: 1, wrecked: 1, unseen: 3 });
+  assert.deepEqual(summary(state), { safe: 1, wrecked: 1, unseen: 3, lost: 0 });
   state.ships[0].everSeen = true;
-  assert.deepEqual(summary(state), { safe: 2, wrecked: 1, unseen: 2 });
+  assert.deepEqual(summary(state), { safe: 2, wrecked: 1, unseen: 2, lost: 0 });
   state.ships[1].status = 'wrecked';
-  assert.deepEqual(summary(state), { safe: 1, wrecked: 2, unseen: 2 });
+  assert.deepEqual(summary(state), { safe: 1, wrecked: 2, unseen: 2, lost: 0 });
   state.ships = Array.from({ length: 4 }, (_, id) => ship({ id, status: 'safe', everSeen: false, x: 700, y: 1 }));
-  assert.deepEqual(summary(state), { safe: 0, wrecked: 0, unseen: 4 });
+  assert.deepEqual(summary(state), { safe: 0, wrecked: 0, unseen: 4, lost: 0 });
   state.ships = [ship({ status: 'wrecked', everSeen: false })];
-  assert.deepEqual(summary(state), { safe: 0, wrecked: 0, unseen: 1 });
+  assert.deepEqual(summary(state), { safe: 0, wrecked: 0, unseen: 1, lost: 0 });
   state.ships = [];
-  assert.deepEqual(summary(state), { safe: 0, wrecked: 0, unseen: 0 });
+  assert.deepEqual(summary(state), { safe: 0, wrecked: 0, unseen: 0, lost: 0 });
   const fresh = createState(108);
   const before = structuredClone(fresh.ships);
   summary(fresh);
