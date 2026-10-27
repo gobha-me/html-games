@@ -2,14 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CLEAR_MARGIN,
+  LIFEBOAT_LOST_SECONDS,
   NIGHT_SECONDS,
   SPAWN,
   TEETH,
   createState,
+  installSpecialty,
   isLit,
   perception,
   planHazards,
   planSpawns,
+  specialtyApproach,
   step,
   summary,
   validateSchedule,
@@ -351,4 +354,47 @@ test('everSeen sticks after a ship is no longer in the light', () => {
   assert.ok(found);
   assert.equal(found.everSeen, true);
   assert.deepEqual(summary(state), expectedSummary(state));
+});
+
+test('expectedSummary and summary count only ever-seen lost hulls', () => {
+  let state = createState(108);
+  state = installSpecialty(state, specialtyApproach({
+    id: 'lifeboat-seen',
+    type: 'lifeboat',
+    bearing: 120,
+    spawnRange: 200,
+  }));
+  state = installSpecialty(state, specialtyApproach({
+    id: 'lifeboat-unseen',
+    type: 'lifeboat',
+    bearing: 210,
+    spawnRange: 200,
+  }));
+  state.beam = 120;
+  state = advance(state, { ...QUIET, hold: true }, MS);
+  const seenAtStart = state.ships.find((vessel) => vessel.id === 'lifeboat-seen');
+  const unseenAtStart = state.ships.find((vessel) => vessel.id === 'lifeboat-unseen');
+  assert.equal(seenAtStart.everSeen, true);
+  assert.equal(unseenAtStart.everSeen, false);
+
+  state.beam = 300;
+  state = advance(state, { ...QUIET, hold: true }, LIFEBOAT_LOST_SECONDS);
+  const seenLost = state.ships.find((vessel) => vessel.id === 'lifeboat-seen');
+  const unseenLost = state.ships.find((vessel) => vessel.id === 'lifeboat-unseen');
+  assert.equal(seenLost.status, 'lost');
+  assert.equal(seenLost.everSeen, true);
+  assert.equal(unseenLost.status, 'lost');
+  assert.equal(unseenLost.everSeen, false);
+  assert.equal(expectedSummary(state).lost, 1);
+  assert.deepEqual(summary(state), expectedSummary(state));
+
+  const synthetic = createState(108);
+  synthetic.ships = [
+    ship({ id: 1, status: 'lost', everSeen: false }),
+    ship({ id: 2, status: 'lost', everSeen: true }),
+    ship({ id: 3, status: 'safe', everSeen: true }),
+    ship({ id: 4, status: 'wrecked', everSeen: true }),
+  ];
+  assert.deepEqual(expectedSummary(synthetic), { safe: 1, wrecked: 1, unseen: 1, lost: 1 });
+  assert.deepEqual(summary(synthetic), expectedSummary(synthetic));
 });
