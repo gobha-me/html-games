@@ -117,3 +117,30 @@ jobs:
             count=$((count + 1))
           done < <(find . -name '*.js' -not -path './.git/*' -not -path '*/node_modules/*' -not -path '*/dist/*' -print0)
           echo "Verified syntax of $count JS files across all games."
+
+  # Mutation gate on changed keeper/js files (≥90%). Additive — does not replace keeper/late-edition/validate.
+  keeper-mutation:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: keeper
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: keeper/package-lock.json
+
+      - run: npm ci
+      - name: Mutation score on changed keeper/js (≥90%)
+        env:
+          MUTATION_MIN: "90"
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: npm run test:mutation:changed
+
