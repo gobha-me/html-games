@@ -78,15 +78,17 @@ test('running light points obey half reach and disappear on a wreck', () => {
   assert.equal(perception(s).runningLights, false);
 });
 
-test('unwarned trawler wrecks after its warning budget; no mid-night game over; dawn at three minutes', () => {
+test('unwarned trawler wrecks after its warning budget; no mid-night game over; dawn at nine minutes', () => {
   const s = step(createState(), {}, 120);
   assert.equal(s.trawler.status, 'wrecked');
   assert.ok(s.trawler.wreckedAt > 60 && s.trawler.wreckedAt < 120);
   assert.equal(s.phase, 'night');
-  const dawn = step(s, {}, 60);
+  const dawn = step(s, {}, NIGHT_SECONDS - s.time);
   assert.equal(dawn.time, NIGHT_SECONDS);
   assert.equal(dawn.phase, 'dawn');
-  assert.deepEqual(summary({ ships: [dawn.trawler] }), { safe: 0, wrecked: 1, unseen: 0, lost: 0 });
+  assert.deepEqual(summary({ ships: [dawn.trawler] }), {
+    night: 1, safe: 0, wrecked: 1, unseen: 0, lost: 0, logged: 0, cumulativeWrecks: 1, relieved: false,
+  });
   assert.deepEqual(step(dawn, { horn: true, fast: true }, 3), dawn);
 });
 
@@ -112,10 +114,12 @@ test('a horn warns with seeded crew delay and turns clear without premature safe
   s = step(aim(s), { hold: true, horn: true }, 0.2);
   assert.notEqual(s.trawler.warnedAt, null);
   assert.equal(s.trawler.heading, heading, 'crew delay precedes rudder movement');
-  s = step(s, {}, 155.8);
+  s = step(s, {}, NIGHT_SECONDS - s.time);
   assert.equal(s.phase, 'dawn');
   assert.equal(s.trawler.status, 'underway');
-  assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 0, wrecked: 0, unseen: 0, lost: 0 });
+  assert.deepEqual(summary({ ships: [s.trawler] }), {
+    night: 1, safe: 0, wrecked: 0, unseen: 0, lost: 0, logged: 0, cumulativeWrecks: 0, relieved: false,
+  });
   assert.ok(Math.abs(((s.trawler.heading - s.trawler.targetHeading + 540) % 360) - 180) < 0.1);
 });
 
@@ -137,7 +141,9 @@ test('warning at the budgeted PNR turns clear and keeps moving without off-chart
     const pose = { x: s.trawler.x, y: s.trawler.y };
     s = step(s, {}, 60);
     assert.ok(Math.hypot(s.trawler.x - pose.x, s.trawler.y - pose.y) > 30);
-    assert.deepEqual(summary({ ships: [s.trawler] }), { safe: 0, wrecked: 0, unseen: 0, lost: 0 });
+    assert.deepEqual(summary({ ships: [s.trawler] }), {
+      night: 1, safe: 0, wrecked: 0, unseen: 0, lost: 0, logged: 0, cumulativeWrecks: 0, relieved: false,
+    });
   }
 });
 
@@ -215,7 +221,7 @@ test('reject invalid inputs rather than poisoning state; zero dt leaves it uncha
     assert.throws(() => fogReach(value), TypeError);
   }
   for (const seed of [-1, 0x100000000, NaN, 1.2, '108', null]) assert.throws(() => createState(seed), TypeError);
-  for (const dt of [-1, NaN, Infinity, 181, '1']) assert.throws(() => step(createState(), {}, dt), RangeError);
+  for (const dt of [-1, NaN, Infinity, NIGHT_SECONDS + 1, '1']) assert.throws(() => step(createState(), {}, dt), RangeError);
   for (const input of [null, [], 'horn', { horn: 1 }, { hold: 'false' }, { fast: NaN }, { slow: null }]) {
     assert.throws(() => step(createState(), input, 1), TypeError);
   }
