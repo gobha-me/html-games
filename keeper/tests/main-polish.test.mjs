@@ -2,6 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bootMain } from './main-harness.mjs';
 import { KEYS, CONTROL_LABELS } from '../js/keys.js';
+import { NIGHT_SECONDS, bearingTo } from '../js/sim.js';
+import { MORSE } from '../js/morse.js';
+import { RECORD_KEY } from '../js/record.js';
+import { LOG_KEY, LOG_VERSION, LOG_NOTES } from '../js/log.js';
 
 const LABELS = Object.keys(KEYS).map((action) => CONTROL_LABELS[action]);
 const FRAME = 1000 / 60;
@@ -22,7 +26,10 @@ test('frame timing hook: capacity, default warm-up, detached snapshots, and noth
   const app = await bootMain();
   const initial = app.keeper.frameTiming;
   assert.deepEqual(initial, { capacity: 600, warmupRemaining: 120, samples: [] });
-  run(app, 30, 0); // Title screen frames never sample or consume warm-up.
+  app.recording.clear();
+  run(app, 30, 0); // Title screen frames never sample, consume warm-up, or redraw.
+  assert.equal(app.clock.reads, 0, 'title frames never read performance.now()');
+  assert.equal(app.recording.ops.length, 0, 'title frames do not advance or redraw');
   assert.deepEqual(app.keeper.frameTiming, { capacity: 600, warmupRemaining: 120, samples: [] });
   app.$('start').click();
   let t = run(app, 120, 1000);
@@ -71,7 +78,10 @@ test('resetFrameTiming clears samples, applies the requested warm-up and rejects
   run(app, 5, t);
   const before = app.keeper.frameTiming;
   for (const warmupFrames of [-1, -0.5, 1.5, NaN, Infinity, -Infinity, 2 ** 53, '10', null, true, 10n, [5], { valueOf: () => 5 }]) {
-    assert.throws(() => app.keeper.resetFrameTiming({ warmupFrames }), RangeError, String(warmupFrames));
+    assert.throws(() => app.keeper.resetFrameTiming({ warmupFrames }), {
+      name: 'RangeError',
+      message: /Warm-up frames must be a nonnegative safe integer/,
+    }, String(warmupFrames));
     assert.deepEqual(app.keeper.frameTiming, before, `rejected ${String(warmupFrames)} leaves timing untouched`);
   }
   const state = app.keeper.state;
@@ -131,9 +141,12 @@ test('pause, help, log, hidden tabs and mode changes never record the gap as a f
   t = run(app, 1, t);
   assert.equal(app.keeper.frameTiming.samples.length, before.length + 1);
   assert.ok(Math.abs(app.keeper.frameTiming.samples.at(-1).intervalMs - FRAME) < 1e-9);
-  // Restarting the watch from dawn is a mode change too.
-  while (app.keeper.mode === 'play') app.keeper.advance(60);
+  // Restarting the watch from dawn is a mode change too; the frame that crosses into dawn is not sampled.
+  while (app.keeper.state.time < NIGHT_SECONDS - 0.05) app.keeper.advance(10);
+  const preDawnCount = app.keeper.frameTiming.samples.length;
+  t = run(app, 1, t);
   assert.equal(app.keeper.mode, 'dawn');
+  assert.equal(app.keeper.frameTiming.samples.length, preDawnCount, 'frame transitioning to dawn is not sampled');
   const atDawn = app.keeper.frameTiming.samples;
   t = run(app, 10, t + 1000);
   assert.deepEqual(app.keeper.frameTiming.samples, atDawn);
@@ -180,6 +193,7 @@ test('normal visits get no hook and no sampling, yet frames keep running', async
 
 test('a motion preference change repaints immediately, in every mode, without ticking the watch', async () => {
   const app = await bootMain({ reducedMotion: false });
+  assert.deepEqual(app.media.queries, ['(prefers-reduced-motion: reduce)']);
   assert.equal(app.media.listeners.length, 1, 'main subscribes to preference changes');
   app.$('start').click();
   app.keeper.advance(9.5);
@@ -227,6 +241,24 @@ test('HUD text is written only when it changes; only Morse outputs scroll to the
   app.keeper.advance(0);
   assert.equal(app.$('morse-symbols').scrollLeft, 0, 'unchanged Morse text is not re-scrolled');
   assert.equal(app.$('morse-text').scrollLeft, 0);
+  assert.equal(app.$('morse-symbols').textContent, '—');
+  assert.equal(app.$('morse-text').textContent, 'Key K to signal');
+  assert.equal(app.$('morse-delivery').textContent, 'Directed to the vessel in the beam');
+  assert.equal(app.$('lamp-state').classList.contains('sounding'), false);
+  assert.equal(app.$('horn-state').classList.contains('sounding'), false);
+  // Key a dash while holding K: live preview updates before keyup, then sends with no vessel in beam.
+  app.keydown('KeyK');
+  app.keeper.advance(0.4);
+  assert.equal(app.$('lamp-state').classList.contains('sounding'), true);
+  assert.equal(app.$('morse-symbols').textContent, '−');
+  assert.equal(app.$('morse-text').textContent, 'T');
+  assert.equal(app.$('morse-delivery').textContent, 'Keying…');
+  app.keyup('KeyK');
+  app.keeper.advance(2.5);
+  assert.equal(app.$('lamp-state').classList.contains('sounding'), false);
+  assert.equal(app.$('morse-symbols').textContent, '−');
+  assert.equal(app.$('morse-text').textContent, 'T');
+  assert.equal(app.$('morse-delivery').textContent, 'Sent · no vessel in beam');
   // Key a dot with the lamp: the live strip changes and scrolls to its end.
   app.keydown('KeyK'); app.keeper.advance(0.1); app.keyup('KeyK'); app.keeper.advance(0.05);
   assert.equal(app.$('morse-symbols').textContent, '·');
@@ -239,12 +271,35 @@ test('HUD text is written only when it changes; only Morse outputs scroll to the
     assert.equal(app.$(id).scrollLeft, 0, `${id} never scrolls`);
   }
   assert.match(app.$('bearing').textContent, /^\d{3}° · 12\.0 s \/ revolution$/);
-  assert.equal(app.$('clock').textContent, '18:00');
-  assert.equal(app.$('trust-state').textContent, 'Skipper trust · 100%');
   assert.equal(app.$('lens-state').textContent, 'Lens turning clockwise');
   app.keydown('Space');
   app.keeper.advance(0.01);
   assert.equal(app.$('lens-state').textContent, 'Lens held');
+  app.keyup('Space');
+  app.keeper.advance(0.01);
+  assert.equal(app.$('lens-state').textContent, 'Lens turning clockwise');
+
+  // Sweep until the trawler is in the beam, hold, and send a signal to a vessel in the beam.
+  const fresh = await bootMain();
+  fresh.$('start').click();
+  assert.equal(fresh.$('clock').textContent, '18:00');
+  assert.equal(fresh.$('bearing').textContent, '285° · 12.0 s / revolution');
+  assert.equal(fresh.$('trust-state').textContent, 'Skipper trust · 100%');
+  while (Math.abs(fresh.keeper.state.beam - bearingTo(fresh.keeper.state.trawler)) > 2) {
+    fresh.keeper.advance(0.05);
+  }
+  fresh.keydown('Space');
+  fresh.keydown('KeyK'); fresh.keeper.advance(0.1); fresh.keyup('KeyK'); fresh.keeper.advance(2.5);
+  assert.equal(fresh.$('morse-delivery').textContent, 'Sent · vessel in beam');
+  fresh.keyup('Space');
+
+  // Clock and bearing pad single-digit hours, minutes and bearings with leading zeros.
+  const clockApp = await bootMain();
+  clockApp.$('start').click();
+  clockApp.keeper.advance(2.6); // beam moves from 285° past 360° to 003°
+  assert.equal(clockApp.$('bearing').textContent, '003° · 12.0 s / revolution');
+  clockApp.keeper.advance(91.3 - 2.6); // t = 91.3 s -> 00:05
+  assert.equal(clockApp.$('clock').textContent, '00:05');
 });
 
 test('all three controls lists and the footer hint are generated from the shared key table', async () => {
@@ -255,4 +310,197 @@ test('all three controls lists and the footer hint are generated from the shared
   }
   assert.equal(app.$('controls-hint').textContent,
     ['slow', 'fast', 'hold', 'horn', 'lamp', 'log', 'pause'].map((action) => CONTROL_LABELS[action]).join('    /    '));
+  assert.ok(app.$('log-note').children.every((item) => item.tagName === 'OPTION'));
+  assert.deepEqual(app.$('log-note').children.map((item) => item.value), [...LOG_NOTES]);
+  assert.deepEqual(app.$('log-note').children.map((item) => item.textContent), ['No note', ...LOG_NOTES.slice(1)]);
+  const letters = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'];
+  assert.ok(app.$('morse-alphabet').children.every((item) => item.tagName === 'SPAN'));
+  assert.deepEqual(app.$('morse-alphabet').children.map((item) => item.textContent),
+    letters.map((letter) => `${letter} ${MORSE[letter]}`));
+  assert.equal(app.$('schedule-error').hidden, true);
+  assert.equal(app.$('schedule-error').textContent, '');
+  assert.equal(app.$('start').disabled, false);
+});
+
+test('seed query parsing, startup storage, log modal rendering and audio/mute/reference/wpm controls', async () => {
+  for (const [search, expectedSeed] of [
+    ['?e2e=1', 108],
+    ['?e2e=1&seed=0', 0],
+    ['?e2e=1&seed=4294967295', 0xffffffff],
+    ['?e2e=1&seed=-1', 108],
+    ['?e2e=1&seed=4294967296', 108],
+    ['?e2e=1&seed=1.5', 108],
+    ['?e2e=1&seed=abc', 108],
+  ]) {
+    const app = await bootMain({ search });
+    assert.equal(app.keeper.seed, expectedSeed, search);
+    assert.equal(app.keeper.state.seed, expectedSeed, search);
+    assert.equal(app.$('previous-record').hidden, true, search);
+  }
+
+  // Saved previous record and valid saved log on startup.
+  const savedLog = {
+    version: LOG_VERSION,
+    entries: [
+      { seed: 108, night: 1, time: 0, bearing: 5.8, what: { id: 'trawler', type: 'trawler' }, note: '' },
+      { seed: 108, night: 1, time: 91.25, bearing: 120, what: { id: 'ship-1', type: 'coaster' }, note: 'running dark' },
+    ],
+  };
+  const withStorage = await bootMain({
+    initialStorage: {
+      [RECORD_KEY]: JSON.stringify({ version: 2, seed: 108, safe: 4, wrecked: 1 }),
+      [LOG_KEY]: JSON.stringify(savedLog),
+    },
+  });
+  assert.equal(withStorage.$('previous-record').hidden, false);
+  assert.equal(withStorage.$('previous-record').textContent, 'Last watch: 4 safe · 1 wrecked');
+  withStorage.$('log-note').value = 'running dark';
+  withStorage.keydown('KeyL');
+  assert.equal(withStorage.$('log-note').value, '', 'opening log resets note selection');
+  assert.equal(withStorage.$('log-status').textContent, 'Entries are kept in this browser.');
+  assert.equal(withStorage.$('log-stamp').textContent, 'Night 1 · 18:00 · 285°');
+  assert.ok(withStorage.$('log-entries').children.every((item) => item.tagName === 'LI'));
+  assert.deepEqual(withStorage.$('log-entries').children.map((item) => item.textContent), [
+    'Night 1 · 18:00 · 005° · Trawler',
+    'Night 1 · 00:05 · 120° · Coaster · running dark',
+  ]);
+  withStorage.keydown('KeyL');
+
+  // Reveal a vessel, check option tag and sighting label, and verify submit outside log mode is ignored.
+  withStorage.$('start').click();
+  while (!withStorage.keeper.state.trawler.everSeen) withStorage.keeper.advance(0.05);
+  withStorage.keydown('KeyL');
+  assert.equal(withStorage.$('log-what').children[0].tagName, 'OPTION');
+  assert.equal(withStorage.$('log-what').children[0].textContent, 'Trawler · sighting 1');
+  withStorage.keydown('KeyL');
+  assert.equal(withStorage.keeper.mode, 'play');
+  withStorage.$('log-form').dispatchEvent({ type: 'submit', preventDefault() {} });
+  assert.equal(withStorage.$('log-entries').children.length, 2, 'submit outside log mode is ignored');
+
+  // WPM select change, Morse reference toggle, and horn audio + mute toggle.
+  withStorage.$('incoming-wpm').value = '12';
+  withStorage.$('incoming-wpm').dispatchEvent({ type: 'change' });
+  assert.equal(withStorage.keeper.state.settings.incomingWpm, 12);
+  withStorage.$('start').click();
+  assert.equal(withStorage.keeper.state.settings.incomingWpm, 12);
+
+  assert.equal(withStorage.$('morse-reference').hidden, true);
+  withStorage.$('show-reference').checked = true;
+  withStorage.$('show-reference').dispatchEvent({ type: 'change' });
+  assert.equal(withStorage.$('morse-reference').hidden, false);
+  withStorage.$('show-reference').checked = false;
+  withStorage.$('show-reference').dispatchEvent({ type: 'change' });
+  assert.equal(withStorage.$('morse-reference').hidden, true);
+
+  assert.ok(withStorage.audioOps.targets.every((entry) => entry.target === 0), 'silent horn never sets non-zero gain');
+  withStorage.keydown('KeyH');
+  withStorage.keeper.advance(0.1);
+  assert.equal(withStorage.$('horn-state').classList.contains('sounding'), true);
+  assert.equal(withStorage.audioOps.targets.at(-1).target, 0.08);
+  withStorage.$('mute').click();
+  assert.equal(withStorage.$('mute').getAttribute('aria-pressed'), 'true');
+  assert.equal(withStorage.$('mute').textContent, 'Unmute horn');
+  assert.equal(withStorage.audioOps.targets.at(-1).target, 0);
+  withStorage.$('mute').click();
+  assert.equal(withStorage.$('mute').getAttribute('aria-pressed'), 'false');
+  assert.equal(withStorage.$('mute').textContent, 'Mute horn');
+  assert.equal(withStorage.audioOps.targets.at(-1).target, 0.08);
+  withStorage.keydown('KeyP');
+  assert.equal(withStorage.audioOps.targets.at(-1).target, 0, 'pausing silences horn gain');
+});
+
+test('mode panels, focus management, watch-controls fade/dismissal, suspend and dawn summaries', async () => {
+  const app = await bootMain();
+  const panelHidden = () => ['start', 'pause', 'help', 'dawn'].map((p) => app.$(`${p}-panel`).hidden);
+  assert.deepEqual(panelHidden(), [false, true, true, true]);
+  assert.equal(app.doc.activeElement, app.$('start'));
+  assert.deepEqual(app.$('start').lastFocusOptions, { preventScroll: true });
+
+  // Space and P on the title screen do not preventDefault or start play; pointerdown/keydown on title do not dismiss watch controls.
+  assert.equal(app.keydown('Space').defaultPrevented, false);
+  app.keydown('KeyP');
+  assert.equal(app.keeper.mode, 'start');
+  app.win.dispatchEvent({ type: 'pointerdown' });
+  app.keydown('KeyZ');
+  app.win.dispatchEvent({ type: 'blur' });
+  assert.equal(app.keeper.mode, 'start');
+
+  // Help button and close-help button round-trip with focus and panel visibility.
+  app.$('help').click();
+  assert.equal(app.keeper.mode, 'help');
+  assert.deepEqual(panelHidden(), [true, true, false, true]);
+  assert.equal(app.doc.activeElement, app.$('close-help'));
+  assert.deepEqual(app.$('close-help').lastFocusOptions, { preventScroll: true });
+  app.$('close-help').click();
+  assert.equal(app.keeper.mode, 'start');
+  assert.deepEqual(panelHidden(), [false, true, true, true]);
+
+  // Entering play via #resume without calling start() still shows watch-controls and blurs activeElement (even if already null).
+  app.$('resume').click();
+  assert.equal(app.keeper.mode, 'play');
+  assert.deepEqual(panelHidden(), [true, true, true, true]);
+  assert.equal(app.doc.activeElement, null);
+  app.$('resume').click(); // activeElement is already null here
+  assert.equal(app.$('watch-controls').classList.contains('is-faded'), false);
+  assert.equal(app.$('watch-controls').getAttribute('aria-hidden'), 'false');
+
+  // Pointerdown in play dismisses watch-controls; start() restores them; t = 8 fades them; keydown in play dismisses them.
+  app.win.dispatchEvent({ type: 'pointerdown' });
+  assert.equal(app.$('watch-controls').classList.contains('is-faded'), true);
+  assert.equal(app.$('watch-controls').getAttribute('aria-hidden'), 'true');
+  app.$('start').click();
+  assert.equal(app.$('watch-controls').classList.contains('is-faded'), false);
+  app.keeper.advance(7.9);
+  assert.equal(app.$('watch-controls').classList.contains('is-faded'), false);
+  app.keeper.advance(0.1);
+  assert.equal(app.$('watch-controls').classList.contains('is-faded'), true);
+  app.$('start').click();
+  assert.equal(app.$('watch-controls').classList.contains('is-faded'), false);
+  app.keydown('KeyZ');
+  assert.equal(app.$('watch-controls').classList.contains('is-faded'), true);
+
+  // visibilitychange when hidden=false does not suspend; hidden=true and blur in play pause and focus #resume.
+  app.setHidden(false);
+  assert.equal(app.keeper.mode, 'play');
+  app.setHidden(true);
+  assert.equal(app.keeper.mode, 'pause');
+  assert.deepEqual(panelHidden(), [true, false, true, true]);
+  assert.equal(app.doc.activeElement, app.$('resume'));
+  assert.deepEqual(app.$('resume').lastFocusOptions, { preventScroll: true });
+  assert.equal(app.$('lens-state').textContent, 'Lens at rest');
+  app.$('resume').click();
+  assert.equal(app.keeper.mode, 'play');
+  app.win.dispatchEvent({ type: 'blur' });
+  assert.equal(app.keeper.mode, 'pause');
+
+  // Dawn summaries across seeds/inputs, idempotence of finishNight, and storage error handling.
+  const seed3 = await bootMain({ search: '?e2e=1&seed=3' });
+  seed3.$('resume').click(); // enters play without start(), testing initial recorded = false
+  seed3.keeper.advance(NIGHT_SECONDS);
+  assert.equal(seed3.keeper.mode, 'dawn');
+  assert.equal(seed3.doc.activeElement, seed3.$('restart'));
+  assert.deepEqual(seed3.$('restart').lastFocusOptions, { preventScroll: true });
+  assert.equal(seed3.$('summary').textContent, '1 ship passed safely. 1 ship wrecked. 2 passed unseen.');
+  assert.equal(seed3.$('record-status').textContent, '1 vessel lost at the Teeth. The light kept turning.');
+  seed3.keydown('KeyP');
+  assert.equal(seed3.keeper.mode, 'dawn', 'P at dawn does not resume play');
+  // Re-entering play after dawn without start() does not re-record dawn.
+  seed3.$('resume').click();
+  seed3.keeper.advance(0.1);
+  assert.equal(seed3.keeper.mode, 'play', 'recorded guard prevents finishNight from re-running before restart');
+
+  const seed2Fast = await bootMain({ search: '?e2e=1&seed=2' });
+  seed2Fast.$('start').click();
+  seed2Fast.keydown('KeyD');
+  seed2Fast.keeper.advance(NIGHT_SECONDS);
+  assert.equal(seed2Fast.$('summary').textContent, '3 ships passed safely. 1 ship wrecked.');
+  assert.equal(seed2Fast.$('record-status').textContent, '1 vessel lost at the Teeth. The light kept turning.');
+
+  const calmBrokenStorage = await bootMain({ setItemError: new Error('QuotaExceededError') });
+  calmBrokenStorage.$('start').click();
+  calmBrokenStorage.keydown('Space');
+  calmBrokenStorage.keeper.advance(NIGHT_SECONDS);
+  assert.equal(calmBrokenStorage.$('summary').textContent, '0 ships passed safely. 0 ships wrecked. 4 passed unseen.');
+  assert.equal(calmBrokenStorage.$('record-status').textContent,
+    'The watch is over. The light kept turning. This browser could not keep the morning record.');
 });
