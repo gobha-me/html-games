@@ -27,7 +27,7 @@ test('beam origin is the immutable lamp at every bearing, including multiple tur
 
 test('beam origin rejects non-finite and non-numeric bearings', () => {
   for (const bearing of [NaN, Infinity, -Infinity, undefined, null, '90', {}, 90n]) {
-    assert.throws(() => beamOrigin(bearing), TypeError);
+    assert.throws(() => beamOrigin(bearing), { name: 'TypeError', message: 'Beam bearing must be finite.' });
   }
 });
 

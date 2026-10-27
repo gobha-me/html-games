@@ -17,7 +17,7 @@ const MARKS = {
 const SPANS = { trawler: 12.9, coaster: 12.04, speedboat: 10.32, lifeboat: 10.32 };
 const TYPES = Object.keys(MARKS);
 const DT = 1 / 60;
-const VIEWPORTS = [[1280, 720], [1600, 900], [1920, 1080], [1920, 720], [2560, 1440]];
+const VIEWPORTS = [[1280, 720], [1280, 1080], [1600, 900], [1920, 1080], [1920, 720], [2560, 1440]];
 const close = (actual, expected, message, epsilon = 1e-9) =>
   assert.ok(Math.abs(actual - expected) <= epsilon, `${message}: ${actual} ≠ ${expected}`);
 
@@ -159,6 +159,30 @@ test('partly clipped lit hulls stay in scope with exact visible area and fractio
   assert.ok(view.visibleOutline.every(({ y }) => y <= 720 + 1e-9));
   assert.ok(view.visibleOutline.some(({ y }) => Math.abs(y - 720) < 1e-9), 'clip edge vertices lie on the canvas edge');
   close(view.minimumSpanPixels, SPANS.trawler, 'span is for the complete silhouette');
+
+  // Vertex [7, -7] and [-7, -7] lie directly on the bottom edge y = 720 while the bow [0, -16] is inside
+  // and the stern [8, 10], [-7, 10] is outside: boundary vertices must be kept without duplication.
+  const shoulderOnEdge = fixture('trawler', 0, edge + 7, 0);
+  const shoulderView = vesselReadability(shoulderOnEdge.state, shoulderOnEdge.ship);
+  assert.equal(shoulderView.clipped, true);
+  assert.equal(shoulderView.visibleOutline.length, 5);
+  close(shoulderView.visibleAreaPixels, 63 * 0.86 * 0.86, 'bow triangle area when shoulders lie on edge', 1e-6);
+
+  // Hulls touching a canvas edge from the inside (x = 0, x = width, y = 0, y = height) are unclipped
+  // and keep their exact vertex list without duplicating boundary vertices.
+  for (const [label, x, y, lit, height] of [
+    ['left-touch', -640 / 0.86 + 7, -100, false, 720],
+    ['right-touch', 640 / 0.86 - 8, -100, false, 720],
+    ['top-touch', 0, -(478 * 100 / 720) / (0.86 * 100 / 720) + 16, false, 100],
+    ['bottom-touch', 0, (720 - 478) / 0.86 - 10, true, 720],
+  ]) {
+    const touch = fixture('trawler', x, y, 0, { lit, afterimage: lit ? 0 : AFTERIMAGE_SECONDS / 2 });
+    const touchView = vesselReadability(touch.state, touch.ship, { width: 1280, height });
+    assert.equal(touchView.clipped, false, `${label}: touching edge from inside is not clipped`);
+    assert.equal(touchView.onScreen, true, label);
+    assert.equal(touchView.inScope, lit, label);
+    assert.deepEqual(touchView.visibleOutline, touchView.outline, `${label}: no duplicate or dropped boundary vertices`);
+  }
 });
 
 test('clipping works against every canvas edge for remembered images, which are never in scope', () => {
@@ -291,27 +315,55 @@ test('invalid viewports, unknown hull types and non-finite poses are rejected', 
   for (const size of [{ width: 0, height: 720 }, { width: 1280, height: 0 }, { width: -1280, height: 720 },
     { width: 1280, height: -1 }, { width: NaN, height: 720 }, { width: 1280, height: Infinity },
     { width: '1280', height: 720 }, { width: 1280, height: null }, { width: 1280 }, {}]) {
-    assert.throws(() => vesselReadability(state, ship, size), RangeError, JSON.stringify(size));
+    assert.throws(() => vesselReadability(state, ship, size), {
+      name: 'RangeError',
+      message: /Readability viewport dimensions must be positive and finite/,
+    }, JSON.stringify(size));
   }
   for (const type of ['submarine', '', '__proto__', 'toString', 'constructor', 'hasOwnProperty', undefined, null, 7, ['trawler']]) {
-    assert.throws(() => vesselReadability(state, { ...ship, type }), RangeError, String(type));
+    assert.throws(() => vesselReadability(state, { ...ship, type }), {
+      name: 'RangeError',
+      message: /Unknown vessel type/,
+    }, String(type));
   }
   for (const heading of [NaN, Infinity, -Infinity]) {
     const lit = fixture('coaster', 0, -200, 0);
     lit.ship.heading = heading;
-    assert.throws(() => vesselReadability(lit.state, lit.ship), TypeError, `lit heading ${heading}`);
+    assert.throws(() => vesselReadability(lit.state, lit.ship), {
+      name: 'TypeError',
+      message: /Vessel pose must be finite/,
+    }, `lit heading ${heading}`);
     const image = fixture('coaster', 0, -200, 0, { lit: false, afterimage: 1 });
     image.ship.lastSeen.heading = heading;
-    assert.throws(() => vesselReadability(image.state, image.ship), TypeError, `remembered heading ${heading}`);
+    assert.throws(() => vesselReadability(image.state, image.ship), {
+      name: 'TypeError',
+      message: /Vessel pose must be finite/,
+    }, `remembered heading ${heading}`);
   }
   const remembered = fixture('coaster', 0, -200, 0, { lit: false, afterimage: 1 });
   remembered.ship.lastSeen.x = NaN;
-  assert.throws(() => vesselReadability(remembered.state, remembered.ship), TypeError);
+  assert.throws(() => vesselReadability(remembered.state, remembered.ship), {
+    name: 'TypeError',
+    message: /Vessel pose must be finite/,
+  });
   // Finite but enormous poses overflow the projection rather than reporting a hull.
   const huge = fixture('coaster', 0, -200, 0, { lit: false, afterimage: 1 });
   huge.ship.lastSeen.x = Number.MAX_VALUE * 0.9;
   assert.equal(Number.isFinite(huge.ship.lastSeen.x), true, 'precondition: the pose itself is finite');
-  assert.throws(() => vesselReadability(huge.state, huge.ship, { width: 2560, height: 1440 }), RangeError);
+  assert.throws(() => vesselReadability(huge.state, huge.ship, { width: 2560, height: 1440 }), {
+    name: 'RangeError',
+    message: /Projected vessel coordinates must be finite/,
+  });
+  // Partial overflow: port vertices stay finite while starboard vertices overflow to Infinity.
+  const partialOverflow = fixture('trawler', 0, -200, 0, { lit: false, afterimage: 1 });
+  partialOverflow.ship.lastSeen.x = 951814;
+  assert.throws(() => vesselReadability(partialOverflow.state, partialOverflow.ship, {
+    width: Number.MAX_VALUE / 640,
+    height: 720,
+  }), {
+    name: 'RangeError',
+    message: /Projected vessel coordinates must be finite/,
+  });
 });
 
 test('the probe is pure: inputs and shared marks are untouched, results are deterministic', () => {

@@ -21,16 +21,15 @@ const NONE_HELD = Object.freeze({ slow: false, fast: false, hold: false, horn: f
 const KEYS_URL = new URL('../js/keys.js', import.meta.url);
 const SOURCE = readFileSync(KEYS_URL, 'utf8');
 
-// Import a variant of the real module from a data: URL in a fresh process.
-function importVariant(source, probe = '') {
-  return spawnSync(process.execPath, ['--input-type=module', '-e', `
-    const keys = await import('data:text/javascript,' + encodeURIComponent(${JSON.stringify(source)}));
-    ${probe}
-  `], { encoding: 'utf8' });
+// Import a variant of the real module from a data: URL in-process so Stryker coverage/mutants apply.
+function importVariant(source) {
+  return import('data:text/javascript,' + encodeURIComponent(source));
 }
-function replaceOnce(source, search, replacement) {
-  assert.ok(source.includes(search), `fixture text present: ${search}`);
-  return source.replace(search, replacement);
+function replaceOnce(source, pattern, replacement) {
+  assert.match(source, pattern, `fixture pattern present: ${pattern}`);
+  const next = source.replace(pattern, replacement);
+  assert.notEqual(next, source, `replacement changed source: ${pattern}`);
+  return next;
 }
 
 test('KEYS and CONTROL_LABELS pin the shipped bindings, labels and card order', () => {
@@ -176,20 +175,34 @@ test('keys module stays pure: no browser globals, clock or randomness during imp
   assert.equal(result.status, 0, result.stderr);
 });
 
-test('import refuses duplicate, empty and non-string codes and unlabelled actions', () => {
+test('import refuses duplicate, empty and non-string codes and unlabelled actions', async () => {
   // Sanity: the unmodified source loads through the same path.
-  const ok = importVariant(SOURCE, "if (keys.actionFor('KeyL') !== 'log') process.exit(3);");
-  assert.equal(ok.status, 0, ok.stderr);
+  const ok = await importVariant(SOURCE);
+  assert.equal(ok.actionFor('KeyL'), 'log');
   const broken = {
-    'duplicate across actions': replaceOnce(SOURCE, "horn: Object.freeze(['KeyH'])", "horn: Object.freeze(['KeyH', 'KeyA'])"),
-    'duplicate within one action': replaceOnce(SOURCE, "hold: Object.freeze(['Space'])", "hold: Object.freeze(['Space', 'Space'])"),
-    'empty code': replaceOnce(SOURCE, "help: Object.freeze(['Slash'])", "help: Object.freeze(['Slash', ''])"),
-    'numeric code': replaceOnce(SOURCE, "lamp: Object.freeze(['KeyK'])", "lamp: Object.freeze(['KeyK', 75])"),
-    'missing label': replaceOnce(SOURCE, "help: '? · controls',", ''),
+    'duplicate across actions': [
+      replaceOnce(SOURCE, /horn:\s*Object\.freeze\([^\n]+\)/, "horn: Object.freeze(['KeyH', 'KeyA'])"),
+      /Invalid or duplicate control code: KeyA/,
+    ],
+    'duplicate within one action': [
+      replaceOnce(SOURCE, /hold:\s*Object\.freeze\([^\n]+\)/, "hold: Object.freeze(['Space', 'Space'])"),
+      /Invalid or duplicate control code: Space/,
+    ],
+    'empty code': [
+      replaceOnce(SOURCE, /help:\s*Object\.freeze\([^\n]+\)/, "help: Object.freeze(['Slash', ''])"),
+      /Invalid or duplicate control code: $/,
+    ],
+    'numeric code': [
+      replaceOnce(SOURCE, /lamp:\s*Object\.freeze\([^\n]+\)/, "lamp: Object.freeze(['KeyK', 75])"),
+      /Invalid or duplicate control code: 75/,
+    ],
+    'missing label': [
+      replaceOnce(SOURCE, /help:(?=[^\n]*\? · controls)/, 'unmapped:'),
+      /Missing control label: help/,
+    ],
   };
-  for (const [name, source] of Object.entries(broken)) {
-    const result = importVariant(source);
-    assert.notEqual(result.status, 0, `${name} must fail at import`);
-    assert.match(result.stderr, name === 'missing label' ? /Missing control label: help/ : /Invalid or duplicate control code/, name);
+  for (const [name, [source, pattern]] of Object.entries(broken)) {
+    await assert.rejects(() => importVariant(source), (error) => error instanceof Error && pattern.test(error.message),
+      `${name} must fail at import`);
   }
 });

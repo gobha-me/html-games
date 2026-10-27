@@ -6,6 +6,7 @@ let bootSequence = 0;
 
 export async function bootMain({
   search = '?e2e=1&seed=108', webdriver = true, reducedMotion = false, initialStorage = {}, now = 0,
+  getItemError = null, setItemError = null,
 } = {}) {
   const listeners = new Map();
   const docListeners = new Map();
@@ -13,10 +14,13 @@ export async function bootMain({
   let activeElement = null;
   const recording = createRecordingCanvas();
   const frames = [];
-  const clock = { now };
+  const clock = { now, reads: 0, lastFrameReads: 0 };
+  const storageConfig = { getItemError, setItemError };
+  const audioOps = { unlocked: 0, resumed: 0, targets: [] };
   const media = {
     matches: reducedMotion,
     media: '(prefers-reduced-motion: reduce)',
+    queries: [],
     listeners: [],
     addEventListener(type, fn) { if (type === 'change') this.listeners.push(fn); },
   };
@@ -73,10 +77,14 @@ export async function bootMain({
         return !event.defaultPrevented;
       },
       click() { this.dispatchEvent({ type: 'click', preventDefault() {} }); },
-      focus() { activeElement = this; },
+      lastFocusOptions: undefined,
+      focus(opts) { activeElement = this; this.lastFocusOptions = opts; },
       blur() { if (activeElement === this) activeElement = null; },
       showModal() { this.open = true; },
-      close() { this.open = false; },
+      close() {
+        if (!this.open) throw new Error('dialog is not open');
+        this.open = false;
+      },
     };
     return el;
   }
@@ -121,7 +129,21 @@ export async function bootMain({
   const win = {
     devicePixelRatio: 1,
     location: { search },
-    matchMedia: () => media,
+    matchMedia: (query) => { media.queries.push(query); return media; },
+    AudioContext: class {
+      constructor() { audioOps.unlocked++; this.currentTime = 0; this.destination = {}; }
+      createGain() {
+        return {
+          gain: {
+            value: 1,
+            setTargetAtTime(target, time, constant) { audioOps.targets.push({ target, time, constant }); },
+          },
+          connect() {},
+        };
+      }
+      createOscillator() { return { type: '', frequency: { value: 0 }, connect() {}, start() {} }; }
+      resume() { audioOps.resumed++; return Promise.resolve(); }
+    },
     addEventListener(type, fn) {
       if (!listeners.has(type)) listeners.set(type, []);
       listeners.get(type).push(fn);
@@ -136,11 +158,18 @@ export async function bootMain({
   define('document', doc);
   define('navigator', { webdriver });
   define('localStorage', {
-    getItem: (key) => (store.has(key) ? store.get(key) : null),
-    setItem: (key, val) => { store.set(key, String(val)); },
+    getItem: (key) => {
+      if (storageConfig.getItemError) throw storageConfig.getItemError;
+      return store.has(key) ? store.get(key) : null;
+    },
+    setItem: (key, val) => {
+      if (storageConfig.setItemError) throw storageConfig.setItemError;
+      store.set(key, String(val));
+    },
   });
   define('requestAnimationFrame', (callback) => { frames.push(callback); return frames.length; });
-  define('performance', { now: () => clock.now });
+  const defaultNow = () => { clock.reads++; return clock.now; };
+  define('performance', { now: defaultNow });
 
   await import(new URL(`../js/main.js?harness=${++bootSequence}`, import.meta.url).href);
 
@@ -150,10 +179,16 @@ export async function bootMain({
     const callback = frames.at(-1);
     const before = frames.length;
     const start = clock.now;
-    const realNow = globalThis.performance.now;
+    const currentNow = globalThis.performance.now;
     let calls = 0;
-    globalThis.performance.now = () => (calls++ === 0 ? start : start + workMs);
-    try { callback(timestamp); } finally { globalThis.performance.now = realNow; }
+    clock.lastFrameReads = 0;
+    globalThis.performance.now = () => {
+      clock.reads++;
+      clock.lastFrameReads++;
+      if (currentNow !== defaultNow) return currentNow();
+      return calls++ === 0 ? start : start + workMs;
+    };
+    try { callback(timestamp); } finally { globalThis.performance.now = currentNow; }
     clock.now = start + workMs;
     if (frames.length !== before + 1) throw new Error('frame did not request exactly one successor');
   }
@@ -179,7 +214,7 @@ export async function bootMain({
   }
 
   return {
-    win, doc, elements, store, media, recording, frames, clock,
+    win, doc, elements, store, storageConfig, audioOps, media, recording, frames, clock,
     $: (id) => elements.get(id),
     keeper: win.__keeper,
     frame, keydown, keyup, setMotion, setHidden,

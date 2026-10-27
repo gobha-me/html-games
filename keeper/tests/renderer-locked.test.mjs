@@ -64,6 +64,44 @@ test('the fixture scenes really exercise the locked layers they claim to', () =>
   // Reduced motion freezes both drift and surf: two reduced scenes at different times draw the same fog/surf.
   const fog = (ops) => ops.filter(({ op }) => op === 'createRadialGradient').map(({ gradient }) => gradient.args);
   assert.notDeepEqual(fog(traces['north-early']).slice(1, 33), fog(traces['east-drifted']).slice(1, 33));
+
+  // Omitting the second argument defaults `reduced` to false (animated drift/surf).
+  const previous = globalThis.window;
+  globalThis.window = { devicePixelRatio: 1 };
+  try {
+    const drifted = { ...createState(108), ships: [], time: 7.3 };
+    const defaultRec = createRecordingCanvas();
+    createRenderer(defaultRec.canvas).draw(drifted);
+    const explicitFalseRec = createRecordingCanvas();
+    createRenderer(explicitFalseRec.canvas).draw(drifted, false);
+    const reducedRec = createRecordingCanvas();
+    createRenderer(reducedRec.canvas).draw(drifted, true);
+    assert.deepEqual(fog(defaultRec.ops), fog(explicitFalseRec.ops));
+    assert.notDeepEqual(fog(defaultRec.ops).slice(1, 33), fog(reducedRec.ops).slice(1, 33));
+  } finally {
+    globalThis.window = previous;
+  }
+
+  // Chart hazard symbols cover shoal, wreck and rock marks.
+  const hazardState = {
+    ...createState(108),
+    ships: [],
+    hazards: [
+      { x: 100, y: -150, radius: 18, kind: 'shoal' },
+      { x: 140, y: -180, radius: 14, kind: 'wreck' },
+      { x: 180, y: -210, radius: 16, kind: 'rock' },
+    ],
+  };
+  const chartStrokes = draw(hazardState).filter(({ op, strokeStyle }) => op === 'stroke' && strokeStyle === '#202b2c');
+  const wreckStroke = chartStrokes.find(({ path }) => path.at(-1)?.op === 'closePath');
+  assert.ok(wreckStroke, 'wreck hazard symbol closes its trapezoid path');
+  assert.deepEqual(wreckStroke.path.map(({ op, local }) => (local ? [op, ...local] : [op])), [
+    ['moveTo', 135, -182],
+    ['lineTo', 145, -182],
+    ['lineTo', 142, -177],
+    ['lineTo', 138, -177],
+    ['closePath'],
+  ]);
 });
 
 test('every hull type paints its shared outline, cabins and (trawler only) mast in the hull frame', () => {
@@ -136,9 +174,12 @@ test('a reply signal is drawn as a halo and core disc at the vessel', () => {
   const state = vessel('trawler', { reply: { startedAt: 0, repeatSeconds: 0, flashes: [{ on: 0, off: 10_000 }] } });
   state.time = 1;
   const ship = state.ships[0];
-  const discs = draw(state).filter(({ op, path }) => op === 'fill' && path[0]?.op === 'arc'
+  const signalDiscs = (s) => draw(s).filter(({ op, path }) => op === 'fill' && path[0]?.op === 'arc'
     && Math.abs(path[0].local[0] - ship.x) < 1e-9 && Math.abs(path[0].local[1] - ship.y) < 1e-9);
+  const discs = signalDiscs(state);
   assert.deepEqual(discs.map(({ fillStyle, path }) => [fillStyle, path[0].local[2]]),
     [['rgba(255,240,201,0.18)', 7], ['#fff0c9', 3]]);
   close(discs[1].path[0].at.x, 640 + ship.x * 0.86, 'signal x');
+  // Without an active reply flash, no signal discs are drawn at the vessel.
+  assert.deepEqual(signalDiscs(vessel('trawler', { reply: null })), []);
 });
