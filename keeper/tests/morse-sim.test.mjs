@@ -199,7 +199,7 @@ test('reject nonboolean lamp, zero-time input is inert, dawn extinguishes the la
   }
   const state = aimed();
   assert.deepEqual(step(state, { lamp: true }, 0), state);
-  const dawn = step(state, { lamp: true, hold: true }, 180);
+  const dawn = step(state, { lamp: true, hold: true }, 540);
   assert.equal(dawn.lamp, false);
   assert.deepEqual(step(dawn, { lamp: true }, 1), dawn);
 });

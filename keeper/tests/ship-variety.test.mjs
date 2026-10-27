@@ -673,8 +673,8 @@ test('arrive and builders: error messages, callsigns, speed/type fallbacks, dest
   );
 
   assert.equal(base.trawler.callsign, 'T108');
-  let state = installSpecialty(base, specialtyApproach({ id: 'ship-9', bearing: 20, spawnRange: 300 }));
-  assert.equal(find(state, 'ship-9').callsign, 'S9');
+  let state = installSpecialty(base, specialtyApproach({ id: 'ship-99', bearing: 20, spawnRange: 300 }));
+  assert.equal(find(state, 'ship-99').callsign, 'S99');
   state = installSpecialty(state, {
     ...specialtyApproach({ id: 'custom-speed', bearing: 45, spawnRange: 300 }),
     speed: 4.25,
@@ -812,7 +812,9 @@ test('tick mechanics: trust recovery, speed/beam controls, fog progression, blas
   const lowTrust = { ...structuredClone(base), trust: 0.5 };
   const afterTrustTick = step(lowTrust, HOLD, TICK);
   assert.ok(Math.abs(afterTrustTick.trust - (0.5 + 0.01 * TICK)) < 1e-12);
-  assert.ok(Math.abs(afterTrustTick.fog - (0.08 + 0.08 * TICK / NIGHT_SECONDS)) < 1e-12);
+  const u = TICK / NIGHT_SECONDS;
+  const expectedFog = 0.08 + (0.12 - 0.08) * u * u * (3 - 2 * u);
+  assert.ok(Math.abs(afterTrustTick.fog - expectedFog) < 1e-12);
 
   const rotated = step(base, {}, TICK);
   assert.equal(rotated.speed, 30);
@@ -965,10 +967,10 @@ test('navigation, boundaries, and summary.lost: reactAt edge, avoidance resume, 
     { ...template, id: 's-safe', everSeen: true, status: 'safe' },
     { ...template, id: 's-wrecked', everSeen: true, status: 'wrecked' },
   ] };
-  assert.deepEqual(summary(tallyState), { safe: 1, wrecked: 1, unseen: 0, lost: 0 });
+  assert.deepEqual(summary(tallyState), { night: 1, safe: 1, wrecked: 1, unseen: 0, lost: 0, logged: 0, cumulativeWrecks: 1, relieved: false });
   tallyState.ships.push(
     { ...template, id: 's-lost-seen', everSeen: true, status: 'lost' },
     { ...template, id: 's-lost-unseen', everSeen: false, status: 'lost' },
   );
-  assert.deepEqual(summary(tallyState), { safe: 1, wrecked: 1, unseen: 1, lost: 1 });
+  assert.deepEqual(summary(tallyState), { night: 1, safe: 1, wrecked: 1, unseen: 1, lost: 1, logged: 0, cumulativeWrecks: 1, relieved: false });
 });
