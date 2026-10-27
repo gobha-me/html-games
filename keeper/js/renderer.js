@@ -4,6 +4,108 @@ const ORIGIN = { x: 640, y: 478 };
 const SCALE = 0.86;
 export const LAMP = Object.freeze({ x: 0, y: 0 });
 
+// Shared by drawing and the pure readability probe; chart-space dimensions.
+export const VESSEL_MARKS = Object.freeze(Object.fromEntries(Object.entries({
+  trawler: {
+    outline: [[0, -16], [7, -7], [8, 10], [-7, 10], [-7, -7]],
+    cabins: [[-4, -3, 8, 9]], mast: true,
+  },
+  coaster: {
+    outline: [[0, -24], [7, -16], [7, 18], [4, 22], [-4, 22], [-7, 18], [-7, -16]],
+    cabins: [[-4, -13, 8, 10], [-4, 8, 8, 9]], mast: false,
+  },
+  speedboat: {
+    outline: [[0, -15], [5, -3], [6, 10], [-6, 10], [-5, -3]],
+    cabins: [[-3, 1, 6, 7]], mast: false,
+  },
+  lifeboat: {
+    outline: [[0, -10], [6, -5], [6, 5], [0, 10], [-6, 5], [-6, -5]],
+    cabins: [[-4, -1, 8, 2]], mast: false,
+  },
+}).map(([type, mark]) => [type, Object.freeze({
+  outline: Object.freeze(mark.outline.map((point) => Object.freeze(point))),
+  cabins: Object.freeze(mark.cabins.map((rect) => Object.freeze(rect))),
+  mast: mark.mast,
+})])));
+
+export const READABILITY = Object.freeze({
+  deadlineSeconds: 1, revealSeconds: 0, litOpacity: 1, minimumSpanPixels: 8,
+});
+
+function vesselMark(type) {
+  if (typeof type !== 'string' || !Object.hasOwn(VESSEL_MARKS, type)) throw new RangeError('Unknown vessel type.');
+  return VESSEL_MARKS[type];
+}
+
+function polygonArea(points) {
+  return Math.abs(points.reduce((sum, point, i) => {
+    const next = points[(i + 1) % points.length];
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0)) / 2;
+}
+
+function clipToCanvas(points, width, height) {
+  // Convex silhouettes clipped to each canvas edge (Sutherland–Hodgman).
+  for (const [axis, boundary, direction] of [['x', 0, 1], ['x', width, -1], ['y', 0, 1], ['y', height, -1]]) {
+    const clipped = [];
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const insideA = (a[axis] - boundary) * direction >= 0;
+      const insideB = (b[axis] - boundary) * direction >= 0;
+      if (insideA) clipped.push(a);
+      if (insideA !== insideB) {
+        const fraction = (boundary - a[axis]) / (b[axis] - a[axis]);
+        clipped.push({ x: a.x + fraction * (b.x - a.x), y: a.y + fraction * (b.y - a.y) });
+      }
+    }
+    points = clipped;
+  }
+  return points;
+}
+
+// Pure geometric evidence, not a human recognition score. Pass CSS dimensions,
+// without DPR. In scope means beam-lit with nonzero silhouette area on canvas;
+// remembered images and offscreen illumination do not satisfy the floor.
+export function vesselReadability(state, ship, { width, height } = { width: 1280, height: 720 }) {
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    throw new RangeError('Readability viewport dimensions must be positive and finite.');
+  }
+  const mark = vesselMark(ship.type);
+  const view = perception(state, ship);
+  const pose = view.hull;
+  const result = {
+    lit: view.lit, onScreen: false, inScope: false, clipped: false,
+    type: pose ? ship.type : null, opacity: pose ? view.opacity : 0,
+    revealSeconds: view.lit ? READABILITY.revealSeconds : null,
+    minimumSpanPixels: 0, visibleAreaPixels: 0, visibleFraction: 0,
+    outline: [], visibleOutline: [],
+  };
+  if (!pose) return result;
+  if (![pose.x, pose.y, pose.heading].every(Number.isFinite)) throw new TypeError('Vessel pose must be finite.');
+  const angle = pose.heading * RAD;
+  const outline = mark.outline.map(([x, y]) => toScreen({
+    x: pose.x + x * Math.cos(angle) - y * Math.sin(angle),
+    y: pose.y + x * Math.sin(angle) + y * Math.cos(angle),
+  }, { width, height }));
+  if (!outline.every(({ x, y }) => Number.isFinite(x) && Number.isFinite(y))) {
+    throw new RangeError('Projected vessel coordinates must be finite.');
+  }
+  const visibleOutline = clipToCanvas(outline, width, height);
+  const visibleAreaPixels = polygonArea(visibleOutline);
+  const area = polygonArea(outline);
+  // Local narrow dimension: rotation must not inflate the minimum span.
+  const span = Math.min(
+    Math.max(...mark.outline.map(([x]) => x)) - Math.min(...mark.outline.map(([x]) => x)),
+    Math.max(...mark.outline.map(([, y]) => y)) - Math.min(...mark.outline.map(([, y]) => y)),
+  ) * SCALE * Math.min(width / 1280, height / 720);
+  return {
+    ...result, outline, visibleOutline, visibleAreaPixels,
+    onScreen: visibleAreaPixels > 0, inScope: view.lit && visibleAreaPixels > 0,
+    clipped: outline.some(({ x, y }) => x < 0 || x > width || y < 0 || y > height),
+    minimumSpanPixels: span, visibleFraction: area > 0 ? Math.min(1, visibleAreaPixels / area) : 0,
+  };
+}
+
 export function beamOrigin(beamDegrees) {
   if (!Number.isFinite(beamDegrees)) throw new TypeError('Beam bearing must be finite.');
   return LAMP;
@@ -98,14 +200,16 @@ function chart(ctx, hazards) {
   ctx.fillStyle = '#3b4643'; ctx.font = '9px "Courier New", monospace';
   ctx.fillText('CHARTED REEF · KEEP CLEAR', 266, -269);
 }
-function hull(ctx, pose, opacity) {
+function hull(ctx, pose, opacity, type) {
+  const mark = vesselMark(type);
   ctx.save(); ctx.translate(pose.x, pose.y); ctx.rotate(pose.heading * RAD); ctx.globalAlpha = opacity;
-  ctx.fillStyle = pose.status === 'wrecked' ? '#444941' : '#b0ad98';
-  ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(7, -7); ctx.lineTo(8, 10);
-  ctx.lineTo(-7, 10); ctx.lineTo(-7, -7); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#303834'; ctx.fillRect(-4, -3, 8, 9);
-  ctx.strokeStyle = '#d0c9ac'; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 10); ctx.moveTo(-10, -2); ctx.lineTo(10, -2); ctx.stroke();
+  pixelShape(ctx, mark.outline, pose.status === 'wrecked' ? '#444941' : '#b0ad98');
+  ctx.fillStyle = '#303834';
+  for (const rect of mark.cabins) ctx.fillRect(...rect);
+  if (mark.mast) {
+    ctx.strokeStyle = '#d0c9ac'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(0, 10); ctx.moveTo(-6, -2); ctx.lineTo(6, -2); ctx.stroke();
+  }
   if (pose.status === 'wrecked') {
     ctx.strokeStyle = '#060a0b'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(7, 6); ctx.stroke();
@@ -231,7 +335,7 @@ export function createRenderer(canvas) {
       // All vessel drawing goes through the perception boundary.
       for (const ship of state.ships) {
         const view = perception(state, ship);
-        if (view.hull) hull(ctx, view.hull, view.opacity);
+        if (view.hull) hull(ctx, view.hull, view.lit ? READABILITY.litOpacity : view.opacity, ship.type);
         if (view.runningLights || (view.lit && !ship.smuggler && ship.distress !== true
           && !['wrecked', 'lost'].includes(ship.status))) runningLights(ctx, ship);
         if (view.signal) {
