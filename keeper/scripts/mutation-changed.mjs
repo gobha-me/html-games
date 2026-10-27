@@ -1,77 +1,85 @@
 #!/usr/bin/env node
-/**
- * CI helper: mutate changed keeper/js/*.js vs base ref; require ≥90% score.
- * Exits 0 when no mutate targets. Additive gate — never weakens other checks.
- */
+/** CI helper: mutate changed keeper/js/*.js vs base ref; require ≥90% score. */
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { changedFiles, scoreReport } from './mutation-gate.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const MIN = Number(process.env.MUTATION_MIN || 90);
-const baseName = process.env.GITHUB_BASE_REF || 'main';
-const baseRef = baseName.startsWith('origin/') ? baseName : `origin/${baseName}`;
 
-function sh(cmd, args, opts = {}) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', cwd: ROOT, ...opts });
-  if (r.status !== 0 && !opts.allowFail) {
-    process.stderr.write(r.stderr || r.stdout || `${cmd} failed\n`);
-    process.exit(r.status || 1);
+function formatCounts(counts) {
+  return Object.entries(counts).map(([key, count]) => `${key}=${count}`).join(' ');
+}
+
+export function main() {
+  const min = Number(process.env.MUTATION_MIN || 90);
+  if (!Number.isFinite(min) || min < 0 || min > 100) {
+    console.error('mutation-changed: FAIL MUTATION_MIN must be between 0 and 100');
+    return 1;
   }
-  return r;
-}
+  const baseName = process.env.GITHUB_BASE_REF || 'main';
+  const baseRef = baseName.startsWith('origin/') ? baseName : `origin/${baseName}`;
+  const changed = changedFiles({ cwd: ROOT, baseRef });
+  if (!changed.ok) {
+    console.error(`mutation-changed: FAIL ${changed.error}`);
+    return 1;
+  }
+  if (changed.warning) console.warn(`mutation-changed: ${changed.warning}; using resolved local ${baseRef}`);
+  const mutate = changed.files;
+  if (mutate.length === 0) {
+    console.log(`mutation-changed: no keeper/js changes vs ${baseRef} — skip (pass)`);
+    return 0;
+  }
 
-sh('git', ['fetch', '--no-tags', '--depth=1', 'origin', baseName], { allowFail: true });
-
-const diff = sh('git', ['diff', '--name-only', `${baseRef}...HEAD`, '--', 'js/', 'keeper/js/'], { allowFail: true });
-const raw = (diff.stdout || '').split(/\n/).map((s) => s.trim()).filter(Boolean);
-const mutate = [...new Set(raw.map((f) => f.replace(/^keeper\//, '')).filter((f) => /^js\/.+\.js$/.test(f)))];
-
-if (mutate.length === 0) {
-  console.log(`mutation-changed: no keeper/js changes vs ${baseRef} — skip (pass)`);
-  process.exit(0);
-}
-
-console.log(`mutation-changed: mutating ${mutate.join(', ')} min=${MIN}%`);
-const configPath = resolve(ROOT, 'stryker.changed.ci.mjs');
-writeFileSync(configPath, `import { base } from './stryker.base.mjs';
+  console.log(`mutation-changed: mutating ${mutate.join(', ')} min=${min}%`);
+  writeFileSync(resolve(ROOT, 'stryker.changed.ci.mjs'), `import { base } from './stryker.base.mjs';
 export default {
   ...base,
   mutate: ${JSON.stringify(mutate)},
   tap: { testFiles: ['tests/*.test.mjs'] },
   jsonReporter: { fileName: 'reports/mutation/changed.json' },
-  thresholds: { high: ${MIN}, low: ${MIN}, break: ${MIN} },
+  thresholds: { high: ${min}, low: ${min}, break: ${min} },
 };
 `);
-
-mkdirSync(resolve(ROOT, 'reports/mutation'), { recursive: true });
-const run = spawnSync('npx', ['stryker', 'run', 'stryker.changed.ci.mjs'], {
-  cwd: ROOT, stdio: 'inherit', encoding: 'utf8',
-});
-
-const report = resolve(ROOT, 'reports/mutation/changed.json');
-if (!existsSync(report)) {
-  console.error('mutation-changed: missing report');
-  process.exit(run.status || 1);
+  mkdirSync(resolve(ROOT, 'reports/mutation'), { recursive: true });
+  const report = resolve(ROOT, 'reports/mutation/changed.json');
+  rmSync(report, { force: true });
+  const run = spawnSync('npx', ['stryker', 'run', 'stryker.changed.ci.mjs'], {
+    cwd: ROOT, stdio: 'inherit', encoding: 'utf8',
+  });
+  if (!existsSync(report)) {
+    console.error('mutation-changed: FAIL missing Stryker report');
+    return run.status || 1;
+  }
+  let result;
+  try {
+    result = scoreReport(JSON.parse(readFileSync(report, 'utf8')), { min });
+  } catch (error) {
+    console.error(`mutation-changed: FAIL invalid Stryker report: ${error.message}`);
+    return 1;
+  }
+  for (const [path, counts] of Object.entries(result.files)) {
+    console.log(`mutation-changed: file=${path} ${formatCounts(counts)}`);
+  }
+  console.log(`mutation-changed: score=${result.score.toFixed(2)}% ${formatCounts(result.totals)}`);
+  if (!result.pass) {
+    console.error(`mutation-changed: FAIL below ${min}%`);
+    return 1;
+  }
+  if (run.status !== 0 || run.error) {
+    console.error(`mutation-changed: FAIL Stryker ${run.error?.message || `exited ${run.status}`}`);
+    return run.status || 1;
+  }
+  console.log(`mutation-changed: PASS ≥${min}%`);
+  return 0;
 }
-const data = JSON.parse(readFileSync(report, 'utf8'));
-let killed = 0, survived = 0, timeout = 0, noCov = 0;
-for (const info of Object.values(data.files || {})) {
-  for (const m of info.mutants || []) {
-    if (m.status === 'Killed') killed++;
-    else if (m.status === 'Survived') survived++;
-    else if (m.status === 'TimedOut') timeout++;
-    else if (m.status === 'NoCoverage') noCov++;
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try {
+    process.exitCode = main();
+  } catch (error) {
+    console.error(`mutation-changed: FAIL ${error.message}`);
+    process.exitCode = 1;
   }
 }
-const detected = killed + timeout;
-const total = detected + survived + noCov;
-const score = total ? (100 * detected) / total : 100;
-console.log(`mutation-changed: score=${score.toFixed(2)}% killed=${killed} timedOut=${timeout} survived=${survived} noCoverage=${noCov} total=${total}`);
-if (score + 1e-9 < MIN) {
-  console.error(`mutation-changed: FAIL below ${MIN}%`);
-  process.exit(1);
-}
-console.log(`mutation-changed: PASS ≥${MIN}%`);
-process.exit(0);

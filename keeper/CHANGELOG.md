@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — Mutation gate (#138)
+
+- Exclude timeouts from kills, report every mutant status per file and in total, and fail closed on git/report errors without shallow-fetching history.
+
 ## Unreleased — Keeper’s log (#112)
 
 - Bind L through the shared key table and control labels. Add a modal paper
