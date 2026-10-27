@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/**', 'tests/fixtures/**', 'playwright-report/**', 'test-results/**'] },
+  { ignores: ['node_modules/**', 'tests/fixtures/**', 'playwright-report/**', 'test-results/**', 'reports/**', '.stryker-tmp/**'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,mjs,cjs}'],
@@ -33,7 +33,7 @@ export default [
     },
   },
   {
-    files: ['*.{js,mjs}', 'tests/**/*.mjs'],
+    files: ['*.{js,mjs}', 'tests/**/*.mjs', 'scripts/**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },
   },
 ];
