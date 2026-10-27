@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased — Readability and instrumentation (#116)
+
+- Give trawlers, coasters, launches and lifeboats distinct minimal silhouettes
+  using frozen geometry shared with a pure `vesselReadability` probe. Export
+  `VESSEL_MARKS` and `READABILITY`; measure lit/on-screen scope, projected size,
+  opacity, immediate reveal and exact partial canvas clipping. Human one-second
+  recognition remains an Atlas/playtest assessment. Apply the Projects Lead's
+  lit-and-on-screen scope ruling; leave off-screen illumination for Atlas.
+- Deep-freeze shared control bindings, reject duplicate codes and missing
+  labels, handle invalid/unknown codes without coercion, and validate held-key
+  Sets. Keep the title/watch/help controls generated from the shared tables.
+  Extend pure-module lint guards to keys, record and the future save module.
+- Redraw on reduced-motion preference changes while paused. Retain static fog,
+  static surf and immediate hint dismissal under reduced motion; no shake.
+- Expose bounded, detached frame-time snapshots and explicit warm-up reset
+  only through the automation opt-in. Exclude menu/pause intervals and manual
+  simulation advances; retain raw RAF intervals and update/draw work duration.
+  Avoid unchanged HUD text writes and repeated Morse-strip layout reads.
+- Preserve chart/compass/labels/HUD colours, layout, lamp/cone geometry, ship
+  routes and difficulty. Production and documentation only; tests remain with
+  the test author. See README for the exact measurement contracts.
+- Verification: JS/CSS/HTML lint passes with zero warnings; 26 focused existing
+  renderer/log tests pass. Inline contract checks and local Chromium smoke
+  checks pass, including four desktop sizes, reduced motion, warm-up sampling
+  and 20 pixel-identical comparisons of the locked scene against the baseline.
+  Full coverage/e2e/mutation gates remain with the test author.
+
 ## Unreleased — Keeper’s log (#112)
 
 - Bind L through the shared key table and control labels. Add a modal paper
