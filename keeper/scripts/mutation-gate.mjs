@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 export const MAX_TIMEOUT_RATIO = 0.2;
 
 const STATUS_KEYS = {
-  Killed: 'killed', TimedOut: 'timedOut', Survived: 'survived', NoCoverage: 'noCoverage',
+  Killed: 'killed', Timeout: 'timedOut', TimedOut: 'timedOut', Survived: 'survived', NoCoverage: 'noCoverage',
   CompileError: 'compileError', RuntimeError: 'runtimeError', Ignored: 'ignored',
 };
 
@@ -31,11 +31,19 @@ export function scoreReport(reportJson, { min = 90, maxTimeoutRatio = MAX_TIMEOU
       throw new Error(`invalid Stryker report: missing mutants array for ${path}`);
     }
     const counts = emptyCounts();
+    let pending = 0;
     for (const mutant of info.mutants) {
+      if (mutant?.status === 'Pending') {
+        pending++;
+        continue;
+      }
       if (!mutant || !Object.hasOwn(STATUS_KEYS, mutant.status)) {
         throw new Error(`invalid Stryker report: unknown mutant status in ${path}`);
       }
       counts[STATUS_KEYS[mutant.status]]++;
+    }
+    if (pending) {
+      throw new Error(`incomplete Stryker report: ${pending} pending mutant(s) in ${path}`);
     }
     counts.total = counts.killed + counts.timedOut + counts.survived + counts.noCoverage;
     Object.defineProperty(files, path, { value: counts, enumerable: true });

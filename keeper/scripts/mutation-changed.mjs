@@ -10,7 +10,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function formatCounts(counts) {
   const timeoutPct = counts.total ? (100 * counts.timedOut) / counts.total : 0;
-  return `${Object.entries(counts).map(([key, count]) => `${key}=${count}`).join(' ')} timeouts=${timeoutPct.toFixed(2)}%`;
+  return `${Object.entries(counts).map(([key, count]) => `${key}=${count}`).join(' ')} timeouts=${timeoutPct.toFixed(2)}%`
+    + ` errors: runtimeError=${counts.runtimeError} compileError=${counts.compileError} (excluded from score)`;
 }
 
 export function main() {
