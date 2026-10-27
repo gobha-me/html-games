@@ -395,6 +395,15 @@ test('expectedSummary and summary count only ever-seen lost hulls', () => {
     ship({ id: 3, status: 'safe', everSeen: true }),
     ship({ id: 4, status: 'wrecked', everSeen: true }),
   ];
-  assert.deepEqual(expectedSummary(synthetic), { safe: 1, wrecked: 1, unseen: 1, lost: 1 });
+  assert.deepEqual(expectedSummary(synthetic), {
+    night: 1,
+    safe: 1,
+    wrecked: 1,
+    unseen: 1,
+    lost: 1,
+    logged: 0,
+    cumulativeWrecks: 1,
+    relieved: false,
+  });
   assert.deepEqual(summary(synthetic), expectedSummary(synthetic));
 });
