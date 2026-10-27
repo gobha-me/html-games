@@ -528,3 +528,447 @@ test('dawn ends the watch: no loss or flight is triggered after NIGHT_SECONDS', 
   assert.deepEqual(after, state);
   assert.equal(summary(after).lost, 0);
 });
+
+test('R1: strict spawnTime > prevents opener or prior arrival from re-entering after emptySea', () => {
+  const base = createState(108);
+  assert.equal(base.schedule[0].id, 'trawler');
+  assert.equal(base.schedule[0].spawnTime, 0);
+
+  const emptyAtZero = { ...createState(108), ships: [] };
+  const afterFirstTick = step(emptyAtZero, { hold: true, horn: true }, TICK);
+  assert.equal(find(afterFirstTick, 'trawler'), undefined);
+  assert.equal(afterFirstTick.ships.length, 0);
+  assert.equal(afterFirstTick.trust, 0.75);
+
+  const bearing = openBearing(base);
+  const withTickArrival = installSpecialty(base, specialtyApproach({
+    id: 'tick-1', bearing, spawnTime: TICK, spawnRange: 300,
+  }));
+  const arrived = step(withTickArrival, HOLD, TICK);
+  assert.notEqual(find(arrived, 'trawler'), undefined);
+  assert.notEqual(find(arrived, 'tick-1'), undefined);
+
+  const clearedAfterArrival = { ...arrived, ships: [] };
+  const afterSecondTick = step(clearedAfterArrival, { hold: true, horn: true }, TICK);
+  assert.equal(find(afterSecondTick, 'trawler'), undefined);
+  assert.equal(find(afterSecondTick, 'tick-1'), undefined);
+  assert.equal(afterSecondTick.ships.length, 0);
+  assert.equal(afterSecondTick.trust, 0.75);
+});
+
+test('R2: lifeboat SOS repeat and unlit loss timer apply only when distress is true', () => {
+  let state = createState(108);
+  const rock = quietRock(state);
+  const distressBearing = bearingTo(rock);
+  const distressApproach = specialtyApproach({
+    id: 'sos-lb',
+    type: 'lifeboat',
+    bearing: distressBearing,
+    spawnRange: Math.hypot(rock.x, rock.y) - rock.radius - 40,
+  });
+  assert.equal(distressApproach.distress, true);
+
+  const clearBearing = openBearing(state, [distressBearing]);
+  const genericApproach = {
+    ...specialtyApproach({ id: 'generic-lb', type: 'lifeboat', bearing: clearBearing, spawnRange: 200 }),
+    distress: false,
+    speed: HULLS.lifeboat.cruiseSpeed,
+  };
+
+  state = installSpecialty(state, distressApproach);
+  state = installSpecialty(state, genericApproach);
+  state.beam = openBearing(state, [distressBearing, clearBearing]);
+
+  const distressBoat = find(state, 'sos-lb');
+  const genericBoat = find(state, 'generic-lb');
+  assert.equal(distressBoat.distress, true);
+  assert.equal(distressBoat.speed, HULLS.lifeboat.cruiseSpeed * LIFEBOAT_DRIFT_THROTTLE);
+  assert.deepEqual(distressBoat.reply?.flashes, keyingFor('SOS', 8));
+  assert.ok(distressBoat.reply?.repeatSeconds > 0);
+  assert.equal(perception(state, distressBoat).runningLights, false);
+
+  assert.equal(genericBoat.type, 'lifeboat');
+  assert.equal(genericBoat.distress, false);
+  assert.equal(genericBoat.reply, null);
+  assert.equal(perception(state, genericBoat).signal, false);
+  assert.equal(perception(state, genericBoat).runningLights, true);
+
+  const afterDark = step(state, HOLD, LIFEBOAT_LOST_SECONDS + 1);
+  assert.equal(find(afterDark, 'sos-lb').status, 'lost');
+  assert.notEqual(find(afterDark, 'sos-lb').lostAt, null);
+  assert.equal(find(afterDark, 'generic-lb').status, 'underway');
+  assert.equal(find(afterDark, 'generic-lb').lostAt, null);
+  assert.equal(find(afterDark, 'generic-lb').unlitSeconds, 0);
+});
+
+test('R3: blastHorn excludes distress ships while non-distress lifeboat hulls and safe ships hear the horn', () => {
+  const base = createState(108);
+  const rock = quietRock(base);
+  const rockBearing = bearingTo(rock);
+  const withoutOpener = { ...base, schedule: base.schedule.slice(1), ships: [] };
+
+  const distressOnly = installSpecialty(withoutOpener, specialtyApproach({
+    id: 'sos-only',
+    type: 'lifeboat',
+    bearing: rockBearing,
+    spawnRange: Math.hypot(rock.x, rock.y) - rock.radius - 30,
+  }));
+  distressOnly.beam = (rockBearing + 180) % 360;
+  const afterDistressBlast = step(distressOnly, { hold: true, horn: true }, TICK);
+  assert.equal(afterDistressBlast.trust, 0.75);
+  assert.equal(find(afterDistressBlast, 'sos-only').lastHorn, undefined);
+  assert.equal(find(afterDistressBlast, 'sos-only').warnedAt, null);
+  assert.equal(find(afterDistressBlast, 'sos-only').response, 'none');
+
+  const otherRock = quietRock(base, [rockBearing]);
+  const hullBearing = bearingTo(otherRock);
+  let mixed = installSpecialty(withoutOpener, specialtyApproach({
+    id: 'sos-mixed',
+    type: 'lifeboat',
+    bearing: rockBearing,
+    spawnRange: Math.hypot(rock.x, rock.y) - rock.radius - 30,
+  }));
+  mixed = installSpecialty(mixed, {
+    ...specialtyApproach({
+      id: 'honest-lifeboat-hull',
+      type: 'lifeboat',
+      bearing: hullBearing,
+      spawnRange: Math.hypot(otherRock.x, otherRock.y) + 80,
+    }),
+    distress: false,
+    threatening: true,
+    speed: HULLS.lifeboat.cruiseSpeed,
+  });
+  mixed.beam = openBearing(mixed, [rockBearing, hullBearing]);
+  const afterMixedBlast = step(mixed, { hold: true, horn: true }, TICK);
+  assert.equal(afterMixedBlast.trust, 1);
+  assert.equal(find(afterMixedBlast, 'honest-lifeboat-hull').lastHorn?.heard, true);
+  assert.equal(find(afterMixedBlast, 'honest-lifeboat-hull').response, 'turn-away');
+  assert.equal(find(afterMixedBlast, 'honest-lifeboat-hull').warnedAt, afterMixedBlast.time);
+  assert.equal(find(afterMixedBlast, 'sos-mixed').lastHorn, undefined);
+
+  // Safe non-distress ships still receive horn broadcast; wrecked and lost ships do not.
+  const statusState = structuredClone(withoutOpener);
+  const template = structuredClone(base.trawler);
+  statusState.ships = [
+    { ...template, id: 'safe-ship', status: 'safe', distress: false },
+    { ...template, id: 'wrecked-ship', status: 'wrecked', distress: false },
+    { ...template, id: 'lost-ship', status: 'lost', distress: false },
+  ];
+  const afterStatusBlast = step(statusState, { hold: true, horn: true }, TICK);
+  assert.equal(find(afterStatusBlast, 'safe-ship').lastHorn?.heard, true);
+  assert.equal(find(afterStatusBlast, 'wrecked-ship').lastHorn, undefined);
+  assert.equal(find(afterStatusBlast, 'lost-ship').lastHorn, undefined);
+});
+
+test('arrive and builders: error messages, callsigns, speed/type fallbacks, destinations, and nearest rock edges', () => {
+  assert.throws(
+    () => specialtyApproach({ id: '', bearing: 10 }),
+    { name: 'RangeError', message: 'Invalid specialty approach' },
+  );
+  const base = createState(108);
+  assert.throws(
+    () => installSpecialty(base, specialtyApproach({ id: 'trawler', bearing: 10 })),
+    { name: 'RangeError', message: 'Specialty must have a unique id and not arrive in the past' },
+  );
+
+  assert.equal(base.trawler.callsign, 'T108');
+  let state = installSpecialty(base, specialtyApproach({ id: 'ship-9', bearing: 20, spawnRange: 300 }));
+  assert.equal(find(state, 'ship-9').callsign, 'S9');
+  state = installSpecialty(state, {
+    ...specialtyApproach({ id: 'custom-speed', bearing: 45, spawnRange: 300 }),
+    speed: 4.25,
+  });
+  const custom = find(state, 'custom-speed');
+  assert.equal(custom.callsign, 'Scustom-speed');
+  assert.equal(custom.speed, 4.25);
+  const rad45 = 45 * Math.PI / 180;
+  assert.ok(Math.abs(custom.destination.x - Math.sin(rad45) * (300 + 1600)) < 1e-9);
+  assert.ok(Math.abs(custom.destination.y - (-Math.cos(rad45) * (300 + 1600))) < 1e-9);
+
+  // Speed and type fallbacks when approach omits speed or type.
+  state = installSpecialty(state, {
+    id: 'fallback-distress', type: 'lifeboat', distress: true, smuggler: false,
+    bearing: 60, spawnTime: 0, spawnRange: 200, threatening: false,
+  });
+  assert.equal(find(state, 'fallback-distress').speed, HULLS.lifeboat.cruiseSpeed * LIFEBOAT_DRIFT_THROTTLE);
+
+  state = installSpecialty(state, {
+    id: 'fallback-hull', type: 'lifeboat', distress: false, smuggler: false,
+    bearing: 75, spawnTime: 0, spawnRange: 200, threatening: false,
+  });
+  assert.equal(find(state, 'fallback-hull').speed, HULLS.lifeboat.cruiseSpeed);
+
+  state = installSpecialty(state, {
+    id: 'fallback-trawler', bearing: 90, spawnTime: 0, spawnRange: 200, threatening: false,
+  });
+  assert.equal(find(state, 'fallback-trawler').type, 'trawler');
+  assert.equal(find(state, 'fallback-trawler').speed, HULLS.trawler.cruiseSpeed);
+
+  // Empty hazards leave distress lifeboat with default outbound heading and destination.
+  const noRockState = installSpecialty(
+    { ...base, hazards: [] },
+    specialtyApproach({ id: 'lb-empty', type: 'lifeboat', bearing: 30, spawnRange: 200 }),
+  );
+  const noRockBoat = find(noRockState, 'lb-empty');
+  assert.equal(noRockBoat.heading, 30);
+  assert.ok(Math.hypot(noRockBoat.destination.x, noRockBoat.destination.y) > 1700);
+
+  // Off-radial distress lifeboat at (100, 100): nearest hazard uses edge distance (dist - radius),
+  // tested in both hazard orders and with exact tie-breaking.
+  const farOpposite = { kind: 'reef', x: -100, y: -100, radius: 10 };
+  const smallCenterCloser = { kind: 'reef', x: 100, y: 150, radius: 5 }; // dist=50, edge=45
+  const largeEdgeCloser = { kind: 'reef', x: 160, y: 120, radius: 30 }; // dist=63.25, edge=33.25
+  const spawnAt100 = specialtyApproach({
+    id: 'lb-edge', type: 'lifeboat', bearing: 135, spawnRange: Math.SQRT2 * 100,
+  });
+  for (const hazards of [
+    [farOpposite, smallCenterCloser, largeEdgeCloser],
+    [largeEdgeCloser, smallCenterCloser, farOpposite],
+  ]) {
+    const picked = find(installSpecialty({ ...base, hazards }, spawnAt100), 'lb-edge');
+    assert.deepEqual(picked.destination, { x: 160, y: 120 });
+    assert.ok(Math.abs(picked.heading - bearingTo({ x: 60, y: 20 })) < 1e-9);
+  }
+  const tieA = { kind: 'reef', x: 150, y: 100, radius: 10 }; // dist=50, edge=40
+  const tieB = { kind: 'reef', x: 100, y: 150, radius: 10 }; // dist=50, edge=40
+  const tied = find(installSpecialty({ ...base, hazards: [tieA, tieB] }, spawnAt100), 'lb-edge');
+  assert.deepEqual(tied.destination, { x: 150, y: 100 });
+});
+
+test('updateSpecialty and perception: non-repeating replies, coaster >3s light, smuggler flee idempotence, and lost runningLights', () => {
+  let state = createState(108);
+  const coasterApproach = state.schedule.find((entry) => entry.type === 'coaster'
+    && gap(entry.bearing, bearingTo(state.trawler)) > 40);
+  assert.ok(coasterApproach);
+  state.beam = (coasterApproach.bearing + 180) % 360;
+  state = advanceTo(state, coasterApproach.spawnTime + TICK);
+  const cid = coasterApproach.id;
+  state.beam = bearingTo(find(state, cid));
+
+  // Coaster asks WHAT LIGHT without repeatSeconds, and does not flee even when lit > 3s.
+  state = step(state, HOLD, COASTER_ASK_SECONDS + TICK);
+  const askedCoaster = find(state, cid);
+  assert.equal(askedCoaster.askedLight, true);
+  assert.equal(askedCoaster.reply.repeatSeconds, undefined);
+  const startedAt = askedCoaster.reply.startedAt;
+  const flashEndMs = askedCoaster.reply.flashes.at(-1).off;
+  state = step(state, HOLD, SMUGGLER_FLEE_SECONDS);
+  assert.ok(find(state, cid).litSeconds > SMUGGLER_FLEE_SECONDS);
+  assert.equal(find(state, cid).response, 'none');
+  assert.equal(find(state, cid).reactAt, null);
+  const repeatWindow = (flashEndMs + 7 * 1200 / 8) / 1000;
+  state = advanceTo(state, startedAt + repeatWindow + 0.075);
+  assert.equal(perception(state, find(state, cid)).signal, false, 'non-distress reply does not repeat');
+
+  // Non-smuggler non-coaster ships never accumulate litSeconds; smuggler never asks WHAT LIGHT.
+  let check = createState(108);
+  const open = openBearing(check);
+  check = installSpecialty(check, specialtyApproach({ id: 'honest-fast', bearing: open, smuggler: false, spawnRange: 250 }));
+  check.beam = open;
+  check = step(check, HOLD, 1.5);
+  assert.equal(find(check, 'honest-fast').litSeconds, 0);
+  assert.equal(find(check, 'honest-fast').askedLight, false);
+  assert.equal(find(check, 'honest-fast').reply, null);
+
+  check.beam = bearingTo(check.trawler);
+  check = step(check, HOLD, 1.5);
+  assert.equal(check.trawler.litSeconds, 0);
+
+  // Smuggler speedboat and smuggler-flagged coaster never ask WHAT LIGHT at >=1s light.
+  const { state: smugglerStart } = smugglerState(108, { spawnRange: 250 });
+  const smugglerAtTwo = step(smugglerStart, HOLD, 2);
+  assert.equal(find(smugglerAtTwo, 'dark').askedLight, false);
+  assert.equal(find(smugglerAtTwo, 'dark').reply, null);
+
+  const smugglerCoasterState = structuredClone(smugglerStart);
+  find(smugglerCoasterState, 'dark').type = 'coaster';
+  const smugglerCoasterAtTwo = step(smugglerCoasterState, HOLD, 2);
+  assert.equal(find(smugglerCoasterAtTwo, 'dark').askedLight, false);
+  assert.equal(find(smugglerCoasterAtTwo, 'dark').reply, null);
+
+  // Inward-heading smuggler flees once when lit >3s: reactAt stays fixed, navigation stays null, and helm turns it outward.
+  const inwardSmugglerState = structuredClone(smugglerStart);
+  const darkShip = find(inwardSmugglerState, 'dark');
+  darkShip.heading = (bearingTo(darkShip) + 140) % 360;
+  const fledOnce = step(inwardSmugglerState, HOLD, SMUGGLER_FLEE_SECONDS + TICK);
+  const fledShip = find(fledOnce, 'dark');
+  assert.equal(fledShip.response, 'flee');
+  assert.equal(fledShip.navigation, null);
+  const firstReactAt = fledShip.reactAt;
+  assert.notEqual(firstReactAt, null);
+  const fledTwice = step(fledOnce, HOLD, TICK);
+  assert.equal(find(fledTwice, 'dark').reactAt, firstReactAt, 'flee does not re-trigger on later lit ticks');
+  assert.equal(find(fledTwice, 'dark').navigation, null);
+  assert.notEqual(find(fledTwice, 'dark').rudder, 0, 'fleeing smuggler steers toward radial escape heading');
+
+  // perception.runningLights is false for status === 'lost' even when distress is false.
+  assert.equal(perception(check, { ...check.trawler, x: 50, y: 0, status: 'lost', distress: false }).runningLights, false);
+  assert.equal(perception(check, { ...check.trawler, x: 50, y: 0, status: 'underway', distress: false }).runningLights, true);
+});
+
+test('tick mechanics: trust recovery, speed/beam controls, fog progression, blast windows, and duplicate schedule guard', () => {
+  const base = createState(108);
+  const lowTrust = { ...structuredClone(base), trust: 0.5 };
+  const afterTrustTick = step(lowTrust, HOLD, TICK);
+  assert.ok(Math.abs(afterTrustTick.trust - (0.5 + 0.01 * TICK)) < 1e-12);
+  assert.ok(Math.abs(afterTrustTick.fog - (0.08 + 0.08 * TICK / NIGHT_SECONDS)) < 1e-12);
+
+  const rotated = step(base, {}, TICK);
+  assert.equal(rotated.speed, 30);
+  assert.ok(Math.abs(rotated.beam - (285 + 30 * TICK)) < 1e-12);
+
+  const faster = step(base, { fast: true, hold: true }, TICK);
+  assert.ok(Math.abs(faster.speed - (30 + 24 * TICK)) < 1e-12);
+  assert.equal(faster.beam, 285);
+
+  const slower = step(base, { slow: true, hold: true }, TICK);
+  assert.ok(Math.abs(slower.speed - (30 - 24 * TICK)) < 1e-12);
+
+  const bothSteer = step(base, { fast: true, slow: true, hold: true }, TICK);
+  assert.equal(bothSteer.speed, 30);
+
+  // Blast and ignoredBlast expiry windows at t = 25 (verifies state.time - time < 20 and < 2).
+  const blastWindow = structuredClone(base);
+  blastWindow.time = 25 - TICK;
+  blastWindow.blasts = [5, 5.5, 24];
+  blastWindow.ignoredBlasts = [23, 23.5];
+  const afterWindow = step(blastWindow, HOLD, TICK);
+  assert.deepEqual(afterWindow.blasts, [5.5, 24]);
+  assert.deepEqual(afterWindow.ignoredBlasts, [23.5]);
+
+  // Holding horn across ticks emits once and clears horn state on release.
+  const horn1 = step(base, { horn: true, hold: true }, TICK);
+  assert.equal(horn1.horn, true);
+  assert.equal(horn1.blasts.length, 1);
+  const horn2 = step(horn1, { horn: true, hold: true }, TICK);
+  assert.equal(horn2.horn, true);
+  assert.equal(horn2.blasts.length, 1);
+  const horn3 = step(horn2, HOLD, TICK);
+  assert.equal(horn3.horn, false);
+
+  // Schedule admission does not duplicate an id already in fleet(state) when spawnTime arrives.
+  const dupState = structuredClone(base);
+  const dupApproach = specialtyApproach({ id: 'already-present', bearing: openBearing(dupState), spawnTime: TICK, spawnRange: 300 });
+  dupState.schedule.push(dupApproach);
+  dupState.ships.push({ ...structuredClone(dupState.trawler), id: 'already-present' });
+  const afterDupTick = step(dupState, HOLD, TICK);
+  assert.equal(afterDupTick.ships.filter((ship) => ship.id === 'already-present').length, 1);
+});
+
+test('navigation, boundaries, and summary.lost: reactAt edge, avoidance resume, shipDt, contact/exit edges, and non-lost everSeen', () => {
+  // Directed ROCKS warning sets turn-away; reactAt edge triggers avoidance at equality and transitions to resume.
+  let state = createState(108);
+  state.beam = bearingTo(state.trawler);
+  state = send(state, 'ROCKS', { unit: 60 });
+  const warnedAt = state.trawler.warnedAt;
+  const reactAt = state.trawler.reactAt;
+  assert.notEqual(warnedAt, null);
+  assert.equal(state.trawler.response, 'turn-away');
+  assert.ok(Math.abs(reactAt - (warnedAt + HULLS.trawler.reactionSeconds[1])) < 1e-9);
+  state.beam = bearingTo(state.trawler);
+  const rewarned = send(state, 'ROCKS', { unit: 60 });
+  assert.equal(rewarned.trawler.warnedAt, warnedAt, 'second ROCKS does not overwrite warnedAt');
+
+  // Exact reactAt equality boundary (TICK + TICK === 2 * TICK) and avoidance out -> resume transition.
+  const avoidRock = { kind: 'reef', x: 0, y: -120, radius: 6 };
+  let reactEdge = { ...createState(108), hazards: [avoidRock], ships: [] };
+  reactEdge = installSpecialty(reactEdge, {
+    ...specialtyApproach({ id: 'avoid-fast', bearing: 0, smuggler: false, spawnRange: 220 }),
+    threatening: true,
+    speed: HULLS.speedboat.cruiseSpeed,
+  });
+  find(reactEdge, 'avoid-fast').warnedAt = 0;
+  find(reactEdge, 'avoid-fast').reactAt = 2 * TICK;
+  find(reactEdge, 'avoid-fast').response = 'turn-away';
+
+  const beforeReact = step(reactEdge, HOLD, TICK);
+  assert.equal(find(beforeReact, 'avoid-fast').navigation, null);
+  assert.equal(find(beforeReact, 'avoid-fast').rudder, 0);
+
+  const atReact = step(beforeReact, HOLD, TICK);
+  assert.equal(atReact.time, find(atReact, 'avoid-fast').reactAt);
+  assert.notEqual(find(atReact, 'avoid-fast').navigation, null);
+  assert.equal(find(atReact, 'avoid-fast').navigation.phase, 'out');
+  assert.equal(find(atReact, 'avoid-fast').targetHeading, find(atReact, 'avoid-fast').navigation.heading);
+  assert.notEqual(find(atReact, 'avoid-fast').targetHeading, 180);
+  assert.equal(Math.sign(find(atReact, 'avoid-fast').rudder), find(atReact, 'avoid-fast').navigation.sign);
+
+  let resumeState = atReact;
+  for (let t = 0; t < 30 && find(resumeState, 'avoid-fast').navigation?.phase !== 'resume'; t += 1) {
+    resumeState = step(resumeState, HOLD, 1);
+  }
+  assert.equal(find(resumeState, 'avoid-fast').navigation?.phase, 'resume');
+  assert.notEqual(find(resumeState, 'avoid-fast').targetHeading, find(resumeState, 'avoid-fast').navigation.heading);
+  const beforeResumeHeading = find(resumeState, 'avoid-fast').heading;
+  resumeState = step(resumeState, HOLD, 1);
+  assert.notEqual(find(resumeState, 'avoid-fast').heading, beforeResumeHeading);
+  assert.ok(find(resumeState, 'avoid-fast').rudder * find(resumeState, 'avoid-fast').navigation.sign < 0);
+
+  // Arrival at exact tick boundary has shipDt === 0; mid-tick arrival moves only for post-arrival shipDt.
+  let exactSpawn = createState(108);
+  const b = openBearing(exactSpawn);
+  exactSpawn = installSpecialty(exactSpawn, specialtyApproach({ id: 'at-tick', bearing: b, spawnTime: TICK, spawnRange: 300 }));
+  exactSpawn = installSpecialty(exactSpawn, specialtyApproach({
+    id: 'mid-tick', bearing: (b + 20) % 360, spawnTime: 0.005, spawnRange: 300, smuggler: false,
+  }));
+  exactSpawn = step(exactSpawn, HOLD, TICK);
+  assert.ok(Math.abs(Math.hypot(find(exactSpawn, 'at-tick').x, find(exactSpawn, 'at-tick').y) - 300) < 1e-12);
+  assert.ok(Math.abs(Math.hypot(find(exactSpawn, 'mid-tick').x, find(exactSpawn, 'mid-tick').y) - (300 + 6 * (TICK - 0.005))) < 1e-9);
+
+  // Exact reef contact boundary (distance === rock.radius) wrecks an underway honest ship,
+  // wrecked ships stay frozen on subsequent ticks, and safe ships stay safe even on contact.
+  const contactState = { ...createState(108), hazards: [{ kind: 'reef', x: 18, y: 0, radius: 10 }], ships: [] };
+  const template = structuredClone( createState(108).trawler );
+  contactState.ships = [
+    { ...template, id: 'edge-wreck', type: 'speedboat', smuggler: false, distress: false,
+      x: 0, y: 0.1, heading: 0, speed: 6, rudder: 0, yawRate: 0, status: 'underway', wreckedAt: null },
+    { ...template, id: 'safe-contact', type: 'speedboat', smuggler: false, distress: false,
+      x: 0, y: 0.1, heading: 0, speed: 6, rudder: 0, yawRate: 0, status: 'safe', wreckedAt: null },
+  ];
+  const afterContact = step(contactState, HOLD, TICK);
+  const wrecked = find(afterContact, 'edge-wreck');
+  assert.equal(wrecked.status, 'wrecked');
+  assert.equal(wrecked.wreckedAt, afterContact.time);
+  assert.equal(find(afterContact, 'safe-contact').status, 'safe');
+
+  const afterWreckStep = step(afterContact, HOLD, 1);
+  assert.equal(find(afterWreckStep, 'edge-wreck').x, wrecked.x);
+  assert.equal(find(afterWreckStep, 'edge-wreck').y, wrecked.y);
+  assert.equal(find(afterWreckStep, 'edge-wreck').wreckedAt, wrecked.wreckedAt);
+  assert.ok(Math.hypot(find(afterWreckStep, 'safe-contact').x, find(afterWreckStep, 'safe-contact').y)
+    > Math.hypot(find(afterContact, 'safe-contact').x, find(afterContact, 'safe-contact').y));
+
+  // Exact exitRange (600 m) and outward dot-product boundaries for safe status.
+  const exitState = { ...createState(108), hazards: [], ships: [
+    { ...template, id: 'at-600', type: 'speedboat', smuggler: false, distress: false,
+      x: 0, y: -599.9, heading: 0, speed: 6, rudder: 0, yawRate: 0, status: 'underway' },
+    { ...template, id: 'tangent-0', type: 'speedboat', smuggler: false, distress: false,
+      x: 605, y: 0.1, heading: 0, speed: 6, rudder: 0, yawRate: 0, status: 'underway' },
+    { ...template, id: 'inbound-sin', type: 'speedboat', smuggler: false, distress: false,
+      x: 500, y: 400, heading: 5, speed: 6, rudder: 0, yawRate: 0, status: 'underway' },
+    { ...template, id: 'inbound-cos', type: 'speedboat', smuggler: false, distress: false,
+      x: -400, y: -500, heading: 85, speed: 6, rudder: 0, yawRate: 0, status: 'underway' },
+  ] };
+  const afterExitTick = step(exitState, HOLD, TICK);
+  assert.equal(Math.hypot(find(afterExitTick, 'at-600').x, find(afterExitTick, 'at-600').y), 600);
+  assert.equal(find(afterExitTick, 'at-600').status, 'underway', 'exact 600 m is not > exitRange');
+  assert.equal(find(afterExitTick, 'tangent-0').status, 'underway', 'zero radial dot product is not outward');
+  assert.equal(find(afterExitTick, 'inbound-sin').status, 'underway');
+  assert.equal(find(afterExitTick, 'inbound-cos').status, 'underway');
+  const pastExitTick = step(afterExitTick, HOLD, TICK);
+  assert.equal(find(pastExitTick, 'at-600').status, 'safe');
+
+  // summary.lost requires status === 'lost' and does not count seen underway/safe/wrecked ships.
+  const tallyState = { ...createState(108), ships: [
+    { ...template, id: 's-underway', everSeen: true, status: 'underway' },
+    { ...template, id: 's-safe', everSeen: true, status: 'safe' },
+    { ...template, id: 's-wrecked', everSeen: true, status: 'wrecked' },
+  ] };
+  assert.deepEqual(summary(tallyState), { safe: 1, wrecked: 1, unseen: 0, lost: 0 });
+  tallyState.ships.push(
+    { ...template, id: 's-lost-seen', everSeen: true, status: 'lost' },
+    { ...template, id: 's-lost-unseen', everSeen: false, status: 'lost' },
+  );
+  assert.deepEqual(summary(tallyState), { safe: 1, wrecked: 1, unseen: 1, lost: 1 });
+});
