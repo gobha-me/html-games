@@ -23,7 +23,7 @@
   directed SKR receives R using the existing vocabulary. Add observed lost
   counts to `summary()` and the dawn panel. Keep all hull/light drawing behind
   perception and preserve the locked overhead chart, lamp and compass.
-- Update player and design documentation. No test or e2e files changed.
+- Update player and design documentation. Add adversarial ship-variety tests and expect summary().lost in existing suites.
 
 ## Unreleased — Fixed Teeth landmark (#108)
 
