@@ -639,7 +639,9 @@ hidden encounter flags. Mystery-dependent notes and story pages remain #114.
 Storage is `{ version: 1, entries: [{ seed, night, time, bearing,
 what: { id, type }, note }] }` at `keeper.log.v1`, independent of the dawn
 record. Time is simulation seconds, displayed on the same 18:00–06:00 clock as
-the watch. Unsupported versions or malformed entries reject the document and
+the watch. Version 1 validates uint32 seeds, nights 1–5, times within the
+180-second watch, bearings in [0, 360), supported vessel types and preset notes.
+Unsupported versions or malformed entries reject the document and
 open a fresh page. Storage failures retain entries in memory for the visit and
 display a warning on the page; later successful additions retry the full log.
 

@@ -103,8 +103,10 @@ function setMode(next) {
   for (const panel of ['start', 'pause', 'help', 'dawn']) $(panel + '-panel').hidden = next !== panel;
   if (next === 'log') $('log-panel').showModal();
   else if ($('log-panel').open) $('log-panel').close();
+  // An empty watch can still have a long saved history. Start its review at
+  // the heading rather than focusing the close button below the visible page.
   const focus = { start: 'start', pause: 'resume', help: 'close-help', dawn: 'restart',
-    log: $('log-what').disabled ? 'close-log' : 'log-what' }[next];
+    log: $('log-what').disabled ? 'log-title' : 'log-what' }[next];
   if (focus) $(focus).focus({ preventScroll: true });
   else document.activeElement?.blur();
   previousTime = undefined;

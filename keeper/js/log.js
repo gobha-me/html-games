@@ -20,7 +20,7 @@ export function revealedThings(state) {
 
 function copyEntry(entry) {
   if (!Number.isSafeInteger(entry?.seed) || entry.seed < 0 || entry.seed > 0xffffffff
-    || !Number.isSafeInteger(entry.night) || entry.night < 1
+    || !Number.isSafeInteger(entry.night) || entry.night < 1 || entry.night > 5
     || !Number.isFinite(entry.time) || entry.time < 0 || entry.time > NIGHT_SECONDS
     || !Number.isFinite(entry.bearing) || entry.bearing < 0 || entry.bearing >= 360
     || !validId(entry.what?.id) || !validType(entry.what?.type) || !LOG_NOTES.includes(entry.note)) return null;

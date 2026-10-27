@@ -15,6 +15,12 @@
 - Freeze simulation while the log is open, release held controls and cancel
   partial outgoing Morse keying. Ignore gameplay inputs while preserving native
   form navigation, focus trapping and L/Esc/P close behavior.
+- Validate saved night numbers against the five-night design. Focus the page
+  heading when no current sightings are available, keeping keyboard review of
+  long saved histories at the top of the page.
+- Verification (Node 22.23.4): JS/CSS/HTML lint passes; 56 inline data/key
+  assertions and 84 headless Brave browser assertions pass. Full coverage,
+  e2e and mutation suites remain with the supervisor; test files are unchanged.
 
 ## Unreleased — Ship variety (#111)
 
