@@ -5,12 +5,13 @@ export const KEYS = Object.freeze({
   hold: ['Space'],
   horn: ['KeyH'],
   lamp: ['KeyK'],
+  log: ['KeyL'],
   pause: ['Escape', 'KeyP'],
   help: ['Slash'],
 });
 export const CONTROL_LABELS = Object.freeze({
   slow: '← / A · slow', fast: '→ / D · fast', hold: 'Space · hold',
-  horn: 'H · horn', lamp: 'K · signal lamp', pause: 'Esc / P · pause', help: '? · controls',
+  horn: 'H · horn', lamp: 'K · signal lamp', log: 'L · keeper’s log', pause: 'Esc / P · pause', help: '? · controls',
 });
 export function actionFor(code) {
   return Object.keys(KEYS).find((action) => KEYS[action].includes(code));

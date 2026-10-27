@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — Keeper’s log (#112)
+
+- Bind L through the shared key table and control labels. Add a modal paper
+  page with automatic watch time/current beam bearing, revealed-vessel choices,
+  optional preset notes and saved entry history. Support review from title,
+  pause, controls and dawn, returning to the previous mode on close.
+- Add pure `revealedThings`, `assembleEntry` and `parseLog` in `js/log.js`;
+  enforce current-watch `everSeen` eligibility again on submit and keep hidden
+  encounter metadata out of entries. Extend the pure-module lint guard.
+- Persist version-1 entries under `keeper.log.v1`, independently of the morning
+  record and watch restarts. Reject corrupt/unsupported documents; retain new
+  entries in memory and explain storage failures without interrupting play.
+- Freeze simulation while the log is open, release held controls and cancel
+  partial outgoing Morse keying. Ignore gameplay inputs while preserving native
+  form navigation, focus trapping and L/Esc/P close behavior.
+
 ## Unreleased — Ship variety (#111)
 
 - Restore strict schedule admission so removed opening ships do not reappear.

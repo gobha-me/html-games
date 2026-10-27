@@ -28,6 +28,12 @@ Slowing or holding deliberately trades those chances for attention elsewhere.
   penalty. Ships blink replies at 8 WPM; **?** offers 5 WPM and an optional
   alphabet reference card. Hold Space to keep the recipient lit until sending.
 - **Esc / P**: pause. **?**: controls. Focus loss also pauses and releases keys.
+- **L**: open / close the keeper’s paper log, including from the title or dawn
+  card to review saved pages. The watch pauses while it is open. Choose an
+  observed vessel and an optional preset note, then **Enter in the log**.
+  Time and current beam bearing are automatic. **Esc / P** also closes the page;
+  returning to a paused card keeps the watch paused. Horn, lamp and steering
+  presses are ignored while writing; release and press again after closing.
 - **Mute horn** silences audio without changing the warning mechanic.
 
 Controls appear on the title card and briefly over the watch (eight seconds,
@@ -79,7 +85,7 @@ the helper compresses the wait for dawn without altering the course or outcome.
 Issue #108: first playable, one trawler / one three-minute watch. Start, pause,
 controls, restart, safe/wrecked dawn summary, and a versioned last-watch record
 in localStorage. Invalid or inaccessible storage never prevents play. In-progress
-resume, the keeper's log, additional nights, and ambient
+resume, additional nights, and ambient
 wind/sea audio belong to later milestones. The full design is in
 [docs/DESIGN.md](docs/DESIGN.md); this milestone intentionally shortens the night.
 Issue #118 adds pure sweep-budget helpers, schedule rejection on load/start,
@@ -97,6 +103,16 @@ SOS/directed rescue, a separate lost tally, and coaster identification asks.
 Specialty ships are available through the pure `specialtyApproach` schedule
 builder documented in DESIGN §6; default traffic stays trawlers/coasters until
 the mystery-night scripts (#114). The watch remains 180 seconds.
+Issue #112 adds the assembled keeper’s log. Choices come only from this watch’s
+`everSeen` vessels, including vessels already departed or lost; old entries
+never unlock unseen choices on a replay. Notes are the keeper’s own observations,
+not automatic encounter facts. The `keeper.log.v1` localStorage document holds
+`{ version: 1, entries }`; each entry stores seed, night, simulation seconds,
+current beam bearing, observed vessel id/type and a preset note. It is separate
+from `keeper.record.v1` and survives restarting the watch. Invalid or unsupported
+documents open a fresh page; blocked storage or quota errors keep entries for
+the current visit and show a status message. Later mystery scripts and endings
+remain future work.
 The kspawn pacing change adds seeded arrivals from 24–36 seconds onward,
 with jittered gaps, at most three overlapping active windows, separated
 bearings and independent warning budgets. Traffic stops arriving by 120
@@ -123,4 +139,5 @@ unseen arrivals separately. Rejected spawn slots no longer end traffic.
 - `js/renderer.js`, `js/audio.js` — canvas and horn adapters.
 - `js/keys.js` — shared bindings and control labels.
 - `js/record.js` — defensive versioned morning-record parser.
+- `js/log.js` — pure observation choices, entry assembly and versioned log parser.
 - `tests/`, `e2e/` — adversarial Node tests and Playwright browser tests.

@@ -70,6 +70,25 @@
       <p id="record-status" class="small"></p>
       <button id="restart" type="button">Keep the light again <span>→</span></button>
     </div>
+    <dialog id="log-panel" aria-labelledby="log-title" aria-describedby="log-guidance">
+      <p class="eyebrow">Skerry Rock · Station log</p>
+      <h2 id="log-title">The keeper’s log</h2>
+      <p id="log-guidance">The watch waits while the page is open. Record only what you have seen this night.</p>
+      <form id="log-form">
+        <p id="log-stamp"></p>
+        <label for="log-what">What you saw</label>
+        <select id="log-what" name="what" required></select>
+        <p id="log-empty" hidden>No sightings yet. Return to the light to reveal a vessel.</p>
+        <label for="log-note">Note · optional</label>
+        <select id="log-note" name="note"></select>
+        <button id="add-log-entry" type="submit">Enter in the log</button>
+      </form>
+      <p id="log-status" role="status"></p>
+      <h3>Entries</h3>
+      <p id="log-no-entries">No entries yet.</p>
+      <ol id="log-entries" aria-label="Saved observations"></ol>
+      <button id="close-log" type="button">Close the log · L / Esc</button>
+    </dialog>
     <aside id="watch-controls" class="watch-controls is-faded" aria-label="Watch controls" aria-hidden="true">
       <p class="eyebrow">Work the light · press H to warn nearby vessels</p>
       <ul id="watch-controls-list" class="control-list"></ul>

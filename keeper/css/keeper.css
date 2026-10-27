@@ -301,6 +301,57 @@ button:disabled {
   cursor: not-allowed;
 }
 
+
+#log-panel {
+  width: 500px;
+  max-width: calc(100% - 40px);
+  max-height: calc(100% - 40px);
+  padding: 26px 32px;
+  overflow: auto;
+  border: 1px solid #a18d67;
+  background: #e8d9b5;
+  color: #302b23;
+  color-scheme: light;
+  box-shadow: 0 22px 90px rgb(0 0 0 / 60%);
+  font: 13px/1.6 Georgia, 'Times New Roman', serif;
+}
+
+#log-panel::backdrop { background: rgb(5 7 10 / 55%); }
+
+#log-panel .eyebrow { color: #63543f; }
+
+#log-panel label {
+  display: block;
+  margin-top: 12px;
+}
+
+#log-panel select, #log-panel button {
+  width: 100%;
+  padding: 8px 10px;
+  background: #f4e9ce;
+  color: #302b23;
+  border: 1px solid #847354;
+}
+
+#log-panel button { margin-top: 14px; }
+
+#log-panel select:focus-visible, #log-panel button:focus-visible {
+  outline: 2px solid #63543f;
+  outline-offset: 2px;
+}
+
+#log-stamp, #log-status { font: 11px/1.7 'Courier New', monospace; }
+
+#log-entries {
+  padding-left: 24px;
+  overflow-wrap: anywhere;
+}
+
+#log-entries li {
+  padding: 8px 0;
+  border-bottom: 1px solid #bdac8a;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .watch-controls { transition: none; }
 }
