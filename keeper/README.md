@@ -41,7 +41,10 @@ or until first input), as well as the persistent bottom bar and **?** card.
 
 The faint dotted marks are the keeper's chart, not visible rocks. A ship's hull
 is visible only in the cone or a fading 1.5-second remembered image. Running
-lights can show within half the fog reach. False alarms reduce captain trust,
+lights can show within half the fog reach. Trawlers have squat hulls and a mast;
+coasters are long with two deckhouses; launches are narrow with an aft cockpit;
+lifeboats are small and double-ended. Dark launches have no running lights.
+False alarms reduce captain trust,
 slowing reactions and making warnings less likely to be followed. Each press
 is one broadcast; holding sustains the sound without warning newly arriving
 ships. Only a reef impact within 120 seconds counts as danger. Trust recovers
@@ -62,7 +65,9 @@ answer `SKR` for its `R` acknowledgement.
 
 Vanilla HTML/CSS/ES modules, Canvas 2D, a pure deterministic seeded simulation,
 and a synthesized WebAudio horn. No build step or runtime dependencies.
-Respects reduced motion by stopping fog drift. Designed for desktop ≥1280×720.
+Reduced motion freezes fog drift and surf and removes the controls fade. There
+is no screen shake. Preference changes redraw even while paused. Designed for
+desktop ≥1280×720.
 
 From `keeper/` (Node ^22.22 or ≥24.8):
 
@@ -79,6 +84,65 @@ Playwright serves the repository root with `python3 -m http.server` on port
 `window.__keeper` with read-only seed/state snapshots and a simulation advance
 helper. It does not exist during normal play. Tests use real keyboard input;
 the helper compresses the wait for dawn without altering the course or outcome.
+
+## Readability and performance checks (#116)
+
+Per the Projects Lead's ruling, the one-second recognition floor applies to
+beam-lit objects whose silhouettes intersect the visible canvas at default fog.
+Off-screen illumination is a separate Atlas layout/route question; this change
+preserves the chart transform, lamp/cone reach and routes.
+
+`js/renderer.js` exports deeply frozen `VESSEL_MARKS` (the actual outlines,
+deckhouses and mast flags used to draw each type), `READABILITY` (one-second
+deadline, zero reveal delay, full lit opacity, eight CSS-pixel minimum narrow
+span), and pure `vesselReadability(state, ship, { width, height })`. Dimensions
+are CSS pixels; the default is 1280×720. The probe returns:
+
+- `lit`, `onScreen`, `inScope`: only lit silhouettes with positive area inside
+  the canvas are in scope. Afterimages never qualify as newly lit objects.
+- `type`, `opacity`, `revealSeconds`: lit hulls appear immediately at opacity 1;
+  hidden hulls return no type/geometry, and unlit hulls have no reveal time.
+- `outline`, `visibleOutline`, `visibleAreaPixels`, `visibleFraction`, `clipped`:
+  projected geometry and its exact rectangular canvas clipping. Boundary-only
+  contact has zero visible area. Partial silhouettes remain in scope.
+- `minimumSpanPixels`: the full hull's narrow dimension at the viewport scale,
+  conservatively independent of heading. This is **not** the visible span of a
+  clipped fragment; use the visible polygon/area to inspect edge cases.
+
+These are measurable rendering conditions, not a claim that a geometric score
+proves human recognition. Atlas/playtesting must assess identification within
+one second, especially tiny clipped fragments. The four hulls have distinct
+outlines and show at full opacity on their first lit frame. Unknown hull types
+and invalid dimensions throw; the probe never changes the state.
+
+The title, watch overlay and `?` card are generated from `KEYS` / `CONTROL_LABELS`
+in `js/keys.js`. Both tables and each code array are frozen; duplicate codes or
+missing labels fail at import. `actionFor(code)` returns `undefined` for unknown
+or non-string codes. `heldInput(pressed)` requires a Set, ignores unbound
+members, and returns only the five held gameplay actions.
+
+In automation with `?e2e=1`, `window.__keeper.frameTiming` returns a detached
+snapshot `{ capacity: 600, warmupRemaining, samples }`. Each sample has
+`timestamp` (RAF milliseconds), `intervalMs` (raw consecutive RAF interval,
+before simulation hitch clamping), and `workMs` (synchronous simulation +
+canvas/HUD/audio work). GPU presentation is not included in `workMs`.
+Only foreground play frames are sampled; manual `advance()` calls, menus,
+pause gaps and the first frame after a transition are excluded. The oldest
+sample is discarded at capacity. Normal visits allocate no sample buffer and
+do not read the performance clock for this instrumentation.
+
+For a CPU-throttled Playwright budget check, set the Chromium CDP CPU rate,
+start the watch, then call
+`window.__keeper.resetFrameTiming({ warmupFrames: 120 })`. This clears old
+samples and excludes 120 play frames plus the first interval anchor. Wait for
+`warmupRemaining === 0` and enough real RAF samples before computing a budget
+percentile. The default warm-up is 120; use zero after an external warm-up.
+Negative, fractional or non-finite counts throw. Resetting does not change
+simulation time or inputs. Use real time rather than Playwright's virtual clock
+for performance claims. The test owns CPU rate, sample count and budget.
+
+On the shared development machine, wrap coverage, browser and mutation runs in
+`flock /config/projects/logs/heavy.lock -c '<command>'`.
 
 ## Status
 
