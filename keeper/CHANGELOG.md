@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased — Ship variety (#111)
+
+- Add opt-in pure `specialtyApproach` entries for dark speedboats and distress
+  lifeboats, preserving smuggler flags and initial speeds on arrival, including
+  time-zero scripts. Keep default traffic, Teeth, fairness budgets and the
+  180-second watch unchanged; scripted placement remains #114.
+- Smugglers approach half cruise throttle when lit, recover in darkness,
+  reset continuous light time when unlit, and flee outward only after strictly
+  more than three seconds. They never wreck. Preserve positive substep
+  fractions and compensate timer sums at exact duration boundaries.
+- Lifeboats drift at 15% throttle toward the nearest hazard and stop at reef
+  contact. Repeat Morse SOS from arrival, separated by word gaps. Reset the
+  24-second unlit timer on each lit tick; timeout becomes terminal `lost`,
+  without wreck credit or further signals. Only directed K/R/AR while lit
+  rescues the boat. Rescue stops SOS and counts as safe; horns cannot rescue.
+- Coasters ask WHAT LIGHT once after one continuous second of illumination;
+  directed SKR receives R using the existing vocabulary. Add observed lost
+  counts to `summary()` and the dawn panel. Keep all hull/light drawing behind
+  perception and preserve the locked overhead chart, lamp and compass.
+- Update player and design documentation. No test or e2e files changed.
+
 ## Unreleased — Fixed Teeth landmark (#108)
 
 - Export deeply frozen `TEETH`: three reef discs at (210, −255, 24),
