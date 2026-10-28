@@ -260,7 +260,7 @@ button:hover, button:focus-visible {
   line-height: 1.8;
 }
 
-#help-panel {
+#start-panel, #help-panel, #dawn-panel {
   max-height: calc(100% - 30px);
   overflow: auto;
 }

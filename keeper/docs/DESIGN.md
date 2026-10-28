@@ -45,6 +45,31 @@ shown.
 observations unlock or alter later nights; the final night resolves the
 mystery according to what the keeper actually recorded.
 
+### Night structure implemented in #113
+
+`NIGHT_SECONDS = 540`: nine real minutes of simulation from 18:00 to 06:00.
+Pause, help and an inactive tab stop the watch; time away is never simulated.
+Five watches can be played consecutively with a morning review between them.
+Scripted mystery events and log-dependent endings remain #114; the five-night
+completion panel makes no narrative ending claim.
+
+`fogAt(night, time)` is pure and independent of seed. Let
+`u = clamp(time / 540, 0, 1)`; density is
+`start + (end - start) × u² × (3 - 2u)`. Each curve thickens monotonically,
+with zero slope at dusk and dawn:
+
+| Night | Dusk density | Dawn density |
+|---|---:|---:|
+| 1 | 0.08 | 0.12 |
+| 2 | 0.09 | 0.13 |
+| 3 | 0.10 | 0.14 |
+| 4 | 0.11 | 0.15 |
+| 5 | 0.12 | 0.16 |
+
+The starting density uses the same curve as every subsequent tick. All
+planners still budget against density **0.16 / reach 464.8 m**, even on
+clearer nights; pass quotas and physical spawn-range guarantees are unchanged.
+
 ## 3. The beam (LOCKED core verb)
 
 - The light rotates clockwise continuously at **sweep speed** (one full
@@ -190,7 +215,7 @@ Scripts must reserve capacity and bearing separation against existing
 traffic and run `validateSchedule` after installation; the builder does not
 silently remove regular traffic or weaken its warning budget. An explicitly
 shortened `spawnRange` may fail validation. Night/mystery placement is #114.
-The watch remains `NIGHT_SECONDS = 180`; layout, lamp anchor and compass stay
+The watch now lasts `NIGHT_SECONDS = 540` (#113); layout, lamp anchor and compass stay
 fixed. `summary()` adds an ever-seen `lost` count alongside its existing
 `safe`, `wrecked`, and `unseen` fields. Lost hulls obey the same beam/afterimage
 boundary and have no off-beam lights or signals.
@@ -217,8 +242,8 @@ stay fixed.
 Each disc is `{ kind: 'reef'|'shoal'|'wreck', x, y, radius }`. The private LCG
 stream mixes seed and night; repeated calls cannot share mutable objects.
 Both `planHazards` and `planSpawns` require uint32 seeds and integer nights
-1–5 (`RangeError` for invalid inputs). `createState(seed = 108)` retains its
-`TypeError` seed contract, installs the complete night-one chart (Teeth
+1–5 (`RangeError` for invalid inputs). `createState(seed = 108, { night = 1 } = {})` retains its
+`TypeError` seed contract, installs the complete chosen-night chart (Teeth
 first) in `state.hazards`, and stores the opening trawler plus extras in
 `state.schedule`. Pure modules use no DOM, wall clock or `Math.random`.
 
@@ -258,10 +283,10 @@ four visible warning passes inside worst-case fog. The frozen `SPAWN` export:
 | Tunable | Default | Meaning |
 |---|---:|---|
 | `firstMin`, `firstMax` | 24 s, 36 s | First extra's arrival interval. |
-| `intervalStart`, `intervalEnd` | 40 s, 18 s | Unjittered gap ramped across the full 180 s watch. |
+| `intervalStart`, `intervalEnd` | 50 s, 24 s | Unjittered gap ramped across the full 540 s watch. |
 | `jitter` | 0.25 | Gap multiplier sampled in [0.75,1.25]. |
 | `maxActive` | 3 | Inclusive overlapping reservations, opener included. |
-| `lastSpawn` | 120 s | Last possible slot. |
+| `lastSpawn` | 480 s | Last possible slot, leaving one minute before dawn. |
 | `minBearingGap` | 20° | Circular separation for overlapping reservations. |
 | `threatShare` | 0.6 | Threat probability before rejection, except fallback candidate. |
 
@@ -270,7 +295,7 @@ The frozen `TRAFFIC` export supplies admission details:
 | Tunable | Default | Meaning |
 |---|---:|---|
 | `attempts` | 8 | Maximum candidates per slot; final candidate is clear outbound traffic in the widest available bearing gap. |
-| `lateAfter` | 80 s | Admit additional long-lived threatening approaches only after this time. |
+| `lateAfter` | 360 s | Admit additional long-lived threatening approaches only after this time. |
 | `maxThreats` | 2 | Maximum dawn-long threat reservations including the opener. |
 | `bearingJitter` | 3° | ± offset around any chart hazard's bearing for threatening extras. |
 | `openingJitter` | 0.5° | ± offset around the selected outermost seeded hazard for the opener. |
@@ -281,9 +306,9 @@ Exhausting eight candidates never ends planning. Capacity, separation and
 fairness remain mandatory. Early rotating berths use outbound coasters;
 their faster exits avoid filling all berths with dawn-long trawlers. The
 final clear candidate prevents random rejection alone from silencing traffic.
-Across seeds 0–499, every night has an arrival after 80 s, and consecutive
+Across seeds 0–499, every night has an arrival after 360 s, and consecutive
 accepted gaps (including opener to first extra) never exceed
-**2 × intervalStart × (1 + jitter) = 100 s**. Skipped slots can exceed the
+**2 × intervalStart × (1 + jitter) = 125 s**. Skipped slots can exceed the
 single-slot jitter envelope; the two-slot bound applies to accepted traffic.
 Rejection and fallback change the final threatening share.
 
@@ -302,8 +327,8 @@ An arrival enters `state.ships` on the first tick reaching its spawn time,
 travels only that tick's post-spawn fraction, and starts with `everSeen: false`
 and an explicit off-chart `destination`. A held horn never sends a fresh
 broadcast to later arrivals. The renderer visits the fleet through perception.
-Version 2 morning records retain safe/wrecked counts (including zero/zero);
-legacy version 1 records still require exactly one outcome.
+Version 3 morning records add night, unseen/lost/logged counts and cumulative wrecks;
+versions 1 and 2 remain readable (version 1 requires exactly one outcome).
 
 ### Horn broadcast and directed lamp
 
@@ -438,9 +463,9 @@ The frozen `NAVIGATION` export contains all navigation tunables:
 | `helmGain` | 1.5 | Heading error gain after reserving coast from yaw and rudder slew. |
 
 Hull allowance is **8 m**. Crew, rudder, yaw and cruise tunables remain in
-`HULLS` above. Watch duration is `NIGHT_SECONDS = 180`; fog ramps linearly
-from 0.08 to `NIGHT_FOG_MAX = 0.16` over that watch, giving the 464.8 m planning
-horizon. Wrecks use the 8 m allowance; planned safe maneuvers and schedule
+`HULLS` above. Watch duration is `NIGHT_SECONDS = 540`; fog follows the
+night-indexed smoothstep curves in §2, bounded by `NIGHT_FOG_MAX = 0.16`
+and the unchanged 464.8 m planning horizon. Wrecks use the 8 m allowance; planned safe maneuvers and schedule
 budgets additionally reserve `CLEAR_MARGIN`.
 
 ### Physical point of no return
@@ -474,7 +499,8 @@ lands in #115. It reveals no hull pose, and is not credited as a beam pass.
 
 - **No game over mid-night.** Wrecks happen and are remembered — the sea goes
   on. This is a quiet game; failure is a weight, not a reset.
-- A night ends at dawn. `summary(state)` returns `{ safe, wrecked, unseen, lost }`.
+- A night ends at dawn. `summary(state)` returns
+  `{ night, safe, wrecked, unseen, lost, logged, cumulativeWrecks, relieved }`.
   Safe/wrecked/lost count **only ever-seen ships**. Each arrival starts unseen;
   any tick with beam illumination or visible running lights permanently latches
   `everSeen = true`. Horn hearing, engine cues and unobserved maneuvers never
@@ -482,15 +508,70 @@ lands in #115. It reveals no hull pose, and is not credited as a beam pass.
   The dawn panel shows observed safe/wrecked outcomes and, when nonzero,
   “n passed unseen”. Observed underway ships are not credited as safe.
   Rescued lifeboats count as safe; observed distress losses appear separately.
-  Persistent distress records and entries logged remain later milestones.
+  `logged` remains zero: the persistent keeper’s log is separate from run
+  history and survives retries/new runs without a per-attempt identifier.
 - **The lamp-keeper's record**: three wrecks across the run and the Board
   relieves you after the night (soft ending, "Relieved of duty"); you may
-  restart the night.
+  restart the night. The third observed wreck reaches the threshold; the
+  night continues to dawn even if further wrecks occur. `relieved` uses
+  `cumulativeWrecks >= 3`, never equality on the final dawn total, so crossing
+  from two to four within one night cannot skip relief. Two never triggers it.
+  **Restart this night** regenerates the same seed/night and discards this
+  attempt's sightings, keying, trust, ship outcomes and elapsed time. Prior
+  nights' accrued wrecks and morning records remain; the reply-speed setting
+  stays selected. Relief blocks taking the next night, not retrying this one.
 - Success is surviving all five nights; the *ending* depends on the log (§9).
 - Scoring is deliberately understated: no points on screen during play.
 - An invalid ship schedule **refuses to start**: the title card displays the
   offending ship index, reason and pass count, and disables Take the watch.
   Validation runs at load and again on every start/restart.
+
+### Save and resume (#113)
+
+`js/save.js` is a pure, versioned JSON codec. The browser adapter stores
+`{ version: 1, state }` at **`keeper.save.v1`**. `state` includes seed,
+night/time/phase, beam/speed/fog, horn/trust and blast history, Morse keying
+(including a held press and last message), reply-speed settings, chart,
+schedule, every arrived vessel (physical dynamics, reactions, navigation,
+replies, observation memory and outcomes), and `run.mornings` for **prior
+nights only**. Current totals are derived, so saving or reopening dawn cannot
+double-accrue wrecks. Standalone `createState(seed, { night })` starts that
+night with no earlier mornings; ordinary play enters later nights through
+`nextNight`, which appends the completed morning exactly once.
+
+`trawler` is omitted on disk and reattached to `ships[0]` when parsed; JSON
+would otherwise break that shared reference. A reserved `{ "$number": "-0" }`
+tag preserves negative zero for strict state equality. No rounding, time
+catch-up, PRNG draw or simulation step occurs in the codec. Restoring then
+stepping with the same inputs and durations deep-equals uninterrupted state.
+
+The parser bounds raw saves to 1,000,000 code units, checks finite fields,
+physical/control/keying/history shapes, regenerates the seed/night chart and
+schedule, and rejects changed or unfair plans. Malformed, oversized and other
+schema versions return `null`. Browser read/write/quota errors never throw
+through the UI: a fresh watch stays available and the panels explain when
+the browser cannot save. The last-morning record remains separately stored
+at `keeper.record.v1` using record schema version 3 with legacy reads.
+
+Ship-variety snapshots retain continuous-light/darkness timers and their
+floating-point compensation, coaster identification, smuggler flight,
+repeating SOS and distress loss timestamps. Generated schedule entries must
+match the seed/night plan exactly. Appended opt-in specialties must match
+`specialtyApproach` and pass existing schedule validation. Arrived vessels
+are matched by unique id because specialty entries can be appended after
+future regular traffic while arriving earlier. Schema-3 records and prior
+morning history preserve observed `lost` counts separately from wrecks;
+earlier schema-3 records without that field read as zero losses.
+
+The adapter checkpoints once per simulation second, on key release, settings
+and panel changes, and on `pagehide`. Abrupt process termination may lose up
+to one second; normal page departure checkpoints the latest state. Resume is
+explicit through **Resume night N** (or **Review morning N**) and restores
+without resetting simulation data. Controls are released while menus are
+open; continuing physical input is supplied by the same keyboard bindings.
+An ordinary pause/help/focus-loss cancels held horn and unfinished lamp keying
+as before and checkpoints that paused state. Audio mute is adapter-only and
+is not part of the simulation save.
 
 ### Fairness: sweep budget
 
@@ -640,7 +721,7 @@ Storage is `{ version: 1, entries: [{ seed, night, time, bearing,
 what: { id, type }, note }] }` at `keeper.log.v1`, independent of the dawn
 record. Time is simulation seconds, displayed on the same 18:00–06:00 clock as
 the watch. Version 1 validates uint32 seeds, nights 1–5, times within the
-180-second watch, bearings in [0, 360), supported vessel types and preset notes.
+540-second watch, bearings in [0, 360), supported vessel types and preset notes.
 Unsupported versions or malformed entries reject the document and
 open a fresh page. Storage failures retain entries in memory for the visit and
 display a warning on the page; later successful additions retry the full log.

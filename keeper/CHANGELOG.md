@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased — Night structure (#113)
+
+- Extend each watch to 540 seconds (nine minutes), with five playable nights
+  and deterministic monotonic smoothstep fog curves from 0.08→0.12 through
+  0.12→0.16. Remove the random starting-density discontinuity. Keep the
+  existing 464.8 m planning horizon, physical spawn formula and 4/4/3/3/2 quotas.
+- Spread traffic across the watch: first extra at 24–36 s, gaps ramping
+  50→24 s with existing jitter, last slot 480 s; additional dawn-long threats
+  admitted after 360 s. Keep capacity, bearing separation and fallback rules.
+- Expand dawn summaries and schema-3 last-morning records with night,
+  cumulative observed wrecks, distress losses and zero logged entries. The
+  keeper's log persists separately across retries/new runs, without a run or
+  attempt identifier. Append prior mornings
+  only when continuing; the third observed wreck causes relief after dawn.
+  Restart-night discards only the current attempt and preserves prior wrecks.
+- Add the pure `keeper.save.v1` codec with full physical/keying/navigation
+  state, strict deterministic chart/schedule validation, trawler alias and
+  negative-zero restoration. Checkpoint during play and browser lifecycle
+  changes; offer explicit saved-night resume and saved-morning review.
+  Corrupt/unsupported saves and storage/quota failures leave play available.
+- Integrate with ship variety and the keeper's log from main: preserve L and
+  modal pause/input behavior, coaster identification, smuggler light timers,
+  flight, repeating SOS and distress losses in saves and morning history.
+  Preserve generated traffic exactly; accept appended specialty-builder
+  entries only when canonical and passing existing schedule validation.
+- Add night progression/retry/resume panel controls and bounded panel scrolling.
+  Chart view, compass, lamp geometry and renderer remain untouched. Fog,
+  pacing, progression and panels require Atlas review. No tests/e2e edited;
+  supervisor owns the full coverage, browser and mutation gates.
+
 ## Unreleased — Keeper’s log (#112)
 
 - Bind L through the shared key table and control labels. Add a modal paper

@@ -170,7 +170,7 @@ function checkSeed(seed) {
 }
 
 test('exported night constants match the spec', () => {
-  assert.equal(NIGHT_SECONDS, 180);
+  assert.equal(NIGHT_SECONDS, 540);
   assert.equal(BUDGET_PERIOD_SECONDS, 12);
   assert.deepEqual([...NIGHT_PASSES], [4, 4, 3, 3, 2]);
 });
@@ -179,11 +179,11 @@ test('SPAWN is a frozen object of the stated tunables', () => {
   assert.equal(Object.isFrozen(SPAWN), true);
   assert.equal(SPAWN.firstMin, 24);
   assert.equal(SPAWN.firstMax, 36);
-  assert.equal(SPAWN.intervalStart, 40);
-  assert.equal(SPAWN.intervalEnd, 18);
+  assert.equal(SPAWN.intervalStart, 50);
+  assert.equal(SPAWN.intervalEnd, 24);
   assert.equal(SPAWN.jitter, 0.25);
   assert.equal(SPAWN.maxActive, 3);
-  assert.equal(SPAWN.lastSpawn, 120);
+  assert.equal(SPAWN.lastSpawn, 480);
   assert.equal(SPAWN.minBearingGap, 20);
   assert.equal(SPAWN.threatShare, 0.6);
   assert.throws(() => {
@@ -264,13 +264,17 @@ test('a planned ship is underway at its spawnTime and absent earlier', () => {
     const initial = createState(seed);
     const liveIds = initial.ships.map((ship) => ship.id);
     assert.equal(new Set(liveIds).size, liveIds.length);
+    // Step a single real state from t = 0 through every scheduled (spawnTime - 1) and spawnTime;
+    // consecutive spawns are >= 18 s apart, so before = entry.spawnTime - 1 is always >= state.time.
+    let state = initial;
     for (const entry of plan) {
       assert.equal(findShip(initial, entry.id), undefined, `seed ${seed} ${entry.id} present at start`);
       const before = entry.spawnTime - 1;
-      assert.ok(before >= 0);
-      const early = step(createState(seed), unwarned(), before);
+      assert.ok(before >= state.time);
+      const early = step(state, unwarned(), before - state.time);
       assert.equal(findShip(early, entry.id), undefined, `seed ${seed} ${entry.id} present at ${before}`);
-      const at = step(createState(seed), unwarned(), entry.spawnTime);
+      const at = step(early, unwarned(), entry.spawnTime - early.time + 1e-9);
+      state = at;
       const ship = findShip(at, entry.id);
       assert.ok(ship, `seed ${seed} ${entry.id} missing at spawn`);
       assert.equal(ship.id, entry.id);
@@ -312,22 +316,31 @@ test('unwarned non-threatening spawns never wreck', () => {
       assert.ok(underway <= SPAWN.maxActive, `seed ${seed} t ${at} underway ${underway}`);
     };
 
-    let state = createState(seed);
-    let t = 0;
-    while (t < NIGHT_SECONDS) {
-      const dt = Math.min(BUDGET_PERIOD_SECONDS, NIGHT_SECONDS - t);
-      state = step(state, unwarned(), dt);
-      assert.ok(state && Array.isArray(state.ships));
-      t += dt;
-      observe(state, t);
+    // Integrate each seed from t = 0 through NIGHT_SECONDS in one continuous pass visiting every
+    // BUDGET_PERIOD_SECONDS tick and every non-threatening ship's midpoint (spawnTime + exitTime) / 2.
+    const checkpoints = [];
+    for (let t = BUDGET_PERIOD_SECONDS; t <= NIGHT_SECONDS; t += BUDGET_PERIOD_SECONDS) {
+      checkpoints.push(t);
     }
-    observe(step(createState(seed), unwarned(), NIGHT_SECONDS), NIGHT_SECONDS);
-
+    if (checkpoints.at(-1) !== NIGHT_SECONDS) checkpoints.push(NIGHT_SECONDS);
     for (const entry of plan) {
       if (entry.threatening) continue;
       const mid = Math.min((entry.spawnTime + entry.exitTime) / 2, NIGHT_SECONDS);
       assert.ok(mid >= entry.spawnTime);
-      observe(step(createState(seed), unwarned(), mid), mid);
+      checkpoints.push(mid);
+    }
+    checkpoints.sort((a, b) => a - b);
+
+    let state = createState(seed);
+    let t = 0;
+    for (const target of checkpoints) {
+      const dt = target - t;
+      if (dt > 0) {
+        state = step(state, unwarned(), dt);
+        assert.ok(state && Array.isArray(state.ships));
+        t = target;
+      }
+      observe(state, target);
     }
   }
 });

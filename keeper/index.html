@@ -17,7 +17,7 @@
       <p class="station-name">Skerry Rock <span> / </span> The Light</p>
     </header>
     <div class="watch">
-      <p class="eyebrow">Night 01 <span> / </span> First watch</p>
+      <p class="eyebrow" id="night-label">Night 01 / First watch</p>
       <time id="clock">18:00</time>
       <p id="bearing">305° · 12.0 s / revolution</p>
     </div>
@@ -39,8 +39,10 @@
       <p class="small">The lens turns one way. To look back, go round.<br>Hold Space to keep her in the light; hold H to warn.</p>
       <ul id="title-controls" class="control-list" aria-label="Watch controls"></ul>
       <p id="schedule-error" role="alert" hidden></p>
+      <button id="resume-saved" type="button" hidden>Resume saved watch <span>→</span></button>
       <button id="start" type="button">Take the watch <span>→</span></button>
-      <p class="footnote">One watch · three minutes · headphones optional</p>
+      <p class="footnote">Five nights · nine minutes per watch · headphones optional</p>
+      <p id="save-status" class="small" role="status"></p>
       <p class="previous" id="previous-record" hidden></p>
     </div>
     <div class="panel" id="pause-panel" hidden>
@@ -48,6 +50,7 @@
       <h2>The sea can wait.</h2>
       <p>The lens and the night are paused.</p>
       <button id="resume" type="button">Return to the light <span>→</span></button>
+      <p id="pause-save-status" class="small" role="status"></p>
     </div>
     <div class="panel" id="help-panel" hidden>
       <p class="eyebrow">Station instructions</p>
@@ -64,11 +67,14 @@
       <button id="close-help" type="button">Return to watch <span>→</span></button>
     </div>
     <div class="panel" id="dawn-panel" hidden>
-      <p class="eyebrow">06:00 · Morning record</p>
-      <h2>The watch is over.</h2>
+      <p class="eyebrow" id="morning-label">06:00 · Morning record</p>
+      <h2 id="dawn-title">The watch is over.</h2>
       <p id="summary" role="status"></p>
       <p id="record-status" class="small"></p>
-      <button id="restart" type="button">Keep the light again <span>→</span></button>
+      <button id="next-night" type="button" hidden>Take the next watch <span>→</span></button>
+      <button id="restart" type="button">Restart this night <span>→</span></button>
+      <button id="new-run" type="button" hidden>Start a new run <span>→</span></button>
+      <p id="dawn-save-status" class="small" role="status"></p>
     </div>
     <dialog id="log-panel" aria-labelledby="log-title" aria-describedby="log-guidance">
       <p class="eyebrow">Skerry Rock · Station log</p>

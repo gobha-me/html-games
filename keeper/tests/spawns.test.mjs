@@ -21,8 +21,8 @@ function vessel(entry) {
 
 test('SPAWN exposes exactly the frozen pacing contract', () => {
   assert.ok(Object.isFrozen(SPAWN));
-  assert.deepEqual(SPAWN, { firstMin: 24, firstMax: 36, intervalStart: 40, intervalEnd: 18,
-    jitter: 0.25, maxActive: 3, lastSpawn: 120, minBearingGap: 20, threatShare: 0.6 });
+  assert.deepEqual(SPAWN, { firstMin: 24, firstMax: 36, intervalStart: 50, intervalEnd: 24,
+    jitter: 0.25, maxActive: 3, lastSpawn: 480, minBearingGap: 20, threatShare: 0.6 });
   assert.throws(() => { SPAWN.maxActive = 99; }, TypeError);
 });
 
@@ -133,6 +133,22 @@ test('planning and input replay are deterministic, isolated from caller mutation
     };
     assert.deepEqual(replay(), replay());
   }
+  for (const seed of seeds.slice(0, 4)) {
+    const replayFirstWindow = () => {
+      let state = createState(seed);
+      for (let i = 0; i < 6; i++) state = step(state, { horn: i % 2 === 0, fast: i === 2, hold: i === 3 }, 6);
+      return state;
+    };
+    assert.deepEqual(replayFirstWindow(), replayFirstWindow());
+    const replayFullWatch = () => {
+      let state = createState(seed);
+      for (let i = 0; i < 6; i++) {
+        state = step(state, { horn: i % 2 === 0, fast: i === 2, hold: i === 3 }, NIGHT_SECONDS / 6);
+      }
+      return state;
+    };
+    assert.deepEqual(replayFullWatch(), replayFullWatch());
+  }
 });
 
 test('ships first appear underway at their scheduled tick, never earlier, and are not duplicated', () => {
@@ -175,9 +191,9 @@ test('long frame hitches include every arrival and match fine-step poses without
     close(ship.x, fine.ships[i].x);
     close(ship.y, fine.ships[i].y);
   }
-  assert.deepEqual(summary(hitch), { safe: hitch.ships.filter((ship) => ship.everSeen && ship.status === 'safe').length,
-    wrecked: hitch.ships.filter((ship) => ship.everSeen && ship.status === 'wrecked').length,
-    unseen: hitch.ships.filter((ship) => !ship.everSeen).length, lost: 0 });
+  assert.deepEqual(summary(hitch), {
+    night: 1, safe: 6, wrecked: 1, unseen: 5, lost: 0, logged: 0, cumulativeWrecks: 1, relieved: false,
+  });
 });
 
 test('non-threatening spawns across all 500 seeds are on permanently reef-clear courses, even beyond dawn', () => {

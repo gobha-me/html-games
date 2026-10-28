@@ -7,7 +7,7 @@ const DT = 1 / 60;
 test('unseen ships of every status are excluded from the dawn tally', () => {
   const ships = ['safe', 'wrecked', 'underway'].flatMap((status) =>
     [false, true].map((everSeen) => ({ status, everSeen })));
-  assert.deepEqual(summary({ ships }), { safe: 1, wrecked: 1, unseen: 3, lost: 0 });
+  assert.deepEqual(summary({ ships }), { night: 1, safe: 1, wrecked: 1, unseen: 3, lost: 0, logged: 0, cumulativeWrecks: 1, relieved: false });
 });
 
 test('sightings latch only from beam or running lights, including wrecks', () => {
@@ -35,7 +35,7 @@ test('outbound ship can physically pass safely without ever becoming visible', (
   state = step(state, { hold: true }, 180);
   assert.equal(state.trawler.status, 'safe');
   assert.equal(state.trawler.everSeen, false);
-  assert.deepEqual(summary(state), { safe: 0, wrecked: 0, unseen: 1, lost: 0 });
+  assert.deepEqual(summary(state), { night: 1, safe: 0, wrecked: 0, unseen: 1, lost: 0, logged: 0, cumulativeWrecks: 0, relieved: false });
 });
 
 // These scenarios use independent chart geometry; none relies on legacy ROCKS.

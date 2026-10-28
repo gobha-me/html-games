@@ -55,8 +55,8 @@ test('title controls and first eight seconds of watch show the shared bindings; 
   await page.clock.runFor(400);
   await expect(overlay).toBeHidden();
   await expect(page.locator('#controls-hint')).toBeVisible();
-  await advance(page, 180);
-  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  await advance(page, 540);
+  await page.getByRole('button', { name: 'Restart this night' }).click();
   await expect(overlay).toBeVisible();
   await expect(overlay).toHaveAttribute('aria-hidden', 'false');
 });
@@ -74,7 +74,7 @@ test('first keyboard or pointer input fades controls without changing held-input
   await expect(overlay).toBeHidden();
   for (const input of ['pointer', 'unbound-key']) {
     await page.reload();
-    await page.getByRole('button', { name: 'Take the watch' }).click();
+    await page.locator('#start').click();
     await expect(overlay).toBeVisible();
     if (input === 'pointer') await page.mouse.click(50, 300);
     else await page.keyboard.press('z');
@@ -115,14 +115,16 @@ test('unwarned watch wrecks, continues to dawn and persists its morning record',
   await advance(page, 120);
   expect((await snapshot(page)).trawler.status).toBe('wrecked');
   await expect(page.locator('#dawn-panel')).toBeHidden();
-  await advance(page, 60);
-  await expect(page.locator('#summary')).toHaveText('2 ships passed safely. 1 ship wrecked. 1 passed unseen.');
-  expect((await snapshot(page)).time).toBe(180);
+  await advance(page, 420);
+  await expect(page.locator('#summary')).toHaveText('5 ships passed safely. 2 ships wrecked. 6 arrivals unseen. 0 logged. 2 wrecks across the run.');
+  expect((await snapshot(page)).time).toBe(540);
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
-  expect(record).toEqual({ version: 2, seed: 108, safe: 2, wrecked: 1 });
+  expect(record).toEqual({
+    version: 3, seed: 108, night: 1, safe: 5, wrecked: 2, unseen: 6, lost: 0, logged: 0, cumulativeWrecks: 2, relieved: false,
+  });
   await page.reload();
-  await expect(page.locator('#previous-record')).toHaveText('Last watch: 2 safe · 1 wrecked');
-  await page.getByRole('button', { name: 'Take the watch' }).click();
+  await expect(page.locator('#previous-record')).toHaveText('Last morning · night 1: 5 safe · 2 wrecked · 2 wrecks this run');
+  await page.getByRole('button', { name: 'Start a new run' }).click();
   expect((await snapshot(page)).time).toBe(0);
 });
 
@@ -134,13 +136,13 @@ test('spot, hold and horn keeps the trawler clear; dawn avoids premature safe cr
   await expect(page.locator('#horn-state')).toHaveText('Horn sounding');
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
   await page.keyboard.up('h'); await page.keyboard.up('Space');
-  await advance(page, 180);
-  await expect(page.locator('#summary')).toHaveText('2 ships passed safely. 0 ships wrecked. 1 passed unseen.');
+  await advance(page, 540);
+  await expect(page.locator('#summary')).toHaveText('4 ships passed safely. 1 ship wrecked. 7 arrivals unseen. 0 logged. 1 wreck across the run.');
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('keeper.record.v1')));
-  expect(record.safe).toBe(2); // Only the two observed outbound coasters have exited.
+  expect(record.safe).toBe(4);
   expect((await snapshot(page)).trawler.status).toBe('underway');
   expect((await snapshot(page)).trawler.wreckedAt).toBeNull();
-  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  await page.getByRole('button', { name: 'Restart this night' }).click();
   expect((await snapshot(page)).trawler.warnedAt).toBeNull();
   expect((await snapshot(page)).horn).toBe(false);
 });
@@ -150,9 +152,9 @@ test('an off-beam broadcast keeps the trawler clear; warning just before impact 
   expect((await snapshot(page)).trawler.afterimage).toBe(0);
   await page.keyboard.down('h'); await advance(page, 0.1); await page.keyboard.up('h');
   expect((await snapshot(page)).trawler.warnedAt).not.toBeNull();
-  await advance(page, 180);
-  await expect(page.locator('#summary')).toHaveText('2 ships passed safely. 0 ships wrecked. 1 passed unseen.');
-  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  await advance(page, 540);
+  await expect(page.locator('#summary')).toHaveText('5 ships passed safely. 1 ship wrecked. 6 arrivals unseen. 0 logged. 1 wreck across the run.');
+  await page.getByRole('button', { name: 'Restart this night' }).click();
   // Compute the collision clock from the physical approach, never a stale magic time.
   const collisionTime = step(createState(108), {}, 180).trawler.wreckedAt;
   await advance(page, collisionTime - 0.2);
@@ -197,11 +199,11 @@ test('scheduled arrivals stay absent until due, render through the fleet loop, a
   const warned = (await snapshot(page)).ships.find((ship) => ship.id === entry.id);
   expect(warned.lastHorn.response).toBe('hold');
   expect(warned.warnedAt).toBeNull();
-  await advance(page, 180);
+  await advance(page, 540);
   const dawn = await snapshot(page);
   expect(dawn.ships.map((ship) => ship.id)).toEqual(dawn.schedule.map((ship) => ship.id));
   expect(dawn.ships.find((ship) => ship.id === entry.id).status).toBe('safe');
-  await page.getByRole('button', { name: 'Keep the light again' }).click();
+  await page.getByRole('button', { name: 'Restart this night' }).click();
   expect((await snapshot(page)).ships.map((ship) => ship.id)).toEqual(['trawler']);
 });
 
@@ -266,8 +268,8 @@ test('corrupted or blocked storage never stops a watch or its summary', async ({
   await page.evaluate(() => {
     Storage.prototype.setItem = () => { throw new DOMException('Storage blocked', 'SecurityError'); };
   });
-  await advance(page, 180);
-  await expect(page.locator('#summary')).toContainText('1 ship wrecked');
+  await advance(page, 540);
+  await expect(page.locator('#summary')).toContainText('2 ships wrecked');
   await expect(page.locator('#record-status')).toContainText('could not keep');
 });
 
@@ -490,4 +492,68 @@ test('paused horn presses create no blast, ring or trust change; resume and repr
   await page.keyboard.down('h'); await advance(page, 0.5); await page.keyboard.up('h');
   expect((await snapshot(page)).blasts).toHaveLength(2);
   expect((await hornRingCanvas(page)).peak).toBeGreaterThan(80);
+});
+
+test('multi-night progression, mid-watch save/resume, KeyL log coexistence, and third-wreck relief retry', async ({ page }) => {
+  await openWatch(page);
+  await expect(page.locator('#night-label')).toHaveText('Night 01 / First watch');
+  // Advance past the old 180s mark so the opening trawler has wrecked and been seen, then log it via KeyL.
+  await advance(page, 270.1);
+  const beforeReload = await snapshot(page);
+  expect(beforeReload.trawler.status).toBe('wrecked');
+  expect(beforeReload.trawler.everSeen).toBe(true);
+  await page.keyboard.press('l');
+  await expect(page.locator('#log-panel')).toBeVisible();
+  await expect(page.locator('#log-stamp')).toContainText('Night 1 · 00:00');
+  await page.getByRole('button', { name: 'Enter in the log' }).click();
+  await expect(page.locator('#log-entries li')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+
+  // Reload mid-watch and resume Night 1 at the exact saved snapshot, then verify post-reload
+  // steps and dawn fleet match a parallel uninterrupted run.
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Resume night 1 →' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start a new run →' })).toBeVisible();
+  await page.getByRole('button', { name: 'Resume night 1 →' }).click();
+  const afterResume = await snapshot(page);
+  expect(afterResume).toEqual(beforeReload);
+
+  const uninterruptedStep = await page.evaluate(async (prior) => {
+    const { step: pageStep } = await import('/keeper/js/sim.js');
+    return pageStep(prior, {}, 30);
+  }, beforeReload);
+  await advance(page, 30);
+  const afterStep = await snapshot(page);
+  expect(afterStep).toEqual(uninterruptedStep);
+
+  // Finish Night 1 (2 wrecks on seed 108) -> not yet relieved; advance to Night 2.
+  const uninterruptedDawn = await page.evaluate(async (prior) => {
+    const { step: pageStep } = await import('/keeper/js/sim.js');
+    return pageStep(prior, {}, 540 - prior.time);
+  }, uninterruptedStep);
+  await advance(page, 540 - afterStep.time);
+  const dawnSnapshot = await snapshot(page);
+  expect(dawnSnapshot).toEqual(uninterruptedDawn);
+  await expect(page.locator('#dawn-title')).toHaveText('The watch is over.');
+  await expect(page.locator('#summary')).toContainText('2 wrecks across the run.');
+  await page.getByRole('button', { name: 'Take night 2 →' }).click();
+  await expect(page.locator('#night-label')).toHaveText('Night 02 / The watch');
+  expect((await snapshot(page)).nightParams.night).toBe(2);
+  expect((await snapshot(page)).run.mornings).toHaveLength(1);
+
+  // Unwarned Night 2 accrues the 3rd cumulative wreck -> Relieved of duty at dawn, blocking Night 3.
+  await advance(page, 540);
+  await expect(page.locator('#dawn-title')).toHaveText('Relieved of duty');
+  await expect(page.locator('#next-night')).toBeHidden();
+  await expect(page.locator('#record-status')).toContainText('The Board has relieved you after three observed wrecks.');
+
+  // Retry Night 2 -> resets Night 2 to 0s while preserving the 2 wrecks from Night 1 and the Keeper's Log entry.
+  await page.getByRole('button', { name: 'Restart this night →' }).click();
+  const retried = await snapshot(page);
+  expect(retried.nightParams.night).toBe(2);
+  expect(retried.time).toBe(0);
+  expect(retried.run.mornings).toHaveLength(1);
+  expect(retried.run.mornings[0].wrecked).toBe(2);
+  await page.keyboard.press('l');
+  await expect(page.locator('#log-entries li')).toHaveCount(1);
 });

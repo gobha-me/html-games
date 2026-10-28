@@ -3,7 +3,7 @@ import { decodeKeying, parseMessage, keyingFor, shipReply } from './morse.js';
 
 // World units are chart metres; bearings increase clockwise from north.
 // No wall clock, DOM, storage, or unseeded randomness belongs in this module.
-export const NIGHT_SECONDS = 180;
+export const NIGHT_SECONDS = 540;
 export const SMUGGLER_FLEE_SECONDS = 3;
 export const SMUGGLER_LIT_THROTTLE = 0.5;
 export const LIFEBOAT_LOST_SECONDS = 24;
@@ -20,10 +20,10 @@ export const FAST_SHIP_SPEED = 8; // Chart metres / second; audio adapter hook f
 export const SPEED = Object.freeze({ slow: 12, default: 30, fast: 60 });
 export const SPAWN = Object.freeze({
   firstMin: 24, firstMax: 36,
-  intervalStart: 40, intervalEnd: 18, jitter: 0.25,
-  maxActive: 3, lastSpawn: 120, minBearingGap: 20, threatShare: 0.6,
+  intervalStart: 50, intervalEnd: 24, jitter: 0.25,
+  maxActive: 3, lastSpawn: 480, minBearingGap: 20, threatShare: 0.6,
 });
-export const TRAFFIC = Object.freeze({ attempts: 8, lateAfter: 80, maxThreats: 2,
+export const TRAFFIC = Object.freeze({ attempts: 8, lateAfter: 360, maxThreats: 2,
   bearingJitter: 3, openingJitter: 0.5 });
 export const TEETH = Object.freeze([
   Object.freeze({ kind: 'reef', x: 210, y: -255, radius: 24 }),
@@ -34,6 +34,23 @@ const TICK = PHYSICS_DT;
 const RAD = Math.PI / 180;
 const SHIP_RADIUS = 8;
 const NIGHT_FOG_MAX = 0.16;
+export const FOG_CURVES = Object.freeze([
+  Object.freeze({ start: 0.08, end: 0.12 }),
+  Object.freeze({ start: 0.09, end: 0.13 }),
+  Object.freeze({ start: 0.10, end: 0.14 }),
+  Object.freeze({ start: 0.11, end: 0.15 }),
+  Object.freeze({ start: 0.12, end: 0.16 }),
+]);
+
+// Monotonic smoothstep, clamped at dusk/dawn; no random starting-density jump.
+// All nights share the existing worst-fog horizon used for admission fairness.
+export function fogAt(night, time) {
+  checkSeedNight(0, night);
+  if (!Number.isFinite(time)) throw new TypeError('Time must be finite');
+  const { start, end } = FOG_CURVES[night - 1];
+  const u = Math.max(0, Math.min(1, time / NIGHT_SECONDS));
+  return start + (end - start) * u * u * (3 - 2 * u);
+}
 // The canvas chart points south; the pure physics API points north. Inflate
 // collision discs by the hull clearance, consistently for horns, PONR and wrecks.
 const reefsFor = (hazards, margin = 0) => hazards.map((rock) => ({
@@ -336,22 +353,23 @@ function arrive(approach, hazards, wpm, type = approach.type ?? 'trawler') {
   return ship;
 }
 
-export function createState(seed = 108) {
+export function createState(seed = 108, { night = 1 } = {}) {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new TypeError('Seed must be a uint32');
   }
   seed = Math.abs(seed); // Normalise -0 so equal seeds give identical (Object.is) states.
-  const hazards = planHazards(seed);
-  const approach = openingReservation(seed, hazards);
+  checkSeedNight(seed, night);
+  const hazards = planHazards(seed, { night });
+  const approach = openingReservation(seed, hazards, night);
   const trawler = arrive(approach, hazards, 8);
-  const random = ((Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000;
   return {
     seed, time: 0, phase: 'night', beam: 285, speed: SPEED.default,
-    fog: 0.08 + random * 0.04, horn: false, blasts: [], ignoredBlasts: [], hornIgnoredUntil: 0, trust: 1,
+    fog: fogAt(night, 0), horn: false, blasts: [], ignoredBlasts: [], hornIgnoredUntil: 0, trust: 1,
     lamp: false, morse: newKeying(), settings: { incomingWpm: 8 },
-    nightParams: { night: 1, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
+    nightParams: { night, fogReach: fogReach(NIGHT_FOG_MAX), phase0: 285 },
+    run: { mornings: [] },
     hazards,
-    schedule: [approach, ...extraApproaches(seed, 1, approach, hazards)],
+    schedule: [approach, ...extraApproaches(seed, night, approach, hazards)],
     ships: [trawler], trawler,
   };
 }
@@ -599,7 +617,7 @@ function tick(state, input, dt) {
   const steer = Number(input.fast === true) - Number(input.slow === true);
   state.speed = clampSpeed(state.speed + steer * 24 * dt);
   if (input.hold !== true) state.beam = wrapBearing(state.beam + state.speed * dt);
-  state.fog = 0.08 + 0.08 * state.time / NIGHT_SECONDS;
+  state.fog = fogAt(state.nightParams.night, state.time);
   state.blasts = state.blasts.filter((time) => state.time - time < 20);
   state.ignoredBlasts = state.ignoredBlasts.filter((time) => state.time - time < 2);
   for (const approach of state.schedule) {
@@ -670,7 +688,7 @@ function tick(state, input, dt) {
 // Fixed substeps prevent tunnelling through the Teeth on a long frame or scripted run.
 export function step(previous, input = {}, seconds = TICK) {
   if (!Number.isFinite(seconds) || seconds < 0 || seconds > NIGHT_SECONDS) {
-    throw new RangeError('Step must be between 0 and 180 seconds');
+    throw new RangeError(`Step must be between 0 and ${NIGHT_SECONDS} seconds`);
   }
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new TypeError('Input must be an action object');
@@ -691,6 +709,7 @@ export function step(previous, input = {}, seconds = TICK) {
   // Avoid accumulated floating-point error postponing dawn by one browser frame.
   if (NIGHT_SECONDS - state.time < 1e-8) {
     state.time = NIGHT_SECONDS;
+    state.fog = fogAt(state.nightParams.night, NIGHT_SECONDS);
     state.phase = 'dawn';
     state.horn = false;
     state.lamp = false;
@@ -711,8 +730,33 @@ export function hornRings(state) {
 }
 
 export function summary(state) {
-  return { safe: fleet(state).filter((ship) => ship.everSeen && ship.status === 'safe').length,
-    wrecked: fleet(state).filter((ship) => ship.everSeen && ship.status === 'wrecked').length,
-    unseen: fleet(state).filter((ship) => !ship.everSeen).length,
-    lost: fleet(state).filter((ship) => ship.everSeen && ship.status === 'lost').length };
+  const wrecked = fleet(state).filter((ship) => ship.everSeen && ship.status === 'wrecked').length;
+  const cumulativeWrecks = (state.run?.mornings ?? []).reduce((sum, morning) => sum + morning.wrecked, wrecked);
+  return { night: state.nightParams?.night ?? 1,
+    safe: fleet(state).filter((ship) => ship.everSeen && ship.status === 'safe').length,
+    wrecked, unseen: fleet(state).filter((ship) => !ship.everSeen).length,
+    lost: fleet(state).filter((ship) => ship.everSeen && ship.status === 'lost').length,
+    logged: 0, cumulativeWrecks, relieved: cumulativeWrecks >= 3 };
+}
+
+// History contains completed PRIOR nights only: current outcomes are derived,
+// never accrued by draw/save/dawn callbacks, so reload cannot count them twice.
+export function nextNight(previous) {
+  const morning = summary(previous);
+  if (previous.phase !== 'dawn' || morning.relieved || morning.night === NIGHT_PASSES.length) {
+    throw new RangeError('Cannot take the next watch');
+  }
+  const state = createState(previous.seed, { night: morning.night + 1 });
+  state.run.mornings = structuredClone([...previous.run.mornings, morning]);
+  state.settings = structuredClone(previous.settings);
+  return state;
+}
+
+// Retrying discards only this night's outcomes. Earlier mornings stay accrued;
+// the same seed/night regenerates the same chart, arrivals and fog curve.
+export function restartNight(previous) {
+  const state = createState(previous.seed, { night: previous.nightParams.night });
+  state.run = structuredClone(previous.run);
+  state.settings = structuredClone(previous.settings);
+  return state;
 }

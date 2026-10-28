@@ -9,11 +9,25 @@ their crews to turn away. Failure stays with you until morning.
 ## How to play
 
 Open `keeper/` from the arcade using a static server at the repository root.
-Select **Take the watch**. The first watch lasts three real minutes; the
+Select **Take the watch**. Each of the five watches lasts nine real minutes; the
 unwarned trawler reaches the seeded hazards after its warning window. The
 default 12-second sweep guarantees at least four passes before the last safe
 warning time.
 Slowing or holding deliberately trades those chances for attention elsewhere.
+
+At dawn, review this night's observed outcomes and the run's cumulative
+wrecks, then take the next night or **Restart this night**. Three observed
+wrecks across the run lead to **Relieved of duty** after dawn. Retry keeps
+earlier mornings and their wrecks but clears the current attempt. Completing
+night five finishes the watch sequence; mystery endings are a later milestone.
+The morning's logged count remains zero: the persistent log is separate from
+run history and survives retries and new runs.
+
+The watch saves locally once per second and when leaving the page or opening
+a menu. Reload and choose **Resume night N**, or review a saved morning.
+Time away does not advance the sea. A storage warning means this browser
+cannot retain progress; play remains available. **Start a new run** replaces
+the saved watch. Abrupt browser termination can lose the latest second.
 
 - **← / A**, **→ / D**: slow / accelerate clockwise rotation (30–6 seconds
   per revolution; default 12). Release to keep the selected speed.
@@ -82,15 +96,14 @@ the helper compresses the wait for dawn without altering the course or outcome.
 
 ## Status
 
-Issue #108: first playable, one trawler / one three-minute watch. Start, pause,
-controls, restart, safe/wrecked dawn summary, and a versioned last-watch record
-in localStorage. Invalid or inaccessible storage never prevents play. In-progress
-resume, additional nights, and ambient
-wind/sea audio belong to later milestones. The full design is in
-[docs/DESIGN.md](docs/DESIGN.md); this milestone intentionally shortens the night.
+Issue #113: five nine-minute nights, monotonic night-indexed fog, cumulative
+morning records, third-wreck relief with restart-night, and versioned mid-run
+save/resume, integrated with ship variety (#111) and the keeper's log (#112).
+Invalid or inaccessible storage never prevents play. Mystery scripts/endings
+and ambient wind/sea audio remain later milestones. The full design is in [docs/DESIGN.md](docs/DESIGN.md).
 Issue #118 adds pure sweep-budget helpers, schedule rejection on load/start,
 a retuned radial trawler and a fast-ship engine-cue stub for #115. The five
-night pass minima are defined; additional nights and engine audio remain future work.
+night pass minima are defined and preserved; engine audio remains future work.
 Issue #120 adds deterministic rudder/Nomoto hull physics, broadcast horns for
 the fleet, physical PONR budgeting, and smooth rendered turns. Four hull types
 are tuned and tested.
@@ -102,7 +115,7 @@ Issue #111 adds dark-launch flight and reef immunity, distress drift/repeating
 SOS/directed rescue, a separate lost tally, and coaster identification asks.
 Specialty ships are available through the pure `specialtyApproach` schedule
 builder documented in DESIGN §6; default traffic stays trawlers/coasters until
-the mystery-night scripts (#114). The watch remains 180 seconds.
+the mystery-night scripts (#114). The watch now lasts 540 seconds (#113).
 Issue #112 adds the assembled keeper’s log. Choices come only from this watch’s
 `everSeen` vessels, including vessels already departed or lost; old entries
 never unlock unseen choices on a replay. Notes are the keeper’s own observations,
@@ -114,8 +127,8 @@ documents open a fresh page; blocked storage or quota errors keep entries for
 the current visit and show a status message. Later mystery scripts and endings
 remain future work.
 The kspawn pacing change adds seeded arrivals from 24–36 seconds onward,
-with jittered gaps, at most three overlapping active windows, separated
-bearings and independent warning budgets. Traffic stops arriving by 120
+with jittered gaps (50→24 seconds over the watch), at most three overlapping
+active windows, separated bearings and independent warning budgets. Traffic stops arriving by 480
 seconds; clear outbound ships never cross reefs. Observed fleet outcomes persist in
 the morning record. All pacing tunables are documented in DESIGN §6.
 
@@ -140,4 +153,5 @@ unseen arrivals separately. Rejected spawn slots no longer end traffic.
 - `js/keys.js` — shared bindings and control labels.
 - `js/record.js` — defensive versioned morning-record parser.
 - `js/log.js` — pure observation choices, entry assembly and versioned log parser.
+- `js/save.js` — pure full-state save codec, validation and alias restoration.
 - `tests/`, `e2e/` — adversarial Node tests and Playwright browser tests.

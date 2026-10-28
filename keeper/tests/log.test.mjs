@@ -7,6 +7,7 @@ import {
 } from '../js/log.js';
 import { KEYS, CONTROL_LABELS, actionFor, heldInput } from '../js/keys.js';
 import { RECORD_KEY, parseRecord } from '../js/record.js';
+import { SAVE_KEY } from '../js/save.js';
 import {
   createState, step, bearingTo, isLit, specialtyApproach, installSpecialty, NIGHT_SECONDS,
 } from '../js/sim.js';
@@ -456,6 +457,7 @@ async function bootMain({
   initialStorage = {},
   getItemError = null,
   setItemError = null,
+  removeItemError = null,
   reducedMotion = false,
 } = {}) {
   const listeners = new Map();
@@ -564,13 +566,15 @@ async function bootMain({
   }
 
   const ids = [
-    ['sea', 'canvas'], ['clock', 'time'], ['bearing', 'p'],
+    ['sea', 'canvas'], ['night-label', 'span'], ['clock', 'time'], ['bearing', 'p'],
     ['lens-state', 'span'], ['horn-state', 'span'], ['trust-state', 'span'],
     ['lamp-state', 'span'], ['morse-symbols', 'output'], ['morse-text', 'output'], ['morse-delivery', 'span'],
-    ['start-panel', 'div'], ['title-controls', 'ul'], ['schedule-error', 'p'], ['start', 'button'], ['previous-record', 'p'],
-    ['pause-panel', 'div'], ['resume', 'button'],
+    ['start-panel', 'div'], ['title-controls', 'ul'], ['schedule-error', 'p'],
+    ['resume-saved', 'button'], ['start', 'button'], ['save-status', 'p'], ['previous-record', 'p'],
+    ['pause-panel', 'div'], ['pause-save-status', 'p'], ['resume', 'button'],
     ['help-panel', 'div'], ['controls-list', 'ul'], ['incoming-wpm', 'select'], ['show-reference', 'input'], ['close-help', 'button'],
-    ['dawn-panel', 'div'], ['summary', 'p'], ['record-status', 'p'], ['restart', 'button'],
+    ['dawn-panel', 'div'], ['morning-label', 'p'], ['dawn-title', 'h2'], ['summary', 'p'],
+    ['record-status', 'p'], ['dawn-save-status', 'p'], ['next-night', 'button'], ['restart', 'button'], ['new-run', 'button'],
     ['log-panel', 'dialog'], ['log-title', 'h2'], ['log-guidance', 'p'], ['log-form', 'form'],
     ['log-stamp', 'p'], ['log-what', 'select'], ['log-empty', 'p'], ['log-note', 'select'],
     ['add-log-entry', 'button'], ['log-status', 'p'], ['log-no-entries', 'p'], ['log-entries', 'ol'], ['close-log', 'button'],
@@ -580,15 +584,21 @@ async function bootMain({
   ];
   for (const [id, tag] of ids) elements.set(id, makeElement(id, tag));
   elements.get('incoming-wpm').value = '8';
+  elements.get('resume-saved').hidden = true;
+  elements.get('save-status').hidden = true;
   elements.get('previous-record').hidden = true;
   elements.get('pause-panel').hidden = true;
+  elements.get('pause-save-status').hidden = true;
   elements.get('help-panel').hidden = true;
   elements.get('dawn-panel').hidden = true;
+  elements.get('dawn-save-status').hidden = true;
+  elements.get('next-night').hidden = true;
+  elements.get('new-run').hidden = true;
   elements.get('log-empty').hidden = true;
   elements.get('morse-reference').hidden = true;
 
   const store = new Map(Object.entries(initialStorage));
-  const storageConfig = { getItemError, setItemError };
+  const storageConfig = { getItemError, setItemError, removeItemError };
   const localStorageMock = {
     getItem(key) {
       if (storageConfig.getItemError) throw storageConfig.getItemError;
@@ -597,6 +607,10 @@ async function bootMain({
     setItem(key, val) {
       if (storageConfig.setItemError) throw storageConfig.setItemError;
       store.set(key, String(val));
+    },
+    removeItem(key) {
+      if (storageConfig.removeItemError) throw storageConfig.removeItemError;
+      store.delete(key);
     },
   };
 
@@ -700,6 +714,31 @@ test('main.js recovers gracefully from corrupt, old-version, and inaccessible lo
   assert.equal(blocked.keeper.mode, 'log');
   assert.equal(blocked.$('log-entries').children.length, 0);
   assert.equal(blocked.$('log-status').textContent, 'This browser cannot keep the log. Entries remain for this visit.');
+});
+
+test('main.js catches removeItem errors when clearing a corrupt saved watch on startup', async () => {
+  const cleanRemove = await bootMain({ initialStorage: { [SAVE_KEY]: '{corrupt save' } });
+  assert.equal(cleanRemove.store.has(SAVE_KEY), false);
+  assert.equal(cleanRemove.$('save-status').textContent, 'The saved watch could not be read. Take a fresh watch.');
+  assert.equal(cleanRemove.$('resume-saved').hidden, true);
+  assert.equal(cleanRemove.keeper.mode, 'start');
+
+  const failedRemove = await bootMain({
+    initialStorage: { [SAVE_KEY]: '{corrupt save' },
+    removeItemError: new Error('SecurityError: removeItem blocked'),
+  });
+  assert.equal(failedRemove.store.get(SAVE_KEY), '{corrupt save');
+  for (const statusId of ['save-status', 'pause-save-status', 'dawn-save-status']) {
+    assert.equal(
+      failedRemove.$(statusId).textContent,
+      'This browser cannot save your watch. Keep this page open to continue.',
+    );
+  }
+  assert.equal(failedRemove.$('resume-saved').hidden, true);
+  assert.equal(failedRemove.keeper.mode, 'start');
+  failedRemove.keydown('KeyL');
+  assert.equal(failedRemove.keeper.mode, 'log');
+  assert.equal(failedRemove.$('log-status').textContent, 'Entries are kept in this browser.');
 });
 
 test('main.js retains entries in memory on storage quota failure and persists full history on later retry', async () => {
