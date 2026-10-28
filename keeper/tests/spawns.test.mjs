@@ -126,14 +126,28 @@ test('planning and input replay are deterministic, isolated from caller mutation
     assert.deepEqual(planSpawns(seed), copy);
     original[0].spawnTime = -1;
     assert.deepEqual(planSpawns(seed), copy);
-    // Integrate from t = 0 across 6 steps (36 s = SPAWN.firstMax) covering the opening trawler
-    // horn warning, crew delay/avoidance turn, fast/hold beam controls, and the first extra arrival.
     const replay = () => {
+      let state = createState(seed);
+      for (let i = 0; i < 6; i++) state = step(state, { horn: i % 2 === 0, fast: i === 2, hold: i === 3 }, 30);
+      return state;
+    };
+    assert.deepEqual(replay(), replay());
+  }
+  for (const seed of seeds.slice(0, 4)) {
+    const replayFirstWindow = () => {
       let state = createState(seed);
       for (let i = 0; i < 6; i++) state = step(state, { horn: i % 2 === 0, fast: i === 2, hold: i === 3 }, 6);
       return state;
     };
-    assert.deepEqual(replay(), replay());
+    assert.deepEqual(replayFirstWindow(), replayFirstWindow());
+    const replayFullWatch = () => {
+      let state = createState(seed);
+      for (let i = 0; i < 6; i++) {
+        state = step(state, { horn: i % 2 === 0, fast: i === 2, hold: i === 3 }, NIGHT_SECONDS / 6);
+      }
+      return state;
+    };
+    assert.deepEqual(replayFullWatch(), replayFullWatch());
   }
 });
 
@@ -188,9 +202,7 @@ test('non-threatening spawns across all 500 seeds are on permanently reef-clear 
     const pose = vessel(ship);
     const reefs = reefsFor(state.hazards);
     assert.equal(threatensReef(pose, reefs, Number.MAX_VALUE), false, `${state.seed}/${ship.id}`);
-    // Step each non-threatening ship from its real spawn pose at ship.spawnTime through
-    // NIGHT_SECONDS + BUDGET_PERIOD_SECONDS (one full beam revolution beyond dawn).
-    const future = stepVessel(pose, {}, NIGHT_SECONDS - ship.spawnTime + BUDGET_PERIOD_SECONDS);
+    const future = stepVessel(pose, {}, 2 * NIGHT_SECONDS);
     assert.equal(threatensReef(future, reefs, Number.MAX_VALUE), false);
     assert.ok(Math.hypot(future.x, future.y) > Math.hypot(pose.x, pose.y));
     checked++;

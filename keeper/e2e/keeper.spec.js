@@ -518,13 +518,19 @@ test('multi-night progression, mid-watch save/resume, KeyL log coexistence, and 
   const afterResume = await snapshot(page);
   expect(afterResume).toEqual(beforeReload);
 
-  const uninterruptedStep = step(beforeReload, {}, 30);
+  const uninterruptedStep = await page.evaluate(async (prior) => {
+    const { step: pageStep } = await import('/keeper/js/sim.js');
+    return pageStep(prior, {}, 30);
+  }, beforeReload);
   await advance(page, 30);
   const afterStep = await snapshot(page);
   expect(afterStep).toEqual(uninterruptedStep);
 
   // Finish Night 1 (2 wrecks on seed 108) -> not yet relieved; advance to Night 2.
-  const uninterruptedDawn = step(uninterruptedStep, {}, 540 - uninterruptedStep.time);
+  const uninterruptedDawn = await page.evaluate(async (prior) => {
+    const { step: pageStep } = await import('/keeper/js/sim.js');
+    return pageStep(prior, {}, 540 - prior.time);
+  }, uninterruptedStep);
   await advance(page, 540 - afterStep.time);
   const dawnSnapshot = await snapshot(page);
   expect(dawnSnapshot).toEqual(uninterruptedDawn);

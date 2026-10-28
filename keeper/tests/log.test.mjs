@@ -7,6 +7,7 @@ import {
 } from '../js/log.js';
 import { KEYS, CONTROL_LABELS, actionFor, heldInput } from '../js/keys.js';
 import { RECORD_KEY, parseRecord } from '../js/record.js';
+import { SAVE_KEY } from '../js/save.js';
 import {
   createState, step, bearingTo, isLit, specialtyApproach, installSpecialty, NIGHT_SECONDS,
 } from '../js/sim.js';
@@ -456,6 +457,7 @@ async function bootMain({
   initialStorage = {},
   getItemError = null,
   setItemError = null,
+  removeItemError = null,
   reducedMotion = false,
 } = {}) {
   const listeners = new Map();
@@ -596,7 +598,7 @@ async function bootMain({
   elements.get('morse-reference').hidden = true;
 
   const store = new Map(Object.entries(initialStorage));
-  const storageConfig = { getItemError, setItemError, removeItemError: null };
+  const storageConfig = { getItemError, setItemError, removeItemError };
   const localStorageMock = {
     getItem(key) {
       if (storageConfig.getItemError) throw storageConfig.getItemError;
@@ -712,6 +714,31 @@ test('main.js recovers gracefully from corrupt, old-version, and inaccessible lo
   assert.equal(blocked.keeper.mode, 'log');
   assert.equal(blocked.$('log-entries').children.length, 0);
   assert.equal(blocked.$('log-status').textContent, 'This browser cannot keep the log. Entries remain for this visit.');
+});
+
+test('main.js catches removeItem errors when clearing a corrupt saved watch on startup', async () => {
+  const cleanRemove = await bootMain({ initialStorage: { [SAVE_KEY]: '{corrupt save' } });
+  assert.equal(cleanRemove.store.has(SAVE_KEY), false);
+  assert.equal(cleanRemove.$('save-status').textContent, 'The saved watch could not be read. Take a fresh watch.');
+  assert.equal(cleanRemove.$('resume-saved').hidden, true);
+  assert.equal(cleanRemove.keeper.mode, 'start');
+
+  const failedRemove = await bootMain({
+    initialStorage: { [SAVE_KEY]: '{corrupt save' },
+    removeItemError: new Error('SecurityError: removeItem blocked'),
+  });
+  assert.equal(failedRemove.store.get(SAVE_KEY), '{corrupt save');
+  for (const statusId of ['save-status', 'pause-save-status', 'dawn-save-status']) {
+    assert.equal(
+      failedRemove.$(statusId).textContent,
+      'This browser cannot save your watch. Keep this page open to continue.',
+    );
+  }
+  assert.equal(failedRemove.$('resume-saved').hidden, true);
+  assert.equal(failedRemove.keeper.mode, 'start');
+  failedRemove.keydown('KeyL');
+  assert.equal(failedRemove.keeper.mode, 'log');
+  assert.equal(failedRemove.$('log-status').textContent, 'Entries are kept in this browser.');
 });
 
 test('main.js retains entries in memory on storage quota failure and persists full history on later retry', async () => {
