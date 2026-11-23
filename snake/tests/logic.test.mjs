@@ -508,3 +508,194 @@ test('player four should respond to a real browser numpad key event', {
   Controls.handleKeyDown(keyEvent('8', { code: 'Numpad8' }));
   assert.deepEqual(plain(Multiplayer.getPlayer(4).snake.nextDirection), { x: 0, y: -1 });
 });
+
+test('a positive score below the saved best is not a new high score', () => {
+  const { GameState, writes } = loadSnake({ saved: { snakeHighScore: '100' } });
+  GameState.init();
+  GameState.addScore(10);
+  assert.equal(GameState.score, 10);
+  assert.equal(GameState.highScore, 100);
+  assert.equal(GameState.isNewHighScore(), false);
+  assert.deepEqual(writes, []);
+});
+
+test('each multiplayer snake starts as three contiguous cells behind its right-facing head', () => {
+  const { Multiplayer } = loadSnake();
+  Multiplayer.initMultiplayer(4);
+  for (const player of Multiplayer.players) {
+    const [head, neck, tail] = player.snake.body;
+    assert.equal(player.snake.body.length, 3);
+    assert.deepEqual(plain(neck), { x: head.x - 1, y: head.y });
+    assert.deepEqual(plain(tail), { x: head.x - 2, y: head.y });
+    assert.deepEqual(plain(player.snake.direction), { x: 1, y: 0 });
+    assert.deepEqual(plain(player.snake.nextDirection), { x: 1, y: 0 });
+  }
+});
+
+for (const body of [
+  [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }],
+  [{ x: 29, y: 0 }, { x: 28, y: 0 }, { x: 27, y: 0 }],
+  [{ x: 0, y: 29 }, { x: 1, y: 29 }, { x: 2, y: 29 }],
+  [{ x: 29, y: 29 }, { x: 29, y: 28 }, { x: 29, y: 27 }],
+]) {
+  test(`multiplayer head at valid corner (${body[0].x},${body[0].y}) remains alive`, () => {
+    const { Multiplayer } = loadSnake();
+    Multiplayer.initMultiplayer(2);
+    Multiplayer.getPlayer(1).snake.body = body;
+    Multiplayer.getPlayer(2).snake.body = [{ x: 15, y: 15 }, { x: 14, y: 15 }, { x: 13, y: 15 }];
+    Multiplayer.checkCollisions();
+    assert.equal(Multiplayer.getAliveCount(), 2);
+    assert.equal(Multiplayer.isGameOver(), false);
+  });
+}
+
+test('multiplayer near misses sharing one coordinate do not cause self or other-snake collision', () => {
+  for (const body of [
+    [{ x: 8, y: 9 }, { x: 8, y: 10 }, { x: 8, y: 11 }],
+    [{ x: 9, y: 8 }, { x: 9, y: 9 }, { x: 9, y: 10 }],
+  ]) {
+    const { Multiplayer } = loadSnake();
+    Multiplayer.initMultiplayer(2);
+    Multiplayer.getPlayer(1).snake.body = [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }];
+    Multiplayer.getPlayer(2).snake.body = body;
+    Multiplayer.checkCollisions();
+    assert.equal(Multiplayer.getAliveCount(), 2);
+  }
+});
+
+test('multiplayer occupancy requires both coordinates and excludes eliminated bodies', () => {
+  const { Multiplayer } = loadSnake();
+  Multiplayer.initMultiplayer(2);
+  assert.equal(Multiplayer.collidesWithAnySnake(15, 15), true);
+  assert.equal(Multiplayer.collidesWithAnySnake(15, 16), false);
+  assert.equal(Multiplayer.collidesWithAnySnake(16, 15), false);
+  Multiplayer.getPlayer(1).alive = false;
+  assert.equal(Multiplayer.collidesWithAnySnake(15, 15), false);
+  assert.equal(Multiplayer.collidesWithAnySnake(5, 5), true);
+});
+
+test('collision scanning reaches a third player after missing the second player', () => {
+  const { Multiplayer } = loadSnake();
+  Multiplayer.initMultiplayer(3);
+  Multiplayer.getPlayer(1).snake.body = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+  Multiplayer.getPlayer(2).snake.body = [{ x: 20, y: 20 }, { x: 19, y: 20 }, { x: 18, y: 20 }];
+  Multiplayer.getPlayer(3).snake.body = [{ x: 12, y: 10 }, { x: 11, y: 10 }, { x: 10, y: 10 }];
+  Multiplayer.checkCollisions();
+  assert.equal(Multiplayer.getPlayer(1).alive, false);
+  assert.equal(Multiplayer.getPlayer(2).alive, true);
+  assert.equal(Multiplayer.getPlayer(3).alive, true);
+  assert.equal(Multiplayer.isGameOver(), false);
+});
+
+test('single and multiplayer direction guards reject vertical reversal after a queued side turn', () => {
+  for (const multiplayer of [false, true]) {
+    for (const vertical of [-1, 1]) {
+      const { Snake, Multiplayer } = loadSnake();
+      let snake;
+      let turn;
+      let advance;
+      if (multiplayer) {
+        Multiplayer.initMultiplayer(2);
+        snake = Multiplayer.getPlayer(1).snake;
+        turn = (x, y) => Multiplayer.setPlayerDirection(1, { x, y });
+        advance = () => Multiplayer.update();
+      } else {
+        Snake.init();
+        snake = Snake;
+        turn = (x, y) => Snake.setDirection(x, y);
+        advance = () => Snake.update();
+      }
+      turn(0, vertical);
+      advance();
+      assert.deepEqual(plain(snake.direction), { x: 0, y: vertical });
+      turn(-1, 0);
+      turn(0, -vertical);
+      assert.deepEqual(plain(snake.nextDirection), { x: -1, y: 0 });
+      turn(0, vertical);
+      assert.deepEqual(plain(snake.nextDirection), { x: -1, y: 0 });
+    }
+  }
+});
+
+test('multiplayer countdown emits 2, 1, 0 then cancels its own interval', () => {
+  const { Multiplayer, timers } = loadSnake();
+  const observed = [];
+  Multiplayer.startCountdown((count) => observed.push(count));
+  assert.equal(Multiplayer.countdown, 3);
+  assert.equal(timers.size, 1);
+  const id = Multiplayer.countdownInterval;
+  for (const count of [2, 1, 0]) {
+    assert.equal(timers.has(id), true);
+    timers.get(id)();
+    assert.equal(Multiplayer.countdown, count);
+  }
+  assert.deepEqual(observed, [2, 1, 0]);
+  assert.equal(timers.size, 0);
+  assert.equal(Multiplayer.countdownInterval, null);
+});
+
+test('cancelling a countdown removes its pending callback and allows a fresh countdown', () => {
+  const { Multiplayer, timers } = loadSnake();
+  let called = 0;
+  Multiplayer.startCountdown(() => called++);
+  const oldId = Multiplayer.countdownInterval;
+  timers.get(oldId)();
+  assert.equal(called, 1);
+  assert.equal(Multiplayer.countdown, 2);
+  Multiplayer.stopCountdown();
+  assert.equal(Multiplayer.countdown, 0);
+  assert.equal(Multiplayer.countdownInterval, null);
+  assert.equal(timers.size, 0);
+  Multiplayer.stopCountdown();
+  assert.equal(timers.size, 0);
+  assert.equal(called, 1);
+  Multiplayer.startCountdown();
+  const newId = Multiplayer.countdownInterval;
+  assert.notEqual(newId, oldId);
+  assert.equal(timers.has(oldId), false);
+  assert.equal(Multiplayer.countdown, 3);
+  for (let i = 0; i < 3; i++) timers.get(newId)();
+  assert.equal(Multiplayer.countdown, 0);
+  assert.equal(Multiplayer.countdownInterval, null);
+  assert.equal(timers.size, 0);
+});
+
+test('a released multiplayer key should work after returning through single-player mode', {
+  skip: process.env.SNAKE_RUN_KNOWN_BUGS !== '1' &&
+    'Finding: single-mode keyup does not clear Controls.pressedKeys, and multiplayer restart retains that stale key.',
+}, () => {
+  const { Game, GameState, Multiplayer, handleKeyDown, handleKeyUp, timers } = loadSnake({
+    random: [0, 0, 0, 0],
+  });
+  const finishCountdown = () => {
+    for (let tick = 0; tick < 5; tick++) {
+      assert.equal(timers.size, 1);
+      timers.values().next().value();
+    }
+    assert.equal(timers.size, 0);
+    assert.equal(GameState.currentState, GameState.PLAYING);
+  };
+
+  GameState.setGameMode('multiplayer');
+  Game.reset();
+  finishCountdown();
+  handleKeyDown(keyEvent('w'));
+  assert.deepEqual(plain(Multiplayer.getPlayer(2).snake.nextDirection), { x: 0, y: -1 });
+
+  // Finish the run while W remains held, then follow the menu button's mode
+  // change. The real main.js keyup handler receives the release in single mode.
+  Multiplayer.getPlayer(1).alive = false;
+  assert.equal(Multiplayer.isGameOver(), true);
+  Game.multiplayerGameOver();
+  Game.showScreen('start-screen');
+  GameState.setGameMode('single');
+  handleKeyUp(keyEvent('w'));
+
+  // Select multiplayer again and start a fresh run through the real reset and
+  // countdown path. A new W press should direct the fresh player-two snake up.
+  GameState.setGameMode('multiplayer');
+  Game.reset();
+  finishCountdown();
+  handleKeyDown(keyEvent('w'));
+  assert.deepEqual(plain(Multiplayer.getPlayer(2).snake.nextDirection), { x: 0, y: -1 });
+});
