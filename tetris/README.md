@@ -83,6 +83,13 @@ not a new game feature. Coverage includes seven-bag distribution, collision,
 ghost position, SRS kicks, scoring/combo/levels, drop and lock timing, hold,
 DAS/ARR, keyboard mapping and high-score persistence.
 
+J/L/S/Z shape fixtures specify canonical spawn silhouettes and derive all four
+orientations by rotating coordinates around the SRS center, independently of
+the game's matrix lookup. A T placement also runs through rotation, locking,
+the deferred single-line clear and scoring with two versus three filled
+corners. Zero-line T-spin scoring is tested only as a direct scoring function;
+the README does not specify when a zero-line lock should award that bonus.
+
 Three shipped defects have explicit skipped regression tests in
 `tests/known-bugs.test.mjs`. Tests document the intended behavior while product
 code remains unchanged:
@@ -101,6 +108,29 @@ TETRIS_RUN_KNOWN_BUGS=1 node --test --test-concurrency=2 tetris/tests/known-bugs
 
 The normal suite reports these cases as skips. It does not claim browser,
 rendering or accessibility coverage. No packages or browser are required.
+
+Survivor-focused cases also cover legal row-zero locking, full board dimensions
+after a clear, T-spin corner combinations and boundaries, level-scaled combos,
+elapsed gravity timing, lock-state transitions, fresh DAS delays after release,
+and suppression of browser defaults for the mapped game keys.
+
+The mutation configuration covers all of `state.js`, `game.js` and
+`controls.js`, including particle code. High line coverage does not establish
+complete mutation coverage. Current limits include:
+
+- The tests check representative wall/floor kicks and independent J/L/S/Z shape
+  geometry, not every SRS transition/obstacle cavity or a complete Tetris
+  guideline conformance model.
+- Particle colors, positions, velocity constants and drawing are outside these
+  game-rule tests. Their mutants remain visible in the full mutation report.
+- Some mutations remove zero-only shape padding, alter initial values replaced
+  during reset, or repeat an idempotent same-level recalculation. These need
+  case-by-case review; they are not all declared equivalent by this suite.
+- Skipped shipped-bug assertions do not reject mutants that happen to correct
+  those defects. The suite does not assert defective hold/line-clear/pause
+  behavior merely to kill such a mutant.
+- The VM clock, storage and event ports do not test browser scheduling, denied
+  storage, actual keyboard events, renderer wiring or real localStorage.
 
 ## Files
 
@@ -125,3 +155,21 @@ tetris/
 ## Credits
 
 Built as a contribution to the xcaliber/HTML-Games arcade collection.
+
+## Optional mutation checks
+
+The normal tests require no npm dependencies. `stryker.config.mjs` supports the
+optional Stryker 9.6.1 command runner, with two mutation workers and two Node test
+workers. From `tetris/`, with Stryker installed or supplied by npm exec:
+
+```sh
+agent-mutate npm exec --yes --package=@stryker-mutator/core@9.6.1 -- stryker run stryker.config.mjs
+```
+
+`agent-mutate` is the lane's heavy-work guard; outside this environment, use the
+corresponding local resource guard. This command may download optional tooling;
+it is separate from the dependency-free unit run. JSON output goes to
+`reports/mutation.json`; temporary sandboxes/reports are ignored by git. Coverage
+analysis is off, so Stryker runs the whole command for each mutant and reports one
+command outcome rather than the individual Node test count. Disclose timeouts
+separately from assertion kills and retain survivors in the denominator.
