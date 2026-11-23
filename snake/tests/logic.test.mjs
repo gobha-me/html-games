@@ -202,6 +202,15 @@ test('multiplayer initializes separate snakes, colors, controls and clears old w
   assert.deepEqual(plain(Multiplayer.players.map(p => [p.id, p.score, p.alive])),
     [[1, 0, true], [2, 0, true], [3, 0, true], [4, 0, true]]);
   assert.equal(new Set(Multiplayer.players.map(p => p.color)).size, 4);
+  // Public player labels/colors are declared together in index.html.
+  const colors = ['#00d4ff', '#00ff88', '#ff00ff', '#ff8800'];
+  for (const [index, player] of Multiplayer.players.entries()) {
+    assert.equal(typeof player.color, 'string', `player ${index + 1} has a color`);
+    assert.match(player.color, /^#[0-9a-f]{6}$/i, 'color is usable by the browser UI');
+    assert.equal(player.color, colors[index], 'color matches the public player legend');
+    assert.equal(typeof player.glowColor, 'string', 'glow is browser color data');
+    assert.ok(player.glowColor.trim().length > 0, 'glow color cannot be empty');
+  }
   Multiplayer.players[0].snake.body[0].x = 0;
   assert.equal(Multiplayer.players[1].snake.body[0].x, 5);
   Multiplayer.resetToSinglePlayer();
@@ -210,6 +219,29 @@ test('multiplayer initializes separate snakes, colors, controls and clears old w
   assert.equal(Multiplayer.winner, null);
   assert.deepEqual(plain(Multiplayer.players), []);
   assert.deepEqual(plain(Controls.activePlayers), [1]);
+});
+
+test('each supported single-player identity has the public player color', () => {
+  const colors = ['#00d4ff', '#00ff88', '#ff00ff', '#ff8800'];
+  for (const [index, color] of colors.entries()) {
+    const { Snake } = loadSnake();
+    Snake.init(index + 1);
+    assert.equal(Snake.playerId, index + 1);
+    assert.equal(Snake.color, color, 'color matches the public player legend');
+  }
+});
+
+test('the public control scheme has a usable name and color for every supported player', () => {
+  const { Controls } = loadSnake();
+  Controls.setActivePlayers(4);
+  const scheme = Controls.getControlScheme();
+  assert.equal(scheme.length, 4);
+  const colors = ['#00d4ff', '#00ff88', '#ff00ff', '#ff8800'];
+  for (const [index, player] of scheme.entries()) {
+    assert.equal(player.playerId, index + 1);
+    assert.equal(player.name, `Player ${index + 1}`, 'name matches the public control legend');
+    assert.equal(player.color, colors[index], 'color matches the public control legend');
+  }
 });
 
 test('multiplayer direction changes ignore unknown/dead players and reject reversal', () => {
@@ -338,74 +370,161 @@ test('all four control schemes map each direction and ignore inactive or unknown
 test('multiplayer controls suppress repeats until key release and leave unrelated keys alone', () => {
   const { Controls, Multiplayer } = loadSnake();
   Multiplayer.initMultiplayer(2);
-  const calls = [];
-  Multiplayer.setPlayerDirection = (...args) => calls.push(plain(args));
+  const player = Multiplayer.getPlayer(2);
   const down = keyEvent('w');
   Controls.handleKeyDown(down);
+  assert.deepEqual(plain(player.snake.nextDirection), { x: 0, y: -1 });
+  assert.deepEqual(plain(Multiplayer.getPlayer(1).snake.nextDirection), { x: 1, y: 0 });
+  assert.equal(Controls.pressedKeys.has('w'), true);
+  Multiplayer.update();
+  assert.deepEqual(plain(player.snake.body[0]), { x: 5, y: 4 });
+  // Turn left through another real key so a repeated W would visibly change
+  // direction if pressed-key suppression stopped working.
+  Controls.handleKeyDown(keyEvent('a'));
+  Multiplayer.update();
+  assert.deepEqual(plain(player.snake.direction), { x: -1, y: 0 });
   Controls.handleKeyDown(down);
   assert.equal(down.prevented, 2);
-  assert.deepEqual(calls, [[2, { x: 0, y: -1 }]]);
+  assert.deepEqual(plain(player.snake.nextDirection), { x: -1, y: 0 });
   Controls.handleKeyUp(keyEvent('w'));
+  assert.equal(Controls.pressedKeys.has('w'), false);
   Controls.handleKeyDown(down);
-  assert.equal(calls.length, 2);
+  assert.deepEqual(plain(player.snake.nextDirection), { x: 0, y: -1 });
+  Multiplayer.update();
+  assert.deepEqual(plain(player.snake.body[0]), { x: 4, y: 3 });
+  const before = plain(Multiplayer.players);
   const unrelated = keyEvent('Escape');
   Controls.handleKeyDown(unrelated);
   assert.equal(unrelated.prevented, 0);
-  assert.equal(calls.length, 2);
+  assert.deepEqual(plain(Multiplayer.players), before);
+  assert.equal(Controls.pressedKeys.has('Escape'), false);
+  Controls.handleKeyUp(keyEvent('w'));
+  Controls.handleKeyUp(keyEvent('a'));
+  assert.equal(Controls.pressedKeys.size, 0);
 });
 
 test('single-player input maps arrow keys and both WASD cases only during play or pause', () => {
-  const { GameState, Snake, handleKeyDown } = loadSnake();
-  const calls = [];
-  Snake.setDirection = (x, y) => calls.push([x, y]);
   const mappings = [
     [['ArrowUp', 'w', 'W'], [0, -1]], [['ArrowDown', 's', 'S'], [0, 1]],
     [['ArrowLeft', 'a', 'A'], [-1, 0]], [['ArrowRight', 'd', 'D'], [1, 0]],
   ];
-  for (const state of [GameState.MENU, GameState.GAMEOVER]) {
-    GameState.currentState = state;
-    const event = keyEvent('ArrowUp');
-    handleKeyDown(event);
-    assert.equal(event.prevented, 0);
-  }
-  assert.deepEqual(calls, []);
-  for (const state of [GameState.PLAYING, GameState.PAUSED]) {
-    GameState.currentState = state;
-    for (const [keys, expected] of mappings) for (const key of keys) {
+  for (const stateName of ['MENU', 'GAMEOVER', 'PLAYING', 'PAUSED']) {
+    for (const [keys, [x, y]] of mappings) for (const key of keys) {
+      const { GameState, Snake, handleKeyDown } = loadSnake();
+      Snake.init();
+      // Each alias starts with a fresh perpendicular heading. It cannot pass
+      // by retaining a preceding alias's queued direction or a spy's history.
+      if (x !== 0) {
+        Snake.setDirection(0, -1);
+        Snake.update();
+      }
+      const initial = plain(Snake.direction);
+      const head = plain(Snake.getHead());
+      GameState.currentState = GameState[stateName];
+      const active = stateName === 'PLAYING' || stateName === 'PAUSED';
       const event = keyEvent(key);
       handleKeyDown(event);
-      assert.deepEqual(calls.at(-1), expected);
-      assert.equal(event.prevented, 1);
+      assert.equal(event.prevented, active ? 1 : 0, `${stateName}/${key}: prevent default`);
+      assert.deepEqual(plain(Snake.nextDirection), active ? { x, y } : initial,
+        `${stateName}/${key}: requested direction`);
+      assert.deepEqual(plain(Snake.direction), initial, 'input queues rather than moving the snake');
+      if (active) {
+        Snake.update();
+        assert.deepEqual(plain(Snake.direction), { x, y }, `${stateName}/${key}: applied direction`);
+        assert.deepEqual(plain(Snake.getHead()), { x: head.x + x, y: head.y + y },
+          `${stateName}/${key}: real next-step movement`);
+      }
     }
   }
-  const before = calls.length;
+  const { GameState, Snake, handleKeyDown } = loadSnake();
+  Snake.init();
+  GameState.currentState = GameState.PLAYING;
+  const before = plain(Snake);
   const unrelated = keyEvent('Escape');
   handleKeyDown(unrelated);
   assert.equal(unrelated.prevented, 0);
-  assert.equal(calls.length, before);
+  assert.deepEqual(plain(Snake), before);
 });
 
-test('pause keys dispatch in both active states and multiplayer input reaches the correct snake', () => {
-  const { Game, GameState, Multiplayer, Controls, Snake, handleKeyDown, handleKeyUp } = loadSnake();
-  let paused = 0;
-  Game.togglePause = () => paused++;
-  for (const state of [GameState.PLAYING, GameState.PAUSED]) {
-    GameState.currentState = state;
-    for (const key of [' ', 'p', 'P']) {
-      const event = keyEvent(key);
-      handleKeyDown(event);
-      assert.equal(event.prevented, 1);
-    }
+test('pause keys change real pause state and UI, and multiplayer input reaches only its snake', () => {
+  for (const key of [' ', 'p', 'P']) {
+    const { Game, GameState, Snake, handleKeyDown, element, cancelledFrames } = loadSnake();
+    Snake.init();
+    GameState.currentState = GameState.PLAYING;
+    GameState.score = 20;
+    Game.animationFrameId = 17;
+    const body = plain(Snake.body);
+    const pause = keyEvent(key);
+    handleKeyDown(pause);
+    assert.equal(pause.prevented, 1);
+    assert.equal(GameState.currentState, GameState.PAUSED, `${JSON.stringify(key)} pauses`);
+    assert.equal(element('pause-overlay').style.display, 'flex');
+    assert.deepEqual(cancelledFrames, [17]);
+    const resume = keyEvent(key);
+    handleKeyDown(resume);
+    assert.equal(resume.prevented, 1);
+    assert.equal(GameState.currentState, GameState.PLAYING, `${JSON.stringify(key)} resumes`);
+    assert.equal(element('pause-overlay').style.display, 'none');
+    assert.deepEqual(plain(Snake.body), body, 'toggling pause does not move the snake');
+    assert.equal(GameState.score, 20);
   }
-  assert.equal(paused, 6);
+  const { GameState, Multiplayer, Controls, Snake, handleKeyDown, handleKeyUp } = loadSnake();
+  Snake.init();
+  const single = plain(Snake);
   GameState.setGameMode('multiplayer');
+  GameState.currentState = GameState.PLAYING;
   Multiplayer.initMultiplayer(2);
-  Snake.setDirection = () => assert.fail('multiplayer input reached single-player snake');
   handleKeyDown(keyEvent('w'));
   assert.deepEqual(plain(Multiplayer.getPlayer(2).snake.nextDirection), { x: 0, y: -1 });
+  assert.deepEqual(plain(Snake), single, 'multiplayer input leaves the real single-player snake alone');
   assert.equal(Controls.pressedKeys.has('w'), true);
   handleKeyUp(keyEvent('w'));
   assert.equal(Controls.pressedKeys.has('w'), false);
+  Multiplayer.update();
+  assert.deepEqual(plain(Multiplayer.getPlayer(2).snake.direction), { x: 0, y: -1 });
+  assert.deepEqual(plain(Multiplayer.getPlayer(2).snake.body[0]), { x: 5, y: 4 });
+});
+
+test('real multiplayer input moves each working documented player and releases its pressed key', () => {
+  const mappings = [
+    ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'],
+    ['w', 's', 'a', 'd'], ['i', 'k', 'j', 'l'],
+  ];
+  const directions = [{ x: 0, y: -1 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 1, y: 0 }];
+  for (const count of [2, 3, 4]) {
+    for (let playerId = 1; playerId <= Math.min(count, 3); playerId += 1) {
+      for (const [index, key] of mappings[playerId - 1].entries()) {
+        const { GameState, Multiplayer, Controls, Snake, handleKeyDown, handleKeyUp } = loadSnake();
+        Snake.init();
+        const single = plain(Snake);
+        GameState.setGameMode('multiplayer');
+        GameState.currentState = GameState.PLAYING;
+        Multiplayer.initMultiplayer(count);
+        const expected = directions[index];
+        if (expected.x !== 0) {
+          Multiplayer.setPlayerDirection(playerId, { x: 0, y: -1 });
+          Multiplayer.update();
+        }
+        const player = Multiplayer.getPlayer(playerId);
+        const head = plain(player.snake.body[0]);
+        const otherDirections = Multiplayer.players.filter(p => p.id !== playerId)
+          .map(p => plain(p.snake.nextDirection));
+        const event = keyEvent(key);
+        handleKeyDown(event);
+        assert.equal(event.prevented, 1, `${count} players/${playerId}/${key}: prevents scrolling`);
+        assert.deepEqual(plain(player.snake.nextDirection), expected, `${playerId}/${key}: queues direction`);
+        assert.equal(Controls.pressedKeys.has(key), true);
+        assert.deepEqual(Multiplayer.players.filter(p => p.id !== playerId)
+          .map(p => plain(p.snake.nextDirection)), otherDirections, 'other players are not steered');
+        Multiplayer.update();
+        assert.deepEqual(plain(player.snake.direction), expected);
+        assert.deepEqual(plain(player.snake.body[0]), { x: head.x + expected.x, y: head.y + expected.y });
+        assert.deepEqual(plain(Snake), single, 'multiplayer leaves the real single-player model alone');
+        handleKeyUp(keyEvent(key));
+        assert.equal(Controls.pressedKeys.has(key), false);
+      }
+    }
+  }
 });
 
 test('single-player update integrates movement, food score, next-tick growth and UI', () => {
@@ -467,6 +586,24 @@ test('multiplayer update integrates food score then winner detection on the next
   assert.equal(element('winner-score').textContent, 'Score: 10');
 });
 
+test('a real two-player update displays player one victory in the public cyan color', () => {
+  const { Game, GameState, Multiplayer, Food, element } = loadSnake();
+  GameState.setGameMode('multiplayer');
+  Multiplayer.initMultiplayer(2);
+  Food.position = { x: 0, y: 0 };
+  Multiplayer.getPlayer(2).snake.body = [
+    { x: 29, y: 5 }, { x: 28, y: 5 }, { x: 27, y: 5 },
+  ];
+  Game.update();
+  assert.equal(Multiplayer.getPlayer(2).alive, false);
+  assert.equal(Multiplayer.getPlayer(1).alive, true);
+  assert.equal(Multiplayer.winner.id, 1);
+  assert.equal(GameState.currentState, GameState.GAMEOVER);
+  assert.equal(element('winner-text').style.color, '#00d4ff');
+  assert.equal(element('winner-text').textContent, 'Player 1 Wins!');
+  assert.equal(element('winner-score').textContent, 'Score: 0');
+});
+
 test('pause and resume preserve the run and reject transitions outside their active state', () => {
   const { Game, GameState, element, cancelledFrames } = loadSnake();
   Game.animationFrameId = 5;
@@ -503,10 +640,20 @@ test('player four should respond to a real browser numpad key event', {
   skip: process.env.SNAKE_RUN_KNOWN_BUGS !== '1' &&
     'Finding: controls.js expects synthetic Num8/Num5/Num4/Num6 key strings; browsers emit key "8" / code "Numpad8".',
 }, () => {
-  const { Controls, Multiplayer } = loadSnake();
-  Multiplayer.initMultiplayer(4);
-  Controls.handleKeyDown(keyEvent('8', { code: 'Numpad8' }));
-  assert.deepEqual(plain(Multiplayer.getPlayer(4).snake.nextDirection), { x: 0, y: -1 });
+  for (const [key, code, expected] of [
+    ['8', 'Numpad8', { x: 0, y: -1 }], ['5', 'Numpad5', { x: 0, y: 1 }],
+    ['4', 'Numpad4', { x: -1, y: 0 }], ['6', 'Numpad6', { x: 1, y: 0 }],
+  ]) {
+    const { Controls, Multiplayer } = loadSnake();
+    Multiplayer.initMultiplayer(4);
+    if (expected.x !== 0) {
+      Multiplayer.setPlayerDirection(4, { x: 0, y: -1 });
+      Multiplayer.update();
+    }
+    Controls.handleKeyDown(keyEvent(key, { code }));
+    assert.deepEqual(plain(Multiplayer.getPlayer(4).snake.nextDirection), expected,
+      `documented browser numpad ${key}/${code}`);
+  }
 });
 
 test('a positive score below the saved best is not a new high score', () => {

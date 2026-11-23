@@ -13,13 +13,38 @@ export function loadSnake({ saved = {}, random = [0, 0] } = {}) {
   let timerId = 0;
   let frameId = 0;
   let randomIndex = 0;
+  const gradient = () => ({ addColorStop() {} });
+  // Explicit standard Canvas 2D browser port. The Renderer itself is real;
+  // this logic suite observes state/UI writes and does not inspect pixels.
+  const canvasContext = {
+    clearRect() {}, fillRect() {}, strokeRect() {},
+    beginPath() {}, closePath() {}, moveTo() {}, lineTo() {},
+    arc() {}, arcTo() {}, ellipse() {}, rect() {}, roundRect() {},
+    quadraticCurveTo() {}, bezierCurveTo() {},
+    fill() {}, stroke() {}, clip() {},
+    save() {}, restore() {}, translate() {}, rotate() {}, scale() {},
+    setTransform() {}, resetTransform() {},
+    fillText() {}, strokeText() {}, drawImage() {},
+    setLineDash() {}, getLineDash() { return []; },
+    createLinearGradient: gradient,
+    createRadialGradient: gradient,
+    measureText(text) { return { width: String(text).length * 8 }; },
+  };
   const math = Object.create(Math);
   math.random = () => {
     if (randomIndex >= random.length) throw new Error('Test random sequence exhausted');
     return random[randomIndex++];
   };
   const element = id => {
-    if (!elements.has(id)) elements.set(id, { textContent: '', style: {} });
+    if (!elements.has(id)) {
+      const node = { textContent: '', style: {} };
+      if (id === 'game-canvas') {
+        node.width = 600;
+        node.height = 600;
+        node.getContext = type => type === '2d' ? canvasContext : null;
+      }
+      elements.set(id, node);
+    }
     return elements.get(id);
   };
   const context = vm.createContext({
@@ -48,12 +73,14 @@ export function loadSnake({ saved = {}, random = [0, 0] } = {}) {
       return id;
     },
     clearInterval: id => timers.delete(id),
-    Renderer: { init() {}, render() {} },
   });
-  for (const name of ['state', 'snake', 'food', 'controls', 'multiplayer', 'game', 'main']) {
+  for (const name of ['state', 'snake', 'food', 'controls', 'multiplayer', 'renderer', 'game', 'main']) {
     const file = new URL(`../js/${name}.js`, import.meta.url);
     vm.runInContext(readFileSync(file, 'utf8'), context, { filename: file.pathname, timeout: 1000 });
   }
+  // The page initializes its canvas before a run can be paused/resumed.
+  // Tests that enter PLAYING directly still need that real public setup.
+  vm.runInContext('Renderer.init()', context, { timeout: 1000 });
   const api = vm.runInContext(
     '({ GameState, Snake, Food, Controls, Multiplayer, Game, handleKeyDown, handleKeyUp })',
     context,
