@@ -44,7 +44,9 @@ class PCMTests(unittest.TestCase):
 
 class AnalysisTests(unittest.TestCase):
     def test_envelope_measures_only_positive_energy_changes_and_sample_clock(self):
-        samples = [1, 1, 3, 3, 2, 2, 4, 4, 0, 0]
+        # End with a partial window, so this passing case does not pin the
+        # separately recorded bug that skips the final complete window.
+        samples = [1, 1, 3, 3, 2, 2, 4, 4, 0]
         original = samples[:]
         times, strengths = chartgen.onset_envelope(samples, 10, hop=2, win=2)
         self.assertEqual(times, [0, 0.2, 0.4, 0.6])

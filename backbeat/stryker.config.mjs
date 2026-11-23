@@ -1,7 +1,7 @@
 // Optional mutation check of browser-independent JS; Python is tested separately.
 export default {
   mutate: ['js/{config,game,chart}.js'],
-  ignorePatterns: ['**', '!js/*.js', '!tests/*.mjs'],
+  ignorePatterns: ['**', '!js/*.js', '!tests/**'],
   testRunner: 'command',
   commandRunner: { command: 'node --test --test-concurrency=2 tests/*.test.mjs' },
   coverageAnalysis: 'off',

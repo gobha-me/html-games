@@ -42,3 +42,56 @@ audio, audible synchronization, synthesis, canvas rendering, actual keyboard
 events or browser performance. The procedural chart matrix covers the current
 four tracks/four canonical difficulties with two seeds; it is not an exhaustive
 proof over arbitrary input tracks or seed strings.
+
+## Frozen shared-seed regression fixtures
+
+`chart-golden-79053cc.mjs` contains 32 gameplay chart hashes: four roster tracks,
+four canonical difficulties and the default seed plus `talos-🕹️-20261123` (including
+Unicode). They were captured once with Node 22.23.4 from `config.js` and
+`chart.js` obtained by `git show` at unchanged main commit
+`79053ccd8c39b87032c9e977946d5cbfa0d596b4`, imported from a temporary directory
+under the lane work root. The temporary copy was removed afterward. The product
+files in this review checkout were also confirmed unchanged from that commit.
+
+The fixture records the source SHA-256 hashes for provenance:
+
+- `config.js`: `d7032686fa95ce96bc995cfe6a848de745d452e75ec33c3a719d9a56f51a2cf0`
+- `chart.js`: `968c8334d26b3ca6a4538be2fddf19e044db1da57a4fd7b4efab6e7586b7652b`
+
+The tested SHA-256 payload is UTF-8 `JSON.stringify` of this ordered shape:
+`{bpm, offset, duration, notes: [[time, lane, duration, chord], ...]}`.
+It omits generated note IDs, title/artist text, colors, cover URLs and other
+presentation metadata. Tests hash the generated gameplay output, never the
+current source text; source instrumentation must not itself fail a test.
+
+These hashes preserve regression parity for shareable charts. They are not
+independent mathematical proof that a chart is fair or correct. The hand-written
+adapter and game boundary cases provide separate expectations for lane filters,
+hold/chord/fill spacing, timing, scoring and state transitions. No automatic
+fixture-regeneration or repinning command is supplied. A fixture change requires
+review of its gameplay effect and provenance, rather than capturing whatever
+the current code happens to produce.
+
+The suite does not pin every config label/color or renderer-only lead time to
+improve a mutation number. Some constructor values are overwritten before use,
+and some mutation changes are equivalent for sorted reachable charts. Such
+survivors must remain visible in the mutation report and be assessed there;
+they are not silently excluded from the denominator.
+
+## Optional mutation checks
+
+The normal tests require no npm dependencies. `stryker.config.mjs` supports the
+optional Stryker 9.6.1 command runner, with two mutation workers and two Node test
+workers. From `backbeat/`, with Stryker installed or supplied by npm exec:
+
+```sh
+agent-mutate npm exec --yes --package=@stryker-mutator/core@9.6.1 -- stryker run stryker.config.mjs
+```
+
+`agent-mutate` is the lane's heavy-work guard; outside this environment, use the
+corresponding local resource guard. This command may download optional tooling;
+it is separate from the dependency-free unit run. JSON output goes to
+`reports/mutation.json`; temporary sandboxes/reports are ignored by git. Coverage
+analysis is off, so Stryker runs the whole command for each mutant and reports one
+command outcome rather than the individual Node test count. Disclose timeouts
+separately from assertion kills and retain survivors in the denominator.
