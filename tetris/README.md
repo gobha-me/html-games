@@ -78,7 +78,9 @@ node --test --test-concurrency=2 tetris/tests/*.test.mjs
 The tests execute the shipped `state.js`, `game.js` and `controls.js` in an
 isolated `node:vm` context. The harness supplies deterministic random values,
 a controllable clock, localStorage and deferred line-clear timers; it does not
-copy the game logic or load the renderer. The seeded RNG is a test fixture,
+copy the game logic. The core harness does not load the renderer; the separate
+round-2 Canvas port described below executes its real `drawParticles` API.
+The seeded RNG is a test fixture,
 not a new game feature. Coverage includes seven-bag distribution, collision,
 ghost position, SRS kicks, scoring/combo/levels, drop and lock timing, hold,
 DAS/ARR, keyboard mapping and high-score persistence.
@@ -131,8 +133,9 @@ fresh seven-piece bags, missing active pieces, missing/empty score storage,
 particle emission from occupied cells, motion, positive properties and lifetime
 expiry. Independent silhouette cases also check hard-drop effect bounds for
 all 24 rotating-piece orientations and visible row zero during top-out. The tests
-check generic visible-effect invariants rather than prescribing a particle
-density or aesthetic constants.
+initially check generic visible-effect invariants. The round-2 cases below
+also protect the reviewer-specified emission count and historical numeric
+compatibility, without making an aesthetic-quality claim.
 
 The mutation configuration covers all of `state.js`, `game.js` and
 `controls.js`, including particle code. High line coverage does not establish
@@ -142,9 +145,11 @@ complete mutation coverage. Current limits include:
   selectable kick, with independent occupied-cell checks for all six rotating
   pieces. They do not establish complete Tetris guideline conformance or test
   every possible obstacle arrangement.
-- Exact particle densities, launch velocity/size/decay constants and rendered
-  pixels remain outside these generic effect contracts. Such mutants remain
-  visible in the full mutation report and are not all equivalent.
+- Literal effect fixtures now preserve public numeric and Canvas-call observations
+  from published head `3509241` for three fixed external random inputs. These are
+  historical compatibility oracles, not an independent aesthetic/physics
+  specification or rendered-pixel/browser proof. Remaining mutants stay visible
+  in the full mutation report and are not all declared equivalent.
 - Some mutations remove zero-only shape padding, alter initial values replaced
   during reset, or repeat an idempotent same-level recalculation. These need
   case-by-case review; they are not all declared equivalent by this suite.
@@ -152,7 +157,53 @@ complete mutation coverage. Current limits include:
   those defects. The suite does not assert defective hold/line-clear/pause
   behavior merely to kill such a mutant.
 - The VM clock, storage and event ports do not test browser scheduling, denied
-  storage, actual keyboard events, renderer wiring or real localStorage.
+  storage, actual keyboard events, the complete render loop, actual Canvas pixels
+  or real localStorage.
+
+## Round-2 reviewer regressions
+
+`tests/review-round2.test.mjs` adds eight cases without changing any existing
+assertion or named-bug skip. Two expectations come directly from PR #148's
+round-2 findings: the seed-1 eighth draw remains O when each real piece draw
+is followed by real line particles from a filled row, and one occupied cleared
+cell emits four particles which remain four actual renderer arcs after three
+real particle updates. Four consecutive seven-piece groups are checked over
+the same fixed 28-draw sequence. A literal trace from released `3509241` also
+preserves historical public replay compatibility; it is not a scheduling or
+shuffle specification, and the horizon was not stretched to obtain a kill.
+The seeded random fixture replaces only the external
+browser `Math.random` boundary; the shipped bag/randomizer, particle functions
+and renderer execute unchanged.
+
+Six further cases use literal public-output observations frozen from unchanged
+published head `3509241`, before any source mutation control. Fixed external
+random values 0, 0.5 and `1 - Number.EPSILON` cover line-clear and hard-drop
+counts, initial/updated particle properties and actual Canvas arc arguments.
+`tests/effect-compatibility-fixtures.mjs` contains those literal observations;
+expected values are never recomputed from the unit under test at runtime.
+These are historical compatibility oracles, not independent numerical/design
+requirements or visual-quality judgments. `tests/effect-render-port.mjs` records
+only the true external Canvas/DOM boundary while executing the actual renderer.
+
+The dependency-free suite reports **198 passing cases and three unchanged
+named-bug skips**. Fresh unchanged-scope Stryker 9.6.1 measurements retain all
+925 full source/mutant identities: **843 killed / 26 timeout / 56 survived**
+before these cases, then **861 killed / 26 timeout / 38 survived**. Strict
+kills increase **91.14% -> 93.08%**; timeout-inclusive scores increase
+93.95% -> 95.89%. All prior 843 kills and 26 timeouts retain their status.
+There is no explicit configured per-game minimum, and no timeout gets strict
+score credit.
+
+The initial final run was 860/26/39. Seventeen actual-source controls failed
+by assertion while refill mutant 831 still passed the full suite; this stage
+remains explicitly recorded. One bounded historical trace assertion for the
+same 28 draws then rejected exact 831 with one assertion failure. A justified
+final-only rerun after that new assertion gives 861/26/38; the completed baseline
+and 17 earlier controls were not repeated. All 18 planned targets are Killed
+in the final report, including the reviewer's 209/829 examples. No source,
+operator, target, timeout, threshold or existing assertion changed. Remaining
+survivors/timeouts remain in the denominator; these scores are not complete
+browser, pixel, aesthetic or whole-game correctness evidence.
 
 ## Files
 
