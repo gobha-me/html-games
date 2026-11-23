@@ -173,3 +173,12 @@ it is separate from the dependency-free unit run. JSON output goes to
 analysis is off, so Stryker runs the whole command for each mutant and reports one
 command outcome rather than the individual Node test count. Disclose timeouts
 separately from assertion kills and retain survivors in the denominator.
+
+Mutation measurements on main `79053cc` with Stryker 9.6.1 use the same 925
+whole-file mutants before and after hardening. Test kills increased from 620
+(67.03% without timeout credit) to 664 (71.78%). Stryker's timeout-inclusive
+score increased from 71.68% to 74.59%; timeouts fell from 43 to 26, survivors
+from 262 to 235. `controls.js` reached 50/50 kills. Remaining whole-file
+survivors include particle cosmetics, padding and many unexercised SRS cavity
+transitions. They remain in the denominator; the aggregate is below 90% and
+is not a complete-game confidence claim. Known product defects remain skipped.
