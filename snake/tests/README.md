@@ -86,3 +86,11 @@ it is separate from the dependency-free unit run. JSON output goes to
 analysis is off, so Stryker runs the whole command for each mutant and reports one
 command outcome rather than the individual Node test count. Disclose timeouts
 separately from assertion kills and retain survivors in the denominator.
+
+Measured on main `79053cc` with Stryker 9.6.1: assertion kills increased from
+421/531 (79.28%) to 472/531 (88.89%). Stryker's timeout-inclusive score rose
+from 85.31% to 89.08%; timeouts fell from 32 to 1, survivors from 78 to 58.
+The remaining timeout is an empty infinite food-spawn loop. Remaining survivors
+include cosmetic/initial values and redundant cardinal-direction/early-exit
+guards; they remain in the denominator. This is a five-module score, not a
+whole-game or browser confidence claim. No all-survivors-killed claim is made.
