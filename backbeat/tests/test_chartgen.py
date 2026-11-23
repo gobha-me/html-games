@@ -103,46 +103,69 @@ class ChartTests(unittest.TestCase):
 
 
 class CLITests(unittest.TestCase):
-    def run_main(self, args, onsets=(0, 0.5, 1)):
+    @staticmethod
+    def impulse_pcm(count=3):
+        # 22 hops between isolated one-sample impulses. An impulse at sample
+        # 512 first enters the analysis window starting at sample zero. Later
+        # impulses therefore first enter at 22*512, 44*512, ... . The 22050-Hz
+        # sample clock gives rounded onset times 0, .511, 1.022, ... . Alternate
+        # signed amplitudes also exercise actual signed-PCM decoding.
+        if not count:
+            return b""
+        samples = [0] * ((count - 1) * 22 * 512 + 2049)
+        for index in range(count):
+            samples[512 + index * 22 * 512] = 16000 if index % 2 == 0 else -16000
+        return struct.pack(f"<{len(samples)}h", *samples)
+
+    def run_main(self, args, count=3):
         stdout = io.StringIO()
         with patch.object(sys, "argv", ["chartgen.py", *args]), \
-             patch.object(chartgen, "read_pcm_mono", return_value=([1], 22050)) as decoder, \
-             patch.object(chartgen, "onset_envelope", return_value=([0], [1])), \
-             patch.object(chartgen, "detect_onsets", return_value=list(onsets)), \
+             patch.object(chartgen.subprocess, "run", return_value=subprocess.CompletedProcess(
+                 ["ffmpeg"], 0, self.impulse_pcm(count),
+             )) as ffmpeg, \
              contextlib.redirect_stdout(stdout):
             chartgen.main()
-        return stdout.getvalue(), decoder
+        return stdout.getvalue(), ffmpeg
+
+    def assert_decoded_once(self, ffmpeg, path):
+        ffmpeg.assert_called_once_with(
+            ["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "22050", "-f", "s16le", "-"],
+            capture_output=True, check=True,
+        )
 
     def test_analyze_outputs_machine_readable_summary_and_first_twelve_onsets(self):
-        output, decoder = self.run_main(["analyze", "analysis.wav"], tuple(i * 0.5 for i in range(15)))
-        decoder.assert_called_once_with("analysis.wav")
+        output, ffmpeg = self.run_main(["analyze", "analysis.wav"], count=15)
+        self.assert_decoded_once(ffmpeg, "analysis.wav")
         summary = json.loads(output)
-        self.assertEqual(summary["bpm"], 120)
+        self.assertEqual(summary["bpm"], 117.4)
         self.assertEqual(summary["onsets"], 15)
-        self.assertEqual(summary["first_onsets"], [i * 0.5 for i in range(12)])
+        self.assertEqual(summary["first_onsets"], [
+            0, 0.511, 1.022, 1.533, 2.043, 2.554,
+            3.065, 3.576, 4.087, 4.598, 5.108, 5.619,
+        ])
 
     def test_generate_writes_json_with_explicit_bpm_audio_title_and_density(self):
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "chart.json"
-            output, decoder = self.run_main([
+            output, ffmpeg = self.run_main([
                 "generate", "analysis.wav", "--audio", "game.ogg", "--title", "A title",
                 "--out", str(output_path), "--bpm", "150", "--density", "0.5",
             ])
             chart = json.loads(output_path.read_text())
-        decoder.assert_called_once_with("analysis.wav")
+        self.assert_decoded_once(ffmpeg, "analysis.wav")
         self.assertEqual(chart["bpm"], 150)
         self.assertEqual(chart["audio"], "game.ogg")
         self.assertEqual(chart["title"], "A title")
-        self.assertEqual([n["time"] for n in chart["notes"]], [0, 1])
+        self.assertEqual([n["time"] for n in chart["notes"]], [0, 1.022])
         self.assertIn("2 notes @ 150.0 BPM", output)
 
     def test_generate_prefers_detected_bpm_and_falls_back_to_120(self):
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "chart.json"
             args = ["generate", "input.wav", "--audio", "x.ogg", "--title", "X", "--out", str(output_path)]
-            self.run_main(args, (0, 0.4, 0.8))
-            self.assertEqual(json.loads(output_path.read_text())["bpm"], 150)
-            self.run_main(args, ())
+            self.run_main(args)
+            self.assertEqual(json.loads(output_path.read_text())["bpm"], 117.4)
+            self.run_main(args, count=0)
             self.assertEqual(json.loads(output_path.read_text())["bpm"], 120)
 
 

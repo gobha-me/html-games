@@ -10,8 +10,10 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s backbeat/tests -p 'tes
 No npm install, browser, audio device, ffmpeg installation or build is required.
 Node loads the shipped ES modules directly; on Node 22 it may print a module-type
 detection warning because this game has no package.json. Python imports the real
-chart generator with bytecode writes disabled and mocks the ffmpeg subprocess
-port and analysis pipeline for CLI tests. CLI JSON output uses temporary files
+chart generator with bytecode writes disabled and fakes only the ffmpeg
+subprocess boundary for CLI tests. Signed PCM impulses pass through the real
+decoder, envelope, onset detection, BPM estimation and chart generation.
+CLI JSON output uses temporary files
 under the environment's TMPDIR. There are no product source edits.
 
 The JS suite covers judgement and grade thresholds, calibration, nearest-note
@@ -37,7 +39,7 @@ BACKBEAT_RUN_KNOWN_BUGS=1 node --test --test-concurrency=2 --test-name-pattern='
 BACKBEAT_RUN_KNOWN_BUGS=1 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s backbeat/tests -p 'test_*.py' -v
 ```
 
-These tests measure pure logic and mocked ports. They do not verify decoded real
+These tests measure pure logic and external boundary fakes. They do not verify decoded real
 audio, audible synchronization, synthesis, canvas rendering, actual keyboard
 events or browser performance. The procedural chart matrix covers the current
 four tracks/four canonical difficulties with two seeds; it is not an exhaustive
@@ -78,6 +80,36 @@ and some mutation changes are equivalent for sorted reachable charts. Such
 survivors must remain visible in the mutation report and be assessed there;
 they are not silently excluded from the denominator.
 
+## Reviewer regression controls
+
+`reviewer-regressions.test.mjs` checks wrong-lane-only input and a wrong-lane
+note closer than the chosen lane's note. Neither can intercept the chosen lane's
+press or award its score. Hold-gap fixtures translate the same notes from zero
+to 4 and 20 seconds and require identical durations and relative chart shape.
+An actual local read of `charts/backbeat-anthem.json` supplies the fetch response
+for the shipped Anthem's 169-note / one-hold regression; only the network
+boundary is faked. The optional mutation sandbox includes that shipped JSON,
+without adding a mutation target.
+
+The exported tour must contain a playable venue before any per-stage checks
+run. Stages need distinct nonempty public IDs, supported track/difficulty
+references and finite positive goals. This catches complete feature removal
+without freezing stage names, colors or a particular number of stages.
+
+Python CLI fixtures place isolated signed PCM impulses 22 analysis hops apart at
+22050 Hz. Their first twelve onsets are literal sample-clock expectations, and
+their rounded median spacing gives 117.4 BPM. The analyze command must find all
+15 impulses while printing only its first twelve. Generate must use actual
+detected timing, honor an explicit BPM and thin notes at density 0.5; an empty
+decoded buffer still exercises the fallback. There are no patches of
+`read_pcm_mono`, `onset_envelope` or `detect_onsets`.
+
+Executed disposable-copy red controls verify assertion failures for all three
+reviewed faults: the CLI passing `([], 0)` to the real envelope, removing
+`Game.press`'s lane filter, and replacing hold-gap subtraction with addition.
+Product files in the working branch remain unchanged. Exact commands/results
+and raw transcripts are retained in the slot report and PR verification notes.
+
 ## Optional mutation checks
 
 The normal tests require no npm dependencies. `stryker.config.mjs` supports the
@@ -99,11 +131,24 @@ separately from assertion kills and retain survivors in the denominator.
 ## Measured mutation results
 
 With the same 876 whole-file mutants on main `79053cc`, test kills rose from
-536 (61.19% without timeout credit) to 770 (87.90%). Stryker 9.6.1's score
-including timeouts rose from 61.42% to 88.24%. After hardening, chart.js has
-361 kills / 2 timeouts / 18 survivors, game.js has 310 / 1 / 13 and config.js
-has 99 / 0 / 72. All 103 survivors stay in the aggregate denominator; many
-config survivors are cosmetic metadata or renderer-only values. The whole
-selection remains below 90%. Python is tested separately and is not included
-in this Stryker score. No product code, targets or thresholds were changed
-to improve the reported result.
+536 (61.19% without timeout credit) to the original published 770 (87.90%), then
+779 (88.93%) after reviewer repairs. Stryker 9.6.1's score including timeouts
+rose from 61.42% to 88.24%, then 89.27%. The final repair run preserves every
+prior kill and timeout and kills nine prior survivors: hold-gap subtraction
+(60), chart URL (440), lane filter (617), empty tour (467) and five empty
+stage IDs (469/477/485/493/501).
+
+Final chart.js: 362 kills / 2 timeouts / 17 survivors; game.js: 311 / 1 / 12;
+config.js: 106 / 0 / 65. All 94 survivors stay in the denominator. The original
+per-venue checks were vacuous for an empty `TOUR_VENUES`; the new independent
+nonemptiness and public-reference case kills that removal and empty IDs.
+Stage names, non-C grade colors and the audio URL remain unasserted; the 65
+config survivors are not all equivalent or unreachable. Other metadata/render
+values are outside this logic suite's intended assertion scope.
+
+Remaining chart/game mutants include default/initialization values, guards not
+distinguished by the selected cases, and exact random/occupancy boundary values.
+These remain disclosed test gaps, not blanket equivalence claims. The complete
+ID/range/replacement inventory and classification are in the repair report and
+PR body. The whole selection remains below 90%. Python is tested separately
+and is not included in Stryker. No product code, targets or thresholds changed.
