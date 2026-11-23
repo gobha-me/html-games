@@ -114,15 +114,37 @@ after a clear, T-spin corner combinations and boundaries, level-scaled combos,
 elapsed gravity timing, lock-state transitions, fresh DAS delays after release,
 and suppression of browser defaults for the mapped game keys.
 
+The SRS cavity suite adds 236 fixed legal placements covering all eight adjacent
+rotation transitions for I/J/L/S/T/Z. Expectations come from the
+[published SRS specification](https://tetris.wiki/Super_Rotation_System#Wall_Kicks),
+independent spawn silhouettes and geometric rotation; the tests never read the
+game's kick tables to determine the expected result. Each fixture pins the
+first available kick, occupied cells, unchanged stack and lock-delay reset.
+The exact counterclockwise T right-wall case reported in PR #148 is separate.
+`python3 tetris/tests/generate-srs-fixtures.py` regenerates the fixture module
+without loading game source. Four T candidates cannot be selected independently
+without blocking the starting T or leaving an earlier kick open; J/L/S/Z cover
+those entries in the shared table.
+
+Additional contracts cover reset of line-clear/high-score announcements,
+fresh seven-piece bags, missing active pieces, missing/empty score storage,
+particle emission from occupied cells, motion, positive properties and lifetime
+expiry. Independent silhouette cases also check hard-drop effect bounds for
+all 24 rotating-piece orientations and visible row zero during top-out. The tests
+check generic visible-effect invariants rather than prescribing a particle
+density or aesthetic constants.
+
 The mutation configuration covers all of `state.js`, `game.js` and
 `controls.js`, including particle code. High line coverage does not establish
 complete mutation coverage. Current limits include:
 
-- The tests check representative wall/floor kicks and independent J/L/S/Z shape
-  geometry, not every SRS transition/obstacle cavity or a complete Tetris
-  guideline conformance model.
-- Particle colors, positions, velocity constants and drawing are outside these
-  game-rule tests. Their mutants remain visible in the full mutation report.
+- The fixed SRS cases cover every adjacent transition and independently
+  selectable kick, with independent occupied-cell checks for all six rotating
+  pieces. They do not establish complete Tetris guideline conformance or test
+  every possible obstacle arrangement.
+- Exact particle densities, launch velocity/size/decay constants and rendered
+  pixels remain outside these generic effect contracts. Such mutants remain
+  visible in the full mutation report and are not all equivalent.
 - Some mutations remove zero-only shape padding, alter initial values replaced
   during reset, or repeat an idempotent same-level recalculation. These need
   case-by-case review; they are not all declared equivalent by this suite.
@@ -179,6 +201,18 @@ whole-file mutants before and after hardening. Test kills increased from 620
 (67.03% without timeout credit) to 664 (71.78%). Stryker's timeout-inclusive
 score increased from 71.68% to 74.59%; timeouts fell from 43 to 26, survivors
 from 262 to 235. `controls.js` reached 50/50 kills. Remaining whole-file
-survivors include particle cosmetics, padding and many unexercised SRS cavity
-transitions. They remain in the denominator; the aggregate is below 90% and
-is not a complete-game confidence claim. Known product defects remain skipped.
+survivors at that initial PR head included particle cosmetics, padding and
+unexercised SRS cavity transitions. Those historical measurements precede the
+reviewer-requested SRS/particle/reset additions described above. Known product
+defects remain skipped.
+
+Reviewer repair (PR #148) retains the same 925 source/mutant identities and full
+targets. Final counts are 843 killed / 26 timeout / 56 survived, zero errors/no
+coverage: **91.14% strict kills** and 93.95% including timeouts. The intermediate
+repair run was 836/26/63; its real sparse-piece/row-zero effect and initial-bag
+survivors motivated added tests. A second run 823/46/56 exposed 20 empty-shape
+mutants hanging during hard drop; independent geometry checks now reject those
+shapes before descent without changing any timeouts. Mutant 683 and all 148 mutants
+in the kick-table region are killed. Remaining cosmetics, pre-reset state,
+shared-RNG scheduling, padding and known-bug-repair mutants stay visible in the
+full JSON; these numbers do not establish complete-game/browser correctness.
