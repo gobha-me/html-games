@@ -67,6 +67,41 @@ Drop interval = 1000ms × 0.85^(level-1), minimum 50ms.
 - Neon arcade aesthetic with glow effects
 - Responsive design with mobile scaling
 
+## Logic tests
+
+From the repository root, run the dependency-free Node suite:
+
+```bash
+node --test --test-concurrency=2 tetris/tests/*.test.mjs
+```
+
+The tests execute the shipped `state.js`, `game.js` and `controls.js` in an
+isolated `node:vm` context. The harness supplies deterministic random values,
+a controllable clock, localStorage and deferred line-clear timers; it does not
+copy the game logic or load the renderer. The seeded RNG is a test fixture,
+not a new game feature. Coverage includes seven-bag distribution, collision,
+ghost position, SRS kicks, scoring/combo/levels, drop and lock timing, hold,
+DAS/ARR, keyboard mapping and high-score persistence.
+
+Three shipped defects have explicit skipped regression tests in
+`tests/known-bugs.test.mjs`. Tests document the intended behavior while product
+code remains unchanged:
+
+- Clearing two adjacent full rows can leave a full row behind because inserting
+  an empty top row shifts the remaining removal indices.
+- Locking a piece never re-enables hold for the newly spawned piece.
+- Instant keyboard actions still run during pause; Space can score and lock a piece.
+
+To reproduce these defects, opt in to those tests (currently exits nonzero with
+three assertion failures):
+
+```bash
+TETRIS_RUN_KNOWN_BUGS=1 node --test --test-concurrency=2 tetris/tests/known-bugs.test.mjs
+```
+
+The normal suite reports these cases as skips. It does not claim browser,
+rendering or accessibility coverage. No packages or browser are required.
+
 ## Files
 
 ```
