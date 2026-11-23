@@ -95,3 +95,15 @@ it is separate from the dependency-free unit run. JSON output goes to
 analysis is off, so Stryker runs the whole command for each mutant and reports one
 command outcome rather than the individual Node test count. Disclose timeouts
 separately from assertion kills and retain survivors in the denominator.
+
+## Measured mutation results
+
+With the same 876 whole-file mutants on main `79053cc`, test kills rose from
+536 (61.19% without timeout credit) to 770 (87.90%). Stryker 9.6.1's score
+including timeouts rose from 61.42% to 88.24%. After hardening, chart.js has
+361 kills / 2 timeouts / 18 survivors, game.js has 310 / 1 / 13 and config.js
+has 99 / 0 / 72. All 103 survivors stay in the aggregate denominator; many
+config survivors are cosmetic metadata or renderer-only values. The whole
+selection remains below 90%. Python is tested separately and is not included
+in this Stryker score. No product code, targets or thresholds were changed
+to improve the reported result.
