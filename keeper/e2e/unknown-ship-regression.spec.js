@@ -22,7 +22,8 @@ async function scene(page, type) {
     document.body.append(canvas);
     const renderer = createRenderer(canvas);
     const state = createState(108);
-    const ship = { ...state.trawler, id: 'issue-141-a', type, x: 0, y: -200, heading: 0 };
+    const ship = { ...state.trawler, id: 'issue-141-a', type, x: 0, y: -250, heading: 0 };
+    state.fog = 0.16;
     state.schedule = [];
     state.hazards = [];
     state.ships = [ship];
@@ -34,10 +35,14 @@ async function scene(page, type) {
 }
 
 async function markerPixels(page) {
-  return page.evaluate(() => {
-    const { canvas, renderer, state } = window.issue141;
+  return page.evaluate(async () => {
+    const { perception } = await import('/keeper/js/sim.js');
+    const { canvas, renderer, state, ship } = window.issue141;
+    // The beam reaches the hull beyond the shorter running-light range.
+    // Check that the simulation also reports no independent signal to draw.
+    const { runningLights, signal } = perception(state, ship);
     const ctx = canvas.getContext('2d');
-    renderer.draw({ ...state, ships: [] }, true);
+    renderer.draw({ ...state, ships: [], trawler: null }, true);
     const empty = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     let drawError = null;
     try { renderer.draw(state, true); }
@@ -48,8 +53,13 @@ async function markerPixels(page) {
       if (actual[i] !== empty[i] || actual[i + 1] !== empty[i + 1]
           || actual[i + 2] !== empty[i + 2] || actual[i + 3] !== empty[i + 3]) changedPixels++;
     }
-    return { drawError, changedPixels };
+    return { drawError, changedPixels, runningLights, signal };
   });
+}
+
+function expectHullOnly(result) {
+  expect(result.runningLights, 'running lights must be outside their visibility range').toBe(false);
+  expect(result.signal, 'the vessel must have no separately visible signal').toBe(false);
 }
 
 for (const type of ['trawler', 'coaster', 'speedboat', 'lifeboat']) {
@@ -57,7 +67,8 @@ for (const type of ['trawler', 'coaster', 'speedboat', 'lifeboat']) {
     expect(await scene(page, type)).toEqual({ lit: true, width: 1280, height: 720 });
     const result = await markerPixels(page);
     expect(result.drawError).toBeNull();
-    expect(result.changedPixels).toBeGreaterThan(0);
+    expectHullOnly(result);
+    expect(result.changedPixels, 'the hull must produce real on-screen Canvas pixels').toBeGreaterThan(0);
   });
 }
 
@@ -65,6 +76,7 @@ test('Keeper #141: an unknown hull draws a visible fallback without throwing', a
   expect(await scene(page, UNKNOWN)).toEqual({ lit: true, width: 1280, height: 720 });
   const result = await markerPixels(page);
   expect(result.drawError, 'unknown hull must not interrupt draw').toBeNull();
+  expectHullOnly(result);
   expect(result.changedPixels, 'the fallback must produce real on-screen Canvas pixels').toBeGreaterThan(0);
 });
 
