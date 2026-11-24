@@ -4,8 +4,8 @@ This issue-derived suite exercises `createRenderer(canvas).draw()` in headless
 Chromium with a native, displayed Canvas 2D surface. It uses the five supported
 viewports from #140: 1280×720, 1366×768, 1600×900, 1920×1080 and 2560×1440.
 
-The fixture clones the real `createState(108)` trawler, positions it at `(0,330)`
-south of the light, and aims the real beam using `bearingTo`. It checks `isLit`,
+The fixture places a dark launch at `(0,330)` south of the light in a real
+`createState(108)` state and aims its beam using `bearingTo`. It checks `isLit`,
 `perception().hull` and fog reach before applying the named expected failure.
 At fixed simulation time and reduced motion, it compares every viewport pixel
 with and without the vessel. At least one pixel must differ. This is an
@@ -13,9 +13,9 @@ existence check, not a visual taste or identifiability threshold. The entire
 viewport is eligible so the test accepts either the hull or an edge indicator,
 as the issue permits; it does not require a particular `toScreen` mapping.
 
-An on-screen lit vessel at `(0,-250)` is the positive control at every size.
-Both scenes put the vessel beyond the shorter running-light range. The
-simulation must report no running lights and no separately visible signal.
+An on-screen lit dark launch at `(0,-250)` is the positive control at every
+size. A dark launch does not show running lights or emit a separate signal,
+so its visible pixels establish the hull or marker on their own.
 The absent-vessel background must redraw identically. Import failures, draw
 exceptions, incorrect dimensions and invalid/unlit fixtures fail ordinary
 assertions before the expected-fail annotation; they cannot supply bug evidence.

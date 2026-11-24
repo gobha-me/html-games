@@ -29,7 +29,7 @@ async function renderVesselDifference(page, y) {
         const state = createState(108);
         const vessel = {
           ...state.trawler,
-          id: 'viewport-regression', type: 'trawler', status: 'underway',
+          id: 'viewport-regression', type: 'speedboat', smuggler: true, status: 'underway',
           x: 0, y, heading: 0, afterimage: 0, lastSeen: null, everSeen: true,
         };
         state.time = 12;
@@ -85,7 +85,7 @@ function assertFixture(rendered, viewport, y) {
   expect(rendered.range).toBeLessThan(rendered.reach);
   expect(rendered.lit).toBe(true);
   expect(rendered.perceivedHull).toEqual({ x: 0, y });
-  expect(rendered.runningLights, 'running lights must be outside their visibility range').toBe(false);
+  expect(rendered.runningLights, 'the dark launch must show no running lights').toBe(false);
   expect(rendered.signal, 'the vessel must have no separately visible signal').toBe(false);
   expect(rendered.unchangedBackgroundPixels, 'fixed state/time must redraw identical background pixels').toBe(0);
 }
@@ -94,13 +94,13 @@ for (const viewport of VIEWPORTS) {
   test.describe(`${viewport.width}×${viewport.height}`, () => {
     test.use({ viewport });
 
-    test('on-screen lit trawler changes real viewport pixels (positive control)', async ({ page }) => {
+    test('on-screen lit dark launch changes real viewport pixels (positive control)', async ({ page }) => {
       const rendered = await renderVesselDifference(page, -250);
       assertFixture(rendered, viewport, -250);
       expect(rendered.changedPixels, 'a lit on-screen hull must change viewport pixels').toBeGreaterThan(0);
     });
 
-    test('#140: lit southern trawler or its edge indicator is visible', async ({ page }, testInfo) => {
+    test('#140: lit southern dark launch or its edge indicator is visible', async ({ page }, testInfo) => {
       const rendered = await renderVesselDifference(page, 330);
       await testInfo.attach('native-canvas-visibility.json', {
         body: JSON.stringify(rendered, null, 2), contentType: 'application/json',
