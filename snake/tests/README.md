@@ -18,6 +18,10 @@ Coverage includes single- and multiplayer movement, growth, direction queuing,
 edge/self/other-snake collisions, winners and draws, food rejection, ten-point
 scoring, difficulty and speed limits, persisted settings/high scores, input
 mapping and repeat suppression, pause/resume and game-update integration.
+First-start coverage dispatches DOMContentLoaded, selects Multiplayer via the
+registered menu click, and dispatches Start through its registered listener.
+It checks the Length display and holds ArrowUp across the real countdown,
+using the timer and keyboard ports to send a repeat, release, and fresh press.
 
 Three skipped regressions record existing defects without changing shipped code:
 
@@ -76,10 +80,10 @@ Mutation scope and interpretation:
   guard-equivalence or reachability claim is used, and no unsupported direction,
   player identity or synthetic browser key is invented to raise the score.
 
-DOM-node stubs accept any requested ID, and animation-frame stubs do not execute
-callbacks. Assertions involving UI validate writes to those ports; they do not
-prove the IDs exist in HTML, the real event listeners are wired, or rendering and
-frame scheduling work in a browser.
+DOM-node stubs accept any requested ID, and animation-frame stubs leave
+callbacks queued. UI assertions check writes to those ports and the first-start
+tests exercise the listeners registered with them. HTML IDs, native browser
+dispatch, rendering and frame scheduling are outside these checks.
 
 ## Optional mutation checks
 

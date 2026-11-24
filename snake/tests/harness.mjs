@@ -3,7 +3,7 @@ import vm from 'node:vm';
 
 // Each case evaluates the shipped classic scripts unchanged in its own realm.
 // Only browser ports are replaced. Game rules remain the real implementation.
-export function loadSnake({ saved = {}, random = [0, 0] } = {}) {
+export function loadSnake({ saved = {}, random = [0, 0], bootstrap = false } = {}) {
   const storage = new Map(Object.entries(saved));
   const writes = [];
   const elements = new Map();
@@ -35,9 +35,29 @@ export function loadSnake({ saved = {}, random = [0, 0] } = {}) {
     if (randomIndex >= random.length) throw new Error('Test random sequence exhausted');
     return random[randomIndex++];
   };
+  function domNode() {
+    const handlers = new Map();
+    const classes = new Set();
+    return {
+      textContent: '',
+      style: {},
+      classList: {
+        add: name => classes.add(name),
+        remove: name => classes.delete(name),
+      },
+      addEventListener: (type, callback) => handlers.set(type, callback),
+      click: () => handlers.get('click')?.(),
+    };
+  }
+  const modes = ['single', 'multiplayer'].map(mode => ({
+    ...domNode(),
+    dataset: { mode },
+  }));
+  const indicator = domNode();
   const element = id => {
     if (!elements.has(id)) {
-      const node = { textContent: '', style: {} };
+      const node = domNode();
+      if (id === 'ghost-trail-btn') node.querySelector = () => indicator;
       if (id === 'game-canvas') {
         node.width = 600;
         node.height = 600;
@@ -62,6 +82,7 @@ export function loadSnake({ saved = {}, random = [0, 0] } = {}) {
     },
     document: {
       getElementById: element,
+      querySelectorAll: selector => selector === '.mode-btn' ? modes : [],
       addEventListener: (type, callback) => listeners.set(type, callback),
     },
     performance: { now: () => 1000 },
@@ -78,14 +99,19 @@ export function loadSnake({ saved = {}, random = [0, 0] } = {}) {
     const file = new URL(`../js/${name}.js`, import.meta.url);
     vm.runInContext(readFileSync(file, 'utf8'), context, { filename: file.pathname, timeout: 1000 });
   }
-  // The page initializes its canvas before a run can be paused/resumed.
-  // Tests that enter PLAYING directly still need that real public setup.
-  vm.runInContext('Renderer.init()', context, { timeout: 1000 });
+  if (bootstrap) {
+    listeners.get('DOMContentLoaded')();
+  } else {
+    // Tests that enter PLAYING directly still need real canvas setup.
+    vm.runInContext('Renderer.init()', context, { timeout: 1000 });
+  }
   const api = vm.runInContext(
     '({ GameState, Snake, Food, Controls, Multiplayer, Game, handleKeyDown, handleKeyUp })',
     context,
   );
-  return { ...api, storage, writes, element, listeners, timers, cancelledFrames };
+  return {
+    ...api, storage, writes, element, modes, listeners, timers, cancelledFrames,
+  };
 }
 
 // VM objects have different prototypes; compare their data, not realm identity.
