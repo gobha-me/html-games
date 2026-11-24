@@ -2,12 +2,13 @@
 
 `unknown-ship-regression.spec.js` calls the public `createRenderer(canvas).draw()`
 with real Canvas 2D in headless Chromium. Its fixture derives from the public
-`createState(108)` trawler and places it in the beam at a range of 250.
-With fog density 0.16 the beam reaches 464.8 chart units and running lights
-are visible only through half that range. The pixel checks assert through
-`perception` that running lights and signals are both absent. The four known
-hull types are positive controls for the same scene as the unknown fallback.
-No renderer, drawing command, perception function or logging function is replaced.
+`createState(108)` trawler at range 200. A second capture turns the beam away
+from that same vessel before it has an afterimage. The test checks that this
+capture shows only the running lights and masks the pixels they change.
+Each beam position has its own empty background for comparison. The four
+known hull types and the unknown fallback must each contribute pixels
+outside the mask. No renderer, drawing command, perception function or
+logging function is replaced.
 
 The checks require an arbitrary unknown type to draw without throwing, contribute
 visible pixels, log once for each ship/type pair (including revisiting a previous

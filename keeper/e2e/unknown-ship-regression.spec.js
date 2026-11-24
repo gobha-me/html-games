@@ -22,7 +22,10 @@ async function scene(page, type) {
     document.body.append(canvas);
     const renderer = createRenderer(canvas);
     const state = createState(108);
-    const ship = { ...state.trawler, id: 'issue-141-a', type, x: 0, y: -250, heading: 0 };
+    const ship = {
+      ...state.trawler, id: 'issue-141-a', type, x: 0, y: -200, heading: 0,
+      afterimage: 0, lastSeen: null,
+    };
     state.fog = 0.16;
     state.schedule = [];
     state.hazards = [];
@@ -38,27 +41,45 @@ async function markerPixels(page) {
   return page.evaluate(async () => {
     const { perception } = await import('/keeper/js/sim.js');
     const { canvas, renderer, state, ship } = window.issue141;
-    // The beam reaches the hull beyond the shorter running-light range.
-    // Check that the simulation also reports no independent signal to draw.
-    const { runningLights, signal } = perception(state, ship);
     const ctx = canvas.getContext('2d');
-    renderer.draw({ ...state, ships: [], trawler: null }, true);
-    const empty = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let drawError = null;
-    try { renderer.draw(state, true); }
-    catch (error) { drawError = `${error.name}: ${error.message}`; }
-    const actual = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let changedPixels = 0;
-    for (let i = 0; i < actual.length; i += 4) {
-      if (actual[i] !== empty[i] || actual[i + 1] !== empty[i + 1]
-          || actual[i + 2] !== empty[i + 2] || actual[i + 3] !== empty[i + 3]) changedPixels++;
+    function pixels(frame) {
+      renderer.draw(frame, true);
+      return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     }
-    return { drawError, changedPixels, runningLights, signal };
+    function empty(frame) {
+      return pixels({ ...frame, ships: [], trawler: null });
+    }
+    function changed(before, after, i) {
+      return before[i] !== after[i] || before[i + 1] !== after[i + 1]
+        || before[i + 2] !== after[i + 2] || before[i + 3] !== after[i + 3];
+    }
+
+    // The same vessel out of the beam supplies a native running-light mask.
+    // Use an empty frame for each beam position so the beam itself cancels.
+    const dark = { ...state, beam: (state.beam + 180) % 360 };
+    const darkView = perception(dark, ship);
+    const lightOnly = !darkView.lit && darkView.hull === null
+      && darkView.runningLights && !darkView.signal;
+    const darkBackground = empty(dark);
+    const darkVessel = pixels(dark);
+    const litBackground = empty(state);
+    let drawError = null;
+    let litVessel;
+    try { litVessel = pixels(state); }
+    catch (error) { drawError = `${error.name}: ${error.message}`; }
+    let maskedPixels = 0;
+    let hullPixels = 0;
+    for (let i = 0; i < darkVessel.length; i += 4) {
+      if (changed(darkBackground, darkVessel, i)) maskedPixels++;
+      else if (litVessel && changed(litBackground, litVessel, i)) hullPixels++;
+    }
+    return { drawError, hullPixels, lightOnly, maskedPixels, signal: perception(state, ship).signal };
   });
 }
 
-function expectHullOnly(result) {
-  expect(result.runningLights, 'running lights must be outside their visibility range').toBe(false);
+function expectLightsMask(result) {
+  expect(result.lightOnly, 'the off-beam vessel must expose only its running lights').toBe(true);
+  expect(result.maskedPixels, 'real running lights must contribute Canvas pixels').toBeGreaterThan(0);
   expect(result.signal, 'the vessel must have no separately visible signal').toBe(false);
 }
 
@@ -67,8 +88,8 @@ for (const type of ['trawler', 'coaster', 'speedboat', 'lifeboat']) {
     expect(await scene(page, type)).toEqual({ lit: true, width: 1280, height: 720 });
     const result = await markerPixels(page);
     expect(result.drawError).toBeNull();
-    expectHullOnly(result);
-    expect(result.changedPixels, 'the hull must produce real on-screen Canvas pixels').toBeGreaterThan(0);
+    expectLightsMask(result);
+    expect(result.hullPixels, 'the hull must produce Canvas pixels outside the running lights').toBeGreaterThan(0);
   });
 }
 
@@ -76,8 +97,8 @@ test('Keeper #141: an unknown hull draws a visible fallback without throwing', a
   expect(await scene(page, UNKNOWN)).toEqual({ lit: true, width: 1280, height: 720 });
   const result = await markerPixels(page);
   expect(result.drawError, 'unknown hull must not interrupt draw').toBeNull();
-  expectHullOnly(result);
-  expect(result.changedPixels, 'the fallback must produce real on-screen Canvas pixels').toBeGreaterThan(0);
+  expectLightsMask(result);
+  expect(result.hullPixels, 'the fallback must produce Canvas pixels outside the running lights').toBeGreaterThan(0);
 });
 
 test('Keeper #141: unknown-hull diagnostics occur once for each ship/type pair', async ({ page }) => {
