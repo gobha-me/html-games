@@ -1,5 +1,8 @@
 # Reviewer input/color repair and individual survivors
 
+This document preserves the round-one snapshot. The round-two first-start tests
+kill mutants 30, 368, 474 and 478. See the suite README for the current counts.
+
 This is the test-only repair for PR147 FINDINGS round1. The public README's
 Arrow/WASD and Space/P contracts, HTML player legend and independent reviewer
 examples supply expectations. No product, workflow, dependency or design changes.

@@ -75,7 +75,7 @@ Mutation scope and interpretation:
   expectations. Every supported primary color is usable and matches the legend;
   glow data cannot be empty, and a normal two-player collision produces player
   one's cyan victory UI. Uniqueness alone no longer accepts `undefined`.
-- The 36 final survivors are assessed by individual ID/public outcome in
+- The 36 round-one survivors are assessed by individual ID/public outcome in
   `REVIEWER-ROUND1.md`. They remain in the denominator. No blanket cosmetic,
   guard-equivalence or reachability claim is used, and no unsupported direction,
   player identity or synthetic browser key is invented to raise the score.
@@ -139,3 +139,9 @@ all five mutation targets report100% lines. Renderer is exercised against a fake
 Canvas browser port, so this does not prove visual quality or physical browser
 behavior. Full repair contracts, exact assertion-edit ledger, per-ID survivor
 assessment and owner attribution-label handoff are in `REVIEWER-ROUND1.md`.
+
+Round two uses the same five files and 531 generated mutants. Stryker kills
+498, reports one timeout, and leaves 32 survivors, up from 494 kills in round
+one. Mutants 30 and 368 fail their dedicated first-start assertions. Mutants
+474 and 478 fail the menu-state precondition. The round-one assessments for
+the other 32 remain applicable, including the stated ghost-toggle coverage limit.
