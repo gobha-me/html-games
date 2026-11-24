@@ -62,6 +62,8 @@ async function renderVesselDifference(page, y) {
           range: Math.hypot(vessel.x, vessel.y), reach: fogReach(state.fog),
           lit: isLit(state, vessel),
           perceivedHull: view.hull === null ? null : { x: view.hull.x, y: view.hull.y },
+          runningLights: view.runningLights,
+          signal: view.signal,
           unchangedBackgroundPixels: changedPixels(withoutShip, withoutShipAgain),
           changedPixels: changedPixels(withoutShip, withShip),
         };
@@ -83,6 +85,8 @@ function assertFixture(rendered, viewport, y) {
   expect(rendered.range).toBeLessThan(rendered.reach);
   expect(rendered.lit).toBe(true);
   expect(rendered.perceivedHull).toEqual({ x: 0, y });
+  expect(rendered.runningLights, 'running lights must be outside their visibility range').toBe(false);
+  expect(rendered.signal, 'the vessel must have no separately visible signal').toBe(false);
   expect(rendered.unchangedBackgroundPixels, 'fixed state/time must redraw identical background pixels').toBe(0);
 }
 
@@ -91,8 +95,8 @@ for (const viewport of VIEWPORTS) {
     test.use({ viewport });
 
     test('on-screen lit trawler changes real viewport pixels (positive control)', async ({ page }) => {
-      const rendered = await renderVesselDifference(page, -200);
-      assertFixture(rendered, viewport, -200);
+      const rendered = await renderVesselDifference(page, -250);
+      assertFixture(rendered, viewport, -250);
       expect(rendered.changedPixels, 'a lit on-screen hull must change viewport pixels').toBeGreaterThan(0);
     });
 

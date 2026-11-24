@@ -13,7 +13,9 @@ existence check, not a visual taste or identifiability threshold. The entire
 viewport is eligible so the test accepts either the hull or an edge indicator,
 as the issue permits; it does not require a particular `toScreen` mapping.
 
-An on-screen lit vessel at `(0,-200)` is the positive control at every size.
+An on-screen lit vessel at `(0,-250)` is the positive control at every size.
+Both scenes put the vessel beyond the shorter running-light range. The
+simulation must report no running lights and no separately visible signal.
 The absent-vessel background must redraw identically. Import failures, draw
 exceptions, incorrect dimensions and invalid/unlit fixtures fail ordinary
 assertions before the expected-fail annotation; they cannot supply bug evidence.
